@@ -26,6 +26,10 @@
                 <span>CAMERAS</span>
                 <strong>@Session.CameraCount/@Session.State.Facility.Rooms.Count</strong>
             </div>
+            <div class="@(!Session.State.LifeSupport.IsOnline ? "has-alerts" : "")">
+                <span>LIFE SUPPORT</span>
+                <strong>@(Session.State.LifeSupport.IsOnline ? "ONLINE" : "OFFLINE")</strong>
+            </div>
             <div class="@(Session.AlertCount > 0 ? "has-alerts" : "")">
                 <span>ALERTS</span>
                 <strong>@Session.AlertCount</strong>
@@ -302,8 +306,85 @@
                     <div><span>CAMERA</span><strong>@(selectedRoom.CameraOnline ? "ONLINE" : "OFFLINE")</strong></div>
                     <div><span>LIGHTS</span><strong>@(selectedRoom.LightsOn ? "ON" : "OFF")</strong></div>
                     <div><span>TEMP</span><strong>@selectedRoom.TemperatureC.ToString("0.0")°C</strong></div>
-                    <div><span>OXYGEN</span><strong>@selectedRoom.OxygenPercent.ToString("0.0")%</strong></div>
+                    <div><span>OXYGEN</span><strong>@selectedRoom.OxygenPercent.ToString("0.00")%</strong></div>
+                    <div><span>CO₂</span><strong>@selectedRoom.CarbonDioxidePercent.ToString("0.00")%</strong></div>
+                    <div><span>PRESSURE</span><strong>@selectedRoom.PressureKpa.ToString("0.0") kPa</strong></div>
                     <div><span>OCCUPANTS</span><strong>@VisibleOccupantLabel(selectedRoom)</strong></div>
+                </div>
+
+                <div class="life-support-card">
+                    <div>
+                        <span>PRIMARY LIFE SUPPORT</span>
+                        <strong class="@(!Session.State.LifeSupport.IsOnline ? "danger-text" : "")">
+                            @(Session.State.LifeSupport.IsOnline ? "ONLINE" : "OFFLINE")
+                        </strong>
+                        <small>O₂ reserve @Session.State.LifeSupport.OxygenReservePercent.ToString("0.0")% · scrubbers @Session.State.LifeSupport.ScrubberEfficiencyPercent.ToString("0")%</small>
+                    </div>
+                    <button class="@(!Session.State.LifeSupport.IsOnline ? "" : "danger")"
+                            @onclick="Session.ToggleLifeSupport">
+                        @(Session.State.LifeSupport.IsOnline ? "SHUT DOWN" : "RESTORE")
+                    </button>
+                </div>
+
+                <div class="environment-control-card">
+                    <span class="subheading">CLIMATE</span>
+                    @if (!selectedRoom.HasTemperatureControl)
+                    {
+                        <div class="control-unavailable">NO LOCAL THERMOSTAT</div>
+                    }
+                    else if (!selectedRoom.IsTemperatureAiControllable)
+                    {
+                        <div class="control-unavailable">
+                            LOCAL / AUTONOMOUS CONTROL
+                            <small>Overseer can monitor this zone but cannot change its setpoint.</small>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="setpoint-control">
+                            <button class="mini secondary"
+                                    disabled="@(!selectedRoom.IsPowered)"
+                                    @onclick="() => Session.AdjustTemperatureSetpoint(selectedRoom.Id, -1)">−</button>
+                            <div>
+                                <span>SETPOINT</span>
+                                <strong>@selectedRoom.TemperatureSetpointC.ToString("0")°C</strong>
+                            </div>
+                            <button class="mini secondary"
+                                    disabled="@(!selectedRoom.IsPowered)"
+                                    @onclick="() => Session.AdjustTemperatureSetpoint(selectedRoom.Id, 1)">+</button>
+                        </div>
+                        <button class="wide secondary"
+                                disabled="@(!selectedRoom.IsPowered)"
+                                @onclick="() => Session.ToggleTemperatureControl(selectedRoom.Id)">
+                            @(selectedRoom.TemperatureControlOnline ? "DISABLE CLIMATE CONTROL" : "ENABLE CLIMATE CONTROL")
+                        </button>
+                    }
+                </div>
+
+                <div class="environment-control-card">
+                    <span class="subheading">VENTILATION</span>
+                    @if (!selectedRoom.HasVentilationControl)
+                    {
+                        <div class="control-unavailable">CENTRAL / PASSIVE AIR LOOP</div>
+                    }
+                    else if (!selectedRoom.IsVentilationAiControllable)
+                    {
+                        <div class="control-unavailable">
+                            LOCAL / AUTONOMOUS DAMPER
+                            <small>Overseer has telemetry only.</small>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="ventilation-row">
+                            <strong>@(selectedRoom.VentilationEnabled ? "OPEN" : "ISOLATED")</strong>
+                            <button class="mini secondary"
+                                    disabled="@(!selectedRoom.IsPowered)"
+                                    @onclick="() => Session.ToggleVentilation(selectedRoom.Id)">
+                                @(selectedRoom.VentilationEnabled ? "ISOLATE" : "OPEN")
+                            </button>
+                        </div>
+                    }
                 </div>
 
                 <div class="control-stack">
@@ -633,8 +714,18 @@
     };
 
     private static string RoomHealthClass(Room room) =>
-        !room.IsPowered ? "critical"
-        : !room.CameraOnline ? "warning"
+        !room.IsPowered
+        || room.OxygenPercent < 17
+        || room.CarbonDioxidePercent > 3
+        || room.PressureKpa < 80
+        || room.TemperatureC is < 5 or > 38
+            ? "critical"
+        : !room.CameraOnline
+          || room.OxygenPercent < 19.5
+          || room.CarbonDioxidePercent > 1
+          || room.PressureKpa < 90
+          || room.TemperatureC is < 16 or > 28
+            ? "warning"
         : "healthy";
 
     private string RoomClass(Room room)
