@@ -31,16 +31,22 @@ public enum FixtureType
 {
     Bed,
     Table,
+    Chair,
     Console,
     MedicalBed,
+    TreatmentUnit,
     ReactorCore,
     Generator,
     Workbench,
     StorageRack,
+    Crate,
     AirlockDoor,
     KitchenCounter,
     Camera,
     Locker,
+    SuitLocker,
+    Cabinet,
+    ToolCabinet,
     Shower,
     Sink,
     Toilet,
@@ -48,7 +54,21 @@ public enum FixtureType
     RecreationConsole,
     Mirror,
     GrowBed,
+    IrrigationTank,
+    Pipe,
+    Vent,
+    UtilityPanel,
+    Screen,
     OverseerShutdown
+}
+
+public enum FixtureUsePose
+{
+    Stand,
+    Sit,
+    Lie,
+    Shower,
+    Toilet
 }
 
 public enum ScenarioStatus
@@ -214,7 +234,11 @@ public sealed record RoomFixture(
     double X,
     double Y,
     double Width,
-    double Height);
+    double Height,
+    double? InteractionX = null,
+    double? InteractionY = null,
+    FixtureUsePose UsePose = FixtureUsePose.Stand,
+    double FacingDegrees = 0);
 
 public sealed class Npc
 {
