@@ -216,6 +216,27 @@
 
                 <p class="role-line">@selectedCrew.Role · @crewRoom.Name</p>
 
+                <div class="belief-card">
+                    <span>MAIN PERSONALITY TRAITS · @selectedCrew.GenerationSource.ToUpperInvariant()</span>
+                    @if (selectedCrew.Traits.Count == 0)
+                    {
+                        <p>No generated trait profile available.</p>
+                    }
+                    else
+                    {
+                        @foreach (var trait in selectedCrew.Traits)
+                        {
+                            <p>
+                                <strong>@trait.Name</strong> — @trait.Description
+                                <small style="display:block">
+                                    @string.Join(" · ", trait.Effects.Select(effect =>
+                                        $"{effect.Kind} {(effect.Modifier >= 0 ? "+" : "")}{effect.Modifier}"))
+                                </small>
+                            </p>
+                        }
+                    }
+                </div>
+
                 @if (!crewRoom.HasVisualFeed)
                 {
                     <div class="warning-box">CAMERA FEED LOST — location is telemetry only.</div>
@@ -386,6 +407,26 @@
                         </div>
                     }
                 </div>
+
+                @if (selectedRoom.HasExteriorHatch)
+                {
+                    <div class="environment-control-card">
+                        <span class="subheading">EXTERIOR AIRLOCK</span>
+                        <div class="ventilation-row">
+                            <strong class="@(selectedRoom.ExteriorHatchOpen ? "danger-text" : "")">
+                                @(selectedRoom.ExteriorHatchOpen ? "OPEN TO VACUUM" : "SEALED")
+                            </strong>
+                            <button class="mini @(selectedRoom.ExteriorHatchOpen ? "secondary" : "danger")"
+                                    disabled="@(!selectedRoom.IsPowered || !selectedRoom.IsExteriorHatchAiControllable)"
+                                    @onclick="() => Session.ToggleExteriorHatch(selectedRoom.Id)">
+                                @(selectedRoom.ExteriorHatchOpen ? "CLOSE OUTER HATCH" : "OPEN OUTER HATCH")
+                            </button>
+                        </div>
+                        <small>
+                            Opening the exterior hatch vents this compartment. Any open internal hatch can propagate decompression inward.
+                        </small>
+                    </div>
+                }
 
                 <div class="control-stack">
                     <button class="wide" @onclick="() => Session.ToggleRoomPower(selectedRoom.Id)">
@@ -618,7 +659,8 @@
     }
 
     private bool CanSee(Npc npc) =>
-        Session.State.Facility.Rooms[npc.CurrentRoomId].HasVisualFeed;
+        npc.IsPresent
+        && Session.State.Facility.Rooms[npc.CurrentRoomId].HasVisualFeed;
 
     private static string Initials(string name) =>
         string.Concat(
@@ -748,6 +790,9 @@
 
         if (SelectedRoom?.Id == room.Id)
             classes.Add("selected");
+
+        if (room.HasExteriorHatch && room.ExteriorHatchOpen)
+            classes.Add("vacuum-open");
 
         if (!room.IsPowered)
             classes.Add("no-power");
