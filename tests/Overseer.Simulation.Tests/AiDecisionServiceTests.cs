@@ -133,6 +133,67 @@ public sealed class AiDecisionServiceTests
         Assert.Contains("engineering = Engineering", prompt);
         Assert.Contains("route sealed", prompt);
         Assert.Contains("survival should normally override", prompt);
+        Assert.Contains("ForceDoor", prompt);
+        Assert.Contains("RestoreSystem", prompt);
+        Assert.Contains("MAIN TRAITS", prompt);
+    }
+
+    [Fact]
+    public async Task ModelCanChooseAdjacentBlockedDoorCounterplay()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        var door = state.Facility.FindDoorBetween("control", "hall-control")!;
+        door.IsOpen = false;
+        door.IsLocked = true;
+
+        using var client = new StubChatClient(
+            $"""
+            {
+              "Action": "ForceDoor",
+              "TargetId": "{{door.Id}}",
+              "Goal": "Get this hatch open.",
+              "Reason": "I need to get through despite the lock.",
+              "Urgency": 88
+            }
+            """);
+
+        var service = new OllamaAiDecisionService(
+            client,
+            new RuleBasedAiDecisionService());
+
+        var intent = await service.DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.ForceDoor, intent.Action);
+        Assert.Equal(door.Id, intent.TargetId);
+    }
+
+    [Fact]
+    public async Task ModelCanChooseToRestoreActuallyDisabledSystem()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        state.Facility.Rooms["control"].LightsOn = false;
+
+        using var client = new StubChatClient(
+            """
+            {
+              "Action": "RestoreSystem",
+              "TargetId": "control",
+              "Goal": "Restore the control room systems.",
+              "Reason": "The outage is interfering with station operations.",
+              "Urgency": 72
+            }
+            """);
+
+        var service = new OllamaAiDecisionService(
+            client,
+            new RuleBasedAiDecisionService());
+
+        var intent = await service.DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.RestoreSystem, intent.Action);
+        Assert.Equal("control", intent.TargetId);
     }
 
     private sealed class StubChatClient : IChatClient
