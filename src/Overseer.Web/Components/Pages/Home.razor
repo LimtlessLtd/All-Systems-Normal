@@ -740,7 +740,7 @@
         if (IsConnectorHallway(room))
         {
             classes.Add("hallway");
-            classes.Add(room.MapHeight >= room.MapWidth
+            classes.Add(IsVerticalHallway(room)
                 ? "hallway-vertical"
                 : "hallway-horizontal");
         }
@@ -823,6 +823,25 @@
     private static bool IsConnectorHallway(Room room) =>
         room.Type == RoomType.Corridor
         && room.Id.StartsWith("hall-", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsVerticalHallway(Room hallway)
+    {
+        var neighbours = ConnectedDoors(hallway)
+            .Select(door => OtherRoom(door, hallway.Id))
+            .ToList();
+
+        if (neighbours.Count >= 2)
+        {
+            var first = neighbours[0];
+            var second = neighbours[1];
+
+            return Math.Abs(first.MapY - second.MapY)
+                >= Math.Abs(first.MapX - second.MapX);
+        }
+
+        return hallway.MapHeight >= hallway.MapWidth;
+    }
+
 
     private NpcBubble? ActiveBubble(Npc npc) =>
         npc.Bubble is { } bubble
