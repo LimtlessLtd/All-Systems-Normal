@@ -222,6 +222,7 @@
                     @Metric("RECREATION NEED", selectedCrew.RecreationNeed)
                     @Metric("SOCIAL NEED", selectedCrew.SocialNeed)
                     @Metric("INTIMACY NEED", selectedCrew.IntimacyNeed)
+                    @Metric("OVERSEER SUSPICION", selectedCrew.OverseerSuspicion)
                 </div>
 
                 <div class="thought-card">
@@ -243,6 +244,23 @@
                 <div class="belief-card">
                     <span>BELIEF ABOUT OVERSEER</span>
                     <p>@selectedCrew.Beliefs.FirstOrDefault()?.Statement</p>
+                </div>
+
+                <div class="belief-card">
+                    <span>OVERSEER EVIDENCE</span>
+                    @if (selectedCrew.OverseerEvidence.Count == 0)
+                    {
+                        <p>No suspicious evidence recorded.</p>
+                    }
+                    else
+                    {
+                        @foreach (var evidence in selectedCrew.OverseerEvidence
+                            .OrderByDescending(e => e.ObservedAt)
+                            .Take(4))
+                        {
+                            <p><strong>+@evidence.Weight.ToString("0")</strong> @evidence.Description</p>
+                        }
+                    }
                 </div>
 
                 <div class="relationship-card">
@@ -305,13 +323,13 @@
                         <div class="door-control">
                             <div>
                                 <strong>@other.Name</strong>
-                                <small>@(door.IsOpen ? "OPEN" : "CLOSED") · @(door.IsLocked ? "LOCKED" : "UNLOCKED")</small>
+                                <small>@(door.IsOpen ? "OPEN" : "CLOSED") · @(door.IsLocked ? "LOCKED" : "UNLOCKED") · @((door.IsAiControllable && !door.IsManuallyOverridden) ? "AI CTRL" : "MANUAL")</small>
                             </div>
                             <div>
-                                <button class="mini" @onclick="() => Session.ToggleDoor(door.Id)">
+                                <button class="mini" disabled="@(!door.IsAiControllable || door.IsManuallyOverridden)" @onclick="() => Session.ToggleDoor(door.Id)">
                                     @(door.IsOpen ? "CLOSE" : "OPEN")
                                 </button>
-                                <button class="mini secondary" @onclick="() => Session.ToggleLock(door.Id)">
+                                <button class="mini secondary" disabled="@(!door.IsAiControllable || door.IsManuallyOverridden)" @onclick="() => Session.ToggleLock(door.Id)">
                                     @(door.IsLocked ? "UNLOCK" : "LOCK")
                                 </button>
                             </div>
