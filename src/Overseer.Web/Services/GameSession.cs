@@ -480,6 +480,12 @@ public sealed class GameSession(
 
     private bool IsAlreadyEscapingToSaferRoom(Npc npc, Room currentRoom)
     {
+        if (npc.Intent is { Action: ActionKind.ForceDoor }
+            && npc.CurrentAction.Kind == ActionKind.ForceDoor)
+        {
+            return true;
+        }
+
         if (npc.Intent is not { Action: ActionKind.Move, TargetId: { } targetId }
             || !State.Facility.Rooms.TryGetValue(targetId, out var targetRoom))
         {
