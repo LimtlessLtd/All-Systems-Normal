@@ -57,6 +57,13 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
         }
 
         await AdvanceCoreAsync(cancellationToken);
+
+        if (State.ScenarioStatus != ScenarioStatus.Running)
+        {
+            _clock.Pause();
+            return false;
+        }
+
         return _clock.IsActive(generation);
     }
 
