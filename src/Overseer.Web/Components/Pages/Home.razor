@@ -537,10 +537,10 @@
         _selectedRoomId = null;
     }
 
-    private void ResetGame()
+    private async Task ResetGame()
     {
         StopClock();
-        Session.Reset();
+        await Session.ResetAsync();
         _selectedRoomId = "control";
         _selectedCrewId = null;
         _lastAudioSequence = 0;
@@ -550,6 +550,11 @@
     private void SetSpeed(int delayMs)
     {
         _delayMs = delayMs;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Session.InitializeAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
