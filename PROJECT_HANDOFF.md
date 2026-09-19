@@ -2196,6 +2196,45 @@ The existing stable Blazor @key identity fix remains intact.
 
 Next recommended milestone: **V0.6B — Human Counterplay & Richer Scenario Rules**. Make crew-overridable, hardwired/manual and impossible-to-seal variants mechanically distinct; add physical manual door overrides with skill/time/tool requirements; add investigation/discovery of shutdown hardware; make evidence more perception-limited and event-specific; propagate specific claims through conversations; add scenario success/secondary objectives/telemetry; expose suspicion/evidence in selected-crew UI; and expand regression coverage for those mechanics.
 
+# ENVIRONMENT & LIFE-SUPPORT PASS — COMPLETED
+
+This pass fixes a map-selection regression and adds the first real environmental survival layer.
+
+UI selection regression:
+
+* a global CSS `button:active { transform: translateY(...) }` rule was overriding the absolute-map `translate(-50%, -50%)` transform used by rooms, connector hallways, doors and crew
+* holding the mouse button therefore moved the visual/hit target down-right and caused the eventual click to miss unless the pointer followed the displaced "ghost"
+* active-button press animation now explicitly excludes map-positioned rooms, crew and doors, preserving their authoritative screen position while pressed
+* the stable Blazor `@key` identity fix remains intact
+
+Environmental simulation:
+
+* rooms now track temperature, temperature setpoint, O₂, CO₂, pressure and ventilation state
+* a shared deterministic `EnvironmentSystem` handles HVAC drift, ventilation, crew oxygen consumption, CO₂ accumulation and central life-support reserves
+* powered local climate controllers move rooms toward their configured setpoint
+* unpowered/disabled climate zones drift toward room-specific passive temperatures
+* ventilation and primary life support restore normal atmosphere over time
+* isolating ventilation in an occupied room causes O₂ to fall and CO₂ to rise
+* primary life support can be shut down/restored by Overseer and its state is visible globally
+* dangerous O₂, CO₂ and extreme temperature now cause deterministic fear/stress/health consequences
+* pressure is now a real monitored room property and foundation for later breaches/decompression; ordinary life-support loss does not incorrectly remove pressure
+
+Control authority is room-specific:
+
+* ordinary habitation/work rooms expose Overseer temperature setpoint, climate on/off and ventilation controls
+* corridors and the Airlock use central/passive environmental handling rather than individual thermostats
+* Reactor climate remains tied to its local safety system and is not directly temperature-adjustable by Overseer
+* a new **Hydroponics Bay** has grow beds and an autonomous horticultural climate loop: Overseer can monitor temperature/O₂/CO₂/pressure but cannot directly change its thermostat or ventilation damper
+* this capability model is intended to vary by scenario rather than giving Overseer universal control over every subsystem
+
+NPC cognition:
+
+* the Ollama prompt now includes O₂, CO₂, pressure, temperature, ventilation and primary life-support state
+* deterministic browser/fallback minds treat severely unsafe atmosphere/temperature as urgent and try to reach a safer powered room
+* the LLM still chooses high-level wants; deterministic simulation still decides what movement/actions are physically possible
+
+Regression coverage now includes climate convergence, atmosphere degradation in isolated/unsupported rooms, autonomous Hydroponics controls and deterministic crew damage in dangerous atmosphere.
+
 # AUDIO & SOFT-TURN PACING PASS — COMPLETED
 
 The simulation presentation now uses automatically advancing **soft turns** rather than a player-facing pause/run loop:
