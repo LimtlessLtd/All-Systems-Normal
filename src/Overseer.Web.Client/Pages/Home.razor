@@ -119,7 +119,10 @@
                             style="@RoomStyle(room)"
                             aria-label="@($"Select {room.Name}")"
                             @onclick="() => SelectRoom(room.Id)">
-                        <span class="room-name">@room.Name</span>
+                        <span class="room-titlebar">
+                            <span class="room-name">@room.Name</span>
+                            <i class="room-state-dot @RoomHealthClass(room)" aria-hidden="true"></i>
+                        </span>
                         <span class="room-data">
                             <b>@(room.IsPowered ? "PWR" : "OFF")</b>
                             <b>@room.TemperatureC.ToString("0")°</b>
@@ -162,7 +165,7 @@
                 @foreach (var npc in Session.State.Crew.Where(CanSee))
                 {
                     <button @key="npc.Id"
-                            class="@($"crew-token role-{npc.Role.ToString().ToLowerInvariant()} {(SelectedCrew?.Id == npc.Id ? "selected" : "")} {(!npc.IsAlive ? "deceased" : "")}")"
+                            class="@CrewTokenClass(npc)"
                             style="@CrewStyle(npc)"
                             title="@($"{npc.Name} — {npc.Role}{(!npc.IsAlive ? " — DECEASED" : "")}")"
                             aria-label="@($"Select {npc.Name}")"
@@ -173,8 +176,22 @@
                             {
                                 <span class="@BubbleClass(bubble)">@bubble.Text</span>
                             }
-                            <span class="person-icon" aria-hidden="true"><i class="person-head"></i><i class="person-body"></i></span>
-                            <span class="crew-initials">@Initials(npc.Name)</span>
+
+                            <span class="crew-shadow" aria-hidden="true"></span>
+                            <span class="person-icon" aria-hidden="true">
+                                <i class="person-backpack"></i>
+                                <i class="person-leg person-leg-left"></i>
+                                <i class="person-leg person-leg-right"></i>
+                                <i class="person-arm person-arm-left"></i>
+                                <i class="person-arm person-arm-right"></i>
+                                <i class="person-body"></i>
+                                <i class="person-head"><i class="person-visor"></i></i>
+                                <i class="person-role-mark">@RoleGlyph(npc.Role)</i>
+                            </span>
+                            <span class="crew-nameplate">
+                                <span class="crew-initials">@Initials(npc.Name)</span>
+                                <i class="crew-motion-dot"></i>
+                            </span>
                         }
                         else
                         {
@@ -480,6 +497,64 @@
                 .Take(2)
                 .Select(part => char.ToUpperInvariant(part[0])));
 
+    private string CrewTokenClass(Npc npc)
+    {
+        var classes = new List<string>
+        {
+            "crew-token",
+            $"role-{npc.Role.ToString().ToLowerInvariant()}"
+        };
+
+        if (SelectedCrew?.Id == npc.Id)
+            classes.Add("selected");
+
+        if (!npc.IsAlive)
+            classes.Add("deceased");
+        else if (npc.Movement is not null)
+            classes.Add("is-walking");
+        else if (npc.CurrentAction.Kind is ActionKind.Talk
+                 or ActionKind.Socialize
+                 or ActionKind.Argue
+                 or ActionKind.RequestHelp)
+            classes.Add("is-social");
+        else if (npc.CurrentAction.Kind is ActionKind.Sleep or ActionKind.Rest)
+            classes.Add("is-resting");
+        else if (npc.CurrentAction.Kind is not ActionKind.Idle)
+            classes.Add("is-busy");
+        else
+            classes.Add("is-idle");
+
+        return string.Join(' ', classes);
+    }
+
+    private static string RoleGlyph(CrewRole role) => role switch
+    {
+        CrewRole.Commander => "★",
+        CrewRole.Engineer => "⚙",
+        CrewRole.Security => "◆",
+        CrewRole.Doctor => "+",
+        CrewRole.Technician => "◇",
+        CrewRole.Scientist => "●",
+        _ => "•"
+    };
+
+    private static double CrewFacingAngle(Npc npc)
+    {
+        if (npc.Movement is not { } movement)
+            return 0;
+
+        var dx = movement.ExitX - npc.PositionX;
+        var dy = movement.ExitY - npc.PositionY;
+
+        if (Math.Abs(dx) < .01 && Math.Abs(dy) < .01)
+        {
+            dx = movement.EntryX - movement.ExitX;
+            dy = movement.EntryY - movement.ExitY;
+        }
+
+        return (Math.Atan2(dy, dx) * 180 / Math.PI) + 90;
+    }
+
     private static string FixtureClass(RoomFixture fixture) =>
         $"fixture fixture-{fixture.Type.ToString().ToLowerInvariant()}";
 
@@ -514,7 +589,11 @@
 
     private string RoomClass(Room room)
     {
-        var classes = new List<string> { "room-node" };
+        var classes = new List<string>
+        {
+            "room-node",
+            $"room-type-{room.Type.ToString().ToLowerInvariant()}"
+        };
 
         if (IsConnectorHallway(room))
             classes.Add("hallway");
@@ -545,8 +624,10 @@
         var mapY = room.MapY
             + (((npc.PositionY - 50) / 100) * room.MapHeight);
 
+        var facing = CrewFacingAngle(npc);
+
         return FormattableString.Invariant(
-            $"left:{mapX}%;top:{mapY}%;");
+            $"left:{mapX}%;top:{mapY}%;--crew-facing:{facing:0.##}deg;");
     }
 
     private string DoorStyle(Door door)
