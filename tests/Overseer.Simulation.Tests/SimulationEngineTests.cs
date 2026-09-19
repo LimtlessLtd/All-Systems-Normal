@@ -13,6 +13,7 @@ public sealed class SimulationEngineTests
         var hungerBefore = npc.Hunger;
         var fatigueBefore = npc.Fatigue;
         var hygieneBefore = npc.HygieneNeed;
+        var bladderBefore = npc.BladderNeed;
         var recreationBefore = npc.RecreationNeed;
         var socialBefore = npc.SocialNeed;
         var intimacyBefore = npc.IntimacyNeed;
@@ -23,6 +24,7 @@ public sealed class SimulationEngineTests
         Assert.True(npc.Hunger > hungerBefore);
         Assert.True(npc.Fatigue > fatigueBefore);
         Assert.True(npc.HygieneNeed > hygieneBefore);
+        Assert.True(npc.BladderNeed > bladderBefore);
         Assert.True(npc.RecreationNeed > recreationBefore);
         Assert.True(npc.SocialNeed > socialBefore);
         Assert.True(npc.IntimacyNeed > intimacyBefore);
