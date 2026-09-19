@@ -133,9 +133,10 @@ public sealed class LocalMovementSystemTests
                 id => !id.Equals("corridor", StringComparison.OrdinalIgnoreCase));
             var functionalRoom = state.Facility.Rooms[functionalRoomId];
 
-            var vertical =
-                Math.Abs(functionalRoom.MapY - corridor.MapY)
-                >= Math.Abs(functionalRoom.MapX - corridor.MapX);
+            var roomPortal = StationGeometry.FindSharedPortal(
+                hallway,
+                functionalRoom);
+            var vertical = roomPortal.Wall == StationWall.Horizontal;
 
             if (vertical)
             {
