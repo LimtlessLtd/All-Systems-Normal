@@ -12,13 +12,27 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
         NpcIntent intent;
         var room = state.Facility.Rooms[npc.CurrentRoomId];
 
-        if (CrewEnvironmentSafety.IsDangerous(room)
-            && FindSaferRoom(state, room) is { } saferRoom)
+        if (CrewEnvironmentSafety.IsDangerous(room))
         {
-            intent = Create(npc, state, ActionKind.Move, saferRoom.Id,
-                $"Get to {saferRoom.Name}.",
-                "The atmosphere or temperature here is becoming dangerous.",
-                96);
+            var saferRoom = FindSaferRoom(state, room);
+
+            intent = saferRoom is not null
+                ? Create(
+                    npc,
+                    state,
+                    ActionKind.Move,
+                    saferRoom.Id,
+                    $"Get to {saferRoom.Name}.",
+                    "The atmosphere or temperature here is becoming dangerous.",
+                    96)
+                : Create(
+                    npc,
+                    state,
+                    ActionKind.Idle,
+                    null,
+                    "Shelter and call for emergency help.",
+                    "The environment is dangerous and I cannot identify a safer reachable room.",
+                    98);
         }
         else if (npc.Hunger >= 62)
         {
