@@ -2,39 +2,61 @@
 
 An emergent AI-driven facility simulation built with .NET 10 and Blazor.
 
-The player is the facility AI. You do not directly control the crew; you control the environment around them: doors, power, communications, cameras, alarms, temperature, ventilation, and other systems. Human behaviour is autonomous and will eventually be driven by an LLM-backed decision layer, while the world itself remains deterministic C#.
+You are the station AI. You do not directly control the crew; you control the environment around them: doors, power, cameras, lighting, communications, and eventually temperature, ventilation, alarms, robots, and other systems.
 
 ## Play in the browser
 
-The repository includes a standalone Blazor WebAssembly client designed for GitHub Pages:
+GitHub Pages build:
 
 https://limtlessltd.github.io/All-Systems-Normal/
 
-The Pages build contains the deterministic simulation only. LLM calls will remain behind a server-side API when AI behaviour is added, so no provider secrets are ever shipped to the browser.
+## V0.2 — Station View
+
+The station is now the primary gameplay surface:
+
+- top-down 2D facility overview
+- live room power, lighting, camera, temperature and oxygen state
+- visible open / closed / locked doors
+- selectable rooms and crew
+- crew telemetry and current intent inspector
+- camera blind spots that hide crew from the map
+- interactive room power, cameras, lights and doors
+- run / pause / speed controls
+- deterministic crew routines so people visibly move around the facility
+- animated crew transitions between rooms
+- event stream showing system and movement activity
+
+The GitHub Pages version runs the deterministic simulation entirely in the browser.
 
 ## Architecture
 
 - **Overseer.Domain** — world state and shared game contracts.
-- **Overseer.Simulation** — deterministic simulation rules, actions, and facility seeding.
+- **Overseer.Simulation** — authoritative deterministic simulation, movement and action validation.
 - **Overseer.AI** — AI decision boundary. LLM integration lives here and never directly mutates world state.
 - **Overseer.Persistence** — persistence boundary for later save games and memories.
 - **Overseer.Web** — ASP.NET/Blazor server app for the full game.
-- **Overseer.Web.Client** — standalone WebAssembly demo deployed to GitHub Pages.
-- **Overseer.Simulation.Tests** — simulation tests.
+- **Overseer.Web.Client** — standalone WebAssembly build for GitHub Pages.
+- **Overseer.Simulation.Tests** — deterministic simulation tests.
 
-## Run the server app locally
+## Run locally
+
+Full server app:
 
 ```bash
-dotnet restore
-dotnet build
-dotnet test
 dotnet run --project src/Overseer.Web
 ```
 
-## Run the GitHub Pages client locally
+Browser-only WebAssembly build:
 
 ```bash
 dotnet run --project src/Overseer.Web.Client
+```
+
+Run all checks:
+
+```bash
+dotnet build Overseer.slnx
+dotnet test
 ```
 
 ## Core rule

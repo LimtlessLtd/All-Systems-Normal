@@ -8,16 +8,16 @@ public static class FacilitySeeder
     {
         var facility = new Facility();
 
-        AddRoom(facility, "quarters", "Crew Quarters", RoomType.CrewQuarters);
-        AddRoom(facility, "kitchen", "Kitchen", RoomType.Kitchen);
-        AddRoom(facility, "medical", "Medical", RoomType.Medical);
-        AddRoom(facility, "control", "Control Room", RoomType.ControlRoom);
-        AddRoom(facility, "generator", "Generator", RoomType.Generator);
-        AddRoom(facility, "reactor", "Reactor", RoomType.Reactor);
-        AddRoom(facility, "engineering", "Engineering", RoomType.Engineering);
-        AddRoom(facility, "storage", "Storage", RoomType.Storage);
-        AddRoom(facility, "corridor", "Central Corridor", RoomType.Corridor);
-        AddRoom(facility, "airlock", "Airlock", RoomType.Airlock);
+        AddRoom(facility, "quarters", "Crew Quarters", RoomType.CrewQuarters, 15, 17, 22, 15);
+        AddRoom(facility, "kitchen", "Kitchen", RoomType.Kitchen, 40, 17, 17, 13);
+        AddRoom(facility, "medical", "Medical", RoomType.Medical, 63, 17, 17, 13);
+        AddRoom(facility, "control", "Control Room", RoomType.ControlRoom, 86, 24, 19, 16);
+        AddRoom(facility, "airlock", "Airlock", RoomType.Airlock, 8, 47, 12, 13);
+        AddRoom(facility, "corridor", "Central Corridor", RoomType.Corridor, 49, 47, 66, 12);
+        AddRoom(facility, "storage", "Storage", RoomType.Storage, 17, 75, 18, 14);
+        AddRoom(facility, "engineering", "Engineering", RoomType.Engineering, 42, 75, 21, 15);
+        AddRoom(facility, "generator", "Generator", RoomType.Generator, 68, 76, 18, 15);
+        AddRoom(facility, "reactor", "Reactor", RoomType.Reactor, 89, 76, 17, 17);
 
         Connect(facility, "quarters", "corridor");
         Connect(facility, "kitchen", "corridor");
@@ -67,13 +67,21 @@ public static class FacilitySeeder
         Facility facility,
         string id,
         string name,
-        RoomType type)
+        RoomType type,
+        double mapX,
+        double mapY,
+        double mapWidth,
+        double mapHeight)
     {
         facility.Rooms.Add(id, new Room
         {
             Id = id,
             Name = name,
-            Type = type
+            Type = type,
+            MapX = mapX,
+            MapY = mapY,
+            MapWidth = mapWidth,
+            MapHeight = mapHeight
         });
     }
 
