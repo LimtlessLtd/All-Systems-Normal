@@ -58,6 +58,7 @@ public enum ActionKind
     Recreate,
     Groom,
     Shower,
+    UseToilet,
     Work,
     Intimacy,
     Investigate,
@@ -164,6 +165,7 @@ public sealed class Npc
     // Everyday human needs use the same 0..100 "pressure" convention as
     // Hunger/Fatigue: higher values mean the need is becoming more pressing.
     public double HygieneNeed { get; set; } = 12;
+    public double BladderNeed { get; set; } = 10;
     public double RecreationNeed { get; set; } = 18;
     public double SocialNeed { get; set; } = 15;
     public double IntimacyNeed { get; set; } = 10;
