@@ -42,6 +42,8 @@ public sealed class ActionResolver
                 state, npc, action, RoomType.Washroom, "groom", "starts grooming", out message),
             ActionKind.Shower => TryInRoomType(
                 state, npc, action, RoomType.Washroom, "shower", "takes a shower", out message),
+            ActionKind.UseToilet => TryInRoomType(
+                state, npc, action, RoomType.Washroom, "use the toilet", "uses the toilet", out message),
             ActionKind.Work => SetAction(state, npc, action, "gets on with their work", out message),
             ActionKind.Intimacy => TryIntimacy(state, npc, action, out message),
             ActionKind.Investigate => SetAction(state, npc, action, "starts investigating", out message),
