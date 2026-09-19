@@ -60,14 +60,9 @@ public sealed class EnvironmentSystem
 
         if (ventilationActive)
         {
-            var supplyFactor = Math.Clamp(
-                state.LifeSupport.OxygenReservePercent / 100d,
-                0.15,
-                1);
-
             room.OxygenPercent = MoveToward(
                 room.OxygenPercent,
-                NominalOxygen * supplyFactor,
+                NominalOxygen,
                 0.075 * minutes);
 
             var scrubberFactor = Math.Clamp(
@@ -128,7 +123,8 @@ public sealed class EnvironmentSystem
 
         // The central air loop passively moderates spaces even when they do not
         // expose a local thermostat to Overseer.
-        if (state.LifeSupport.IsOnline
+        if (!activeClimate
+            && state.LifeSupport.IsOnline
             && room.IsPowered
             && room.VentilationEnabled)
         {
