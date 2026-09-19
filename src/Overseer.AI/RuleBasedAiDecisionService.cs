@@ -25,6 +25,13 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                 "I am too tired to keep working effectively.",
                 78);
         }
+        else if (npc.BladderNeed >= 72)
+        {
+            intent = Create(npc, state, ActionKind.UseToilet, null,
+                "Use the washroom.",
+                "I need the toilet and should deal with that now.",
+                84);
+        }
         else if (npc.HygieneNeed >= 65)
         {
             intent = Create(npc, state, ActionKind.Shower, null,
