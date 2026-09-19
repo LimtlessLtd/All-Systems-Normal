@@ -96,7 +96,7 @@ public sealed class StationGeometryTests
             functionalRoomArea >= 7_000,
             $"Functional rooms occupy only {functionalRoomArea / 100:0.0}% of the deck canvas.");
         Assert.True(
-            corridorArea <= 600,
+            corridorArea <= 1_000,
             $"Corridors occupy {corridorArea / 100:0.0}% of the deck canvas.");
     }
 
@@ -119,6 +119,36 @@ public sealed class StationGeometryTests
                     0,
                     0.000001);
             }
+        }
+    }
+
+    [Fact]
+    public void Passages_AreWideEnoughForTwoWayCrewTraffic()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var corridor = state.Facility.Rooms["corridor"];
+
+        Assert.True(
+            corridor.MapHeight >= 8,
+            $"Main corridor height {corridor.MapHeight:0.0}% is too narrow for two-way traffic.");
+
+        foreach (var hallway in state.Facility.Rooms.Values.Where(IsConnectorHallway))
+        {
+            var neighbours = state.Facility.Doors
+                .Where(door => door.RoomAId == hallway.Id || door.RoomBId == hallway.Id)
+                .Select(door => state.Facility.Rooms[
+                    door.RoomAId == hallway.Id ? door.RoomBId : door.RoomAId])
+                .ToList();
+
+            Assert.True(neighbours.Count >= 2);
+
+            var vertical = Math.Abs(neighbours[0].MapY - neighbours[1].MapY)
+                >= Math.Abs(neighbours[0].MapX - neighbours[1].MapX);
+            var passageWidth = vertical ? hallway.MapWidth : hallway.MapHeight;
+
+            Assert.True(
+                passageWidth >= 4.5,
+                $"{hallway.Id} is only {passageWidth:0.0}% wide.");
         }
     }
 
