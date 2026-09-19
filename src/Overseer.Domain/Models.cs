@@ -20,6 +20,8 @@ public enum RoomType
     Reactor,
     Engineering,
     Storage,
+    Recreation,
+    Washroom,
     Corridor,
     Airlock
 }
@@ -37,7 +39,13 @@ public enum FixtureType
     AirlockDoor,
     KitchenCounter,
     Camera,
-    Locker
+    Locker,
+    Shower,
+    Sink,
+    Toilet,
+    Sofa,
+    RecreationConsole,
+    Mirror
 }
 
 public enum ActionKind
@@ -45,7 +53,13 @@ public enum ActionKind
     Idle,
     Move,
     Rest,
+    Sleep,
     Eat,
+    Recreate,
+    Groom,
+    Shower,
+    Work,
+    Intimacy,
     Investigate,
     Repair,
     Talk,
@@ -71,12 +85,26 @@ public sealed record Personality(
     double Sociability,
     double Courage);
 
+public enum NpcBubbleKind
+{
+    Thought,
+    Speech,
+    Alert
+}
+
+public sealed record NpcBubble(
+    string Text,
+    NpcBubbleKind Kind,
+    TimeSpan CreatedAt,
+    TimeSpan ExpiresAt);
+
 public sealed class Relationship
 {
     public required string PersonName { get; init; }
     public double Affinity { get; set; } = 50;
     public double Trust { get; set; } = 50;
     public double Resentment { get; set; }
+    public double Attraction { get; set; }
     public int Conversations { get; set; }
     public int Arguments { get; set; }
 }
@@ -133,6 +161,13 @@ public sealed class Npc
     public double Fear { get; set; } = 5;
     public double Stress { get; set; } = 10;
 
+    // Everyday human needs use the same 0..100 "pressure" convention as
+    // Hunger/Fatigue: higher values mean the need is becoming more pressing.
+    public double HygieneNeed { get; set; } = 12;
+    public double RecreationNeed { get; set; } = 18;
+    public double SocialNeed { get; set; } = 15;
+    public double IntimacyNeed { get; set; } = 10;
+
     public string? CauseOfDeath { get; set; }
     public bool IsAlive => Health > 0;
 
@@ -149,6 +184,8 @@ public sealed class Npc
         new(ActionKind.Idle, null, "Waiting for something to happen.");
 
     public NpcIntent? Intent { get; set; }
+    public TimeSpan RoutineUntil { get; set; }
+    public NpcBubble? Bubble { get; set; }
     public string MindMode { get; set; } = "Routine";
     public string LastThought { get; set; } = "No deliberate thought yet.";
     public TimeSpan LastThoughtAt { get; set; }
