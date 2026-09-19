@@ -13,6 +13,7 @@ public sealed class GameSession
     private readonly LocalMovementSystem _movement = new();
     private readonly SuspicionSystem _suspicion = new();
     private readonly ShutdownSystem _shutdown = new();
+    private readonly ManualOverrideSystem _manualOverrides = new();
     private readonly SimulationClock _clock = new();
 
     public GameState State { get; private set; } = FacilitySeeder.CreateDefault();
@@ -74,6 +75,12 @@ public sealed class GameSession
     {
         var door = State.Facility.Doors.First(door => door.Id == doorId);
 
+        if (!door.IsAiControllable || door.IsManuallyOverridden)
+        {
+            Log($"{door.Id} refused OPEN/CLOSE command: MANUAL CONTROL ONLY.");
+            return;
+        }
+
         if (!door.IsPowered)
         {
             Log($"{door.Id} refused OPEN/CLOSE command: NO POWER.");
@@ -94,6 +101,12 @@ public sealed class GameSession
     public void ToggleLock(string doorId)
     {
         var door = State.Facility.Doors.First(door => door.Id == doorId);
+
+        if (!door.IsAiControllable || door.IsManuallyOverridden)
+        {
+            Log($"{door.Id} refused LOCK command: MANUAL CONTROL ONLY.");
+            return;
+        }
 
         if (!door.IsPowered)
         {
@@ -159,6 +172,7 @@ public sealed class GameSession
         _simulation.Tick(State, TimeSpan.FromMinutes(1));
         _browserMind.Tick(State);
         _intentExecution.Tick(State);
+        _manualOverrides.Tick(State);
         _social.Tick(State);
         _suspicion.Tick(State);
         _crewRoutines.Tick(State);
