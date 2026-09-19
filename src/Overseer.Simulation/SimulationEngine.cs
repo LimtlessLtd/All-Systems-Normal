@@ -50,7 +50,7 @@ public sealed class SimulationEngine
 
             npc.IntimacyNeed = Clamp(
                 npc.IntimacyNeed
-                + ((npc.CurrentAction.Kind == ActionKind.Intimacy ? -1.6 : 0.025) * minutes));
+                + ((npc.CurrentAction.Kind == ActionKind.Intimacy ? -1.6 : 0.045) * minutes));
 
             npc.Fear = Clamp(npc.Fear - (0.08 * minutes));
 
