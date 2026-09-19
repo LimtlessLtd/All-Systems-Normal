@@ -54,6 +54,7 @@ public sealed class ActionResolver
             ActionKind.Attack => SetAction(state, npc, action, "attacks", out message),
             ActionKind.RequestHelp => TrySocialAction(state, npc, action, "requests help", out message),
             ActionKind.ShutdownOverseer => TryShutdown(state, npc, action, out message),
+            ActionKind.OverrideDoor => TryOverrideDoor(state, npc, action, out message),
             ActionKind.Idle => SetAction(state, npc, action, "waits", out message),
             _ => Fail("Unsupported action.", out message)
         };
@@ -217,6 +218,64 @@ public sealed class ActionResolver
         message = $"{npc.Name} spends private time with {partner.Name}.";
         Log(state, message);
         return true;
+    }
+
+    private static bool TryOverrideDoor(
+        GameState state,
+        Npc npc,
+        NpcAction action,
+        out string message)
+    {
+        var door = state.Facility.Doors.FirstOrDefault(d =>
+            d.Id.Equals(action.TargetId, StringComparison.OrdinalIgnoreCase));
+
+        if (door is null)
+        {
+            message = "Manual override target door does not exist.";
+            return false;
+        }
+
+        var adjacent = npc.CurrentRoomId.Equals(door.RoomAId, StringComparison.OrdinalIgnoreCase)
+            || npc.CurrentRoomId.Equals(door.RoomBId, StringComparison.OrdinalIgnoreCase);
+
+        if (!adjacent)
+        {
+            message = $"{npc.Name} must physically reach {door.Id} to override it.";
+            return false;
+        }
+
+        if (!door.ManualOverrideAvailable)
+        {
+            message = $"{door.Id} has no accessible manual override.";
+            return false;
+        }
+
+        if (ManualOverrideSystem.BestOverrideSkill(npc) < door.ManualOverrideSkillRequired)
+        {
+            message = $"{npc.Name} lacks the skill to force {door.Id}.";
+            return false;
+        }
+
+        if (door.IsPassable)
+        {
+            message = $"{door.Id} is already passable.";
+            return false;
+        }
+
+        if (npc.CurrentAction.Kind == ActionKind.OverrideDoor
+            && npc.CurrentAction.TargetId == door.Id)
+        {
+            message = $"{npc.Name} continues overriding {door.Id}.";
+            return true;
+        }
+
+        npc.RoutineUntil = TimeSpan.Zero;
+        return SetAction(
+            state,
+            npc,
+            action,
+            $"starts forcing the manual controls on {door.Id}",
+            out message);
     }
 
     private static bool TryShutdown(GameState state, Npc npc, NpcAction action, out string message)
