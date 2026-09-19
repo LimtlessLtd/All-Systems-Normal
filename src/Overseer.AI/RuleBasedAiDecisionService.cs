@@ -10,8 +10,17 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
         CancellationToken cancellationToken = default)
     {
         NpcIntent intent;
+        var room = state.Facility.Rooms[npc.CurrentRoomId];
 
-        if (npc.Hunger >= 62)
+        if (IsEnvironmentDangerous(room)
+            && FindSaferRoom(state, room) is { } saferRoom)
+        {
+            intent = Create(npc, state, ActionKind.Move, saferRoom.Id,
+                $"Get to {saferRoom.Name}.",
+                "The atmosphere or temperature here is becoming dangerous.",
+                96);
+        }
+        else if (npc.Hunger >= 62)
         {
             intent = Create(npc, state, ActionKind.Eat, null,
                 "Get something to eat.",
@@ -84,6 +93,26 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
 
         return Task.FromResult(intent);
     }
+
+    private static bool IsEnvironmentDangerous(Room room) =>
+        room.OxygenPercent < 18
+        || room.CarbonDioxidePercent > 2
+        || room.PressureKpa < 85
+        || room.TemperatureC is < 10 or > 34;
+
+    private static Room? FindSaferRoom(GameState state, Room currentRoom) =>
+        state.Facility.Rooms.Values
+            .Where(room =>
+                room.Id != currentRoom.Id
+                && room.Type != RoomType.Corridor
+                && room.IsPowered
+                && room.OxygenPercent >= 19
+                && room.CarbonDioxidePercent < 1
+                && room.PressureKpa >= 90
+                && room.TemperatureC is >= 16 and <= 28)
+            .OrderBy(room => Math.Abs(room.MapX - currentRoom.MapX) + Math.Abs(room.MapY - currentRoom.MapY))
+            .ThenBy(room => room.Id)
+            .FirstOrDefault();
 
     private static NpcIntent Create(
         Npc npc,
