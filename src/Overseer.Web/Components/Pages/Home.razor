@@ -56,7 +56,8 @@
             <div class="room-list">
                 @foreach (var room in Session.State.Facility.Rooms.Values.OrderBy(room => room.Name))
                 {
-                    <button class="@($"room-list-item {(SelectedRoom?.Id == room.Id ? "selected" : "")}")"
+                    <button @key="room.Id"
+                            class="@($"room-list-item {(SelectedRoom?.Id == room.Id ? "selected" : "")}")"
                             @onclick="() => SelectRoom(room.Id)">
                         <span class="system-dot @RoomHealthClass(room)"></span>
                         <span>
@@ -95,14 +96,16 @@
                         var a = Session.State.Facility.Rooms[door.RoomAId];
                         var b = Session.State.Facility.Rooms[door.RoomBId];
 
-                        <line x1="@a.MapX" y1="@a.MapY" x2="@b.MapX" y2="@b.MapY"
+                        <line @key="door.Id"
+                              x1="@a.MapX" y1="@a.MapY" x2="@b.MapX" y2="@b.MapY"
                               class="@($"connection {(door.IsOpen ? "open" : "closed")} {(door.IsLocked ? "locked" : "")}")" />
                     }
                 </svg>
 
                 @foreach (var room in Session.State.Facility.Rooms.Values)
                 {
-                    <button class="@RoomClass(room)"
+                    <button @key="room.Id"
+                            class="@RoomClass(room)"
                             style="@RoomStyle(room)"
                             aria-label="@($"Select {room.Name}")"
                             @onclick="() => SelectRoom(room.Id)">
@@ -116,7 +119,8 @@
                         <span class="fixture-layer" aria-hidden="true">
                             @foreach (var fixture in room.Fixtures)
                             {
-                                <i class="@FixtureClass(fixture)"
+                                <i @key="fixture"
+                                   class="@FixtureClass(fixture)"
                                    style="@FixtureStyle(fixture)"
                                    title="@fixture.Label"></i>
                             }
@@ -135,7 +139,8 @@
 
                 @foreach (var door in Session.State.Facility.Doors)
                 {
-                    <button class="@DoorClass(door)"
+                    <button @key="door.Id"
+                            class="@DoorClass(door)"
                             style="@DoorStyle(door)"
                             title="@DoorTitle(door)"
                             aria-label="@DoorTitle(door)"
@@ -146,7 +151,8 @@
 
                 @foreach (var npc in Session.State.Crew.Where(CanSee))
                 {
-                    <button class="@($"crew-token role-{npc.Role.ToString().ToLowerInvariant()} {(SelectedCrew?.Id == npc.Id ? "selected" : "")} {(!npc.IsAlive ? "deceased" : "")}")"
+                    <button @key="npc.Id"
+                            class="@($"crew-token role-{npc.Role.ToString().ToLowerInvariant()} {(SelectedCrew?.Id == npc.Id ? "selected" : "")} {(!npc.IsAlive ? "deceased" : "")}")"
                             style="@CrewStyle(npc)"
                             title="@($"{npc.Name} — {npc.Role}{(!npc.IsAlive ? " — DECEASED" : "")}")"
                             aria-label="@($"Select {npc.Name}")"
