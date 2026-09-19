@@ -395,7 +395,7 @@ public static class FacilitySeeder
         foreach (var hallway in facility.Rooms.Values.Where(room =>
                      room.Id.StartsWith("hall-", StringComparison.OrdinalIgnoreCase)))
         {
-            if (hallway.MapHeight >= hallway.MapWidth)
+            if (IsVerticalConnector(facility, hallway))
             {
                 AddFixture(facility, hallway.Id, FixtureType.Window, "Passage Window", 18, 50, 16, 46);
             }
@@ -409,6 +409,30 @@ public static class FacilitySeeder
         {
             AddFixture(facility, room.Id, FixtureType.Camera, "Camera", 90, 12, 8, 8);
         }
+    }
+
+
+    private static bool IsVerticalConnector(Facility facility, Room hallway)
+    {
+        var door = facility.Doors.FirstOrDefault(candidate =>
+            candidate.RoomAId.Equals(hallway.Id, StringComparison.OrdinalIgnoreCase)
+            || candidate.RoomBId.Equals(hallway.Id, StringComparison.OrdinalIgnoreCase));
+
+        if (door is null)
+        {
+            return hallway.MapHeight >= hallway.MapWidth;
+        }
+
+        var neighbourId = door.RoomAId.Equals(
+            hallway.Id,
+            StringComparison.OrdinalIgnoreCase)
+                ? door.RoomBId
+                : door.RoomAId;
+        var portal = StationGeometry.FindSharedPortal(
+            hallway,
+            facility.Rooms[neighbourId]);
+
+        return portal.Wall == StationWall.Horizontal;
     }
 
 
