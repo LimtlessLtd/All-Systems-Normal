@@ -68,4 +68,96 @@ public sealed class LocalMovementSystemTests
             state.EventLog[0],
             StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void EveryDoorCrossing_UsesTheSameGlobalPortalOnBothSides()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew.Single(candidate => candidate.Name == "Marcus Reed");
+        var resolver = new ActionResolver();
+
+        foreach (var door in state.Facility.Doors)
+        {
+            npc.CurrentRoomId = door.RoomAId;
+            npc.PositionX = 50;
+            npc.PositionY = 50;
+            npc.Movement = null;
+            npc.CurrentAction = new NpcAction(ActionKind.Idle, null, "Test reset.");
+
+            var applied = resolver.TryApply(
+                state,
+                npc.Id,
+                new NpcAction(
+                    ActionKind.Move,
+                    door.RoomBId,
+                    "Portal continuity test."),
+                out var message);
+
+            Assert.True(applied, message);
+            var movement = Assert.IsType<NpcMovement>(npc.Movement);
+
+            var from = state.Facility.Rooms[movement.FromRoomId];
+            var to = state.Facility.Rooms[movement.ToRoomId];
+
+            var exitGlobal = ToGlobal(from, movement.ExitX, movement.ExitY);
+            var entryGlobal = ToGlobal(to, movement.EntryX, movement.EntryY);
+
+            Assert.InRange(Math.Abs(exitGlobal.X - entryGlobal.X), 0, 0.001);
+            Assert.InRange(Math.Abs(exitGlobal.Y - entryGlobal.Y), 0, 0.001);
+        }
+    }
+
+    [Fact]
+    public void ConnectorHallways_AreStraightOrthogonalBranchesOffTheMainCorridor()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var corridor = state.Facility.Rooms["corridor"];
+
+        foreach (var hallway in state.Facility.Rooms.Values
+                     .Where(room => room.Id.StartsWith("hall-", StringComparison.OrdinalIgnoreCase)))
+        {
+            var connectedDoors = state.Facility.Doors
+                .Where(door => door.RoomAId == hallway.Id || door.RoomBId == hallway.Id)
+                .ToList();
+
+            Assert.Equal(2, connectedDoors.Count);
+
+            var otherRoomIds = connectedDoors
+                .Select(door => door.RoomAId == hallway.Id ? door.RoomBId : door.RoomAId)
+                .ToList();
+
+            Assert.Contains("corridor", otherRoomIds);
+
+            var functionalRoomId = Assert.Single(
+                otherRoomIds.Where(id => !id.Equals("corridor", StringComparison.OrdinalIgnoreCase)));
+            var functionalRoom = state.Facility.Rooms[functionalRoomId];
+
+            if (hallway.MapHeight >= hallway.MapWidth)
+            {
+                Assert.Equal(functionalRoom.MapX, hallway.MapX, 6);
+                Assert.InRange(
+                    hallway.MapX,
+                    corridor.MapX - corridor.MapWidth / 2,
+                    corridor.MapX + corridor.MapWidth / 2);
+            }
+            else
+            {
+                Assert.Equal(functionalRoom.MapY, hallway.MapY, 6);
+                Assert.InRange(
+                    hallway.MapY,
+                    corridor.MapY - corridor.MapHeight / 2,
+                    corridor.MapY + corridor.MapHeight / 2);
+            }
+        }
+    }
+
+    private static (double X, double Y) ToGlobal(
+        Room room,
+        double localX,
+        double localY) =>
+        (
+            room.MapX + (((localX - 50) / 100) * room.MapWidth),
+            room.MapY + (((localY - 50) / 100) * room.MapHeight)
+        );
+
 }
