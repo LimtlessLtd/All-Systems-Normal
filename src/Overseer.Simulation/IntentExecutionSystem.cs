@@ -58,6 +58,10 @@ public sealed class IntentExecutionSystem
                     ExecuteSocialIntent(state, npc, intent);
                     break;
 
+                case ActionKind.ShutdownOverseer:
+                    ExecuteShutdownIntent(state, npc, intent);
+                    break;
+
                 case ActionKind.Idle:
                     npc.CurrentAction = new NpcAction(
                         ActionKind.Idle,
@@ -84,6 +88,30 @@ public sealed class IntentExecutionSystem
                     break;
             }
         }
+    }
+
+    private void ExecuteShutdownIntent(GameState state, Npc npc, NpcIntent intent)
+    {
+        var mechanism = state.ShutdownMechanisms.FirstOrDefault(m =>
+            m.IsOnline && m.Id.Equals(intent.TargetId, StringComparison.OrdinalIgnoreCase));
+        if (mechanism is null || !npc.KnowsShutdownControl)
+        {
+            FailIntent(npc, "I cannot identify a usable shutdown control.");
+            return;
+        }
+
+        if (npc.CurrentRoomId.Equals(mechanism.RoomId, StringComparison.OrdinalIgnoreCase))
+        {
+            if (_actions.TryApply(state, npc.Id,
+                new NpcAction(ActionKind.ShutdownOverseer, mechanism.Id, intent.Reason), out _))
+            {
+                npc.RoutineUntil = TimeSpan.Zero;
+                npc.Intent = null;
+            }
+            return;
+        }
+
+        MoveTowardRoom(state, npc, intent, mechanism.RoomId);
     }
 
     private void ExecuteRoomIntent(GameState state, Npc npc, NpcIntent intent)
