@@ -78,6 +78,66 @@ public sealed class StationGeometryTests
         }
     }
 
+
+    [Fact]
+    public void FunctionalRooms_DominateTheDeckCanvas()
+    {
+        var rooms = FacilitySeeder.CreateDefault().Facility.Rooms.Values;
+
+        var functionalRoomArea = rooms
+            .Where(room => room.Type != RoomType.Corridor)
+            .Sum(room => room.MapWidth * room.MapHeight);
+
+        var corridorArea = rooms
+            .Where(room => room.Type == RoomType.Corridor)
+            .Sum(room => room.MapWidth * room.MapHeight);
+
+        Assert.True(
+            functionalRoomArea >= 7_000,
+            $"Functional rooms occupy only {functionalRoomArea / 100:0.0}% of the deck canvas.");
+        Assert.True(
+            corridorArea <= 600,
+            $"Corridors occupy {corridorArea / 100:0.0}% of the deck canvas.");
+    }
+
+    [Fact]
+    public void FunctionalRooms_DoNotOverlapEachOther()
+    {
+        var rooms = FacilitySeeder.CreateDefault().Facility.Rooms.Values
+            .Where(room => room.Type != RoomType.Corridor)
+            .ToList();
+
+        for (var firstIndex = 0; firstIndex < rooms.Count; firstIndex++)
+        {
+            for (var secondIndex = firstIndex + 1; secondIndex < rooms.Count; secondIndex++)
+            {
+                var first = rooms[firstIndex];
+                var second = rooms[secondIndex];
+
+                Assert.InRange(
+                    StationGeometry.InteriorOverlapArea(first, second),
+                    0,
+                    0.000001);
+            }
+        }
+    }
+
+    [Fact]
+    public void CorridorsUseOnlyRestrainedWindowSeatingAndCameraFixtures()
+    {
+        var corridorFixtures = FacilitySeeder.CreateDefault().Facility.Rooms.Values
+            .Where(room => room.Type == RoomType.Corridor)
+            .SelectMany(room => room.Fixtures)
+            .ToList();
+
+        Assert.NotEmpty(corridorFixtures);
+        Assert.All(
+            corridorFixtures,
+            fixture => Assert.Contains(
+                fixture.Type,
+                new[] { FixtureType.Window, FixtureType.Bench, FixtureType.Camera }));
+    }
+
     [Fact]
     public void SeededFixturesAndInteractionAnchors_StayInsideTheirRooms()
     {

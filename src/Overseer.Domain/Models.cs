@@ -32,6 +32,8 @@ public enum FixtureType
     Bed,
     Table,
     Chair,
+    Bench,
+    Window,
     Console,
     MedicalBed,
     TreatmentUnit,

@@ -16,26 +16,30 @@ public static class FacilitySeeder
         // Airlock and Overseer Isolation sit at the west/east ends of the spine
         // and use short east/west access corridors. No connector corridor passes
         // through another functional room.
-        AddRoom(facility, "quarters", "Crew Quarters", RoomType.CrewQuarters, 10, 15, 13, 13);
-        AddRoom(facility, "kitchen", "Kitchen", RoomType.Kitchen, 26, 15, 13, 13);
-        AddRoom(facility, "lounge", "Recreation Lounge", RoomType.Recreation, 42, 15, 13, 13);
-        AddRoom(facility, "hydroponics", "Hydroponics Bay", RoomType.Hydroponics, 58, 15, 13, 13);
-        AddRoom(facility, "medical", "Medical", RoomType.Medical, 74, 15, 13, 13);
-        AddRoom(facility, "control", "Control Room", RoomType.ControlRoom, 90, 15, 14, 13);
+        // V0.6D.1 room-dominant cutaway: functional rooms are the station.
+        // They deliberately occupy roughly three quarters of the entire deck
+        // canvas, while the circulation spine and short connector necks stay
+        // visually narrow. This makes the map read as a place people inhabit
+        // rather than a graph joined by oversized passages.
+        AddRoom(facility, "quarters", "Crew Quarters", RoomType.CrewQuarters, 9.5, 23, 15, 40);
+        AddRoom(facility, "kitchen", "Kitchen", RoomType.Kitchen, 25.5, 23, 15, 40);
+        AddRoom(facility, "lounge", "Recreation Lounge", RoomType.Recreation, 41.5, 23, 15, 40);
+        AddRoom(facility, "hydroponics", "Hydroponics Bay", RoomType.Hydroponics, 57.5, 23, 15, 40);
+        AddRoom(facility, "medical", "Medical", RoomType.Medical, 73.5, 23, 15, 40);
+        AddRoom(facility, "control", "Control Room", RoomType.ControlRoom, 90, 23, 16, 40);
 
-        // Leave a real service neck between each end-cap room and the main
-        // corridor. Earlier geometry placed these rooms directly against the
-        // spine while still forcing a minimum hallway length, which made the
-        // hallway render inside both spaces.
-        AddRoom(facility, "airlock", "Airlock", RoomType.Airlock, 2.5, 50, 5, 12);
-        AddRoom(facility, "corridor", "Central Corridor", RoomType.Corridor, 50, 50, 82, 10);
-        AddRoom(facility, "isolation", "Overseer Isolation", RoomType.ControlRoom, 97.5, 50, 5, 12);
+        // The central spine is intentionally only a narrow circulation strip.
+        // End-cap rooms remain substantial enough to read as real spaces while
+        // retaining short horizontal service necks.
+        AddRoom(facility, "airlock", "Airlock", RoomType.Airlock, 4, 50, 6, 12);
+        AddRoom(facility, "corridor", "Central Corridor", RoomType.Corridor, 50, 50, 82, 5);
+        AddRoom(facility, "isolation", "Overseer Isolation", RoomType.ControlRoom, 96, 50, 6, 12);
 
-        AddRoom(facility, "washroom", "Washroom", RoomType.Washroom, 14, 85, 14, 13);
-        AddRoom(facility, "storage", "Storage", RoomType.Storage, 32, 85, 14, 13);
-        AddRoom(facility, "engineering", "Engineering", RoomType.Engineering, 50, 85, 16, 13);
-        AddRoom(facility, "generator", "Generator", RoomType.Generator, 68, 85, 15, 13);
-        AddRoom(facility, "reactor", "Reactor", RoomType.Reactor, 86, 85, 15, 13);
+        AddRoom(facility, "washroom", "Washroom", RoomType.Washroom, 10, 77, 16, 40);
+        AddRoom(facility, "storage", "Storage", RoomType.Storage, 27.5, 77, 17, 40);
+        AddRoom(facility, "engineering", "Engineering", RoomType.Engineering, 46.5, 77, 18, 40);
+        AddRoom(facility, "generator", "Generator", RoomType.Generator, 65.5, 77, 18, 40);
+        AddRoom(facility, "reactor", "Reactor", RoomType.Reactor, 86.25, 77, 21.5, 40);
 
         foreach (var roomId in new[]
         {
@@ -153,7 +157,7 @@ public static class FacilitySeeder
         string roomId,
         string corridorId)
     {
-        const double hallwayThickness = 3.4;
+        const double hallwayThickness = 1.8;
         const double tolerance = 0.001;
 
         var room = facility.Rooms[roomId];
@@ -378,25 +382,25 @@ public static class FacilitySeeder
         AddFixture(facility, "isolation", FixtureType.Console, "Isolation Console", 50, 82, 48, 12, 50, 82);
         AddFixture(facility, "isolation", FixtureType.UtilityPanel, "Hardline Disconnect", 50, 17, 48, 12);
 
-        // Main corridor and connector service detail. These remain physical
-        // fixtures but avoid blocking the walking lane.
-        AddFixture(facility, "corridor", FixtureType.UtilityPanel, "Security Panel", 12, 18, 8, 22);
-        AddFixture(facility, "corridor", FixtureType.UtilityPanel, "Utility Panel", 88, 82, 8, 22);
-        AddFixture(facility, "corridor", FixtureType.Vent, "Vent A", 34, 18, 8, 18);
-        AddFixture(facility, "corridor", FixtureType.Vent, "Vent B", 66, 82, 8, 18);
+        // Corridors stay deliberately restrained. Their only visible contents
+        // are windows, occasional seating and surveillance cameras; machines,
+        // utility cabinets and decorative clutter belong in the large rooms.
+        AddFixture(facility, "corridor", FixtureType.Window, "Observation Window A", 24, 16, 18, 12);
+        AddFixture(facility, "corridor", FixtureType.Window, "Observation Window B", 50, 84, 18, 12);
+        AddFixture(facility, "corridor", FixtureType.Window, "Observation Window C", 76, 16, 18, 12);
+        AddFixture(facility, "corridor", FixtureType.Bench, "Transit Bench West", 35, 72, 18, 18, 35, 72, FixtureUsePose.Sit, 0);
+        AddFixture(facility, "corridor", FixtureType.Bench, "Transit Bench East", 65, 28, 18, 18, 65, 28, FixtureUsePose.Sit, 180);
 
         foreach (var hallway in facility.Rooms.Values.Where(room =>
                      room.Id.StartsWith("hall-", StringComparison.OrdinalIgnoreCase)))
         {
             if (hallway.MapHeight >= hallway.MapWidth)
             {
-                AddFixture(facility, hallway.Id, FixtureType.Vent, "Service Vent", 18, 28, 18, 10);
-                AddFixture(facility, hallway.Id, FixtureType.UtilityPanel, "Access Panel", 82, 72, 18, 12);
+                AddFixture(facility, hallway.Id, FixtureType.Window, "Passage Window", 18, 50, 16, 46);
             }
             else
             {
-                AddFixture(facility, hallway.Id, FixtureType.Vent, "Service Vent", 28, 18, 10, 18);
-                AddFixture(facility, hallway.Id, FixtureType.UtilityPanel, "Access Panel", 72, 82, 12, 18);
+                AddFixture(facility, hallway.Id, FixtureType.Window, "Passage Window", 50, 18, 46, 16);
             }
         }
 

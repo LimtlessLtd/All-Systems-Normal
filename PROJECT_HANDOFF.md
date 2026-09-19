@@ -2526,3 +2526,28 @@ Recommended priorities:
 6. continue exposing useful counterplay information without giving the player omniscient crew knowledge
 
 After that, continue toward pressure/decompression/airlock topology, food/resources, private messaging/social claims, robots/security systems and the corporate experiment campaign layer.
+
+
+# V0.6D.1 UI ITERATION — ROOM-DOMINANT DECK
+
+Following playtest feedback, the station composition was rebalanced so the rooms themselves are the visual subject rather than the hallways/background.
+
+Completed:
+
+* functional rooms now occupy roughly 74% of the full 100×100 deck canvas
+* the central corridor is only 5% of deck height and connector necks are 1.8% thick
+* upper and lower room banks are approximately 40% of deck height each, giving machinery, furniture and future NPC activities far more screen space
+* end-cap Airlock and Overseer Isolation remain physically separate and connect through short horizontal necks
+* corridor visuals were deliberately simplified and visually subdued
+* corridor fixture content is now restricted to observation windows, occasional benches and cameras
+* new Window and Bench fixture types use the existing fixture system rather than hardcoded decorative HTML
+* benches carry Sit interaction metadata for future NPC animations
+* room title/status UI is now a small overlay; environment telemetry fades in only on hover/selection so interiors are not covered by dashboard text
+* map background grid contrast was reduced so empty background no longer competes with the station
+* regression tests now enforce:
+  * functional rooms occupy at least 70% of the deck canvas
+  * total corridor footprint stays below 6%
+  * functional rooms do not overlap each other
+  * corridors contain only restrained window/seating/camera fixtures
+
+The design direction is now: **large inhabited rooms connected by narrow passages**, not a corridor network with rooms attached.
