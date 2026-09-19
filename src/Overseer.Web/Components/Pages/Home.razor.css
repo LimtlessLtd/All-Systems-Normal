@@ -1170,3 +1170,706 @@ button.mini {
     background: rgba(72, 18, 23, .97);
     color: #fff0f0;
 }
+
+
+/* V0.6 visual refresh — clean top-down cartoon station */
+.game-shell {
+    --panel: #0d1922;
+    --panel-raised: #132630;
+    --line: #274552;
+    --line-bright: #3d6974;
+    --text: #edf9f7;
+    --muted: #91adb1;
+    --accent: #62e5d5;
+    --accent-soft: rgba(98, 229, 213, .13);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.command-bar,
+.panel {
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .18);
+}
+
+.command-bar {
+    border-color: rgba(75, 119, 132, .55);
+    background: rgba(9, 22, 30, .96);
+}
+
+.brand h1,
+.panel-heading h2,
+.room-name,
+.crew-initials,
+.status-strip strong {
+    font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+}
+
+button {
+    border-radius: 7px;
+    transition: transform .14s ease, filter .14s ease, border-color .14s ease, background .14s ease;
+}
+
+button:hover:not(:disabled) {
+    filter: brightness(1.08);
+}
+
+button:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.station-panel {
+    border-radius: 14px;
+}
+
+.station-map {
+    isolation: isolate;
+    background:
+        linear-gradient(rgba(129, 176, 184, .035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(129, 176, 184, .035) 1px, transparent 1px),
+        radial-gradient(circle at 50% 46%, rgba(80, 210, 198, .11), transparent 48%),
+        #07131b;
+    background-size: 24px 24px, 24px 24px, auto, auto;
+    box-shadow:
+        inset 0 18px 60px rgba(0, 0, 0, .22),
+        inset 0 -26px 70px rgba(0, 0, 0, .42);
+}
+
+/* Rooms read as miniature playable spaces rather than dashboard cards. */
+.room-node {
+    --room-accent: #5e8792;
+    padding: .44rem;
+    border: 2px solid color-mix(in srgb, var(--room-accent) 62%, #293d46);
+    border-radius: 9px;
+    background:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(145deg, rgba(255,255,255,.035), transparent 42%),
+        #14262f;
+    background-size: 14px 14px, 14px 14px, auto, auto;
+    box-shadow:
+        0 6px 12px rgba(0,0,0,.28),
+        inset 0 0 0 2px rgba(5, 15, 20, .48),
+        inset 0 -16px 28px rgba(0,0,0,.12);
+}
+
+.room-node::before {
+    inset: 5px;
+    border: 1px solid color-mix(in srgb, var(--room-accent) 20%, transparent);
+    border-radius: 5px;
+}
+
+.room-node:hover,
+.room-node.selected {
+    border-color: var(--accent);
+    background-color: #18313a;
+    box-shadow:
+        0 0 0 2px rgba(98,229,213,.13),
+        0 8px 18px rgba(0,0,0,.34),
+        inset 0 0 0 2px rgba(5, 15, 20, .42);
+}
+
+.room-node.selected {
+    z-index: 5;
+}
+
+.room-type-crewquarters { --room-accent: #72b8dc; }
+.room-type-kitchen { --room-accent: #efb76e; }
+.room-type-recreation { --room-accent: #b395ef; }
+.room-type-medical { --room-accent: #8cc8ef; }
+.room-type-controlroom { --room-accent: #5fe0d0; }
+.room-type-washroom { --room-accent: #76cfe9; }
+.room-type-storage { --room-accent: #9aaaaf; }
+.room-type-engineering { --room-accent: #e5a65d; }
+.room-type-generator { --room-accent: #f0c45c; }
+.room-type-reactor { --room-accent: #5cddc9; }
+.room-type-airlock { --room-accent: #93a6ae; }
+
+.room-titlebar {
+    position: relative;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 5px;
+    min-width: 0;
+    padding: 3px 5px;
+    border: 1px solid rgba(211, 238, 239, .12);
+    border-radius: 5px;
+    background: rgba(5, 15, 21, .72);
+    backdrop-filter: blur(3px);
+}
+
+.room-name {
+    min-width: 0;
+    font-size: clamp(.5rem, .68vw, .7rem);
+}
+
+.room-state-dot {
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    box-shadow: 0 0 7px currentColor;
+}
+
+.room-state-dot.healthy {
+    color: var(--accent);
+    background: currentColor;
+}
+
+.room-state-dot.warning {
+    color: var(--warning);
+    background: currentColor;
+}
+
+.room-state-dot.critical {
+    color: var(--danger);
+    background: currentColor;
+}
+
+.room-data {
+    position: relative;
+    z-index: 5;
+    width: fit-content;
+    margin-top: .28rem;
+    padding: 2px 4px;
+    border-radius: 4px;
+    background: rgba(4, 14, 20, .52);
+    font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+}
+
+.fixture {
+    border-width: 2px;
+    border-color: color-mix(in srgb, var(--room-accent) 35%, rgba(190, 217, 222, .25));
+    box-shadow:
+        0 2px 5px rgba(0,0,0,.22),
+        inset 0 0 0 1px rgba(255,255,255,.035);
+}
+
+.fixture-bed,
+.fixture-medicalbed,
+.fixture-sofa,
+.fixture-console,
+.fixture-workbench,
+.fixture-generator,
+.fixture-reactorcore,
+.fixture-kitchencounter {
+    filter: saturate(1.2);
+}
+
+.fixture-camera {
+    box-shadow:
+        0 0 0 2px rgba(5,18,24,.7),
+        0 0 10px rgba(92,225,210,.5);
+}
+
+.room-node.hallway {
+    --room-accent: #416f7a;
+    border-radius: 6px;
+    background:
+        linear-gradient(90deg, transparent 0 46%, rgba(92,225,210,.12) 47% 53%, transparent 54%),
+        repeating-linear-gradient(
+            0deg,
+            rgba(255,255,255,.025) 0 11px,
+            rgba(0,0,0,.025) 11px 22px),
+        #102029;
+}
+
+.room-node.hallway::after {
+    inset: 7%;
+    border: 0;
+    border-left: 1px solid rgba(92,225,210,.16);
+    border-right: 1px solid rgba(92,225,210,.16);
+}
+
+/* Doors are chunky readable hatches. */
+.map-door {
+    border: 2px solid #08151c;
+    border-radius: 5px;
+    box-shadow:
+        0 2px 6px rgba(0,0,0,.5),
+        inset 0 0 0 1px rgba(255,255,255,.16);
+}
+
+.map-door.open {
+    background: #66e5d5;
+}
+
+.map-door.closed {
+    background: #efbd63;
+}
+
+.map-door.locked {
+    background: #f07278;
+}
+
+/* Cartoon top-down crew. The token itself is invisible; the character is built
+   from simple layered body parts so it stays crisp at every zoom level. */
+.crew-token {
+    --suit: #b9ebe2;
+    --suit-dark: #4e958a;
+    --helmet: #d8f7f2;
+    --visor: #17333c;
+    width: 44px;
+    height: 52px;
+    min-height: 52px;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text);
+    box-shadow: none;
+    transition:
+        left var(--crew-step-duration, 2.65s) linear,
+        top var(--crew-step-duration, 2.65s) linear,
+        filter .16s ease;
+}
+
+.crew-token:hover,
+.crew-token.selected {
+    transform: translate(-50%, -50%);
+    border: 0;
+    filter: brightness(1.12);
+}
+
+.crew-token::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 48%;
+    width: 41px;
+    height: 41px;
+    transform: translate(-50%, -50%) scale(.82);
+    border: 2px solid transparent;
+    border-radius: 50%;
+    pointer-events: none;
+    transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+.crew-token:hover::before,
+.crew-token.selected::before {
+    transform: translate(-50%, -50%) scale(1);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(98,229,213,.12), 0 0 16px rgba(98,229,213,.18);
+}
+
+.role-commander {
+    --suit: #f0cf62;
+    --suit-dark: #a97728;
+    --helmet: #ffe79b;
+}
+
+.role-engineer {
+    --suit: #64c8f0;
+    --suit-dark: #2e789c;
+    --helmet: #b9e9fa;
+}
+
+.role-security {
+    --suit: #e69d64;
+    --suit-dark: #934f2f;
+    --helmet: #f6c39c;
+}
+
+.role-doctor {
+    --suit: #d3e9f6;
+    --suit-dark: #6a9ab7;
+    --helmet: #f0fbff;
+}
+
+.role-technician {
+    --suit: #72dbc3;
+    --suit-dark: #2c8d79;
+    --helmet: #baf3e5;
+}
+
+.role-scientist {
+    --suit: #b78be9;
+    --suit-dark: #7150a3;
+    --helmet: #dec9f6;
+}
+
+.crew-shadow {
+    position: absolute;
+    left: 50%;
+    top: 62%;
+    width: 27px;
+    height: 12px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: rgba(0,0,0,.38);
+    filter: blur(2px);
+    opacity: .8;
+}
+
+.person-icon {
+    position: absolute;
+    left: 50%;
+    top: 3px;
+    width: 34px;
+    height: 39px;
+    transform: translateX(-50%) rotate(var(--crew-facing, 0deg));
+    transform-origin: 50% 56%;
+    transition: transform .18s ease;
+    filter: drop-shadow(0 3px 2px rgba(0,0,0,.34));
+}
+
+.person-backpack {
+    position: absolute;
+    left: 10px;
+    top: 14px;
+    z-index: 1;
+    width: 14px;
+    height: 17px;
+    border: 2px solid #08151c;
+    border-radius: 6px;
+    background: var(--suit-dark);
+}
+
+.person-body {
+    position: absolute;
+    left: 8px;
+    top: 12px;
+    z-index: 3;
+    width: 18px;
+    height: 19px;
+    border: 2px solid #08151c;
+    border-radius: 8px 8px 7px 7px;
+    background:
+        linear-gradient(90deg, rgba(255,255,255,.18), transparent 34%),
+        var(--suit);
+}
+
+.person-head {
+    position: absolute;
+    left: 8px;
+    top: 0;
+    z-index: 6;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #08151c;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 35% 26%, rgba(255,255,255,.48) 0 12%, transparent 13%),
+        var(--helmet);
+}
+
+.person-visor {
+    position: absolute;
+    left: 4px;
+    top: 3px;
+    width: 8px;
+    height: 5px;
+    border: 1px solid rgba(5,15,20,.65);
+    border-radius: 50% 50% 45% 45%;
+    background: var(--visor);
+    opacity: .9;
+}
+
+.person-arm,
+.person-leg {
+    position: absolute;
+    z-index: 2;
+    border: 2px solid #08151c;
+    background: var(--suit);
+    transform-origin: 50% 2px;
+}
+
+.person-arm {
+    top: 14px;
+    width: 7px;
+    height: 16px;
+    border-radius: 5px;
+}
+
+.person-arm-left {
+    left: 3px;
+    transform: rotate(18deg);
+}
+
+.person-arm-right {
+    right: 3px;
+    transform: rotate(-18deg);
+}
+
+.person-leg {
+    top: 27px;
+    width: 8px;
+    height: 11px;
+    border-radius: 4px 4px 6px 6px;
+    background: var(--suit-dark);
+}
+
+.person-leg-left {
+    left: 8px;
+}
+
+.person-leg-right {
+    right: 8px;
+}
+
+.person-role-mark {
+    position: absolute;
+    right: 6px;
+    top: 17px;
+    z-index: 7;
+    display: grid;
+    place-items: center;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #08151c;
+    color: white;
+    font: 700 6px/1 ui-sans-serif, system-ui, sans-serif;
+}
+
+.crew-nameplate {
+    position: absolute;
+    left: 50%;
+    bottom: -10px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    transform: translateX(-50%);
+    padding: 2px 4px;
+    border: 1px solid #2c4b57;
+    border-radius: 5px;
+    background: rgba(5,15,21,.93);
+    box-shadow: 0 2px 5px rgba(0,0,0,.34);
+    white-space: nowrap;
+}
+
+.crew-initials {
+    position: static;
+    transform: none;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #e8f7f6;
+    font-size: .46rem;
+}
+
+.crew-motion-dot {
+    display: block;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #627a80;
+}
+
+.crew-token.is-walking .crew-motion-dot {
+    background: var(--accent);
+    box-shadow: 0 0 5px var(--accent);
+}
+
+.crew-token.is-busy .crew-motion-dot {
+    background: var(--warning);
+}
+
+.crew-token.is-social .crew-motion-dot {
+    background: #b995f1;
+}
+
+/* Walking is obvious but restrained: bobbing torso, alternating feet and arms. */
+.crew-token.is-walking .person-icon {
+    animation: crew-walk-bob .34s ease-in-out infinite alternate;
+}
+
+.crew-token.is-walking .person-leg-left {
+    animation: crew-leg-left .34s ease-in-out infinite alternate;
+}
+
+.crew-token.is-walking .person-leg-right {
+    animation: crew-leg-right .34s ease-in-out infinite alternate;
+}
+
+.crew-token.is-walking .person-arm-left {
+    animation: crew-arm-left .34s ease-in-out infinite alternate;
+}
+
+.crew-token.is-walking .person-arm-right {
+    animation: crew-arm-right .34s ease-in-out infinite alternate;
+}
+
+.crew-token.is-idle .person-body {
+    animation: crew-breathe 2.1s ease-in-out infinite;
+}
+
+.crew-token.is-busy .person-arm-right {
+    animation: crew-work-arm .52s ease-in-out infinite alternate;
+}
+
+.crew-token.is-social .person-arm-left,
+.crew-token.is-social .person-arm-right {
+    animation: crew-gesture .7s ease-in-out infinite alternate;
+}
+
+.crew-token.is-resting .person-icon {
+    opacity: .78;
+    transform: translateX(-50%) rotate(calc(var(--crew-facing, 0deg) + 78deg)) scale(.94);
+}
+
+@keyframes crew-walk-bob {
+    from { transform: translateX(-50%) translateY(0) rotate(var(--crew-facing, 0deg)); }
+    to { transform: translateX(-50%) translateY(-2px) rotate(var(--crew-facing, 0deg)); }
+}
+
+@keyframes crew-leg-left {
+    from { transform: translateY(1px) rotate(5deg); }
+    to { transform: translateY(-2px) rotate(-9deg); }
+}
+
+@keyframes crew-leg-right {
+    from { transform: translateY(-2px) rotate(9deg); }
+    to { transform: translateY(1px) rotate(-5deg); }
+}
+
+@keyframes crew-arm-left {
+    from { transform: rotate(27deg); }
+    to { transform: rotate(7deg); }
+}
+
+@keyframes crew-arm-right {
+    from { transform: rotate(-7deg); }
+    to { transform: rotate(-27deg); }
+}
+
+@keyframes crew-breathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.045); }
+}
+
+@keyframes crew-work-arm {
+    from { transform: rotate(-18deg); }
+    to { transform: rotate(-58deg); }
+}
+
+@keyframes crew-gesture {
+    from { transform: rotate(12deg); }
+    to { transform: rotate(38deg); }
+}
+
+.npc-bubble {
+    min-width: 82px;
+    max-width: 185px;
+    padding: 6px 9px;
+    border: 2px solid rgba(12, 31, 39, .48);
+    border-radius: 12px;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: .61rem;
+    font-weight: 700;
+    box-shadow: 0 5px 14px rgba(0,0,0,.34);
+    animation: bubble-arrive .18s ease-out both;
+}
+
+.npc-bubble.bubble-thought {
+    border-radius: 16px;
+}
+
+@keyframes bubble-arrive {
+    from { opacity: 0; transform: translateX(-50%) translateY(4px) scale(.94); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+.crew-token.deceased {
+    width: 39px;
+    height: 27px;
+    min-height: 27px;
+    border: 2px solid var(--danger);
+    border-radius: 10px;
+    background: rgba(47, 12, 17, .92);
+}
+
+/* Softer inspector cards: information stays dense without looking like a dev panel. */
+.environment-grid,
+.thought-card,
+.action-card,
+.belief-card,
+.relationship-card {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.environment-grid > div {
+    background: #142630;
+}
+
+.control-stack button,
+.door-control button {
+    border-radius: 7px;
+}
+
+@media (max-width: 760px) {
+    .game-shell {
+        padding: .4rem;
+    }
+
+    .command-bar,
+    .panel {
+        border-radius: 9px;
+    }
+
+    /* The clickable map replaces the redundant room list on small screens. */
+    .systems-panel {
+        display: none;
+    }
+
+    .station-map {
+        min-height: 565px;
+        background-size: 20px 20px, 20px 20px, auto, auto;
+    }
+
+    .room-node {
+        padding: .2rem;
+        border-radius: 7px;
+    }
+
+    .room-titlebar {
+        padding: 2px 3px;
+        border: 0;
+        background: rgba(4, 14, 19, .8);
+    }
+
+    .room-name {
+        font-size: .48rem;
+        letter-spacing: -.015em;
+    }
+
+    .room-data {
+        display: none;
+    }
+
+    .room-state-dot {
+        width: 5px;
+        height: 5px;
+    }
+
+    .crew-token {
+        width: 41px;
+        height: 49px;
+        min-height: 49px;
+    }
+
+    .npc-bubble {
+        max-width: 145px;
+        font-size: .58rem;
+    }
+
+    .map-footer {
+        font-size: .55rem;
+    }
+
+    .inspector-panel {
+        border-radius: 10px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .crew-token,
+    .crew-token *,
+    .npc-bubble {
+        animation: none !important;
+        transition: none !important;
+    }
+}
