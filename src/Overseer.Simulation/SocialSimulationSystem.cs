@@ -38,6 +38,16 @@ public sealed class SocialSimulationSystem
         var firstToSecond = first.Relationships[second.Name];
         var secondToFirst = second.Relationships[first.Name];
 
+        if (TryIntimacy(
+                state,
+                first,
+                second,
+                firstToSecond,
+                secondToFirst))
+        {
+            return;
+        }
+
         if (TryViolence(state, first, second, firstToSecond, minute, salt: 1)
             || TryViolence(state, second, first, secondToFirst, minute, salt: 2))
         {
@@ -53,14 +63,85 @@ public sealed class SocialSimulationSystem
 
         if (friction >= 85 && roll < 0.62)
         {
-            Argue(state, first, second, firstToSecond, secondToFirst);
+            Argue(state, first, second, firstToSecond, secondToFirst, minute);
             return;
         }
 
-        if (roll < 0.72)
+        var wantsCompany =
+            first.SocialNeed >= 34
+            || second.SocialNeed >= 34
+            || first.CurrentAction.Kind is ActionKind.Talk or ActionKind.Socialize
+            || second.CurrentAction.Kind is ActionKind.Talk or ActionKind.Socialize
+            || state.Facility.Rooms[first.CurrentRoomId].Type == RoomType.Recreation;
+
+        var socialChance = Math.Clamp(
+            0.16
+            + ((first.Personality.Sociability + second.Personality.Sociability) / 500),
+            0.16,
+            0.48);
+
+        if (wantsCompany && roll < socialChance)
         {
-            Socialize(state, first, second, firstToSecond, secondToFirst);
+            Socialize(state, first, second, firstToSecond, secondToFirst, minute);
         }
+    }
+
+    private static bool TryIntimacy(
+        GameState state,
+        Npc first,
+        Npc second,
+        Relationship firstToSecond,
+        Relationship secondToFirst)
+    {
+        if (state.Facility.Rooms[first.CurrentRoomId].Type != RoomType.CrewQuarters
+            || state.Elapsed < first.RoutineUntil
+            || state.Elapsed < second.RoutineUntil
+            || first.IntimacyNeed < 65
+            || second.IntimacyNeed < 65
+            || firstToSecond.Trust < 60
+            || secondToFirst.Trust < 60
+            || firstToSecond.Affinity < 65
+            || secondToFirst.Affinity < 65
+            || firstToSecond.Attraction < 55
+            || secondToFirst.Attraction < 55
+            || firstToSecond.Resentment >= 25
+            || secondToFirst.Resentment >= 25)
+        {
+            return false;
+        }
+
+        first.CurrentAction = new NpcAction(
+            ActionKind.Intimacy,
+            second.Name,
+            $"Spending consensual private time with {second.Name}.");
+        second.CurrentAction = new NpcAction(
+            ActionKind.Intimacy,
+            first.Name,
+            $"Spending consensual private time with {first.Name}.");
+
+        first.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(20);
+        second.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(20);
+
+        firstToSecond.Affinity = Clamp(firstToSecond.Affinity + 1.0);
+        secondToFirst.Affinity = Clamp(secondToFirst.Affinity + 1.0);
+        firstToSecond.Trust = Clamp(firstToSecond.Trust + 0.6);
+        secondToFirst.Trust = Clamp(secondToFirst.Trust + 0.6);
+
+        SetBubble(
+            first,
+            "Want some privacy?",
+            NpcBubbleKind.Speech,
+            state.Elapsed,
+            4);
+        SetBubble(
+            second,
+            "Yeah. Come on.",
+            NpcBubbleKind.Speech,
+            state.Elapsed,
+            4);
+
+        Log(state, $"{first.Name} and {second.Name} spend some private time together.");
+        return true;
     }
 
     private static void Socialize(
@@ -68,7 +149,8 @@ public sealed class SocialSimulationSystem
         Npc first,
         Npc second,
         Relationship firstToSecond,
-        Relationship secondToFirst)
+        Relationship secondToFirst,
+        int minute)
     {
         var warmth = 0.6
             + ((first.Personality.Sociability + second.Personality.Sociability) / 200);
@@ -79,6 +161,17 @@ public sealed class SocialSimulationSystem
         secondToFirst.Trust = Clamp(secondToFirst.Trust + 0.45);
         firstToSecond.Resentment = Clamp(firstToSecond.Resentment - 0.35);
         secondToFirst.Resentment = Clamp(secondToFirst.Resentment - 0.35);
+
+        if (firstToSecond.Affinity >= 62)
+        {
+            firstToSecond.Attraction = Clamp(firstToSecond.Attraction + 0.18);
+        }
+
+        if (secondToFirst.Affinity >= 62)
+        {
+            secondToFirst.Attraction = Clamp(secondToFirst.Attraction + 0.18);
+        }
+
         firstToSecond.Conversations++;
         secondToFirst.Conversations++;
 
@@ -91,6 +184,40 @@ public sealed class SocialSimulationSystem
             first.Name,
             $"Talking with {first.Name}.");
 
+        first.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(8);
+        second.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(8);
+
+        var lineIndex = (int)(StableRoll(minute, first.Name, second.Name, 31) * 5);
+        var firstLines = new[]
+        {
+            "How are you holding up?",
+            "Long shift.",
+            "Anything strange today?",
+            "You doing okay?",
+            "Got a minute?"
+        };
+        var secondLines = new[]
+        {
+            "I'm alright. You?",
+            "Tell me about it.",
+            "Nothing I can't handle.",
+            "Yeah. Just tired.",
+            "Sure. What's up?"
+        };
+
+        SetBubble(
+            first,
+            firstLines[Math.Clamp(lineIndex, 0, firstLines.Length - 1)],
+            NpcBubbleKind.Speech,
+            state.Elapsed,
+            4);
+        SetBubble(
+            second,
+            secondLines[Math.Clamp(lineIndex, 0, secondLines.Length - 1)],
+            NpcBubbleKind.Speech,
+            state.Elapsed,
+            4);
+
         if ((firstToSecond.Conversations + secondToFirst.Conversations) % 8 == 0)
         {
             Log(state, $"{first.Name} and {second.Name} spend time talking.");
@@ -102,7 +229,8 @@ public sealed class SocialSimulationSystem
         Npc first,
         Npc second,
         Relationship firstToSecond,
-        Relationship secondToFirst)
+        Relationship secondToFirst,
+        int minute)
     {
         var firstIncrease = 2.2 + (first.Personality.Temper / 40);
         var secondIncrease = 2.2 + (second.Personality.Temper / 40);
@@ -111,6 +239,8 @@ public sealed class SocialSimulationSystem
         secondToFirst.Resentment = Clamp(secondToFirst.Resentment + secondIncrease);
         firstToSecond.Trust = Clamp(firstToSecond.Trust - 1.4);
         secondToFirst.Trust = Clamp(secondToFirst.Trust - 1.4);
+        firstToSecond.Attraction = Clamp(firstToSecond.Attraction - 0.8);
+        secondToFirst.Attraction = Clamp(secondToFirst.Attraction - 0.8);
         first.Stress = Clamp(first.Stress + 2.5);
         second.Stress = Clamp(second.Stress + 2.5);
         firstToSecond.Arguments++;
@@ -124,6 +254,19 @@ public sealed class SocialSimulationSystem
             ActionKind.Argue,
             first.Name,
             $"Arguing with {first.Name}.");
+
+        first.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(7);
+        second.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(7);
+
+        var firstLine = StableRoll(minute, first.Name, second.Name, 55) < 0.5
+            ? "That's not what happened."
+            : "I'm done listening to this.";
+        var secondLine = StableRoll(minute, second.Name, first.Name, 56) < 0.5
+            ? "Don't put this on me."
+            : "Back off.";
+
+        SetBubble(first, firstLine, NpcBubbleKind.Speech, state.Elapsed, 4);
+        SetBubble(second, secondLine, NpcBubbleKind.Speech, state.Elapsed, 4);
 
         first.Memories.Add(new Memory(
             $"Argument with {second.Name}.",
@@ -181,6 +324,19 @@ public sealed class SocialSimulationSystem
             target.Name,
             $"Attacking {target.Name} after escalating conflict.");
 
+        SetBubble(
+            aggressor,
+            "Stay out of my way!",
+            NpcBubbleKind.Alert,
+            state.Elapsed,
+            3);
+        SetBubble(
+            target,
+            "Help!",
+            NpcBubbleKind.Alert,
+            state.Elapsed,
+            4);
+
         foreach (var witness in state.Crew.Where(npc =>
                      npc.IsAlive
                      && npc.Id != aggressor.Id
@@ -193,6 +349,13 @@ public sealed class SocialSimulationSystem
                 $"Witnessed {aggressor.Name} attack {target.Name}.",
                 state.Elapsed,
                 0.92));
+
+            SetBubble(
+                witness,
+                "What the hell?!",
+                NpcBubbleKind.Alert,
+                state.Elapsed,
+                3);
 
             if (witness.Relationships.TryGetValue(aggressor.Name, out var witnessRelationship))
             {
@@ -228,6 +391,20 @@ public sealed class SocialSimulationSystem
         }
 
         return true;
+    }
+
+    private static void SetBubble(
+        Npc npc,
+        string text,
+        NpcBubbleKind kind,
+        TimeSpan now,
+        int durationMinutes)
+    {
+        npc.Bubble = new NpcBubble(
+            text,
+            kind,
+            now,
+            now + TimeSpan.FromMinutes(durationMinutes));
     }
 
     private static double StableRoll(int minute, string first, string second, int salt)
