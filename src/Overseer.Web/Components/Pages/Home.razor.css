@@ -1873,3 +1873,132 @@ button:active:not(:disabled) {
         transition: none !important;
     }
 }
+
+
+/* Orthogonal station plan — corridors are now the real navigation spaces. */
+.connection-layer {
+    display: none;
+}
+
+.room-node.main-corridor {
+    z-index: 2;
+    padding: 0;
+    border: 2px solid #4c6d78;
+    border-radius: 7px;
+    background:
+        linear-gradient(
+            0deg,
+            transparent 0 26%,
+            rgba(98,229,213,.08) 27% 29%,
+            transparent 30% 70%,
+            rgba(98,229,213,.08) 71% 73%,
+            transparent 74%),
+        repeating-linear-gradient(
+            90deg,
+            rgba(255,255,255,.028) 0 18px,
+            rgba(0,0,0,.025) 18px 36px),
+        #10212a;
+    box-shadow:
+        inset 0 0 0 2px rgba(4,14,19,.55),
+        0 5px 12px rgba(0,0,0,.3);
+}
+
+.room-node.main-corridor::before {
+    inset: 10% 1%;
+    border: 0;
+    border-top: 1px solid rgba(151,205,210,.1);
+    border-bottom: 1px solid rgba(151,205,210,.1);
+    border-radius: 0;
+}
+
+.room-node.main-corridor::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    left: 2%;
+    right: 2%;
+    top: 50%;
+    border-top: 1px dashed rgba(98,229,213,.24);
+    pointer-events: none;
+}
+
+.room-node.main-corridor .room-titlebar,
+.room-node.main-corridor .room-data {
+    display: none;
+}
+
+.room-node.hallway {
+    overflow: visible;
+    border-color: #496b77;
+    box-shadow:
+        inset 0 0 0 2px rgba(4,14,19,.52),
+        0 3px 8px rgba(0,0,0,.28);
+}
+
+.room-node.hallway.hallway-vertical {
+    background:
+        linear-gradient(
+            90deg,
+            transparent 0 27%,
+            rgba(98,229,213,.1) 28% 31%,
+            transparent 32% 68%,
+            rgba(98,229,213,.1) 69% 72%,
+            transparent 73%),
+        repeating-linear-gradient(
+            0deg,
+            rgba(255,255,255,.025) 0 13px,
+            rgba(0,0,0,.02) 13px 26px),
+        #10212a;
+}
+
+.room-node.hallway.hallway-horizontal {
+    background:
+        linear-gradient(
+            0deg,
+            transparent 0 27%,
+            rgba(98,229,213,.1) 28% 31%,
+            transparent 32% 68%,
+            rgba(98,229,213,.1) 69% 72%,
+            transparent 73%),
+        repeating-linear-gradient(
+            90deg,
+            rgba(255,255,255,.025) 0 13px,
+            rgba(0,0,0,.02) 13px 26px),
+        #10212a;
+}
+
+.room-node.hallway.hallway-vertical::after {
+    content: "";
+    position: absolute;
+    inset: 2% 48%;
+    border: 0;
+    border-left: 1px dashed rgba(98,229,213,.22);
+    pointer-events: none;
+}
+
+.room-node.hallway.hallway-horizontal::after {
+    content: "";
+    position: absolute;
+    inset: 48% 2%;
+    border: 0;
+    border-top: 1px dashed rgba(98,229,213,.22);
+    pointer-events: none;
+}
+
+/* Corridor cameras are functional but kept visually quiet so the passage itself
+   reads clearly as a walkable space. */
+.room-node.hallway .fixture-camera,
+.room-node.main-corridor .fixture-camera {
+    opacity: .5;
+    transform: translate(-50%, -50%) scale(.72);
+}
+
+@media (max-width: 760px) {
+    .room-node.main-corridor {
+        border-radius: 5px;
+    }
+
+    .room-node.hallway {
+        border-radius: 4px;
+    }
+}
