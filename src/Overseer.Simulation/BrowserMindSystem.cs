@@ -67,8 +67,8 @@ public sealed class BrowserMindSystem
                     96);
             }
 
-            return Create(state, ActionKind.RequestHelp, null,
-                "Get emergency help.",
+            return Create(state, ActionKind.Idle, null,
+                "Shelter and call for emergency help.",
                 "The environment is dangerous and I cannot identify a safer room.",
                 98);
         }
