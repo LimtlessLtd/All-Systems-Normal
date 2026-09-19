@@ -48,11 +48,11 @@ public sealed class ActionResolver
             ActionKind.Intimacy => TryIntimacy(state, npc, action, out message),
             ActionKind.Investigate => SetAction(state, npc, action, "starts investigating", out message),
             ActionKind.Repair => SetAction(state, npc, action, "starts a repair attempt", out message),
-            ActionKind.Talk => SetAction(state, npc, action, "starts a conversation", out message),
-            ActionKind.Socialize => SetAction(state, npc, action, "socialises", out message),
-            ActionKind.Argue => SetAction(state, npc, action, "argues", out message),
+            ActionKind.Talk => TrySocialAction(state, npc, action, "starts a conversation", out message),
+            ActionKind.Socialize => TrySocialAction(state, npc, action, "socialises", out message),
+            ActionKind.Argue => TrySocialAction(state, npc, action, "argues", out message),
             ActionKind.Attack => SetAction(state, npc, action, "attacks", out message),
-            ActionKind.RequestHelp => SetAction(state, npc, action, "requests help", out message),
+            ActionKind.RequestHelp => TrySocialAction(state, npc, action, "requests help", out message),
             ActionKind.Idle => SetAction(state, npc, action, "waits", out message),
             _ => Fail("Unsupported action.", out message)
         };
@@ -139,6 +139,34 @@ public sealed class ActionResolver
         if (room.Type != requiredRoomType)
         {
             message = $"{npc.Name} needs an appropriate room to {verb}.";
+            return false;
+        }
+
+        return SetAction(state, npc, action, description, out message);
+    }
+
+    private static bool TrySocialAction(
+        GameState state,
+        Npc npc,
+        NpcAction action,
+        string description,
+        out string message)
+    {
+        if (string.IsNullOrWhiteSpace(action.TargetId))
+        {
+            message = $"{npc.Name} needs a specific person for this interaction.";
+            return false;
+        }
+
+        var target = state.Crew.FirstOrDefault(other =>
+            other.IsAlive
+            && other.Id != npc.Id
+            && other.CurrentRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
+            && other.Name.Equals(action.TargetId, StringComparison.OrdinalIgnoreCase));
+
+        if (target is null)
+        {
+            message = $"{action.TargetId} is not here anymore.";
             return false;
         }
 
