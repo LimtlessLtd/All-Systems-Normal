@@ -27,6 +27,7 @@ public sealed class IntentExecutionSystemTests
         new IntentExecutionSystem().Tick(state);
 
         Assert.Equal("corridor", marcus.CurrentRoomId);
+        Assert.Null(marcus.Movement);
         Assert.NotNull(marcus.Intent);
         Assert.Equal(ActionKind.Idle, marcus.CurrentAction.Kind);
         Assert.Contains("sealed", marcus.CurrentAction.Reason, StringComparison.OrdinalIgnoreCase);
@@ -53,8 +54,18 @@ public sealed class IntentExecutionSystemTests
 
         new IntentExecutionSystem().Tick(state);
 
-        Assert.Equal("corridor", marcus.CurrentRoomId);
+        Assert.Equal("airlock", marcus.CurrentRoomId);
+        Assert.NotNull(marcus.Movement);
+        Assert.Equal("corridor", marcus.Movement.ToRoomId);
         Assert.NotNull(marcus.Intent);
         Assert.Contains("Emma Voss", marcus.CurrentAction.Reason);
+
+        new LocalMovementSystem().Tick(
+            state,
+            TimeSpan.FromMinutes(2));
+
+        Assert.Equal("corridor", marcus.CurrentRoomId);
+        Assert.Null(marcus.Movement);
+        Assert.NotNull(marcus.Intent);
     }
 }

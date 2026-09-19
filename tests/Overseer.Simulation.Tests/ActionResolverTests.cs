@@ -6,7 +6,7 @@ namespace Overseer.Simulation.Tests;
 public sealed class ActionResolverTests
 {
     [Fact]
-    public void Move_SucceedsThroughAnOpenUnlockedDoor()
+    public void Move_SchedulesPhysicalMovementThroughAnOpenUnlockedDoor()
     {
         var state = FacilitySeeder.CreateDefault();
         var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
@@ -21,7 +21,10 @@ public sealed class ActionResolverTests
             out _);
 
         Assert.True(success);
-        Assert.Equal("corridor", sarah.CurrentRoomId);
+        Assert.Equal("engineering", sarah.CurrentRoomId);
+        Assert.NotNull(sarah.Movement);
+        Assert.Equal("corridor", sarah.Movement.ToRoomId);
+        Assert.Equal(ActionKind.Move, sarah.CurrentAction.Kind);
     }
 
     [Fact]
@@ -45,6 +48,7 @@ public sealed class ActionResolverTests
 
         Assert.False(success);
         Assert.Equal("engineering", sarah.CurrentRoomId);
+        Assert.Null(sarah.Movement);
         Assert.Contains("blocked", message, StringComparison.OrdinalIgnoreCase);
     }
 }

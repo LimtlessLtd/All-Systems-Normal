@@ -57,6 +57,26 @@ public sealed class ActionResolver
             return false;
         }
 
+        if (npc.Movement is { } existingMovement)
+        {
+            if (existingMovement.FromRoomId.Equals(
+                    npc.CurrentRoomId,
+                    StringComparison.OrdinalIgnoreCase)
+                && existingMovement.ToRoomId.Equals(
+                    targetRoom.Id,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                npc.CurrentAction = action;
+                message =
+                    $"{npc.Name} is already moving toward {targetRoom.Name}.";
+                return true;
+            }
+
+            message =
+                $"{npc.Name} is already committed to crossing {existingMovement.DoorId}.";
+            return false;
+        }
+
         if (npc.CurrentRoomId.Equals(targetRoom.Id, StringComparison.OrdinalIgnoreCase))
         {
             message = $"{npc.Name} is already in {targetRoom.Name}.";
@@ -78,11 +98,15 @@ public sealed class ActionResolver
         }
 
         var fromRoom = state.Facility.Rooms[npc.CurrentRoomId];
-        npc.CurrentRoomId = targetRoom.Id;
+
+        npc.Movement = MovementGeometry.CreateOrder(
+            door,
+            fromRoom,
+            targetRoom);
         npc.CurrentAction = action;
 
         message =
-            $"{npc.Name} crosses {door.Id} from {fromRoom.Name} to {targetRoom.Name}.";
+            $"{npc.Name} heads for {door.Id} en route to {targetRoom.Name}.";
         Log(state, message);
         return true;
     }

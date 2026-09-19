@@ -11,6 +11,7 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
     private readonly CrewRoutineSystem _crewRoutines = new();
     private readonly SocialSimulationSystem _social = new();
     private readonly IntentExecutionSystem _intentExecution = new();
+    private readonly LocalMovementSystem _movement = new();
     private readonly SimulationClock _clock = new();
 
     private int _mindCursor;
@@ -167,6 +168,7 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
         _intentExecution.Tick(State);
         _social.Tick(State);
         _crewRoutines.Tick(State);
+        _movement.Tick(State, TimeSpan.FromMinutes(1));
     }
 
     private async Task ThinkIfDueAsync(CancellationToken cancellationToken)

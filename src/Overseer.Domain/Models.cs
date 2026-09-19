@@ -95,6 +95,15 @@ public sealed record NpcIntent(
     string Source,
     TimeSpan CreatedAt);
 
+public sealed record NpcMovement(
+    string DoorId,
+    string FromRoomId,
+    string ToRoomId,
+    double ExitX,
+    double ExitY,
+    double EntryX,
+    double EntryY);
+
 public sealed record RoomFixture(
     FixtureType Type,
     string Label,
@@ -110,6 +119,13 @@ public sealed class Npc
     public required CrewRole Role { get; init; }
     public required string CurrentRoomId { get; set; }
     public required Personality Personality { get; init; }
+
+    // Local room coordinates in the 0..100 range. CurrentRoomId remains the
+    // authoritative containment state; these coordinates make movement physical
+    // without allowing rendering code to decide where a person really is.
+    public double PositionX { get; set; } = 50;
+    public double PositionY { get; set; } = 50;
+    public NpcMovement? Movement { get; set; }
 
     public double Health { get; set; } = 100;
     public double Hunger { get; set; } = 10;

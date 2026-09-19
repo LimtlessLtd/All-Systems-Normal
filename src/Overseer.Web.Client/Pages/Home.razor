@@ -495,24 +495,13 @@
     private string CrewStyle(Npc npc)
     {
         var room = Session.State.Facility.Rooms[npc.CurrentRoomId];
-        var occupants = Session.State.Crew
-            .Where(other => other.CurrentRoomId == npc.CurrentRoomId)
-            .OrderBy(other => other.Name)
-            .ToList();
-
-        var index = occupants.FindIndex(other => other.Id == npc.Id);
-        var offsets = new (double X, double Y)[]
-        {
-            (-2.4, -1.6),
-            (2.4, -1.6),
-            (-2.4, 1.8),
-            (2.4, 1.8),
-            (0, 0)
-        };
-        var offset = offsets[Math.Max(0, index) % offsets.Length];
+        var mapX = room.MapX
+            + (((npc.PositionX - 50) / 100) * room.MapWidth);
+        var mapY = room.MapY
+            + (((npc.PositionY - 50) / 100) * room.MapHeight);
 
         return FormattableString.Invariant(
-            $"left:{room.MapX + offset.X}%;top:{room.MapY + offset.Y}%;");
+            $"left:{mapX}%;top:{mapY}%;");
     }
 
     private string DoorStyle(Door door)

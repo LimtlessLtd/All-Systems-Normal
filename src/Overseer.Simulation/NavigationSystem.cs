@@ -22,48 +22,79 @@ public sealed class NavigationSystem
             return [startRoomId];
         }
 
-        var queue = new Queue<string>();
+        var frontier = new PriorityQueue<string, double>();
         var previous = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
         {
             [startRoomId] = null
         };
-
-        queue.Enqueue(startRoomId);
-
-        while (queue.Count > 0)
+        var costSoFar = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
         {
-            var current = queue.Dequeue();
+            [startRoomId] = 0
+        };
+
+        frontier.Enqueue(startRoomId, 0);
+
+        while (frontier.TryDequeue(out var current, out _))
+        {
+            if (current.Equals(targetRoomId, StringComparison.OrdinalIgnoreCase))
+            {
+                return Reconstruct(previous, targetRoomId);
+            }
 
             foreach (var door in facility.Doors.Where(door => door.IsPassable))
             {
-                string? neighbour = null;
+                var neighbour = OtherSide(door, current);
 
-                if (door.RoomAId.Equals(current, StringComparison.OrdinalIgnoreCase))
-                {
-                    neighbour = door.RoomBId;
-                }
-                else if (door.RoomBId.Equals(current, StringComparison.OrdinalIgnoreCase))
-                {
-                    neighbour = door.RoomAId;
-                }
-
-                if (neighbour is null || previous.ContainsKey(neighbour))
+                if (neighbour is null || !facility.Rooms.ContainsKey(neighbour))
                 {
                     continue;
                 }
 
-                previous[neighbour] = current;
+                var stepCost = Distance(
+                    facility.Rooms[current],
+                    facility.Rooms[neighbour]);
+                var newCost = costSoFar[current] + stepCost;
 
-                if (neighbour.Equals(targetRoomId, StringComparison.OrdinalIgnoreCase))
+                if (costSoFar.TryGetValue(neighbour, out var knownCost)
+                    && newCost >= knownCost)
                 {
-                    return Reconstruct(previous, targetRoomId);
+                    continue;
                 }
 
-                queue.Enqueue(neighbour);
+                costSoFar[neighbour] = newCost;
+                previous[neighbour] = current;
+
+                var priority = newCost + Distance(
+                    facility.Rooms[neighbour],
+                    facility.Rooms[targetRoomId]);
+
+                frontier.Enqueue(neighbour, priority);
             }
         }
 
         return [];
+    }
+
+    private static string? OtherSide(Door door, string roomId)
+    {
+        if (door.RoomAId.Equals(roomId, StringComparison.OrdinalIgnoreCase))
+        {
+            return door.RoomBId;
+        }
+
+        if (door.RoomBId.Equals(roomId, StringComparison.OrdinalIgnoreCase))
+        {
+            return door.RoomAId;
+        }
+
+        return null;
+    }
+
+    private static double Distance(Room first, Room second)
+    {
+        var dx = first.MapX - second.MapX;
+        var dy = first.MapY - second.MapY;
+        return Math.Sqrt((dx * dx) + (dy * dy));
     }
 
     private static IReadOnlyList<string> Reconstruct(

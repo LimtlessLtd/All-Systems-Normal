@@ -23,7 +23,22 @@ public sealed class NavigationSystemTests
     }
 
     [Fact]
-    public void ActionResolver_RecordsTheExactDoorCrossed()
+    public void FindPath_PrefersTheLowerPhysicalCostRoute()
+    {
+        var state = FacilitySeeder.CreateDefault();
+
+        var path = new NavigationSystem().FindPath(
+            state.Facility,
+            "control",
+            "reactor");
+
+        Assert.Equal(
+            new[] { "control", "corridor", "engineering", "reactor" },
+            path);
+    }
+
+    [Fact]
+    public void LocalMovement_RecordsTheExactDoorCrossed()
     {
         var state = FacilitySeeder.CreateDefault();
         var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
@@ -35,10 +50,23 @@ public sealed class NavigationSystemTests
                 ActionKind.Move,
                 "airlock",
                 "Inspecting the airlock."),
-            out var message);
+            out _);
 
         Assert.True(success);
-        Assert.Contains("door-airlock-corridor", message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("door-airlock-corridor", state.EventLog[0], StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("corridor", marcus.CurrentRoomId);
+
+        new LocalMovementSystem().Tick(
+            state,
+            TimeSpan.FromMinutes(2));
+
+        Assert.Equal("airlock", marcus.CurrentRoomId);
+        Assert.Contains(
+            "door-airlock-corridor",
+            state.EventLog[0],
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "crosses",
+            state.EventLog[0],
+            StringComparison.OrdinalIgnoreCase);
     }
 }
