@@ -139,6 +139,9 @@ public sealed class LocalMovementSystem
             ActionKind.Shower => room.Fixtures.FirstOrDefault(fixture =>
                 fixture.Type == FixtureType.Shower),
 
+            ActionKind.UseToilet => room.Fixtures.FirstOrDefault(fixture =>
+                fixture.Type == FixtureType.Toilet),
+
             ActionKind.Work or ActionKind.Repair => room.Fixtures.FirstOrDefault(fixture =>
                 fixture.Type is FixtureType.Workbench
                     or FixtureType.Console
