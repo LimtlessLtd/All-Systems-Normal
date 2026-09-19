@@ -65,6 +65,14 @@ public sealed class BrowserMindSystem
                 72);
         }
 
+        if (npc.BladderNeed >= 72)
+        {
+            return Create(state, ActionKind.UseToilet, null,
+                "Use the washroom.",
+                "I really need the toilet.",
+                82);
+        }
+
         if (npc.HygieneNeed >= 60)
         {
             return Create(state, ActionKind.Shower, null,
