@@ -65,16 +65,10 @@ public sealed class IntentExecutionSystem
                     npc.Intent = null;
                     break;
 
-                // Intimacy is deliberately not directly granted by a mind model.
-                // Reciprocal attraction/trust and both people's current needs are
-                // validated by the deterministic social simulation.
+                // Only the deterministic routine/social layer creates this
+                // intent. Final mutual-interest checks happen again on arrival.
                 case ActionKind.Intimacy:
-                    npc.Intent = intent with
-                    {
-                        Action = ActionKind.Socialize,
-                        Goal = $"Spend time with {intent.TargetId}",
-                        Reason = $"{intent.Reason} I will spend time with them and see how they respond."
-                    };
+                    ExecuteIntimacyIntent(state, npc, intent);
                     break;
 
                 // Violence remains simulation-controlled. LLMs may express anger,
@@ -128,6 +122,93 @@ public sealed class IntentExecutionSystem
         }
 
         var path = _navigation.FindPath(state.Facility, npc.CurrentRoomId, targetRoomId);
+
+        if (path.Count < 2)
+        {
+            npc.CurrentAction = new NpcAction(
+                ActionKind.Idle,
+                targetRoomId,
+                $"I want to: {intent.Goal}, but every known route is sealed.");
+            return;
+        }
+
+        _actions.TryApply(
+            state,
+            npc.Id,
+            new NpcAction(
+                ActionKind.Move,
+                path[1],
+                $"Pursuing goal: {intent.Goal}"),
+            out _);
+    }
+
+    private void ExecuteIntimacyIntent(
+        GameState state,
+        Npc npc,
+        NpcIntent intent)
+    {
+        if (string.IsNullOrWhiteSpace(intent.TargetId))
+        {
+            FailIntent(npc, "I need a specific consenting partner.");
+            return;
+        }
+
+        var partner = state.Crew.FirstOrDefault(other =>
+            other.IsAlive
+            && other.Id != npc.Id
+            && other.Name.Equals(intent.TargetId, StringComparison.OrdinalIgnoreCase));
+
+        if (partner is null)
+        {
+            FailIntent(npc, $"I cannot find {intent.TargetId}.");
+            return;
+        }
+
+        if (!npc.CurrentRoomId.Equals("quarters", StringComparison.OrdinalIgnoreCase))
+        {
+            MoveTowardRoom(state, npc, intent, "quarters");
+            return;
+        }
+
+        if (!partner.CurrentRoomId.Equals("quarters", StringComparison.OrdinalIgnoreCase))
+        {
+            npc.CurrentAction = new NpcAction(
+                ActionKind.Idle,
+                partner.Name,
+                $"Waiting in crew quarters for {partner.Name}.");
+            return;
+        }
+
+        if (_actions.TryApply(
+                state,
+                npc.Id,
+                new NpcAction(ActionKind.Intimacy, partner.Name, intent.Reason),
+                out _))
+        {
+            npc.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(20);
+            npc.Bubble = new NpcBubble(
+                "Some privacy, please.",
+                NpcBubbleKind.Speech,
+                state.Elapsed,
+                state.Elapsed + TimeSpan.FromMinutes(4));
+            npc.Intent = null;
+        }
+        else
+        {
+            FailIntent(npc, "Private time no longer feels mutually right.");
+        }
+    }
+
+    private void MoveTowardRoom(
+        GameState state,
+        Npc npc,
+        NpcIntent intent,
+        string targetRoomId)
+    {
+        var path = _navigation.FindPath(
+            state.Facility,
+            npc.CurrentRoomId,
+            targetRoomId);
 
         if (path.Count < 2)
         {
