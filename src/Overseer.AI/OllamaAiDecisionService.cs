@@ -21,6 +21,7 @@ public sealed class OllamaAiDecisionService(
         ActionKind.Recreate,
         ActionKind.Groom,
         ActionKind.Shower,
+        ActionKind.UseToilet,
         ActionKind.Work,
         ActionKind.Investigate,
         ActionKind.Repair,
