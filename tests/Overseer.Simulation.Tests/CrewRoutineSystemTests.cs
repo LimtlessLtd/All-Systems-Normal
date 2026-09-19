@@ -45,6 +45,49 @@ public sealed class CrewRoutineSystemTests
     }
 
     [Fact]
+    public void UrgentBladderNeedChoosesTheWashroom()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+
+        david.BladderNeed = 90;
+        david.Hunger = 0;
+        david.Fatigue = 0;
+        state.Elapsed = TimeSpan.FromMinutes(5);
+
+        new CrewRoutineSystem().Tick(state);
+
+        Assert.NotNull(david.Movement);
+        Assert.Equal("hall-control", david.Movement.ToRoomId);
+        Assert.Contains("washroom", david.CurrentAction.Reason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void MutualIntimacyNeedCoordinatesBothPeopleTowardPrivacy()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+        var felix = state.Crew.Single(npc => npc.Name == "Felix Ward");
+
+        sarah.IntimacyNeed = 80;
+        felix.IntimacyNeed = 80;
+        sarah.Hunger = felix.Hunger = 0;
+        sarah.Fatigue = felix.Fatigue = 0;
+        sarah.BladderNeed = felix.BladderNeed = 0;
+        sarah.HygieneNeed = felix.HygieneNeed = 0;
+        state.Elapsed = TimeSpan.FromMinutes(5);
+
+        new CrewRoutineSystem().Tick(state);
+
+        Assert.NotNull(sarah.Intent);
+        Assert.NotNull(felix.Intent);
+        Assert.Equal(ActionKind.Intimacy, sarah.Intent!.Action);
+        Assert.Equal(ActionKind.Intimacy, felix.Intent!.Action);
+        Assert.Equal(felix.Name, sarah.Intent.TargetId);
+        Assert.Equal(sarah.Name, felix.Intent.TargetId);
+    }
+
+    [Fact]
     public void HygieneNeedChoosesTheWashroom()
     {
         var state = FacilitySeeder.CreateDefault();
