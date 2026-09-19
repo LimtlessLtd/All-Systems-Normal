@@ -147,16 +147,17 @@ public sealed class AiDecisionServiceTests
         door.IsOpen = false;
         door.IsLocked = true;
 
-        using var client = new StubChatClient(
-            $"""
+        var json = """
             {
               "Action": "ForceDoor",
-              "TargetId": "{{door.Id}}",
+              "TargetId": "__DOOR_ID__",
               "Goal": "Get this hatch open.",
               "Reason": "I need to get through despite the lock.",
               "Urgency": 88
             }
-            """);
+            """.Replace("__DOOR_ID__", door.Id, StringComparison.Ordinal);
+
+        using var client = new StubChatClient(json);
 
         var service = new OllamaAiDecisionService(
             client,
