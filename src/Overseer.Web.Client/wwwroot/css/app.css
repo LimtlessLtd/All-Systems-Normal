@@ -1,0 +1,1 @@
+html,body,#app{margin:0;min-height:100%;background:#081017}body{font-family:Arial,sans-serif}.boot{min-height:100vh;display:grid;place-items:center;color:#5ce1d2;font-family:Consolas,monospace;letter-spacing:.12em}#blazor-error-ui{display:none;background:#b32121;color:white;padding:1rem;position:fixed;bottom:0;width:100%;z-index:1000;box-sizing:border-box}

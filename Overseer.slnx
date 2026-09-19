@@ -1,2 +1,13 @@
 <Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Overseer.AI/Overseer.AI.csproj" />
+    <Project Path="src/Overseer.Domain/Overseer.Domain.csproj" />
+    <Project Path="src/Overseer.Persistence/Overseer.Persistence.csproj" />
+    <Project Path="src/Overseer.Simulation/Overseer.Simulation.csproj" />
+    <Project Path="src/Overseer.Web/Overseer.Web.csproj" />
+    <Project Path="src/Overseer.Web.Client/Overseer.Web.Client.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Overseer.Simulation.Tests/Overseer.Simulation.Tests.csproj" />
+  </Folder>
 </Solution>
