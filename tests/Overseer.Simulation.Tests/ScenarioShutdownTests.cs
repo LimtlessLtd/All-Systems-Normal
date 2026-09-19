@@ -20,6 +20,7 @@ public sealed class ScenarioShutdownTests
     {
         var state = FacilitySeeder.CreateDefault();
         var npc = state.Crew.First(n => n.KnowsShutdownControl);
+        npc.CurrentRoomId = "hall-isolation";
         var door = state.Facility.FindDoorBetween("isolation", "hall-isolation")!;
         door.IsOpen = false;
         door.IsLocked = true;
@@ -68,6 +69,97 @@ public sealed class ScenarioShutdownTests
         shutdown.Tick(state);
         Assert.Equal(ScenarioStatus.Failed, state.ScenarioStatus);
         Assert.Contains("Marcus Reed", state.ScenarioOutcome);
+    }
+
+    [Fact]
+    public void DoorRestriction_IsNotMagicallyObservedFromElsewhere()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(n => n.Name == "David Hale");
+        david.CurrentRoomId = "control";
+        var door = state.Facility.FindDoorBetween("isolation", "hall-isolation")!;
+        door.IsOpen = false;
+        door.IsLocked = true;
+
+        new SuspicionSystem().ObservePlayerDoorChange(state, door, true);
+
+        Assert.Equal(0, david.OverseerSuspicion);
+        Assert.Empty(david.OverseerEvidence);
+    }
+
+    [Fact]
+    public void CrewOverridableRoute_CanBePhysicallyForcedBySkilledCrew()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        ScenarioCatalog.Apply(state, new ScenarioDefinition(
+            "override", "OVERRIDE", "", ShutdownAccessVariant.CrewOverridable, []));
+
+        var marcus = state.Crew.Single(n => n.Name == "Marcus Reed");
+        marcus.CurrentRoomId = "corridor";
+        marcus.OverseerSuspicion = 90;
+        var door = state.Facility.FindDoorBetween("hall-isolation", "corridor")!;
+        door.IsOpen = false;
+        door.IsLocked = true;
+
+        new SuspicionSystem().Tick(state);
+        Assert.NotNull(marcus.Intent);
+
+        new IntentExecutionSystem().Tick(state);
+        Assert.Equal(ActionKind.OverrideDoor, marcus.CurrentAction.Kind);
+        Assert.Equal(door.Id, marcus.CurrentAction.TargetId);
+
+        var overrides = new ManualOverrideSystem();
+        overrides.Tick(state);
+        Assert.True(marcus.RoutineUntil > state.Elapsed);
+
+        state.Elapsed += TimeSpan.FromMinutes(door.ManualOverrideMinutes);
+        overrides.Tick(state);
+
+        Assert.True(door.IsManuallyOverridden);
+        Assert.True(door.IsPassable);
+        Assert.Equal(ActionKind.Idle, marcus.CurrentAction.Kind);
+    }
+
+    [Fact]
+    public void ImpossibleToSealRoute_RemovesOverseerDoorAuthority()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        ScenarioCatalog.Apply(state, new ScenarioDefinition(
+            "analogue", "ANALOGUE", "", ShutdownAccessVariant.ImpossibleToSeal, []));
+
+        var routeDoors = state.Facility.Doors.Where(d =>
+            d.Connects("isolation", "hall-isolation")
+            || d.Connects("hall-isolation", "corridor"));
+
+        Assert.All(routeDoors, door =>
+        {
+            Assert.False(door.IsAiControllable);
+            Assert.True(door.IsManuallyOverridden);
+            Assert.True(door.IsPassable);
+        });
+    }
+
+    [Fact]
+    public void UnskilledCrew_CannotForceCrewOverridableDoor()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        ScenarioCatalog.Apply(state, new ScenarioDefinition(
+            "override", "OVERRIDE", "", ShutdownAccessVariant.CrewOverridable, []));
+
+        var nadia = state.Crew.Single(n => n.Name == "Nadia Okafor");
+        nadia.CurrentRoomId = "corridor";
+        var door = state.Facility.FindDoorBetween("hall-isolation", "corridor")!;
+        door.IsOpen = false;
+        door.IsLocked = true;
+
+        var applied = new ActionResolver().TryApply(
+            state,
+            nadia.Id,
+            new NpcAction(ActionKind.OverrideDoor, door.Id, "Force it."),
+            out _);
+
+        Assert.False(applied);
+        Assert.False(door.IsManuallyOverridden);
     }
 
     [Fact]
