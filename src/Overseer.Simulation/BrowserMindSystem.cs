@@ -44,7 +44,13 @@ public sealed class BrowserMindSystem
             intent.Goal,
             NpcBubbleKind.Thought,
             state.Elapsed,
-            state.Elapsed + TimeSpan.FromMinutes(4));
+            state.Elapsed + TimeSpan.FromMinutes(3));
+
+        AudioCueSystem.Emit(
+            state,
+            AudioCueKind.Thought,
+            npc.Id.ToString(),
+            npc.CurrentRoomId);
     }
 
     private static NpcIntent Decide(Npc npc, GameState state)

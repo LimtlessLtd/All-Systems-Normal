@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @implements IAsyncDisposable
 @inject GameSession Session
+@inject IJSRuntime JS
 
 <PageTitle>All Systems Normal</PageTitle>
 
@@ -32,13 +33,13 @@
         </div>
 
         <div class="time-controls">
-            <button class="@(Session.IsRunning ? "danger" : "")" @onclick="ToggleRunAsync">
-                @(Session.IsRunning ? "PAUSE" : "RUN")
+            <span class="live-indicator">AUTO TURNS</span>
+            <button class="secondary @(_delayMs == 2800 ? "selected-speed" : "")" @onclick="() => SetSpeed(2800)">1×</button>
+            <button class="secondary @(_delayMs == 1600 ? "selected-speed" : "")" @onclick="() => SetSpeed(1600)">2×</button>
+            <button class="secondary @(_delayMs == 850 ? "selected-speed" : "")" @onclick="() => SetSpeed(850)">4×</button>
+            <button class="secondary sound-toggle @(_soundEnabled ? "sound-on" : "")" @onclick="ToggleSoundAsync">
+                @(_soundEnabled ? "SOUND ON" : "ENABLE SOUND")
             </button>
-            <button class="secondary" @onclick="() => SetSpeed(3000)">1×</button>
-            <button class="secondary" @onclick="() => SetSpeed(750)">4×</button>
-            <button class="secondary" @onclick="() => SetSpeed(250)">12×</button>
-            <button class="secondary" @onclick="() => StepMinutes(1)">+1m</button>
             <button class="secondary" @onclick="ResetGame">RESET</button>
         </div>
     </header>
@@ -95,8 +96,8 @@
                     <span class="overline">DECK A // INTERNAL SURVEILLANCE</span>
                     <h2>STATION OVERVIEW</h2>
                 </div>
-                <span class="@(Session.IsRunning ? "sim-running" : "sim-paused")">
-                    @(Session.IsRunning ? $"RUNNING {SpeedLabel}" : "PAUSED")
+                <span class="@(Session.State.ScenarioStatus == ScenarioStatus.Running ? "sim-running" : "sim-paused")">
+                    @TurnStatusLabel
                 </span>
             </div>
 
@@ -366,7 +367,9 @@
 @code {
     private string? _selectedRoomId = "control";
     private Guid? _selectedCrewId;
-    private int _delayMs = 3000;
+    private int _delayMs = 2800;
+    private bool _soundEnabled;
+    private long _lastAudioSequence;
     private CancellationTokenSource? _clockCts;
     private Task? _clockTask;
 
@@ -383,14 +386,21 @@
 
     private string SpeedLabel => _delayMs switch
     {
-        >= 2000 => "1×",
-        >= 500 => "4×",
-        _ => "12×"
+        >= 2200 => "1×",
+        >= 1200 => "2×",
+        _ => "4×"
+    };
+
+    private string TurnStatusLabel => Session.State.ScenarioStatus switch
+    {
+        ScenarioStatus.Won => "SCENARIO COMPLETE",
+        ScenarioStatus.Failed => "OVERSEER OFFLINE",
+        _ => $"LIVE TURNS {SpeedLabel}"
     };
 
     private string StationMapStyle =>
         FormattableString.Invariant(
-            $"--crew-step-duration:{(_delayMs >= 2000 ? 2.65 : _delayMs >= 500 ? 0.62 : 0.18)}s;");
+            $"--crew-step-duration:{(_delayMs >= 2200 ? 2.35 : _delayMs >= 1200 ? 1.25 : 0.62)}s;");
 
     private void SelectRoom(string roomId)
     {
@@ -404,17 +414,14 @@
         _selectedRoomId = null;
     }
 
-    private async Task StepMinutes(int minutes)
-    {
-        await Session.AdvanceMinutesAsync(minutes);
-    }
-
     private void ResetGame()
     {
         StopClock();
         Session.Reset();
         _selectedRoomId = "control";
         _selectedCrewId = null;
+        _lastAudioSequence = 0;
+        StartAutoClock();
     }
 
     private void SetSpeed(int delayMs)
@@ -422,26 +429,74 @@
         _delayMs = delayMs;
     }
 
-    private Task ToggleRunAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            StartAutoClock();
+        }
+
+        await PlayPendingAudioAsync();
+    }
+
+    private void StartAutoClock()
     {
         if (Session.IsRunning)
         {
-            StopClock();
-            return Task.CompletedTask;
+            return;
         }
 
         var (started, generation) = Session.StartClock();
 
         if (!started)
         {
-            return Task.CompletedTask;
+            return;
         }
 
         _clockCts?.Cancel();
         _clockCts?.Dispose();
         _clockCts = new CancellationTokenSource();
         _clockTask = RunClockAsync(generation, _clockCts.Token);
-        return Task.CompletedTask;
+    }
+
+    private async Task ToggleSoundAsync()
+    {
+        var next = !_soundEnabled;
+
+        if (next)
+        {
+            _lastAudioSequence = Session.State.AudioCues.LastOrDefault()?.Sequence ?? 0;
+        }
+
+        var enabled = await JS.InvokeAsync<bool>(
+            "overseerAudio.setEnabled",
+            next);
+
+        _soundEnabled = next && enabled;
+    }
+
+    private async Task PlayPendingAudioAsync()
+    {
+        if (!_soundEnabled)
+        {
+            return;
+        }
+
+        var pending = Session.State.AudioCues
+            .Where(cue => cue.Sequence > _lastAudioSequence)
+            .OrderBy(cue => cue.Sequence)
+            .Take(8)
+            .ToList();
+
+        foreach (var cue in pending)
+        {
+            await JS.InvokeVoidAsync(
+                "overseerAudio.play",
+                cue.Kind.ToString(),
+                cue.SourceId);
+
+            _lastAudioSequence = cue.Sequence;
+        }
     }
 
     private async Task RunClockAsync(long generation, CancellationToken cancellationToken)
@@ -452,14 +507,18 @@
             {
                 await Task.Delay(_delayMs, cancellationToken);
 
-                if (!await Session.TryAdvanceRunningAsync(
-                        generation,
-                        cancellationToken))
+                var keepRunning = await Session.TryAdvanceRunningAsync(
+                    generation,
+                    cancellationToken);
+
+                // Always render the resolved turn, including the terminal turn
+                // that may have just shut Overseer down.
+                await InvokeAsync(StateHasChanged);
+
+                if (!keepRunning)
                 {
                     break;
                 }
-
-                await InvokeAsync(StateHasChanged);
             }
         }
         catch (OperationCanceledException)
@@ -470,8 +529,8 @@
 
     private void StopClock()
     {
-        // Pause first. This invalidates every prior clock generation, so even a
-        // stale UI loop cannot advance simulation time after PAUSE.
+        // Invalidate the active turn generation before cancelling the UI loop
+        // so a stale loop can never advance simulation state.
         Session.PauseClock();
         _clockCts?.Cancel();
         _clockCts?.Dispose();
@@ -695,7 +754,9 @@
         && room.Id.StartsWith("hall-", StringComparison.OrdinalIgnoreCase);
 
     private NpcBubble? ActiveBubble(Npc npc) =>
-        npc.Bubble is { } bubble && bubble.ExpiresAt > Session.State.Elapsed
+        npc.Bubble is { } bubble
+        && bubble.CreatedAt <= Session.State.Elapsed
+        && bubble.ExpiresAt > Session.State.Elapsed
             ? bubble
             : null;
 

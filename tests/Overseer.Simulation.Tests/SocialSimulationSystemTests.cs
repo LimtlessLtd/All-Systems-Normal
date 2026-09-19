@@ -84,10 +84,15 @@ public sealed class SocialSimulationSystemTests
         Assert.Equal(ActionKind.Intimacy, felix.CurrentAction.Kind);
         Assert.Equal(felix.Name, sarah.CurrentAction.TargetId);
         Assert.Equal(sarah.Name, felix.CurrentAction.TargetId);
-        Assert.NotNull(sarah.Bubble);
-        Assert.NotNull(felix.Bubble);
-        Assert.Equal(NpcBubbleKind.Speech, sarah.Bubble!.Kind);
-        Assert.Equal(NpcBubbleKind.Speech, felix.Bubble!.Kind);
+        var pacing = new ConversationPacingSystem();
+        pacing.Tick(state);
+
+        var immediate = new[] { sarah, felix }.Count(npc => npc.Bubble is not null);
+        var queued = sarah.PendingBubbles.Count + felix.PendingBubbles.Count;
+
+        Assert.Equal(1, immediate);
+        Assert.Equal(1, queued);
+        Assert.Contains(state.AudioCues, cue => cue.Kind == AudioCueKind.Speech);
     }
 
     [Fact]
@@ -122,9 +127,50 @@ public sealed class SocialSimulationSystemTests
         }
 
         Assert.True(nadia.Relationships[david.Name].Conversations > 0);
-        Assert.NotNull(nadia.Bubble);
-        Assert.NotNull(david.Bubble);
-        Assert.Equal(NpcBubbleKind.Speech, nadia.Bubble!.Kind);
-        Assert.Equal(NpcBubbleKind.Speech, david.Bubble!.Kind);
+
+        var pacing = new ConversationPacingSystem();
+        pacing.Tick(state);
+
+        Assert.Equal(1, new[] { nadia, david }.Count(npc => npc.Bubble is not null));
+        Assert.Equal(1, nadia.PendingBubbles.Count + david.PendingBubbles.Count);
+        Assert.True(nadia.NextConversationAt > state.Elapsed);
+        Assert.True(david.NextConversationAt > state.Elapsed);
+    }
+
+    [Fact]
+    public void ScheduledReply_AppearsOnLaterTurnInsteadOfAtTheSameTime()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+        var felix = state.Crew.Single(npc => npc.Name == "Felix Ward");
+
+        ConversationPacingSystem.Schedule(
+            sarah,
+            "First line.",
+            NpcBubbleKind.Speech,
+            TimeSpan.FromMinutes(10),
+            1);
+        ConversationPacingSystem.Schedule(
+            felix,
+            "Reply.",
+            NpcBubbleKind.Speech,
+            TimeSpan.FromMinutes(12),
+            1);
+
+        var pacing = new ConversationPacingSystem();
+
+        state.Elapsed = TimeSpan.FromMinutes(10);
+        pacing.Tick(state);
+
+        Assert.Equal("First line.", sarah.Bubble?.Text);
+        Assert.Null(felix.Bubble);
+
+        state.Elapsed = TimeSpan.FromMinutes(12);
+        pacing.Tick(state);
+
+        Assert.Equal("Reply.", felix.Bubble?.Text);
+        Assert.Equal(
+            2,
+            state.AudioCues.Count(cue => cue.Kind == AudioCueKind.Speech));
     }
 }
