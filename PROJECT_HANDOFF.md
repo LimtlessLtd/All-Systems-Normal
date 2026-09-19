@@ -2196,6 +2196,37 @@ The existing stable Blazor @key identity fix remains intact.
 
 Next recommended milestone: **V0.6B — Human Counterplay & Richer Scenario Rules**. Make crew-overridable, hardwired/manual and impossible-to-seal variants mechanically distinct; add physical manual door overrides with skill/time/tool requirements; add investigation/discovery of shutdown hardware; make evidence more perception-limited and event-specific; propagate specific claims through conversations; add scenario success/secondary objectives/telemetry; expose suspicion/evidence in selected-crew UI; and expand regression coverage for those mechanics.
 
+# AUDIO & SOFT-TURN PACING PASS — COMPLETED
+
+The simulation presentation now uses automatically advancing **soft turns** rather than a player-facing pause/run loop:
+
+* the station begins advancing automatically and there is no pause button
+* the player can choose 1×, 2× or 4× turn pacing
+* simulation authority remains deterministic; one UI turn still advances one simulated minute
+* scenario failure/complete states stop automatic advancement cleanly
+* conversations are checked each turn but use deterministic varied cooldowns so humans do not all speak on the same fixed five-minute boundary
+* conversational replies are scheduled 1–3 turns apart instead of both speech bubbles appearing simultaneously
+* pending dialogue is presentation state only and cannot mutate physical world state
+* speech/thought bubbles only render once their scheduled start time has actually arrived
+
+A semantic audio cue stream now exists in shared simulation state:
+
+* **Speech** — short character-varied chatter chirps when a spoken line becomes visible
+* **Thought** — subtle cognitive cue
+* **Suspicion** — rising cue when a crew member crosses meaningful Overseer suspicion thresholds
+* **Warning** — arguments, dangerous/manual interventions, restrictive system actions
+* **Hostile** — violence begins
+* **Critical** — death / severe critical event
+* **Important** — crew commits to shutdown action or defeats an Overseer-controlled barrier
+* **Failure** — Overseer isolation / scenario failure
+* **System** — normal station control feedback
+
+Audio playback is implemented with local procedural Web Audio synthesis in both the deterministic GitHub Pages build and the full Ollama/server build. No external audio assets, credentials or network services are required. Browsers require a user gesture before audio can start, so the UI exposes an **ENABLE SOUND** control; enabling it deliberately skips old queued cues rather than blasting historical events.
+
+The semantic cue stream is bounded and sequence-numbered so UI playback cannot mutate or drive simulation state. The rule remains:
+
+> The LLM decides what an NPC WANTS. Deterministic C# decides what the NPC CAN do. Presentation decides how the player SEES and HEARS it.
+
 # ORTHOGONAL STATION CORRIDOR PASS — COMPLETED
 
 Deck A now uses a real orthogonal station plan rather than graph-like visual connections:
