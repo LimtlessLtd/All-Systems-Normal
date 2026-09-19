@@ -52,6 +52,13 @@ public sealed class GameSession
         }
 
         AdvanceCore();
+
+        if (State.ScenarioStatus != ScenarioStatus.Running)
+        {
+            _clock.Pause();
+            return false;
+        }
+
         return true;
     }
 
