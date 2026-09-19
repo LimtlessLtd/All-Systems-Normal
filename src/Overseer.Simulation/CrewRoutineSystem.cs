@@ -10,12 +10,18 @@ public sealed class CrewRoutineSystem
     private static readonly IReadOnlyDictionary<CrewRole, string[]> WorkRoutes =
         new Dictionary<CrewRole, string[]>
         {
-            [CrewRole.Commander] = ["control", "corridor", "control"],
-            [CrewRole.Engineer] = ["engineering", "reactor", "generator"],
-            [CrewRole.Security] = ["corridor", "airlock", "storage", "control"],
-            [CrewRole.Doctor] = ["medical", "medical", "storage"],
-            [CrewRole.Technician] = ["generator", "engineering", "storage"],
-            [CrewRole.Scientist] = ["reactor", "medical", "control"]
+            [CrewRole.Commander] =
+                ["control", "medical", "hydroponics", "engineering", "kitchen", "lounge", "quarters", "storage"],
+            [CrewRole.Engineer] =
+                ["engineering", "reactor", "generator", "hydroponics", "control", "storage", "airlock"],
+            [CrewRole.Security] =
+                ["corridor", "airlock", "storage", "quarters", "hydroponics", "medical", "control", "engineering"],
+            [CrewRole.Doctor] =
+                ["medical", "quarters", "hydroponics", "kitchen", "control", "storage", "lounge"],
+            [CrewRole.Technician] =
+                ["generator", "engineering", "storage", "hydroponics", "airlock", "control", "reactor", "medical"],
+            [CrewRole.Scientist] =
+                ["reactor", "hydroponics", "medical", "control", "storage", "engineering", "lounge", "kitchen"]
         };
 
     public void Tick(GameState state)
@@ -282,7 +288,7 @@ public sealed class CrewRoutineSystem
         }
 
         var route = WorkRoutes[npc.Role];
-        var phase = ((minute / 60) + (int)npc.Role) % route.Length;
+        var phase = ((minute / 30) + (int)npc.Role) % route.Length;
         var target = route[phase];
 
         return new(
@@ -292,7 +298,7 @@ public sealed class CrewRoutineSystem
             $"Heading to {state.Facility.Rooms[target].Name} for routine duties.",
             "Back to work.",
             DutyBubble(npc.Role),
-            45);
+            24);
     }
 
     private static Npc? BestCompanion(GameState state, Npc npc)
