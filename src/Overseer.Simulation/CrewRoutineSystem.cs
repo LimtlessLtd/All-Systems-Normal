@@ -29,6 +29,8 @@ public sealed class CrewRoutineSystem
             return;
         }
 
+        CoordinateMutualIntimacy(state);
+
         foreach (var npc in state.Crew.Where(npc => npc.IsAlive))
         {
             if (npc.Intent is not null
@@ -89,6 +91,96 @@ public sealed class CrewRoutineSystem
                 state.Elapsed,
                 4);
         }
+    }
+
+    private static void CoordinateMutualIntimacy(GameState state)
+    {
+        var available = state.Crew
+            .Where(npc =>
+                npc.IsAlive
+                && npc.Intent is null
+                && npc.Movement is null
+                && state.Elapsed >= npc.RoutineUntil
+                && npc.CurrentAction.Kind is not (ActionKind.Attack or ActionKind.RequestHelp))
+            .OrderBy(npc => npc.Name)
+            .ToList();
+
+        var paired = new HashSet<Guid>();
+
+        for (var i = 0; i < available.Count; i++)
+        {
+            var first = available[i];
+
+            if (paired.Contains(first.Id) || first.IntimacyNeed < 70)
+            {
+                continue;
+            }
+
+            for (var j = i + 1; j < available.Count; j++)
+            {
+                var second = available[j];
+
+                if (paired.Contains(second.Id)
+                    || second.IntimacyNeed < 70
+                    || !MutuallyInterested(first, second))
+                {
+                    continue;
+                }
+
+                first.Intent = new NpcIntent(
+                    ActionKind.Intimacy,
+                    second.Name,
+                    $"Find some private time with {second.Name}.",
+                    $"I want to be close to {second.Name}, and the feeling appears mutual.",
+                    68,
+                    "Routine",
+                    state.Elapsed);
+
+                second.Intent = new NpcIntent(
+                    ActionKind.Intimacy,
+                    first.Name,
+                    $"Find some private time with {first.Name}.",
+                    $"I want to be close to {first.Name}, and the feeling appears mutual.",
+                    68,
+                    "Routine",
+                    state.Elapsed);
+
+                SetBubble(
+                    first,
+                    "Want some time alone?",
+                    NpcBubbleKind.Speech,
+                    state.Elapsed,
+                    4);
+                SetBubble(
+                    second,
+                    "Yeah. Let's go.",
+                    NpcBubbleKind.Speech,
+                    state.Elapsed,
+                    4);
+
+                paired.Add(first.Id);
+                paired.Add(second.Id);
+                break;
+            }
+        }
+    }
+
+    private static bool MutuallyInterested(Npc first, Npc second)
+    {
+        if (!first.Relationships.TryGetValue(second.Name, out var firstToSecond)
+            || !second.Relationships.TryGetValue(first.Name, out var secondToFirst))
+        {
+            return false;
+        }
+
+        return firstToSecond.Trust >= 60
+            && secondToFirst.Trust >= 60
+            && firstToSecond.Affinity >= 65
+            && secondToFirst.Affinity >= 65
+            && firstToSecond.Attraction >= 55
+            && secondToFirst.Attraction >= 55
+            && firstToSecond.Resentment < 25
+            && secondToFirst.Resentment < 25;
     }
 
     private static RoutinePlan ChoosePlan(
