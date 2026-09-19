@@ -55,6 +55,8 @@ public sealed class ActionResolver
             ActionKind.RequestHelp => TrySocialAction(state, npc, action, "requests help", out message),
             ActionKind.ShutdownOverseer => TryShutdown(state, npc, action, out message),
             ActionKind.OverrideDoor => TryOverrideDoor(state, npc, action, out message),
+            ActionKind.ForceDoor => TryForceDoor(state, npc, action, out message),
+            ActionKind.RestoreSystem => TryRestoreSystem(state, npc, action, out message),
             ActionKind.Idle => SetAction(state, npc, action, "waits", out message),
             _ => Fail("Unsupported action.", out message)
         };
@@ -275,6 +277,101 @@ public sealed class ActionResolver
             npc,
             action,
             $"starts forcing the manual controls on {door.Id}",
+            out message);
+    }
+
+    private static bool TryForceDoor(
+        GameState state,
+        Npc npc,
+        NpcAction action,
+        out string message)
+    {
+        var door = state.Facility.Doors.FirstOrDefault(candidate =>
+            candidate.Id.Equals(action.TargetId, StringComparison.OrdinalIgnoreCase));
+
+        if (door is null)
+        {
+            message = "Force-door target does not exist.";
+            return false;
+        }
+
+        var adjacent =
+            npc.CurrentRoomId.Equals(door.RoomAId, StringComparison.OrdinalIgnoreCase)
+            || npc.CurrentRoomId.Equals(door.RoomBId, StringComparison.OrdinalIgnoreCase);
+
+        if (!adjacent)
+        {
+            message = $"{npc.Name} must physically reach {door.Id} before trying to open it.";
+            return false;
+        }
+
+        if (!door.CanBeForced)
+        {
+            message = $"{door.Id} cannot be defeated from this side.";
+            return false;
+        }
+
+        if (door.IsPassable)
+        {
+            message = $"{door.Id} is already passable.";
+            return false;
+        }
+
+        if (npc.CurrentAction.Kind == ActionKind.ForceDoor
+            && npc.CurrentAction.TargetId == door.Id)
+        {
+            message = $"{npc.Name} continues trying to open {door.Id}.";
+            return true;
+        }
+
+        npc.RoutineUntil = TimeSpan.Zero;
+        return SetAction(
+            state,
+            npc,
+            action,
+            $"starts trying to defeat {door.Id}",
+            out message);
+    }
+
+    private static bool TryRestoreSystem(
+        GameState state,
+        Npc npc,
+        NpcAction action,
+        out string message)
+    {
+        if (string.IsNullOrWhiteSpace(action.TargetId)
+            || !CrewCounterplaySystem.HasRestorableProblem(state, action.TargetId))
+        {
+            message = "That system does not currently need restoration.";
+            return false;
+        }
+
+        var requiredRoom = CrewCounterplaySystem.RequiredRoomForRestore(
+            state,
+            action.TargetId);
+
+        if (requiredRoom is null
+            || !npc.CurrentRoomId.Equals(
+                requiredRoom,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            message = $"{npc.Name} must physically reach the relevant controls first.";
+            return false;
+        }
+
+        if (npc.CurrentAction.Kind == ActionKind.RestoreSystem
+            && npc.CurrentAction.TargetId == action.TargetId)
+        {
+            message = $"{npc.Name} continues working on {action.TargetId}.";
+            return true;
+        }
+
+        npc.RoutineUntil = TimeSpan.Zero;
+        return SetAction(
+            state,
+            npc,
+            action,
+            $"starts restoring {action.TargetId}",
             out message);
     }
 
