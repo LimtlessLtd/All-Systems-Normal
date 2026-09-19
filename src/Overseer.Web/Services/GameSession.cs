@@ -316,16 +316,6 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
 
     private async Task ThinkIfDueAsync(CancellationToken cancellationToken)
     {
-        var minute = (int)Math.Floor(State.Elapsed.TotalMinutes);
-
-        // One mind every four simulated minutes. With six crew this gives each
-        // person a fresh deliberate thought roughly every 24 simulated minutes,
-        // while keeping local-model latency and token usage under control.
-        if (minute <= 0 || minute % 4 != 0)
-        {
-            return;
-        }
-
         var living = State.Crew
             .Where(npc => npc.IsAlive)
             .OrderBy(npc => npc.Name)
@@ -336,16 +326,68 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
             return;
         }
 
+        // Environmental danger is allowed to interrupt the normal cognition
+        // cadence. C# still does not choose the goal: it only asks the mind to
+        // reconsider immediately instead of leaving somebody committed to a
+        // 24-minute-old routine while their compartment becomes unsafe.
+        var emergencyNpc = living
+            .Where(npc =>
+            {
+                var room = State.Facility.Rooms[npc.CurrentRoomId];
+
+                return CrewEnvironmentSafety.IsDangerous(room)
+                    && !IsAlreadyEscapingToSaferRoom(npc, room);
+            })
+            .OrderByDescending(npc =>
+                CrewEnvironmentSafety.RiskScore(
+                    State.Facility.Rooms[npc.CurrentRoomId]))
+            .ThenBy(npc => npc.Name)
+            .FirstOrDefault();
+
+        if (emergencyNpc is not null)
+        {
+            emergencyNpc.Intent = null;
+            emergencyNpc.Movement = null;
+            emergencyNpc.RoutineUntil = TimeSpan.Zero;
+
+            await ThinkForNpcAsync(
+                emergencyNpc,
+                emergency: true,
+                cancellationToken);
+
+            return;
+        }
+
+        var minute = (int)Math.Floor(State.Elapsed.TotalMinutes);
+
+        // One ordinary mind every four simulated minutes. Emergency danger
+        // bypasses this cadence above.
+        if (minute <= 0 || minute % 4 != 0)
+        {
+            return;
+        }
+
         var npc = living[_mindCursor % living.Count];
         _mindCursor++;
 
-        // Do not let a fresh model call erase a goal that the human is already
+        // Do not let a routine model call erase a goal that the human is already
         // physically pursuing (including mutually coordinated social routines).
         if (npc.Intent is not null)
         {
             return;
         }
 
+        await ThinkForNpcAsync(
+            npc,
+            emergency: false,
+            cancellationToken);
+    }
+
+    private async Task ThinkForNpcAsync(
+        Npc npc,
+        bool emergency,
+        CancellationToken cancellationToken)
+    {
         var intent = await _aiDecisionService.DecideAsync(
             npc,
             State,
@@ -357,23 +399,35 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
         npc.LastThoughtAt = State.Elapsed;
         npc.Bubble = new NpcBubble(
             intent.Goal,
-            NpcBubbleKind.Thought,
+            emergency ? NpcBubbleKind.Alert : NpcBubbleKind.Thought,
             State.Elapsed,
-            State.Elapsed + TimeSpan.FromMinutes(3));
+            State.Elapsed + TimeSpan.FromMinutes(emergency ? 4 : 3));
 
         AudioCueSystem.Emit(
             State,
-            AudioCueKind.Thought,
+            emergency ? AudioCueKind.Warning : AudioCueKind.Thought,
             npc.Id.ToString(),
             npc.CurrentRoomId);
 
         npc.Memories.Add(new Memory(
             $"I decided to: {intent.Goal}",
             State.Elapsed,
-            Math.Clamp(intent.Urgency / 100d, 0.2, 0.75)));
+            Math.Clamp(intent.Urgency / 100d, 0.2, 0.85)));
 
         Log(
             $"{npc.Name} forms an intention [{intent.Source}]: {intent.Goal}");
+    }
+
+    private bool IsAlreadyEscapingToSaferRoom(Npc npc, Room currentRoom)
+    {
+        if (npc.Intent is not { Action: ActionKind.Move, TargetId: { } targetId }
+            || !State.Facility.Rooms.TryGetValue(targetId, out var targetRoom))
+        {
+            return false;
+        }
+
+        return CrewEnvironmentSafety.RiskScore(targetRoom)
+            < CrewEnvironmentSafety.RiskScore(currentRoom);
     }
 
     private void Log(string message)
