@@ -451,7 +451,7 @@
                         <div class="door-control">
                             <div>
                                 <strong>@other.Name</strong>
-                                <small>@(door.IsOpen ? "OPEN" : "CLOSED") · @(door.IsLocked ? "LOCKED" : "UNLOCKED") · @((door.IsAiControllable && !door.IsManuallyOverridden) ? "AI CTRL" : "MANUAL")</small>
+                                <small>@(door.IsOpen ? "OPEN" : "CLOSED") · @(door.IsLocked ? "LOCKED" : "UNLOCKED") · @((door.IsAiControllable && !door.IsManuallyOverridden) ? "AI CTRL" : "MANUAL")@(door.IsDamaged ? " · DAMAGED" : "")</small>
                             </div>
                             <div>
                                 <button class="mini" disabled="@(!door.IsAiControllable || door.IsManuallyOverridden)" @onclick="() => Session.ToggleDoor(door.Id)">
@@ -900,7 +900,8 @@
         if (!room.HasVisualFeed)
             return "UNKNOWN";
 
-        return Session.State.Crew.Count(npc => npc.CurrentRoomId == room.Id).ToString();
+        return Session.State.Crew.Count(npc =>
+            npc.IsPresent && npc.CurrentRoomId == room.Id).ToString();
     }
 
     public async ValueTask DisposeAsync()
