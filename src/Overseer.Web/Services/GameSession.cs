@@ -4,9 +4,12 @@ using Overseer.Simulation;
 
 namespace Overseer.Web.Services;
 
-public sealed class GameSession(IAiDecisionService aiDecisionService)
+public sealed class GameSession(
+    IAiDecisionService aiDecisionService,
+    IAiCrewGenerator crewGenerator)
 {
     private readonly IAiDecisionService _aiDecisionService = aiDecisionService;
+    private readonly IAiCrewGenerator _crewGenerator = crewGenerator;
     private readonly SimulationEngine _simulation = new();
     private readonly EnvironmentSystem _environment = new();
     private readonly VacuumConsequenceSystem _vacuum = new();
@@ -23,6 +26,7 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
     private readonly SimulationClock _clock = new();
 
     private int _mindCursor;
+    private bool _initialized;
 
     public GameState State { get; private set; } = FacilitySeeder.CreateDefault();
 
@@ -50,6 +54,19 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
             || room.PressureKpa < 90)
         + State.Facility.Rooms.Values.Count(room =>
             room.HasExteriorHatch && room.ExteriorHatchOpen);
+
+    public async Task InitializeAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (_initialized)
+        {
+            return;
+        }
+
+        var crew = await _crewGenerator.GenerateAsync(cancellationToken);
+        State = FacilitySeeder.CreateDefault(crew);
+        _initialized = true;
+    }
 
     public (bool Started, long Generation) StartClock() =>
         _clock.Start();
@@ -92,11 +109,14 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
         }
     }
 
-    public void Reset()
+    public async Task ResetAsync(
+        CancellationToken cancellationToken = default)
     {
         _clock.Pause();
         _mindCursor = 0;
-        State = FacilitySeeder.CreateDefault();
+        var crew = await _crewGenerator.GenerateAsync(cancellationToken);
+        State = FacilitySeeder.CreateDefault(crew);
+        _initialized = true;
     }
 
     public void ToggleDoor(string doorId)
