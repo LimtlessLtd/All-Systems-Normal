@@ -34,6 +34,6 @@ public sealed class CrewRoutineSystemTests
 
         Assert.Equal("engineering", sarah.CurrentRoomId);
         Assert.Equal(ActionKind.Idle, sarah.CurrentAction.Kind);
-        Assert.Contains("blocked", sarah.CurrentAction.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("sealed", sarah.CurrentAction.Reason, StringComparison.OrdinalIgnoreCase);
     }
 }
