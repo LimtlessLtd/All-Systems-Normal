@@ -22,7 +22,9 @@ public static class NpcPromptBuilder
         ActionKind.Talk,
         ActionKind.Socialize,
         ActionKind.Argue,
-        ActionKind.RequestHelp
+        ActionKind.RequestHelp,
+        ActionKind.ForceDoor,
+        ActionKind.RestoreSystem
     ];
 
     public static string Build(Npc npc, GameState state)
@@ -45,8 +47,35 @@ public static class NpcPromptBuilder
                     : door.IsLocked ? "locked"
                     : door.IsOpen ? "open"
                     : "closed";
-                return $"{other.Id} ({other.Name}): {doorState}";
+                return $"{door.Id} -> {other.Id} ({other.Name}): {doorState}"
+                    + (door.IsPassable ? "" : $" | force difficulty {door.ForceDifficulty} | technical difficulty {door.TechnicalDifficulty}");
             });
+
+        var skills = npc.Skills
+            .OrderByDescending(skill => skill.Value)
+            .Select(skill => $"{skill.Key} {skill.Value}");
+
+        var traits = npc.Traits
+            .Select(trait =>
+                $"{trait.Name}: {trait.Description} ["
+                + string.Join(", ", trait.Effects.Select(effect =>
+                    $"{effect.Kind} {(effect.Modifier >= 0 ? "+" : "")}{effect.Modifier}"))
+                + "]");
+
+        var disabledSystems = state.Facility.Rooms.Values
+            .Where(room =>
+                !room.IsPowered
+                || !room.CameraOnline
+                || (room.HasTemperatureControl && !room.TemperatureControlOnline)
+                || (room.HasVentilationControl && !room.VentilationEnabled)
+                || !room.LightsOn)
+            .Select(room => room.Id)
+            .ToList();
+
+        if (!state.LifeSupport.IsOnline)
+        {
+            disabledSystems.Add("life-support");
+        }
 
         var relationships = npc.Relationships.Values
             .OrderByDescending(r => r.Resentment)
@@ -84,12 +113,19 @@ public static class NpcPromptBuilder
         builder.AppendLine("You are not the station AI and you do not control reality.");
         builder.AppendLine("Use only the information below. Do not invent rooms, people, events, tools, or knowledge.");
         builder.AppendLine("Choose what this person genuinely wants to do next, including socially awkward or selfish choices when justified.");
-        builder.AppendLine("If the CURRENT ROOM is marked DANGER, survival should normally override routine work, recreation, or casual socialising: choose Move toward a safer reachable compartment when one exists.");
+        builder.AppendLine("If the CURRENT ROOM is marked DANGER, survival should normally override routine work, recreation, or casual socialising.");
+        builder.AppendLine("If a hatch blocks something you strongly want to do, you MAY choose ForceDoor for an adjacent blocked hatch. Whether it works is resolved later from skills, traits and chance.");
+        builder.AppendLine("If a disabled system matters enough to this person, you MAY choose RestoreSystem. Do not automatically repair every outage: personality, role, danger, relationships and priorities should decide whether you care enough to try.");
+        builder.AppendLine("Never assume ForceDoor or RestoreSystem succeeds. You are choosing the intention, not the physical result.");
         builder.AppendLine("Never choose Attack. Violence is resolved separately by the deterministic social simulation.");
         builder.AppendLine();
         builder.AppendLine($"NAME: {npc.Name}");
         builder.AppendLine($"ROLE: {npc.Role}");
         builder.AppendLine($"PERSONALITY: empathy {npc.Personality.Empathy:0}, temper {npc.Personality.Temper:0}, sociability {npc.Personality.Sociability:0}, courage {npc.Personality.Courage:0}");
+        builder.AppendLine($"SKILLS: {string.Join(", ", skills)}");
+        builder.AppendLine("MAIN TRAITS:");
+        if (npc.Traits.Count == 0) builder.AppendLine("- none");
+        else foreach (var trait in traits) builder.AppendLine($"- {trait}");
         builder.AppendLine($"NEEDS: health {npc.Health:0}, hunger {npc.Hunger:0}, fatigue {npc.Fatigue:0}, hygiene {npc.HygieneNeed:0}, bladder {npc.BladderNeed:0}, recreation {npc.RecreationNeed:0}, social {npc.SocialNeed:0}, intimacy {npc.IntimacyNeed:0}, fear {npc.Fear:0}, stress {npc.Stress:0}");
         builder.AppendLine($"CURRENT ROOM: {room.Id} ({room.Name})");
         builder.AppendLine($"ROOM STATE: power {(room.IsPowered ? "on" : "off")}, lights {(room.LightsOn ? "on" : "off")}, oxygen {room.OxygenPercent:0.00}%, CO2 {room.CarbonDioxidePercent:0.00}%, pressure {room.PressureKpa:0.0} kPa, temperature {room.TemperatureC:0.0}C, ventilation {(room.VentilationEnabled ? "open" : "isolated")}");
@@ -112,11 +148,18 @@ public static class NpcPromptBuilder
         builder.AppendLine("STATION STATUS-PANEL ROOM READINGS:");
         builder.AppendLine("These are the compartment readings currently available to this crew member; route status reflects passable hatches.");
         foreach (var knownRoom in rooms) builder.AppendLine($"- {knownRoom}");
+        builder.AppendLine();
+        builder.AppendLine("DISABLED SYSTEM TARGET IDS:");
+        builder.AppendLine(disabledSystems.Count == 0
+            ? "none"
+            : string.Join(", ", disabledSystems));
         builder.AppendLine("VALID PERSON TARGETS:");
         builder.AppendLine(string.Join(", ", livingCrew));
         builder.AppendLine();
         builder.AppendLine($"ALLOWED ACTIONS: {string.Join(", ", AllowedActions)}");
         builder.AppendLine("For Move/Investigate/Repair/Work, TargetId must be a valid room ID.");
+        builder.AppendLine("For ForceDoor, TargetId must be the exact ID of a currently connected blocked hatch listed above.");
+        builder.AppendLine("For RestoreSystem, TargetId must be one of the DISABLED SYSTEM TARGET IDS (room ID or life-support).");
         builder.AppendLine("For Talk/Socialize/Argue/RequestHelp, TargetId must be an exact living person's name.");
         builder.AppendLine("For Eat/Rest/Sleep/Recreate/Groom/Shower/UseToilet/Idle, TargetId should be null.");
         builder.AppendLine("Do not choose Intimacy directly. Attraction may inform social choices, but mutual consent is resolved by deterministic simulation.");

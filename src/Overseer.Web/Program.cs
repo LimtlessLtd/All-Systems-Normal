@@ -24,7 +24,9 @@ builder.Services.AddSingleton<IChatClient>(
     _ => new OllamaApiClient(new Uri(ollamaEndpoint), ollamaModel));
 
 builder.Services.AddSingleton<RuleBasedAiDecisionService>();
+builder.Services.AddSingleton<RuleBasedCrewGenerator>();
 builder.Services.AddSingleton<IAiDecisionService, OllamaAiDecisionService>();
+builder.Services.AddSingleton<IAiCrewGenerator, OllamaCrewGenerator>();
 
 // A Blazor Server game session is per browser circuit. Do not share station
 // state between different players by registering it as a singleton.

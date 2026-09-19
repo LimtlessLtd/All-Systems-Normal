@@ -4,7 +4,22 @@ namespace Overseer.Simulation;
 
 public static class FacilitySeeder
 {
-    public static GameState CreateDefault()
+    public static GameState CreateDefault() =>
+        CreateDefaultInternal(null);
+
+    public static GameState CreateDefault(IReadOnlyList<Npc> crew)
+    {
+        ArgumentNullException.ThrowIfNull(crew);
+
+        if (crew.Count == 0)
+        {
+            throw new ArgumentException("A station needs at least one crew member.", nameof(crew));
+        }
+
+        return CreateDefaultInternal(crew);
+    }
+
+    private static GameState CreateDefaultInternal(IReadOnlyList<Npc>? suppliedCrew)
     {
         var facility = new Facility();
 
@@ -54,30 +69,18 @@ public static class FacilitySeeder
         AddFixtures(facility);
         ConfigureEnvironmentControls(facility);
 
+        var innerAirlockDoor = facility.FindDoorBetween("airlock", "hall-airlock");
+        if (innerAirlockDoor is not null)
+        {
+            // A real airlock starts sealed from the station side. The player can
+            // deliberately open both hatches, but that becomes a decompression event.
+            innerAirlockDoor.IsOpen = false;
+        }
+
         var state = new GameState
         {
             Facility = facility,
-            Crew =
-            [
-                CreateCrew("David Hale", CrewRole.Commander, "control",
-                    new Personality(78, 35, 72, 70),
-                    ("Leadership", 92), ("Operations", 78)),
-                CreateCrew("Sarah Chen", CrewRole.Engineer, "engineering",
-                    new Personality(68, 48, 51, 76),
-                    ("Engineering", 96), ("Reactor", 91)),
-                CreateCrew("Marcus Reed", CrewRole.Security, "corridor",
-                    new Personality(44, 72, 47, 84),
-                    ("Security", 93), ("First Aid", 45)),
-                CreateCrew("Nadia Okafor", CrewRole.Doctor, "medical",
-                    new Personality(91, 24, 79, 61),
-                    ("Medicine", 97), ("Psychology", 81)),
-                CreateCrew("Felix Ward", CrewRole.Technician, "generator",
-                    new Personality(58, 63, 69, 72),
-                    ("Electrical", 90), ("Engineering", 72)),
-                CreateCrew("Emma Voss", CrewRole.Scientist, "reactor",
-                    new Personality(73, 41, 61, 55),
-                    ("Research", 95), ("Reactor", 76))
-            ]
+            Crew = suppliedCrew?.ToList() ?? CreateDemoCrew()
         };
 
         foreach (var npc in state.Crew)
@@ -100,24 +103,11 @@ public static class FacilitySeeder
             }
         }
 
-        // Mild pre-existing history makes social outcomes possible without
-        // scripting what must happen.
-        state.Crew.Single(npc => npc.Name == "Marcus Reed")
-            .Relationships["Emma Voss"].Resentment = 24;
-        state.Crew.Single(npc => npc.Name == "Emma Voss")
-            .Relationships["Marcus Reed"].Resentment = 18;
-
-        var sarahToFelix = state.Crew.Single(npc => npc.Name == "Sarah Chen")
-            .Relationships["Felix Ward"];
-        sarahToFelix.Trust = 66;
-        sarahToFelix.Affinity = 67;
-        sarahToFelix.Attraction = 64;
-
-        var felixToSarah = state.Crew.Single(npc => npc.Name == "Felix Ward")
-            .Relationships["Sarah Chen"];
-        felixToSarah.Trust = 68;
-        felixToSarah.Affinity = 69;
-        felixToSarah.Attraction = 66;
+        if (suppliedCrew is null)
+        {
+            ApplyDemoSocialHistory(state);
+            ApplyDemoTraits(state);
+        }
 
         foreach (var npc in state.Crew)
         {
@@ -126,7 +116,7 @@ public static class FacilitySeeder
 
         ScenarioCatalog.Apply(state, ScenarioCatalog.SecureContinuity);
         state.EventLog.Add("T+00:00: DIRECTIVE — SECURE CONTINUITY. Prevent crew activation of Emergency Overseer Isolation.");
-        state.EventLog.Add("T+00:00: ALL SYSTEMS NORMAL. Six crew members online.");
+        state.EventLog.Add($"T+00:00: ALL SYSTEMS NORMAL. {state.Crew.Count} crew members online.");
 
         return state;
     }
@@ -234,6 +224,88 @@ public static class FacilitySeeder
             RoomAId = roomAId,
             RoomBId = roomBId
         });
+    }
+
+    private static List<Npc> CreateDemoCrew() =>
+    [
+        CreateCrew("David Hale", CrewRole.Commander, "control",
+            new Personality(78, 35, 72, 70),
+            ("Leadership", 92), ("Operations", 78)),
+        CreateCrew("Sarah Chen", CrewRole.Engineer, "engineering",
+            new Personality(68, 48, 51, 76),
+            ("Engineering", 96), ("Reactor", 91)),
+        CreateCrew("Marcus Reed", CrewRole.Security, "corridor",
+            new Personality(44, 72, 47, 84),
+            ("Security", 93), ("Athletics", 88), ("First Aid", 45)),
+        CreateCrew("Nadia Okafor", CrewRole.Doctor, "medical",
+            new Personality(91, 24, 79, 61),
+            ("Medicine", 97), ("Psychology", 81)),
+        CreateCrew("Felix Ward", CrewRole.Technician, "generator",
+            new Personality(58, 63, 69, 72),
+            ("Electrical", 90), ("Engineering", 72)),
+        CreateCrew("Emma Voss", CrewRole.Scientist, "reactor",
+            new Personality(73, 41, 61, 55),
+            ("Research", 95), ("Reactor", 76))
+    ];
+
+    private static void ApplyDemoSocialHistory(GameState state)
+    {
+        // Browser/CI fallback history. The full server build replaces these
+        // people with an AI-generated roster every new session.
+        state.Crew.Single(npc => npc.Name == "Marcus Reed")
+            .Relationships["Emma Voss"].Resentment = 24;
+        state.Crew.Single(npc => npc.Name == "Emma Voss")
+            .Relationships["Marcus Reed"].Resentment = 18;
+
+        var sarahToFelix = state.Crew.Single(npc => npc.Name == "Sarah Chen")
+            .Relationships["Felix Ward"];
+        sarahToFelix.Trust = 66;
+        sarahToFelix.Affinity = 67;
+        sarahToFelix.Attraction = 64;
+
+        var felixToSarah = state.Crew.Single(npc => npc.Name == "Felix Ward")
+            .Relationships["Sarah Chen"];
+        felixToSarah.Trust = 68;
+        felixToSarah.Affinity = 69;
+        felixToSarah.Attraction = 66;
+    }
+
+    private static void ApplyDemoTraits(GameState state)
+    {
+        AddDemoTrait(state, "David Hale", "Steady Under Pressure",
+            "Keeps a clear head when conditions deteriorate.",
+            (TraitEffectKind.StressResistance, 12), (TraitEffectKind.Courage, 6));
+        AddDemoTrait(state, "Sarah Chen", "Systems Intuition",
+            "Spots technical failure patterns quickly.",
+            (TraitEffectKind.Technical, 12), (TraitEffectKind.Repair, 10));
+        AddDemoTrait(state, "Marcus Reed", "Built Like a Bulkhead",
+            "Relies on physical confidence and direct action.",
+            (TraitEffectKind.Force, 14), (TraitEffectKind.Courage, 5));
+        AddDemoTrait(state, "Nadia Okafor", "Protective",
+            "Prioritises other people when they are in danger.",
+            (TraitEffectKind.Empathy, 12), (TraitEffectKind.SuspicionSensitivity, 4));
+        AddDemoTrait(state, "Felix Ward", "Improviser",
+            "Can coax damaged equipment back into service.",
+            (TraitEffectKind.Repair, 13), (TraitEffectKind.Technical, 7));
+        AddDemoTrait(state, "Emma Voss", "Analytical",
+            "Responds to anomalies by looking for an explanation.",
+            (TraitEffectKind.Technical, 5), (TraitEffectKind.SuspicionSensitivity, 9));
+    }
+
+    private static void AddDemoTrait(
+        GameState state,
+        string name,
+        string traitName,
+        string description,
+        params (TraitEffectKind Kind, int Modifier)[] effects)
+    {
+        var npc = state.Crew.Single(candidate => candidate.Name == name);
+        npc.GenerationSource = "Browser demo";
+        npc.Traits.Add(new CrewTrait(
+            traitName,
+            description,
+            effects.Select(effect =>
+                new CrewTraitEffect(effect.Kind, effect.Modifier)).ToList()));
     }
 
     private static Npc CreateCrew(
@@ -458,6 +530,9 @@ public static class FacilitySeeder
         airlock.IsTemperatureAiControllable = false;
         airlock.HasVentilationControl = false;
         airlock.IsVentilationAiControllable = false;
+        airlock.HasExteriorHatch = true;
+        airlock.IsExteriorHatchAiControllable = true;
+        airlock.ExteriorHatchOpen = false;
 
         // Hydroponics runs its own horticultural climate controller. The player
         // can monitor it but cannot directly alter its temperature or damper.

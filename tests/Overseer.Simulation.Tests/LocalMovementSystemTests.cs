@@ -78,6 +78,12 @@ public sealed class LocalMovementSystemTests
 
         foreach (var door in state.Facility.Doors)
         {
+            // This test verifies portal continuity, not the station's initial
+            // hatch policy. The Airlock inner hatch intentionally starts closed.
+            door.IsPowered = true;
+            door.IsLocked = false;
+            door.IsOpen = true;
+
             npc.CurrentRoomId = door.RoomAId;
             npc.PositionX = 50;
             npc.PositionY = 50;

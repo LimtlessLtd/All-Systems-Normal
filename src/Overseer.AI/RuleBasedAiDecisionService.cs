@@ -16,16 +16,32 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
         {
             var saferRoom = FindSaferRoom(state, room);
 
-            intent = saferRoom is not null
-                ? Create(
+            if (saferRoom is not null)
+            {
+                intent = Create(
                     npc,
                     state,
                     ActionKind.Move,
                     saferRoom.Id,
                     $"Get to {saferRoom.Name}.",
                     "The atmosphere or temperature here is becoming dangerous.",
-                    96)
-                : Create(
+                    96);
+            }
+            else if (FindAdjacentBlockedDoor(state, npc) is { } blockedDoor
+                && BestCounterplayScore(npc) >= 50)
+            {
+                intent = Create(
+                    npc,
+                    state,
+                    ActionKind.ForceDoor,
+                    blockedDoor.Id,
+                    $"Get {blockedDoor.Id} open.",
+                    "A blocked hatch may be the only route out of this dangerous area.",
+                    98);
+            }
+            else
+            {
+                intent = Create(
                     npc,
                     state,
                     ActionKind.Idle,
@@ -33,6 +49,29 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                     "Shelter and call for emergency help.",
                     "The environment is dangerous and I cannot identify a safer reachable room.",
                     98);
+            }
+        }
+        else if (!state.LifeSupport.IsOnline && BestRepairScore(npc) >= 55)
+        {
+            intent = Create(
+                npc,
+                state,
+                ActionKind.RestoreSystem,
+                "life-support",
+                "Restore primary life support.",
+                "The crew need life support and I have enough technical ability to try.",
+                88);
+        }
+        else if (HasLocalRestorableProblem(room) && BestRepairScore(npc) >= 55)
+        {
+            intent = Create(
+                npc,
+                state,
+                ActionKind.RestoreSystem,
+                room.Id,
+                $"Restore {room.Name}.",
+                "A local system is disabled and I can probably bring it back.",
+                62);
         }
         else if (npc.Hunger >= 62)
         {
@@ -108,6 +147,51 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
         }
 
         return Task.FromResult(intent);
+    }
+
+    private static Door? FindAdjacentBlockedDoor(GameState state, Npc npc) =>
+        state.Facility.Doors.FirstOrDefault(door =>
+            !door.IsPassable
+            && door.CanBeForced
+            && (door.RoomAId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
+                || door.RoomBId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)));
+
+    private static bool HasLocalRestorableProblem(Room room) =>
+        !room.IsPowered
+        || !room.CameraOnline
+        || !room.LightsOn
+        || (room.HasTemperatureControl && !room.TemperatureControlOnline)
+        || (room.HasVentilationControl && !room.VentilationEnabled);
+
+    private static int BestCounterplayScore(Npc npc)
+    {
+        var baseSkill = new[] { "Engineering", "Electrical", "Security", "Operations", "Athletics" }
+            .Select(skill => npc.Skills.TryGetValue(skill, out var value) ? value : 0)
+            .DefaultIfEmpty(0)
+            .Max();
+
+        return Math.Clamp(
+            baseSkill
+            + Math.Max(
+                CrewTraitMath.Modifier(npc, TraitEffectKind.Force),
+                CrewTraitMath.Modifier(npc, TraitEffectKind.Technical)),
+            0,
+            120);
+    }
+
+    private static int BestRepairScore(Npc npc)
+    {
+        var baseSkill = new[] { "Engineering", "Electrical", "Operations", "Reactor" }
+            .Select(skill => npc.Skills.TryGetValue(skill, out var value) ? value : 0)
+            .DefaultIfEmpty(0)
+            .Max();
+
+        return Math.Clamp(
+            baseSkill
+            + CrewTraitMath.Modifier(npc, TraitEffectKind.Technical)
+            + CrewTraitMath.Modifier(npc, TraitEffectKind.Repair),
+            0,
+            130);
     }
 
     private static Room? FindSaferRoom(GameState state, Room currentRoom)

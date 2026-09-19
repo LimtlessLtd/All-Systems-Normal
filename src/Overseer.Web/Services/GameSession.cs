@@ -4,11 +4,16 @@ using Overseer.Simulation;
 
 namespace Overseer.Web.Services;
 
-public sealed class GameSession(IAiDecisionService aiDecisionService)
+public sealed class GameSession(
+    IAiDecisionService aiDecisionService,
+    IAiCrewGenerator crewGenerator)
 {
     private readonly IAiDecisionService _aiDecisionService = aiDecisionService;
+    private readonly IAiCrewGenerator _crewGenerator = crewGenerator;
     private readonly SimulationEngine _simulation = new();
     private readonly EnvironmentSystem _environment = new();
+    private readonly VacuumConsequenceSystem _vacuum = new();
+    private readonly CrewCounterplaySystem _counterplay = new();
     private readonly CrewRoutineSystem _crewRoutines = new();
     private readonly SocialSimulationSystem _social = new();
     private readonly IntentExecutionSystem _intentExecution = new();
@@ -21,6 +26,7 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
     private readonly SimulationClock _clock = new();
 
     private int _mindCursor;
+    private bool _initialized;
 
     public GameState State { get; private set; } = FacilitySeeder.CreateDefault();
 
@@ -45,7 +51,22 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
         + (State.LifeSupport.IsOnline ? 0 : 1)
         + State.Facility.Rooms.Values.Count(room =>
             room.CarbonDioxidePercent > 1.0
-            || room.PressureKpa < 90);
+            || room.PressureKpa < 90)
+        + State.Facility.Rooms.Values.Count(room =>
+            room.HasExteriorHatch && room.ExteriorHatchOpen);
+
+    public async Task InitializeAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (_initialized)
+        {
+            return;
+        }
+
+        var crew = await _crewGenerator.GenerateAsync(cancellationToken);
+        State = FacilitySeeder.CreateDefault(crew);
+        _initialized = true;
+    }
 
     public (bool Started, long Generation) StartClock() =>
         _clock.Start();
@@ -88,11 +109,14 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
         }
     }
 
-    public void Reset()
+    public async Task ResetAsync(
+        CancellationToken cancellationToken = default)
     {
         _clock.Pause();
         _mindCursor = 0;
-        State = FacilitySeeder.CreateDefault();
+        var crew = await _crewGenerator.GenerateAsync(cancellationToken);
+        State = FacilitySeeder.CreateDefault(crew);
+        _initialized = true;
     }
 
     public void ToggleDoor(string doorId)
@@ -280,6 +304,39 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
         Log($"{room.Name} ventilation {(room.VentilationEnabled ? "OPEN" : "ISOLATED")}.");
     }
 
+    public void ToggleExteriorHatch(string roomId)
+    {
+        var room = State.Facility.Rooms[roomId];
+
+        if (!room.HasExteriorHatch || !room.IsExteriorHatchAiControllable)
+        {
+            Log($"{room.Name} has no Overseer-controlled exterior hatch.");
+            return;
+        }
+
+        if (!room.IsPowered)
+        {
+            Log($"{room.Name} exterior hatch command refused: NO POWER.");
+            return;
+        }
+
+        room.ExteriorHatchOpen = !room.ExteriorHatchOpen;
+        _suspicion.ObserveExteriorHatchChange(
+            State,
+            room,
+            room.ExteriorHatchOpen);
+
+        AudioCueSystem.Emit(
+            State,
+            room.ExteriorHatchOpen
+                ? AudioCueKind.Critical
+                : AudioCueKind.System,
+            roomId: room.Id);
+
+        Log(
+            $"{room.Name} OUTER HATCH {(room.ExteriorHatchOpen ? "OPEN TO SPACE" : "SEALED")}.");
+    }
+
     public void ToggleLifeSupport()
     {
         if (!State.LifeSupport.IsAiControllable)
@@ -301,11 +358,13 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
         if (State.ScenarioStatus != ScenarioStatus.Running) return;
         var turn = TimeSpan.FromMinutes(1);
         _environment.Tick(State, turn);
+        _vacuum.Tick(State);
         _simulation.Tick(State, turn);
 
         await ThinkIfDueAsync(cancellationToken);
 
         _intentExecution.Tick(State);
+        _counterplay.Tick(State);
         _manualOverrides.Tick(State);
         _social.Tick(State);
         _suspicion.Tick(State);
@@ -421,6 +480,12 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
 
     private bool IsAlreadyEscapingToSaferRoom(Npc npc, Room currentRoom)
     {
+        if (npc.Intent is { Action: ActionKind.ForceDoor }
+            && npc.CurrentAction.Kind == ActionKind.ForceDoor)
+        {
+            return true;
+        }
+
         if (npc.Intent is not { Action: ActionKind.Move, TargetId: { } targetId }
             || !State.Facility.Rooms.TryGetValue(targetId, out var targetRoom))
         {

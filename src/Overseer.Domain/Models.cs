@@ -138,7 +138,9 @@ public enum ActionKind
     Attack,
     RequestHelp,
     ShutdownOverseer,
-    OverrideDoor
+    OverrideDoor,
+    ForceDoor,
+    RestoreSystem
 }
 
 public sealed record Memory(
@@ -156,6 +158,37 @@ public sealed record Personality(
     double Temper,
     double Sociability,
     double Courage);
+
+public enum TraitEffectKind
+{
+    Empathy,
+    Temper,
+    Sociability,
+    Courage,
+    Force,
+    Technical,
+    Repair,
+    StressResistance,
+    SuspicionSensitivity
+}
+
+public sealed record CrewTraitEffect(
+    TraitEffectKind Kind,
+    int Modifier);
+
+public sealed record CrewTrait(
+    string Name,
+    string Description,
+    IReadOnlyList<CrewTraitEffect> Effects);
+
+public static class CrewTraitMath
+{
+    public static int Modifier(Npc npc, TraitEffectKind kind) =>
+        npc.Traits
+            .SelectMany(trait => trait.Effects)
+            .Where(effect => effect.Kind == kind)
+            .Sum(effect => effect.Modifier);
+}
 
 public enum NpcBubbleKind
 {
@@ -249,6 +282,8 @@ public sealed class Npc
     public required CrewRole Role { get; init; }
     public required string CurrentRoomId { get; set; }
     public required Personality Personality { get; init; }
+    public string GenerationSource { get; set; } = "Seeded";
+    public List<CrewTrait> Traits { get; } = [];
 
     // Local room coordinates in the 0..100 range. CurrentRoomId remains the
     // authoritative containment state; these coordinates make movement physical
@@ -276,6 +311,7 @@ public sealed class Npc
     public bool KnowsShutdownControl { get; set; }
 
     public string? CauseOfDeath { get; set; }
+    public bool IsPresent { get; set; } = true;
     public bool IsAlive => Health > 0;
 
     public Dictionary<string, int> Skills { get; } =
@@ -298,6 +334,7 @@ public sealed class Npc
     public string MindMode { get; set; } = "Routine";
     public string LastThought { get; set; } = "No deliberate thought yet.";
     public TimeSpan LastThoughtAt { get; set; }
+    public HashSet<Guid> DiscoveredBodies { get; } = [];
 }
     
 public sealed class LifeSupportState
@@ -336,6 +373,12 @@ public sealed class Room
     public bool HasVentilationControl { get; set; } = true;
     public bool IsVentilationAiControllable { get; set; } = true;
 
+    // Exterior hatches model a real boundary to space rather than a fake
+    // off-map kill action. At present the seeded Airlock owns one.
+    public bool HasExteriorHatch { get; set; }
+    public bool ExteriorHatchOpen { get; set; }
+    public bool IsExteriorHatchAiControllable { get; set; }
+
     public List<RoomFixture> Fixtures { get; } = [];
 
     public bool HasVisualFeed => IsPowered && CameraOnline;
@@ -355,6 +398,10 @@ public sealed class Door
     public bool IsManuallyOverridden { get; set; }
     public int ManualOverrideMinutes { get; set; } = 3;
     public int ManualOverrideSkillRequired { get; set; } = 65;
+    public bool CanBeForced { get; set; } = true;
+    public int ForceDifficulty { get; set; } = 68;
+    public int TechnicalDifficulty { get; set; } = 62;
+    public bool IsDamaged { get; set; }
 
     public bool IsPassable => IsManuallyOverridden || (IsPowered && IsOpen && !IsLocked);
 

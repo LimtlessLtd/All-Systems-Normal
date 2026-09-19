@@ -78,7 +78,8 @@ public sealed class SocialSimulationSystem
         var combinedStress = (first.Stress + second.Stress) / 2;
         var combinedResentment = (firstToSecond.Resentment + secondToFirst.Resentment) / 2;
         var friction = combinedStress + combinedResentment
-            + ((first.Personality.Temper + second.Personality.Temper) / 5);
+            + ((Effective(first, TraitEffectKind.Temper, first.Personality.Temper)
+                + Effective(second, TraitEffectKind.Temper, second.Personality.Temper)) / 5);
 
         var roll = StableRoll(minute, first.Name, second.Name, 11);
 
@@ -99,7 +100,8 @@ public sealed class SocialSimulationSystem
 
         var socialChance = Math.Clamp(
             0.04
-            + ((first.Personality.Sociability + second.Personality.Sociability) / 1600),
+            + ((Effective(first, TraitEffectKind.Sociability, first.Personality.Sociability)
+                + Effective(second, TraitEffectKind.Sociability, second.Personality.Sociability)) / 1600),
             0.05,
             0.14);
 
@@ -172,7 +174,10 @@ public sealed class SocialSimulationSystem
         int minute)
     {
         var warmth = 0.6
-            + ((first.Personality.Sociability + second.Personality.Sociability) / 200);
+            + ((Effective(first, TraitEffectKind.Sociability, first.Personality.Sociability)
+                + Effective(second, TraitEffectKind.Sociability, second.Personality.Sociability)) / 200)
+            + ((Effective(first, TraitEffectKind.Empathy, first.Personality.Empathy)
+                + Effective(second, TraitEffectKind.Empathy, second.Personality.Empathy)) / 1000);
 
         firstToSecond.Affinity = Clamp(firstToSecond.Affinity + warmth);
         secondToFirst.Affinity = Clamp(secondToFirst.Affinity + warmth);
@@ -321,7 +326,10 @@ public sealed class SocialSimulationSystem
             || !target.IsAlive
             || relationship.Resentment < 82
             || aggressor.Stress < 78
-            || aggressor.Personality.Temper < 60)
+            || Effective(
+                aggressor,
+                TraitEffectKind.Temper,
+                aggressor.Personality.Temper) < 60)
         {
             return false;
         }
@@ -329,7 +337,10 @@ public sealed class SocialSimulationSystem
         var pressure =
             (relationship.Resentment - 82) * 0.012
             + (aggressor.Stress - 78) * 0.009
-            + (aggressor.Personality.Temper - 60) * 0.006;
+            + (Effective(
+                aggressor,
+                TraitEffectKind.Temper,
+                aggressor.Personality.Temper) - 60) * 0.006;
 
         // Checked each turn, so keep violence rare even at high pressure.
         var chance = Math.Clamp(pressure / 4, 0.01, 0.12);
@@ -340,7 +351,10 @@ public sealed class SocialSimulationSystem
         }
 
         var damage = 18
-            + (aggressor.Personality.Temper * 0.18)
+            + (Effective(
+                aggressor,
+                TraitEffectKind.Temper,
+                aggressor.Personality.Temper) * 0.18)
             + (relationship.Resentment * 0.11);
 
         target.Health = Clamp(target.Health - damage);
@@ -503,6 +517,15 @@ public sealed class SocialSimulationSystem
             return (hash % 10_000) / 10_000d;
         }
     }
+
+    private static double Effective(
+        Npc npc,
+        TraitEffectKind kind,
+        double baseValue) =>
+        Math.Clamp(
+            baseValue + CrewTraitMath.Modifier(npc, kind),
+            0,
+            100);
 
     private static double Clamp(double value) => Math.Clamp(value, 0, 100);
 

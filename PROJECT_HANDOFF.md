@@ -2596,3 +2596,139 @@ Preserved invariants:
 * both the Pages build and full server/Ollama build share the same physical station geometry and safety thresholds
 
 After this iteration, resume **V0.6C — Investigation, Discovery & Scenario Success** unless new playtest feedback takes priority.
+
+
+# V0.6E — AIRLOCK, AI-GENERATED CREW & HUMAN COUNTERPLAY
+
+This pass implements three connected playtest priorities while preserving the authority rule:
+
+> The LLM decides what an NPC WANTS. Deterministic C# decides what the NPC CAN physically do and whether an attempt succeeds.
+
+## Exterior airlock / vacuum
+
+* the Airlock now owns a real exterior hatch state rather than treating the visible Outer Hatch fixture as decoration
+* the interior Airlock hatch starts closed, so the station begins in a physically safe configuration
+* Overseer can explicitly OPEN OUTER HATCH / CLOSE OUTER HATCH from the Airlock inspector while the airlock has power and remains AI-controllable
+* an open exterior hatch creates a real path to vacuum
+* decompression propagates recursively through physically open internal hatches; a closed inner airlock hatch contains the event
+* pressure loss is strongest in the directly exposed Airlock and attenuates with each additional open hatch so accidental whole-station venting has a small containment window
+* oxygen / CO2 pressure fractions collapse with decompression and exposed rooms cool toward space temperatures
+* closing the path to space allows working life support to repressurise compartments
+* severe low pressure causes deterministic fear, stress, injury and death
+* crew in a compartment connected to vacuum are swept out once pressure falls below the gameplay ejection threshold
+* an ejected crew member has `IsPresent = false`, disappears from cameras/occupancy, is marked lost to space, and leaves no corpse aboard
+
+## Body discovery / suspicion
+
+* ordinary deaths leave a persistent body by default
+* living crew physically entering the same room discover a body only once
+* body discovery creates fear/stress, a visible alert and a memory/evidence event
+* unexplained/environmental corpses create substantially more Overseer suspicion than an obviously human-on-human killing
+* bodies lost through the exterior airlock do not exist aboard and therefore cannot be discovered later
+* opening the exterior hatch itself creates direct evidence only for survivors physically in/adjacent to the airlock at the time; it is not magically known station-wide
+* `SuspicionSensitivity` generated traits now scale how strongly evidence changes an individual NPC's Overseer suspicion
+
+This intentionally makes an unwitnessed airlock ejection potentially less suspicious than leaving a corpse, while still allowing missing-person behaviour/evidence to be expanded in a later investigation pass.
+
+## AI-generated people
+
+The full `Overseer.Web` / Ollama experience no longer relies on the hard-coded demo people for a real session.
+
+* a new `IAiCrewGenerator` abstraction generates the roster at session creation and RESET
+* `OllamaCrewGenerator` requests exactly six original people, one in each required station role
+* the model generates:
+  * realistic unique names
+  * Empathy / Temper / Sociability / Courage values
+  * 2–4 practical skills
+  * exactly **1, 2 or 3 main personality traits per person**
+* the model invents each trait's human-readable name and description
+* trait mechanics are constrained to a validated vocabulary so prose cannot invent arbitrary simulation powers
+* allowed trait effects are:
+  * Empathy
+  * Temper
+  * Sociability
+  * Courage
+  * Force
+  * Technical
+  * Repair
+  * StressResistance
+  * SuspicionSensitivity
+* each trait may contain 1–3 effects with integer modifiers clamped to -15..+15
+* traits may contain both advantages and drawbacks
+* role minimum capabilities are validated so a creative roster cannot accidentally make the station mechanically nonfunctional
+* malformed/offline generation falls back to a generated-style local roster instead of preventing play
+* the deterministic GitHub Pages build remains explicitly a credential-free browser demo and uses its deterministic demo crew; model credentials are never shipped to WebAssembly
+
+Trait effects are real simulation inputs rather than flavour text:
+
+* Empathy / Sociability / Temper affect social outcomes and escalation
+* Courage affects fear response and contributes to physical forcing confidence
+* StressResistance changes environmental stress accumulation
+* SuspicionSensitivity changes evidence/suspicion response
+* Force / Technical affect blocked-hatch attempts
+* Repair affects system restoration
+
+## LLM-driven human counterplay
+
+The LLM prompt now exposes the NPC's own skills, generated traits, nearby hatch state/difficulties and currently disabled station systems.
+
+Two high-level intentions are now available:
+
+* `ForceDoor`
+* `RestoreSystem`
+
+The prompt explicitly tells the model:
+
+* do not automatically repair every outage
+* decide whether this specific human cares enough to intervene based on personality, role, danger, relationships and priorities
+* choosing ForceDoor / RestoreSystem does **not** imply success
+* physical success is resolved later by deterministic simulation
+
+### ForceDoor
+
+* the target must be an actually adjacent blocked hatch
+* the NPC must physically be beside it
+* the deterministic resolver chooses whichever method the NPC is mechanically better at:
+  * physical force
+  * technical bypass
+* relevant skill + generated traits produce the attempt score
+* attempts consume simulated time
+* outcome uses deterministic seeded RNG unless the skill advantage is overwhelming
+* a technical bypass opens the route under local/manual control
+* brute force may damage the hatch
+* after success Overseer cannot simply close the same overridden hatch remotely
+
+### RestoreSystem
+
+* the model can choose a room ID with a real disabled subsystem, or `life-support`
+* the NPC physically navigates to the relevant controls
+* primary life support repair requires reaching Engineering
+* room restoration repairs one actual problem at a time: power, ventilation, climate, camera or lights
+* repair skill + Technical/Repair traits + deterministic RNG resolve success
+* failure costs time and increases stress
+* player sabotage can therefore provoke emergent human maintenance without C# deciding that every technician must always repair everything
+
+The deterministic Pages/fallback mind mirrors enough of this behaviour for the static demo, but the full server build is deliberately LLM-led.
+
+## Regression focus
+
+New coverage targets:
+
+* outer-hatch vacuum with inner-hatch containment
+* decompression propagation through open topology
+* vacuum ejection and no-body persistence
+* present-corpse discovery versus ejected-person non-discovery
+* skill/trait-driven technical hatch bypass
+* brute-force damaged hatch opening
+* system restoration
+* LLM validation of ForceDoor / RestoreSystem
+* complete AI roster generation with 1–3 bounded mechanical traits per person
+* arbitrary generated names working with relationship seeding
+
+Recommended next work after playtesting this pass:
+
+1. missing-person reasoning: crew should eventually notice that somebody has vanished even when no body exists, based on schedules/comms rather than omniscience
+2. richer airlock safety logic: pressure-cycle controls, emergency interlocks and crew attempts to close the exterior hatch
+3. explicit repairable door damage / welding / barricades
+4. V0.6C investigation, discovery and scenario-success work
+5. selected-NPC visible route and local collision/steering

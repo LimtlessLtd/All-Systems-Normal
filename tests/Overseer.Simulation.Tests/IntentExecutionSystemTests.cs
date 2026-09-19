@@ -42,6 +42,8 @@ public sealed class IntentExecutionSystemTests
 
         marcus.CurrentRoomId = "airlock";
         emma.CurrentRoomId = "reactor";
+        var innerAirlockDoor = state.Facility.FindDoorBetween("airlock", "hall-airlock")!;
+        innerAirlockDoor.IsOpen = true;
 
         marcus.Intent = new NpcIntent(
             ActionKind.Talk,

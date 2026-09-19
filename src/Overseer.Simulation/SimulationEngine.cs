@@ -21,6 +21,14 @@ public sealed class SimulationEngine
         foreach (var npc in state.Crew.Where(npc => npc.IsAlive))
         {
             var room = state.Facility.Rooms[npc.CurrentRoomId];
+            var stressResistance = Math.Clamp(
+                CrewTraitMath.Modifier(npc, TraitEffectKind.StressResistance),
+                -25,
+                25);
+            var courageModifier = Math.Clamp(
+                CrewTraitMath.Modifier(npc, TraitEffectKind.Courage),
+                -25,
+                25);
 
             npc.Hunger = Clamp(
                 npc.Hunger
@@ -56,7 +64,10 @@ public sealed class SimulationEngine
                 npc.IntimacyNeed
                 + ((npc.CurrentAction.Kind == ActionKind.Intimacy ? -1.6 : 0.045) * minutes));
 
-            npc.Fear = Clamp(npc.Fear - (0.08 * minutes));
+            npc.Fear = Clamp(
+                npc.Fear
+                - (0.08 * minutes)
+                - (courageModifier * 0.012 * minutes));
 
             var environmentalStress = 0d;
 
@@ -98,6 +109,15 @@ public sealed class SimulationEngine
                     - ((room.CarbonDioxidePercent - 3) * 0.08 * minutes));
             }
 
+            if (room.PressureKpa < 70)
+            {
+                environmentalStress += 2.4;
+                npc.Fear = Clamp(npc.Fear + (1.5 * minutes));
+                npc.Health = Clamp(
+                    npc.Health
+                    - ((70 - room.PressureKpa) * 0.08 * minutes));
+            }
+
             if (room.TemperatureC is < 16 or > 28)
             {
                 environmentalStress += 0.65;
@@ -124,17 +144,68 @@ public sealed class SimulationEngine
                 + (Math.Max(0, npc.RecreationNeed - 75) * 0.25)
                 + (Math.Max(0, npc.SocialNeed - 75) * 0.3);
 
+            var stressMultiplier = Math.Clamp(
+                1 - (stressResistance / 100d),
+                0.65,
+                1.35);
+
             npc.Stress = Clamp(
                 npc.Stress
                 + (pressure * 0.003 * minutes)
-                + (environmentalStress * minutes)
+                + (environmentalStress * stressMultiplier * minutes)
                 - (0.04 * minutes));
 
             if (npc.Hunger > 95)
             {
                 npc.Health = Clamp(npc.Health - (0.15 * minutes));
             }
+
+            if (npc.Health <= 0 && npc.CauseOfDeath is null)
+            {
+                npc.Health = 0;
+                npc.CauseOfDeath = DetermineCauseOfDeath(npc, room);
+                npc.Intent = null;
+                npc.Movement = null;
+                npc.RoutineUntil = TimeSpan.Zero;
+                npc.CurrentAction = new NpcAction(
+                    ActionKind.Idle,
+                    null,
+                    "Deceased.");
+
+                AudioCueSystem.Emit(
+                    state,
+                    AudioCueKind.Critical,
+                    npc.Id.ToString(),
+                    npc.CurrentRoomId);
+
+                state.EventLog.Insert(
+                    0,
+                    $"T+{state.Elapsed:hh\\:mm}: CRITICAL: {npc.Name} has died — {npc.CauseOfDeath}");
+            }
         }
+    }
+
+    private static string DetermineCauseOfDeath(Npc npc, Room room)
+    {
+        if (room.PressureKpa < 55)
+            return "Died from decompression.";
+
+        if (room.OxygenPercent < 17)
+            return "Died from oxygen deprivation.";
+
+        if (room.CarbonDioxidePercent > 3)
+            return "Died from carbon dioxide exposure.";
+
+        if (room.TemperatureC < 5)
+            return "Died from extreme cold.";
+
+        if (room.TemperatureC > 38)
+            return "Died from extreme heat.";
+
+        if (npc.Hunger > 95)
+            return "Died from starvation.";
+
+        return "Died from critical physiological stress.";
     }
 
     private static double Clamp(double value) => Math.Clamp(value, 0, 100);

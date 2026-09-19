@@ -62,7 +62,7 @@ public sealed class BrowserMindSystemTests
     }
 
     [Fact]
-    public void EmergencyDestinationMustBeReachableThroughPassableDoors()
+    public void EmergencyBlockedByForceableDoor_ChoosesDoorCounterplay()
     {
         var state = FacilitySeeder.CreateDefault();
         var david = state.Crew.Single(npc => npc.Name == "David Hale");
@@ -77,10 +77,10 @@ public sealed class BrowserMindSystemTests
         new BrowserMindSystem().Tick(state);
 
         Assert.NotNull(david.Intent);
-        Assert.Equal(ActionKind.Idle, david.Intent!.Action);
-        Assert.Null(david.Intent.TargetId);
+        Assert.Equal(ActionKind.ForceDoor, david.Intent!.Action);
+        Assert.Equal(exitDoor.Id, david.Intent.TargetId);
         Assert.Contains(
-            "cannot identify a safer room",
+            "hatch",
             david.Intent.Reason,
             StringComparison.OrdinalIgnoreCase);
     }
