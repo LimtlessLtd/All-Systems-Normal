@@ -36,6 +36,10 @@ public sealed class SimulationEngine
                     : npc.CurrentAction.Kind == ActionKind.Groom ? -1.0
                     : 0.055) * minutes));
 
+            npc.BladderNeed = Clamp(
+                npc.BladderNeed
+                + ((npc.CurrentAction.Kind == ActionKind.UseToilet ? -3.0 : 0.085) * minutes));
+
             npc.RecreationNeed = Clamp(
                 npc.RecreationNeed
                 + ((npc.CurrentAction.Kind == ActionKind.Recreate ? -1.45 : 0.045) * minutes));
