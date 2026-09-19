@@ -31,9 +31,9 @@ public static class FacilitySeeder
         // The central spine is intentionally only a narrow circulation strip.
         // End-cap rooms remain substantial enough to read as real spaces while
         // retaining short horizontal service necks.
-        AddRoom(facility, "airlock", "Airlock", RoomType.Airlock, 4, 50, 6, 20);
+        AddRoom(facility, "airlock", "Airlock", RoomType.Airlock, 4, 50, 6, 12);
         AddRoom(facility, "corridor", "Central Corridor", RoomType.Corridor, 50, 50, 82, 5);
-        AddRoom(facility, "isolation", "Overseer Isolation", RoomType.ControlRoom, 96, 50, 6, 20);
+        AddRoom(facility, "isolation", "Overseer Isolation", RoomType.ControlRoom, 96, 50, 6, 12);
 
         AddRoom(facility, "washroom", "Washroom", RoomType.Washroom, 10, 77, 16, 40);
         AddRoom(facility, "storage", "Storage", RoomType.Storage, 27.5, 77, 17, 40);
