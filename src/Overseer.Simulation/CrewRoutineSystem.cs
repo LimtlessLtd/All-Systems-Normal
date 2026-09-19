@@ -31,7 +31,7 @@ public sealed class CrewRoutineSystem
 
         foreach (var npc in state.Crew.Where(npc => npc.IsAlive))
         {
-            if (npc.Intent is not null)
+            if (npc.Intent is not null || npc.Movement is not null)
             {
                 continue;
             }
