@@ -96,7 +96,9 @@
                     <span class="overline">DECK A // INTERNAL SURVEILLANCE</span>
                     <h2>STATION OVERVIEW</h2>
                 </div>
-                <span class="sim-running">LIVE TURNS @SpeedLabel</span>
+                <span class="@(Session.State.ScenarioStatus == ScenarioStatus.Running ? "sim-running" : "sim-paused")">
+                    @TurnStatusLabel
+                </span>
             </div>
 
             <div class="station-map" style="@StationMapStyle">
@@ -389,6 +391,13 @@
         _ => "4×"
     };
 
+    private string TurnStatusLabel => Session.State.ScenarioStatus switch
+    {
+        ScenarioStatus.Won => "SCENARIO COMPLETE",
+        ScenarioStatus.Failed => "OVERSEER OFFLINE",
+        _ => $"LIVE TURNS {SpeedLabel}"
+    };
+
     private string StationMapStyle =>
         FormattableString.Invariant(
             $"--crew-step-duration:{(_delayMs >= 2200 ? 2.35 : _delayMs >= 1200 ? 1.25 : 0.62)}s;");
@@ -516,8 +525,8 @@
 
     private void StopClock()
     {
-        // Pause first. This invalidates every prior clock generation, so even a
-        // stale UI loop cannot advance simulation time after PAUSE.
+        // Invalidate the active turn generation before cancelling the UI loop
+        // so a stale loop can never advance simulation state.
         Session.PauseClock();
         _clockCts?.Cancel();
         _clockCts?.Dispose();
