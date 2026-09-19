@@ -21,25 +21,26 @@ public static class FacilitySeeder
         // canvas, while the circulation spine and short connector necks stay
         // visually narrow. This makes the map read as a place people inhabit
         // rather than a graph joined by oversized passages.
-        AddRoom(facility, "quarters", "Crew Quarters", RoomType.CrewQuarters, 9.5, 23, 15, 40);
-        AddRoom(facility, "kitchen", "Kitchen", RoomType.Kitchen, 25.5, 23, 15, 40);
-        AddRoom(facility, "lounge", "Recreation Lounge", RoomType.Recreation, 41.5, 23, 15, 40);
-        AddRoom(facility, "hydroponics", "Hydroponics Bay", RoomType.Hydroponics, 57.5, 23, 15, 40);
-        AddRoom(facility, "medical", "Medical", RoomType.Medical, 73.5, 23, 15, 40);
-        AddRoom(facility, "control", "Control Room", RoomType.ControlRoom, 90, 23, 16, 40);
+        AddRoom(facility, "quarters", "Crew Quarters", RoomType.CrewQuarters, 9.5, 21.5, 15, 39);
+        AddRoom(facility, "kitchen", "Kitchen", RoomType.Kitchen, 25.5, 21.5, 15, 39);
+        AddRoom(facility, "lounge", "Recreation Lounge", RoomType.Recreation, 41.5, 21.5, 15, 39);
+        AddRoom(facility, "hydroponics", "Hydroponics Bay", RoomType.Hydroponics, 57.5, 21.5, 15, 39);
+        AddRoom(facility, "medical", "Medical", RoomType.Medical, 73.5, 21.5, 15, 39);
+        AddRoom(facility, "control", "Control Room", RoomType.ControlRoom, 90, 21.5, 16, 39);
 
-        // The central spine is intentionally only a narrow circulation strip.
+        // The central spine remains secondary to the rooms, but is now wide enough
+        // for opposing crew traffic to pass without reading as a single-file tube.
         // End-cap rooms remain substantial enough to read as real spaces while
         // retaining short horizontal service necks.
         AddRoom(facility, "airlock", "Airlock", RoomType.Airlock, 4, 50, 6, 12);
-        AddRoom(facility, "corridor", "Central Corridor", RoomType.Corridor, 50, 50, 82, 5);
+        AddRoom(facility, "corridor", "Central Corridor", RoomType.Corridor, 50, 50, 82, 8.5);
         AddRoom(facility, "isolation", "Overseer Isolation", RoomType.ControlRoom, 96, 50, 6, 12);
 
-        AddRoom(facility, "washroom", "Washroom", RoomType.Washroom, 10, 77, 16, 40);
-        AddRoom(facility, "storage", "Storage", RoomType.Storage, 27.5, 77, 17, 40);
-        AddRoom(facility, "engineering", "Engineering", RoomType.Engineering, 46.5, 77, 18, 40);
-        AddRoom(facility, "generator", "Generator", RoomType.Generator, 65.5, 77, 18, 40);
-        AddRoom(facility, "reactor", "Reactor", RoomType.Reactor, 86.25, 77, 21.5, 40);
+        AddRoom(facility, "washroom", "Washroom", RoomType.Washroom, 10, 78.5, 16, 39);
+        AddRoom(facility, "storage", "Storage", RoomType.Storage, 27.5, 78.5, 17, 39);
+        AddRoom(facility, "engineering", "Engineering", RoomType.Engineering, 46.5, 78.5, 18, 39);
+        AddRoom(facility, "generator", "Generator", RoomType.Generator, 65.5, 78.5, 18, 39);
+        AddRoom(facility, "reactor", "Reactor", RoomType.Reactor, 86.25, 78.5, 21.5, 39);
 
         foreach (var roomId in new[]
         {
@@ -157,7 +158,7 @@ public static class FacilitySeeder
         string roomId,
         string corridorId)
     {
-        const double hallwayThickness = 1.8;
+        const double hallwayThickness = 4.6;
         const double tolerance = 0.001;
 
         var room = facility.Rooms[roomId];
@@ -394,7 +395,7 @@ public static class FacilitySeeder
         foreach (var hallway in facility.Rooms.Values.Where(room =>
                      room.Id.StartsWith("hall-", StringComparison.OrdinalIgnoreCase)))
         {
-            if (hallway.MapHeight >= hallway.MapWidth)
+            if (IsVerticalConnector(facility, hallway))
             {
                 AddFixture(facility, hallway.Id, FixtureType.Window, "Passage Window", 18, 50, 16, 46);
             }
@@ -408,6 +409,30 @@ public static class FacilitySeeder
         {
             AddFixture(facility, room.Id, FixtureType.Camera, "Camera", 90, 12, 8, 8);
         }
+    }
+
+
+    private static bool IsVerticalConnector(Facility facility, Room hallway)
+    {
+        var door = facility.Doors.FirstOrDefault(candidate =>
+            candidate.RoomAId.Equals(hallway.Id, StringComparison.OrdinalIgnoreCase)
+            || candidate.RoomBId.Equals(hallway.Id, StringComparison.OrdinalIgnoreCase));
+
+        if (door is null)
+        {
+            return hallway.MapHeight >= hallway.MapWidth;
+        }
+
+        var neighbourId = door.RoomAId.Equals(
+            hallway.Id,
+            StringComparison.OrdinalIgnoreCase)
+                ? door.RoomBId
+                : door.RoomAId;
+        var portal = StationGeometry.FindSharedPortal(
+            hallway,
+            facility.Rooms[neighbourId]);
+
+        return portal.Wall == StationWall.Horizontal;
     }
 
 

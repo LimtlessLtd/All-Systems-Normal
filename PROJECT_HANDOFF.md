@@ -2551,3 +2551,48 @@ Completed:
   * corridors contain only restrained window/seating/camera fixtures
 
 The design direction is now: **large inhabited rooms connected by narrow passages**, not a corridor network with rooms attached.
+
+
+# V0.6D.2 ITERATION — WIDER PASSAGES & CREW SURVIVAL BEHAVIOUR
+
+This follow-up addresses playtest feedback that corridors were too narrow for believable opposing foot traffic and that crew could remain committed to routine rooms while temperature / O₂ / CO₂ conditions became dangerous.
+
+Passage geometry:
+
+* the Central Corridor is now 8.5% of deck height rather than 5%, giving it a believable two-way walking lane
+* connector passage lateral width is now 4.6% rather than 1.8%, large enough for two crew to pass visually
+* functional rooms still occupy more than 70% of the full deck canvas, so the room-dominant composition is preserved
+* hallway orientation is no longer inferred from rectangle aspect ratio; rendering, tests and passage-window placement derive orientation from the actual shared doorway wall / station topology
+* this is important for short horizontal service necks that can legitimately be wider than they are long
+* regression tests enforce a minimum two-way passage width and continue enforcing non-overlap / exact shared portals
+
+Crew environmental survival:
+
+* shared `CrewEnvironmentSafety` thresholds now define ordinary human danger / habitability consistently across the browser mind, AI fallback and LLM prompt
+* crew treat roughly O₂ < 19%, CO₂ > 1.25%, pressure < 90 kPa, or temperature < 14°C / > 30°C as danger requiring reconsideration
+* the deterministic Pages mind checks environmental emergencies every simulated minute instead of waiting for its sparse ordinary cognition slot
+* danger pre-empts stale routine timers, old movement goals and low-priority activities
+* crew choose safer destinations only when a physically passable route exists
+* if the player seals an escape route after it was chosen, the crew re-evaluate rather than remaining permanently committed to the blocked destination
+* if no fully habitable room exists, a reachable lower-risk room may still be chosen as an improvement
+* if there is no safer reachable compartment, crew shelter / call for help rather than continuing ordinary work, eating or socialising
+* the full Ollama/server build receives the same emergency reconsideration trigger, but preserves the authority rule: the AI still chooses what the NPC wants; deterministic C# only triggers the rethink and validates physical movement
+* the LLM prompt now exposes station status-panel compartment readings, route reachability and DANGER / MARGINAL / HABITABLE labels so the model has enough grounded information to choose a safe destination
+
+Station exploration / circulation:
+
+* normal role duty routes now cover substantially more of the station, including Hydroponics, living spaces, Storage, Medical, Airlock and technical areas
+* duty route phases advance every 30 simulated minutes instead of hourly
+* ordinary work blocks are shorter so crew circulate instead of occupying one room for most of a session
+* fallback/browser socialising now requires an actually elevated social need instead of firing simply because a character is sociable, reducing artificial clustering
+
+Preserved invariants:
+
+* `CurrentRoomId` remains authoritative containment
+* deterministic navigation, doors and threshold crossing decide what movement is possible
+* LLM authority remains high-level intention only
+* no teleporting or omniscient physical movement was introduced
+* stable Blazor `@key` identity behaviour remains intact
+* both the Pages build and full server/Ollama build share the same physical station geometry and safety thresholds
+
+After this iteration, resume **V0.6C — Investigation, Discovery & Scenario Success** unless new playtest feedback takes priority.

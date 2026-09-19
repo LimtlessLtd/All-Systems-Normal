@@ -12,13 +12,27 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
         NpcIntent intent;
         var room = state.Facility.Rooms[npc.CurrentRoomId];
 
-        if (IsEnvironmentDangerous(room)
-            && FindSaferRoom(state, room) is { } saferRoom)
+        if (CrewEnvironmentSafety.IsDangerous(room))
         {
-            intent = Create(npc, state, ActionKind.Move, saferRoom.Id,
-                $"Get to {saferRoom.Name}.",
-                "The atmosphere or temperature here is becoming dangerous.",
-                96);
+            var saferRoom = FindSaferRoom(state, room);
+
+            intent = saferRoom is not null
+                ? Create(
+                    npc,
+                    state,
+                    ActionKind.Move,
+                    saferRoom.Id,
+                    $"Get to {saferRoom.Name}.",
+                    "The atmosphere or temperature here is becoming dangerous.",
+                    96)
+                : Create(
+                    npc,
+                    state,
+                    ActionKind.Idle,
+                    null,
+                    "Shelter and call for emergency help.",
+                    "The environment is dangerous and I cannot identify a safer reachable room.",
+                    98);
         }
         else if (npc.Hunger >= 62)
         {
@@ -74,7 +88,9 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                     .OrderByDescending(r => r.Trust + r.Affinity)
                     .FirstOrDefault();
 
-                if (bestRelationship is not null && npc.Personality.Sociability >= 55)
+                if (bestRelationship is not null
+                    && npc.Personality.Sociability >= 55
+                    && npc.SocialNeed >= 45)
                 {
                     intent = Create(npc, state, ActionKind.Socialize, bestRelationship.PersonName,
                         $"Spend time with {bestRelationship.PersonName}.",
@@ -94,25 +110,53 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
         return Task.FromResult(intent);
     }
 
-    private static bool IsEnvironmentDangerous(Room room) =>
-        room.OxygenPercent < 18
-        || room.CarbonDioxidePercent > 2
-        || room.PressureKpa < 85
-        || room.TemperatureC is < 10 or > 34;
+    private static Room? FindSaferRoom(GameState state, Room currentRoom)
+    {
+        var currentRisk = CrewEnvironmentSafety.RiskScore(currentRoom);
+        var reachable = ReachableRooms(state.Facility, currentRoom.Id);
 
-    private static Room? FindSaferRoom(GameState state, Room currentRoom) =>
-        state.Facility.Rooms.Values
+        return state.Facility.Rooms.Values
             .Where(room =>
                 room.Id != currentRoom.Id
                 && room.Type != RoomType.Corridor
-                && room.IsPowered
-                && room.OxygenPercent >= 19
-                && room.CarbonDioxidePercent < 1
-                && room.PressureKpa >= 90
-                && room.TemperatureC is >= 16 and <= 28)
-            .OrderBy(room => Math.Abs(room.MapX - currentRoom.MapX) + Math.Abs(room.MapY - currentRoom.MapY))
+                && reachable.Contains(room.Id)
+                && CrewEnvironmentSafety.RiskScore(room) + 0.1 < currentRisk)
+            .OrderBy(room => CrewEnvironmentSafety.IsHabitable(room) ? 0 : 1)
+            .ThenBy(CrewEnvironmentSafety.RiskScore)
+            .ThenBy(room => Math.Abs(room.MapX - currentRoom.MapX) + Math.Abs(room.MapY - currentRoom.MapY))
             .ThenBy(room => room.Id)
             .FirstOrDefault();
+    }
+
+    private static HashSet<string> ReachableRooms(Facility facility, string startRoomId)
+    {
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            startRoomId
+        };
+        var queue = new Queue<string>();
+        queue.Enqueue(startRoomId);
+
+        while (queue.TryDequeue(out var current))
+        {
+            foreach (var door in facility.Doors.Where(door =>
+                         door.IsPassable
+                         && (door.RoomAId.Equals(current, StringComparison.OrdinalIgnoreCase)
+                             || door.RoomBId.Equals(current, StringComparison.OrdinalIgnoreCase))))
+            {
+                var next = door.RoomAId.Equals(current, StringComparison.OrdinalIgnoreCase)
+                    ? door.RoomBId
+                    : door.RoomAId;
+
+                if (visited.Add(next))
+                {
+                    queue.Enqueue(next);
+                }
+            }
+        }
+
+        return visited;
+    }
 
     private static NpcIntent Create(
         Npc npc,

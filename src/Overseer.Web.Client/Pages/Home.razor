@@ -737,7 +737,7 @@
         if (IsConnectorHallway(room))
         {
             classes.Add("hallway");
-            classes.Add(room.MapHeight >= room.MapWidth
+            classes.Add(IsVerticalHallway(room)
                 ? "hallway-vertical"
                 : "hallway-horizontal");
         }
@@ -820,6 +820,25 @@
     private static bool IsConnectorHallway(Room room) =>
         room.Type == RoomType.Corridor
         && room.Id.StartsWith("hall-", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsVerticalHallway(Room hallway)
+    {
+        var door = ConnectedDoors(hallway).FirstOrDefault();
+
+        if (door is null)
+        {
+            return hallway.MapHeight >= hallway.MapWidth;
+        }
+
+        var neighbour = OtherRoom(door, hallway.Id);
+        var portal = StationGeometry.FindSharedPortal(hallway, neighbour);
+
+        // A vertical passage terminates on a horizontal wall; a horizontal
+        // passage terminates on a vertical wall. This remains correct even
+        // when a very short connector is wider than it is long.
+        return portal.Wall == StationWall.Horizontal;
+    }
+
 
     private NpcBubble? ActiveBubble(Npc npc) =>
         npc.Bubble is { } bubble

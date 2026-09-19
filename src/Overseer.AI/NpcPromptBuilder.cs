@@ -64,9 +64,16 @@ public static class NpcPromptBuilder
             .Take(5)
             .Select(b => $"- {b.Subject}: {b.Statement} (confidence {b.Confidence:0.00})");
 
+        var reachableRoomIds = ReachableRooms(state.Facility, room.Id);
+
         var rooms = state.Facility.Rooms.Values
             .OrderBy(r => r.Id)
-            .Select(r => $"{r.Id} = {r.Name}");
+            .Select(r =>
+                $"{r.Id} = {r.Name} | "
+                + $"{(reachableRoomIds.Contains(r.Id) ? "reachable" : "route sealed")} | "
+                + $"O2 {r.OxygenPercent:0.0}% | CO2 {r.CarbonDioxidePercent:0.00}% | "
+                + $"pressure {r.PressureKpa:0.0} kPa | temp {r.TemperatureC:0.0}C | "
+                + $"{CrewEnvironmentSafety.Label(r)}");
 
         var livingCrew = state.Crew
             .Where(other => other.IsAlive && other.Id != npc.Id)
@@ -77,6 +84,7 @@ public static class NpcPromptBuilder
         builder.AppendLine("You are not the station AI and you do not control reality.");
         builder.AppendLine("Use only the information below. Do not invent rooms, people, events, tools, or knowledge.");
         builder.AppendLine("Choose what this person genuinely wants to do next, including socially awkward or selfish choices when justified.");
+        builder.AppendLine("If the CURRENT ROOM is marked DANGER, survival should normally override routine work, recreation, or casual socialising: choose Move toward a safer reachable compartment when one exists.");
         builder.AppendLine("Never choose Attack. Violence is resolved separately by the deterministic social simulation.");
         builder.AppendLine();
         builder.AppendLine($"NAME: {npc.Name}");
@@ -101,8 +109,9 @@ public static class NpcPromptBuilder
         builder.AppendLine("BELIEFS:");
         foreach (var belief in beliefs) builder.AppendLine(belief);
         builder.AppendLine();
-        builder.AppendLine("VALID ROOM TARGET IDS:");
-        builder.AppendLine(string.Join(", ", rooms));
+        builder.AppendLine("STATION STATUS-PANEL ROOM READINGS:");
+        builder.AppendLine("These are the compartment readings currently available to this crew member; route status reflects passable hatches.");
+        foreach (var knownRoom in rooms) builder.AppendLine($"- {knownRoom}");
         builder.AppendLine("VALID PERSON TARGETS:");
         builder.AppendLine(string.Join(", ", livingCrew));
         builder.AppendLine();
@@ -114,5 +123,35 @@ public static class NpcPromptBuilder
         builder.AppendLine("Urgency must be 0-100.");
         builder.AppendLine("Goal and Reason should each be one short sentence.");
         return builder.ToString();
+    }
+
+    private static HashSet<string> ReachableRooms(Facility facility, string startRoomId)
+    {
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            startRoomId
+        };
+        var queue = new Queue<string>();
+        queue.Enqueue(startRoomId);
+
+        while (queue.TryDequeue(out var current))
+        {
+            foreach (var door in facility.Doors.Where(door =>
+                         door.IsPassable
+                         && (door.RoomAId.Equals(current, StringComparison.OrdinalIgnoreCase)
+                             || door.RoomBId.Equals(current, StringComparison.OrdinalIgnoreCase))))
+            {
+                var next = door.RoomAId.Equals(current, StringComparison.OrdinalIgnoreCase)
+                    ? door.RoomBId
+                    : door.RoomAId;
+
+                if (visited.Add(next))
+                {
+                    queue.Enqueue(next);
+                }
+            }
+        }
+
+        return visited;
     }
 }
