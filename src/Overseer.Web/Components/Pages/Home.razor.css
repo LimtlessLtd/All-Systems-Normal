@@ -2159,3 +2159,514 @@ button.sound-toggle.sound-on {
     color: var(--accent);
     font-size: .7rem;
 }
+
+
+/* V0.6D — Station architecture & interior pass
+   Geometry is authoritative in C#; these styles make those exact rectangles
+   read as a cutaway deck rather than expanding or faking connectivity. */
+.room-node,
+.map-door,
+.fixture {
+    box-sizing: border-box;
+}
+
+.station-map {
+    background:
+        linear-gradient(rgba(95, 133, 145, .035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(95, 133, 145, .035) 1px, transparent 1px),
+        radial-gradient(circle at 50% 50%, rgba(46, 102, 112, .12), transparent 56%),
+        #050d13;
+    background-size: 22px 22px, 22px 22px, auto, auto;
+}
+
+/* Thick bulkheads and inset deck plating. The declared map dimensions now
+   include the walls, so adjoining spaces remain mathematically flush. */
+.room-node {
+    border: 4px solid #405560;
+    border-radius: 4px;
+    background:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(135deg, rgba(255,255,255,.025), transparent 45%),
+        #15252d;
+    background-size: 13px 13px, 13px 13px, auto, auto;
+    box-shadow:
+        0 5px 10px rgba(0,0,0,.28),
+        inset 0 0 0 2px #09151c,
+        inset 0 0 0 4px rgba(173, 205, 210, .05);
+}
+
+.room-node::before {
+    inset: 7px;
+    border: 1px solid rgba(176, 207, 211, .11);
+    border-radius: 2px;
+}
+
+.room-titlebar {
+    border: 0;
+    border-left: 3px solid var(--room-accent);
+    border-radius: 2px;
+    background: rgba(4, 12, 17, .76);
+}
+
+.room-data {
+    opacity: .78;
+}
+
+.room-type-hydroponics { --room-accent: #79d18d; }
+
+.room-type-engineering,
+.room-type-generator,
+.room-type-reactor {
+    background:
+        repeating-linear-gradient(135deg, rgba(239, 176, 74, .07) 0 6px, transparent 6px 12px),
+        linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px),
+        #17242a;
+    background-size: auto, 13px 13px, 13px 13px, auto;
+}
+
+.room-type-airlock {
+    background:
+        repeating-linear-gradient(90deg, rgba(239, 184, 75, .10) 0 8px, transparent 8px 16px),
+        #142028;
+}
+
+.room-node.main-corridor {
+    z-index: 1;
+    padding: 0;
+    border: 4px solid #3c505a;
+    border-radius: 2px;
+    background:
+        linear-gradient(0deg,
+            rgba(103, 224, 208, .08) 0 8%,
+            transparent 8% 92%,
+            rgba(103, 224, 208, .08) 92% 100%),
+        repeating-linear-gradient(90deg,
+            rgba(255,255,255,.035) 0 8%,
+            rgba(0,0,0,.03) 8% 16%),
+        #102027;
+    box-shadow:
+        inset 0 0 0 2px #071218,
+        inset 0 0 18px rgba(0,0,0,.24);
+}
+
+.room-node.main-corridor .room-titlebar,
+.room-node.main-corridor .room-data,
+.room-node.main-corridor .signal-lost,
+.room-node.main-corridor .lights-out {
+    display: none;
+}
+
+.room-node.hallway {
+    z-index: 2;
+    padding: 0;
+    border: 3px solid #415762;
+    border-radius: 1px;
+    box-shadow:
+        inset 0 0 0 2px #071218,
+        0 2px 5px rgba(0,0,0,.24);
+}
+
+.room-node.hallway::before {
+    inset: 4px;
+    border-color: rgba(150, 195, 201, .10);
+}
+
+.room-node.hallway::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+    border: 0;
+}
+
+.room-node.hallway-vertical {
+    background:
+        linear-gradient(90deg,
+            rgba(103,224,208,.09) 0 10%,
+            transparent 10% 90%,
+            rgba(103,224,208,.09) 90% 100%),
+        repeating-linear-gradient(0deg,
+            rgba(255,255,255,.035) 0 10%,
+            rgba(0,0,0,.025) 10% 20%),
+        #102027;
+}
+
+.room-node.hallway-vertical::after {
+    inset: 8% 45%;
+    border-left: 1px dashed rgba(175, 211, 215, .18);
+}
+
+.room-node.hallway-horizontal {
+    background:
+        linear-gradient(0deg,
+            rgba(103,224,208,.09) 0 10%,
+            transparent 10% 90%,
+            rgba(103,224,208,.09) 90% 100%),
+        repeating-linear-gradient(90deg,
+            rgba(255,255,255,.035) 0 10%,
+            rgba(0,0,0,.025) 10% 20%),
+        #102027;
+}
+
+.room-node.hallway-horizontal::after {
+    inset: 45% 8%;
+    border-top: 1px dashed rgba(175, 211, 215, .18);
+}
+
+/* Hatches sit directly on StationGeometry portals and visually cut through the
+   bulkhead instead of reading as free-floating status pills. */
+.map-door {
+    z-index: 9;
+    overflow: visible;
+    border: 2px solid #071117;
+    border-radius: 2px;
+    background: #344a54;
+    box-shadow:
+        0 0 0 2px rgba(151, 180, 187, .28),
+        0 2px 5px rgba(0,0,0,.45);
+}
+
+.map-door.door-horizontal {
+    width: 30px;
+    height: 12px;
+}
+
+.map-door.door-vertical {
+    width: 12px;
+    height: 30px;
+}
+
+.map-door::before {
+    content: "";
+    position: absolute;
+    inset: 2px;
+    border-radius: 1px;
+    background: #102028;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+}
+
+.map-door::after {
+    content: "";
+    position: absolute;
+    border-radius: 1px;
+    background: currentColor;
+    box-shadow: 0 0 5px currentColor;
+}
+
+.map-door.door-horizontal::after {
+    left: 5px;
+    right: 5px;
+    top: 50%;
+    height: 2px;
+    transform: translateY(-50%);
+}
+
+.map-door.door-vertical::after {
+    top: 5px;
+    bottom: 5px;
+    left: 50%;
+    width: 2px;
+    transform: translateX(-50%);
+}
+
+.map-door.open {
+    color: #63dfcf;
+    background: #263b44;
+}
+
+.map-door.open::before {
+    background: #07151b;
+}
+
+.map-door.closed {
+    color: #f0bd62;
+    background: #554324;
+}
+
+.map-door.locked {
+    color: #f17479;
+    background: #5b292d;
+}
+
+/* Fixtures are actual room contents. Interaction-pose classes intentionally
+   survive this pass so later NPC animation can bind to the same objects. */
+.fixture {
+    overflow: hidden;
+    border: 2px solid rgba(171, 200, 205, .30);
+    border-radius: 3px;
+    background: #263840;
+    box-shadow:
+        0 2px 4px rgba(0,0,0,.25),
+        inset 0 0 0 1px rgba(255,255,255,.035);
+}
+
+.fixture-bed,
+.fixture-medicalbed {
+    border-radius: 5px;
+    background:
+        linear-gradient(90deg, rgba(220,237,239,.58) 0 24%, transparent 24%),
+        linear-gradient(180deg, #36515b, #263b43);
+}
+
+.fixture-bed::after,
+.fixture-medicalbed::after {
+    content: "";
+    position: absolute;
+    left: 30%;
+    right: 7%;
+    top: 15%;
+    bottom: 15%;
+    border-radius: 3px;
+    background: rgba(142, 176, 182, .17);
+}
+
+.fixture-medicalbed {
+    border-color: rgba(140, 200, 239, .55);
+}
+
+.fixture-medicalbed::before {
+    content: "+";
+    position: absolute;
+    left: 7%;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #b8e4ff;
+    font: 800 10px/1 ui-sans-serif, system-ui, sans-serif;
+}
+
+.fixture-chair {
+    border-radius: 45% 45% 35% 35%;
+    background:
+        radial-gradient(circle at 50% 42%, #607781 0 36%, #263941 38% 100%);
+}
+
+.fixture-table {
+    border-color: rgba(207, 185, 143, .38);
+    background:
+        linear-gradient(90deg, rgba(255,255,255,.07), transparent 28%),
+        #554a3b;
+}
+
+.fixture-kitchencounter {
+    border-color: rgba(198, 222, 225, .42);
+    background:
+        repeating-linear-gradient(90deg, #52636a 0 18%, #34474f 18% 23%);
+}
+
+.fixture-kitchencounter::after {
+    content: "";
+    position: absolute;
+    inset: 25% 8%;
+    border: 1px solid rgba(208, 232, 234, .18);
+}
+
+.fixture-sink {
+    border-radius: 6px;
+    background:
+        radial-gradient(ellipse at center, #18323a 0 42%, #8aa0a6 44% 58%, #40545b 60%);
+}
+
+.fixture-cabinet,
+.fixture-toolcabinet,
+.fixture-suitlocker,
+.fixture-locker {
+    background:
+        repeating-linear-gradient(90deg, #394d55 0 46%, #1d3038 47% 53%, #394d55 54% 100%);
+}
+
+.fixture-cabinet::after,
+.fixture-toolcabinet::after,
+.fixture-suitlocker::after,
+.fixture-locker::after {
+    content: "";
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    right: 18%;
+    top: 50%;
+    border-radius: 50%;
+    background: #9fc1c6;
+    box-shadow: 0 0 3px rgba(159,193,198,.55);
+}
+
+.fixture-suitlocker {
+    border-color: rgba(116, 177, 205, .48);
+}
+
+.fixture-sofa {
+    border-radius: 7px;
+    border-color: rgba(190, 150, 224, .40);
+    background:
+        linear-gradient(90deg, transparent 48%, rgba(255,255,255,.08) 49% 51%, transparent 52%),
+        #513f67;
+}
+
+.fixture-recreationconsole,
+.fixture-console {
+    border-color: rgba(86, 220, 205, .48);
+    background:
+        linear-gradient(180deg, rgba(93, 226, 211, .30) 0 25%, #17313a 26% 100%);
+}
+
+.fixture-screen {
+    border-color: rgba(95, 229, 213, .55);
+    background:
+        linear-gradient(90deg, rgba(95,229,213,.16), rgba(85,139,177,.20)),
+        #0d242c;
+    box-shadow: 0 0 8px rgba(95,229,213,.16), inset 0 0 0 2px #07151b;
+}
+
+.fixture-treatmentunit {
+    border-color: rgba(133, 194, 232, .48);
+    background:
+        repeating-linear-gradient(90deg, rgba(133,194,232,.22) 0 8%, #223a44 8% 16%);
+}
+
+.fixture-workbench {
+    border-color: rgba(220, 171, 103, .44);
+    background:
+        repeating-linear-gradient(90deg, #594a38 0 18%, #26383e 18% 22%);
+}
+
+.fixture-storagerack {
+    background:
+        repeating-linear-gradient(0deg, #40535a 0 16%, #172a31 17% 23%);
+}
+
+.fixture-crate {
+    border-color: rgba(204, 164, 101, .42);
+    background:
+        linear-gradient(45deg, transparent 44%, rgba(225,190,128,.25) 45% 55%, transparent 56%),
+        linear-gradient(-45deg, transparent 44%, rgba(225,190,128,.25) 45% 55%, transparent 56%),
+        #59462f;
+}
+
+.fixture-growbed {
+    border-color: rgba(108, 203, 126, .45);
+    background:
+        radial-gradient(circle at 20% 25%, #74c87b 0 7%, transparent 8%),
+        radial-gradient(circle at 55% 55%, #67b96f 0 8%, transparent 9%),
+        radial-gradient(circle at 78% 28%, #8bd58d 0 7%, transparent 8%),
+        radial-gradient(circle at 32% 78%, #59a966 0 8%, transparent 9%),
+        #203d2d;
+    background-size: 22px 22px;
+}
+
+.fixture-irrigationtank {
+    border-radius: 45%;
+    border-color: rgba(102, 191, 209, .48);
+    background:
+        radial-gradient(circle at 36% 30%, rgba(255,255,255,.24) 0 10%, transparent 11%),
+        #28505a;
+}
+
+.fixture-pipe {
+    border-radius: 999px;
+    border-color: rgba(116, 153, 164, .42);
+    background:
+        linear-gradient(180deg, #526a72, #23373e 45%, #607981 52%, #263940);
+}
+
+.fixture-vent {
+    border-color: rgba(129, 162, 172, .34);
+    background:
+        repeating-linear-gradient(90deg, #1a2d34 0 12%, #536871 13% 18%);
+}
+
+.fixture-utilitypanel {
+    border-color: rgba(117, 159, 171, .42);
+    background:
+        radial-gradient(circle at 75% 25%, #6de0cf 0 5%, transparent 6%),
+        linear-gradient(180deg, #334b54, #1c3037);
+}
+
+.fixture-generator {
+    border-color: rgba(239, 184, 82, .55);
+    border-radius: 12px;
+    background:
+        radial-gradient(circle at 50% 50%, #172a31 0 15%, #e3ad4d 16% 23%, #30434a 24% 43%, #192c33 44%),
+        #23363d;
+}
+
+.fixture-reactorcore {
+    border: 3px solid rgba(95, 226, 210, .58);
+    border-radius: 50%;
+    background:
+        radial-gradient(circle, #c5fff7 0 6%, #5ce1d2 7% 15%, #174a4a 16% 31%, #0d222a 32% 46%, #52cdbf 47% 51%, #14272e 52%);
+    box-shadow:
+        0 0 16px rgba(92,225,210,.30),
+        inset 0 0 12px rgba(92,225,210,.24);
+}
+
+.fixture-overseershutdown {
+    border: 3px solid rgba(239, 102, 110, .62);
+    border-radius: 8px;
+    background:
+        radial-gradient(circle at 50% 50%, #ef666e 0 15%, #4f2026 16% 27%, transparent 28%),
+        repeating-linear-gradient(135deg, rgba(239,102,110,.12) 0 8px, transparent 8px 16px),
+        #231a20;
+    box-shadow: 0 0 12px rgba(239,102,110,.18);
+}
+
+.fixture-airlockdoor {
+    border: 3px double rgba(182, 207, 213, .55);
+    border-radius: 4px;
+    background:
+        linear-gradient(90deg, #263b43 0 43%, #6c8187 44% 48%, #172b33 49% 51%, #6c8187 52% 56%, #263b43 57%);
+}
+
+.fixture-shower {
+    background:
+        repeating-linear-gradient(90deg, rgba(106,184,224,.25) 0 16%, transparent 16% 28%),
+        #203845;
+}
+
+.fixture-toilet {
+    border-radius: 45%;
+    background:
+        radial-gradient(ellipse at center, #132930 0 32%, #9fb4b9 34% 55%, #40545b 57%);
+}
+
+.fixture-mirror {
+    border-color: rgba(183, 225, 235, .56);
+    background:
+        linear-gradient(135deg, rgba(255,255,255,.22), transparent 30%),
+        #43616a;
+}
+
+.fixture-camera {
+    z-index: 5;
+    width: 8px !important;
+    height: 8px !important;
+    border: 2px solid #07141a;
+    border-radius: 50%;
+    background: #61e1d1;
+    box-shadow: 0 0 0 2px rgba(78,111,120,.48), 0 0 8px rgba(97,225,209,.42);
+}
+
+.room-node.hallway .fixture,
+.room-node.main-corridor .fixture {
+    opacity: .62;
+    box-shadow: none;
+}
+
+@media (max-width: 760px) {
+    .room-node {
+        border-width: 3px;
+    }
+
+    .map-door.door-horizontal {
+        width: 24px;
+        height: 10px;
+    }
+
+    .map-door.door-vertical {
+        width: 10px;
+        height: 24px;
+    }
+
+    .room-titlebar {
+        padding: 2px 3px;
+    }
+}
