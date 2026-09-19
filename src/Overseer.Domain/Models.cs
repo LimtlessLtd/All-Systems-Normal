@@ -24,6 +24,22 @@ public enum RoomType
     Airlock
 }
 
+public enum FixtureType
+{
+    Bed,
+    Table,
+    Console,
+    MedicalBed,
+    ReactorCore,
+    Generator,
+    Workbench,
+    StorageRack,
+    AirlockDoor,
+    KitchenCounter,
+    Camera,
+    Locker
+}
+
 public enum ActionKind
 {
     Idle,
@@ -33,6 +49,9 @@ public enum ActionKind
     Investigate,
     Repair,
     Talk,
+    Socialize,
+    Argue,
+    Attack,
     RequestHelp
 }
 
@@ -46,10 +65,34 @@ public sealed record Belief(
     string Statement,
     double Confidence);
 
+public sealed record Personality(
+    double Empathy,
+    double Temper,
+    double Sociability,
+    double Courage);
+
+public sealed class Relationship
+{
+    public required string PersonName { get; init; }
+    public double Affinity { get; set; } = 50;
+    public double Trust { get; set; } = 50;
+    public double Resentment { get; set; }
+    public int Conversations { get; set; }
+    public int Arguments { get; set; }
+}
+
 public sealed record NpcAction(
     ActionKind Kind,
     string? TargetId,
     string Reason);
+
+public sealed record RoomFixture(
+    FixtureType Type,
+    string Label,
+    double X,
+    double Y,
+    double Width,
+    double Height);
 
 public sealed class Npc
 {
@@ -57,6 +100,7 @@ public sealed class Npc
     public required string Name { get; init; }
     public required CrewRole Role { get; init; }
     public required string CurrentRoomId { get; set; }
+    public required Personality Personality { get; init; }
 
     public double Health { get; set; } = 100;
     public double Hunger { get; set; } = 10;
@@ -64,7 +108,13 @@ public sealed class Npc
     public double Fear { get; set; } = 5;
     public double Stress { get; set; } = 10;
 
+    public string? CauseOfDeath { get; set; }
+    public bool IsAlive => Health > 0;
+
     public Dictionary<string, int> Skills { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    public Dictionary<string, Relationship> Relationships { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
     public List<Memory> Memories { get; } = [];
@@ -91,6 +141,8 @@ public sealed class Room
     public double TemperatureC { get; set; } = 21;
     public double OxygenPercent { get; set; } = 20.9;
 
+    public List<RoomFixture> Fixtures { get; } = [];
+
     public bool HasVisualFeed => IsPowered && CameraOnline;
 }
 
@@ -103,6 +155,8 @@ public sealed class Door
     public bool IsOpen { get; set; } = true;
     public bool IsLocked { get; set; }
     public bool IsPowered { get; set; } = true;
+
+    public bool IsPassable => IsPowered && IsOpen && !IsLocked;
 
     public bool Connects(string firstRoomId, string secondRoomId) =>
         (RoomAId.Equals(firstRoomId, StringComparison.OrdinalIgnoreCase)
