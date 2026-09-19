@@ -2670,3 +2670,227 @@ button.sound-toggle.sound-on {
         padding: 2px 3px;
     }
 }
+
+
+/* V0.6D.1 — room-dominant station composition
+   Functional rooms now occupy ~75% of the deck canvas. Corridors are connective
+   tissue, not the visual subject. */
+.station-map {
+    background:
+        linear-gradient(rgba(95, 133, 145, .018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(95, 133, 145, .018) 1px, transparent 1px),
+        radial-gradient(circle at 50% 50%, rgba(46, 102, 112, .08), transparent 58%),
+        #040b10;
+    background-size: 26px 26px, 26px 26px, auto, auto;
+}
+
+/* Keep room UI as small overlays so the enlarged physical interiors remain
+   readable and can carry machines, beds, tables and future activity poses. */
+.room-node:not(.hallway):not(.main-corridor) {
+    z-index: 3;
+    padding: .35rem;
+    box-shadow:
+        0 4px 8px rgba(0,0,0,.25),
+        inset 0 0 0 2px #09151c,
+        inset 0 0 0 4px rgba(173,205,210,.045);
+}
+
+.room-node:not(.hallway):not(.main-corridor) .room-titlebar {
+    position: absolute;
+    left: 7px;
+    top: 7px;
+    z-index: 6;
+    width: auto;
+    max-width: calc(100% - 14px);
+    padding: 3px 6px;
+    gap: 5px;
+    pointer-events: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,.28);
+}
+
+.room-node:not(.hallway):not(.main-corridor) .room-name {
+    font-size: clamp(.48rem, .62vw, .66rem);
+}
+
+.room-node:not(.hallway):not(.main-corridor) .room-data {
+    position: absolute;
+    left: 7px;
+    bottom: 7px;
+    z-index: 6;
+    margin: 0;
+    opacity: 0;
+    transform: translateY(3px);
+    transition: opacity .15s ease, transform .15s ease;
+    pointer-events: none;
+}
+
+.room-node:not(.hallway):not(.main-corridor):hover .room-data,
+.room-node:not(.hallway):not(.main-corridor).selected .room-data {
+    opacity: .92;
+    transform: translateY(0);
+}
+
+.room-node:not(.hallway):not(.main-corridor) .fixture-layer {
+    z-index: 2;
+}
+
+/* Circulation is intentionally thin and subdued. */
+.room-node.main-corridor {
+    z-index: 1;
+    border-width: 2px;
+    border-color: #354b54;
+    background:
+        linear-gradient(0deg,
+            rgba(103,224,208,.055) 0 10%,
+            transparent 10% 90%,
+            rgba(103,224,208,.055) 90% 100%),
+        repeating-linear-gradient(90deg,
+            rgba(255,255,255,.02) 0 18px,
+            rgba(0,0,0,.018) 18px 36px),
+        #0c181f;
+    box-shadow:
+        inset 0 0 0 1px #061117,
+        inset 0 0 10px rgba(0,0,0,.18);
+}
+
+.room-node.main-corridor::after {
+    border-top-color: rgba(98,229,213,.13);
+}
+
+.room-node.hallway {
+    z-index: 2;
+    border-width: 2px;
+    border-color: #344d57;
+    background-color: #0c181f;
+    box-shadow:
+        inset 0 0 0 1px #061117,
+        0 1px 3px rgba(0,0,0,.2);
+}
+
+.room-node.hallway-vertical {
+    background:
+        linear-gradient(90deg,
+            rgba(103,224,208,.05) 0 9%,
+            transparent 9% 91%,
+            rgba(103,224,208,.05) 91% 100%),
+        #0c181f;
+}
+
+.room-node.hallway-horizontal {
+    background:
+        linear-gradient(0deg,
+            rgba(103,224,208,.05) 0 9%,
+            transparent 9% 91%,
+            rgba(103,224,208,.05) 91% 100%),
+        #0c181f;
+}
+
+.room-node.hallway::before {
+    inset: 2px;
+    border-color: rgba(150,195,201,.06);
+}
+
+/* Simple corridor contents: windows and occasional seating only. */
+.fixture-window {
+    overflow: hidden;
+    border: 2px solid rgba(114, 169, 191, .48);
+    border-radius: 2px;
+    background:
+        radial-gradient(circle at 18% 30%, rgba(231,248,255,.88) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 66% 67%, rgba(188,231,255,.78) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 83% 24%, rgba(220,243,255,.65) 0 1px, transparent 1.5px),
+        linear-gradient(135deg, rgba(68,137,171,.24), rgba(4,14,25,.82)),
+        #07131e;
+    box-shadow:
+        inset 0 0 0 2px rgba(5,16,23,.72),
+        inset 0 0 12px rgba(58,132,168,.18);
+}
+
+.fixture-window::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(115deg,
+            transparent 0 38%,
+            rgba(191,231,244,.10) 39% 44%,
+            transparent 45% 100%);
+}
+
+.fixture-bench {
+    border-color: rgba(142, 168, 177, .42);
+    border-radius: 5px;
+    background:
+        repeating-linear-gradient(90deg,
+            #40545c 0 18%,
+            #253940 18% 23%);
+}
+
+.fixture-bench::before,
+.fixture-bench::after {
+    content: "";
+    position: absolute;
+    bottom: 7%;
+    width: 8%;
+    height: 22%;
+    background: #1a2c32;
+}
+
+.fixture-bench::before { left: 13%; }
+.fixture-bench::after { right: 13%; }
+
+.room-node.hallway .fixture-window,
+.room-node.main-corridor .fixture-window {
+    opacity: .88;
+}
+
+.room-node.main-corridor .fixture-bench {
+    opacity: .72;
+}
+
+.room-node.hallway .fixture-camera,
+.room-node.main-corridor .fixture-camera {
+    opacity: .30;
+    transform: translate(-50%, -50%) scale(.58);
+}
+
+/* Doors on the thinner passages should read as bulkhead cuts, not giant icons. */
+.room-node.hallway + .map-door,
+.map-door {
+    box-shadow:
+        0 0 0 1px rgba(151,180,187,.24),
+        0 1px 3px rgba(0,0,0,.38);
+}
+
+.map-door.door-horizontal {
+    width: 26px;
+    height: 9px;
+}
+
+.map-door.door-vertical {
+    width: 9px;
+    height: 26px;
+}
+
+@media (max-width: 760px) {
+    .room-node:not(.hallway):not(.main-corridor) .room-titlebar {
+        left: 4px;
+        top: 4px;
+        max-width: calc(100% - 8px);
+        padding: 2px 4px;
+    }
+
+    .room-node:not(.hallway):not(.main-corridor) .room-data {
+        display: none;
+    }
+
+    .map-door.door-horizontal {
+        width: 22px;
+        height: 8px;
+    }
+
+    .map-door.door-vertical {
+        width: 8px;
+        height: 22px;
+    }
+}
