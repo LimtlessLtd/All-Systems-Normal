@@ -63,6 +63,29 @@ public sealed class CrewRoutineSystemTests
     }
 
     [Fact]
+    public void RoutineDutyRotation_MovesCrewBeyondTheirHomeRooms()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+
+        david.Hunger = 0;
+        david.Fatigue = 0;
+        david.BladderNeed = 0;
+        david.HygieneNeed = 0;
+        david.RecreationNeed = 0;
+        david.SocialNeed = 0;
+        david.IntimacyNeed = 0;
+        david.RoutineUntil = TimeSpan.Zero;
+        state.Elapsed = TimeSpan.FromMinutes(30);
+
+        new CrewRoutineSystem().Tick(state);
+
+        Assert.NotNull(david.Movement);
+        Assert.Equal("hall-control", david.Movement!.ToRoomId);
+        Assert.Contains("Medical", david.CurrentAction.Reason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void MutualIntimacyNeedCoordinatesBothPeopleTowardPrivacy()
     {
         var state = FacilitySeeder.CreateDefault();
