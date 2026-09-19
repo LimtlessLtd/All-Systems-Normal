@@ -80,9 +80,18 @@ public sealed class Room
     public required string Name { get; init; }
     public required RoomType Type { get; init; }
 
+    public double MapX { get; init; }
+    public double MapY { get; init; }
+    public double MapWidth { get; init; } = 16;
+    public double MapHeight { get; init; } = 14;
+
     public bool IsPowered { get; set; } = true;
+    public bool LightsOn { get; set; } = true;
+    public bool CameraOnline { get; set; } = true;
     public double TemperatureC { get; set; } = 21;
     public double OxygenPercent { get; set; } = 20.9;
+
+    public bool HasVisualFeed => IsPowered && CameraOnline;
 }
 
 public sealed class Door

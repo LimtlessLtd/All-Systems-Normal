@@ -1,105 +1,499 @@
 @page "/"
 @rendermode InteractiveServer
+@implements IAsyncDisposable
 @inject GameSession Session
 
 <PageTitle>All Systems Normal</PageTitle>
 
-<div class="control-room">
-    <header class="topbar">
-        <div>
-            <p class="eyebrow">FACILITY OVERSEER // ONLINE</p>
+<div class="game-shell">
+    <header class="command-bar">
+        <div class="brand">
+            <span class="overline">FACILITY OVERSEER // ACTIVE</span>
             <h1>ALL SYSTEMS NORMAL</h1>
-            <p class="subtext">You are the system. They are not under your control.</p>
         </div>
 
-        <div class="clock-panel">
-            <span>MISSION TIME</span>
-            <strong>T+@Session.State.Elapsed.ToString(@"hh\:mm")</strong>
-            <div class="actions">
-                <button @onclick="Session.AdvanceOneMinute">+ 1 MINUTE</button>
-                <button class="secondary" @onclick="Session.Reset">RESET</button>
+        <div class="status-strip">
+            <div>
+                <span>MISSION</span>
+                <strong>T+@Session.State.Elapsed.ToString(@"hh\:mm")</strong>
             </div>
+            <div>
+                <span>POWER</span>
+                <strong>@Session.PoweredRoomCount/@Session.State.Facility.Rooms.Count</strong>
+            </div>
+            <div>
+                <span>CAMERAS</span>
+                <strong>@Session.CameraCount/@Session.State.Facility.Rooms.Count</strong>
+            </div>
+            <div class="@(Session.AlertCount > 0 ? "has-alerts" : "")">
+                <span>ALERTS</span>
+                <strong>@Session.AlertCount</strong>
+            </div>
+        </div>
+
+        <div class="time-controls">
+            <button class="@(_running ? "danger" : "")" @onclick="ToggleRunAsync">
+                @(_running ? "PAUSE" : "RUN")
+            </button>
+            <button class="secondary" @onclick="() => SetSpeed(1200)">1×</button>
+            <button class="secondary" @onclick="() => SetSpeed(450)">4×</button>
+            <button class="secondary" @onclick="() => SetSpeed(160)">12×</button>
+            <button class="secondary" @onclick="() => StepMinutes(1)">+1m</button>
+            <button class="secondary" @onclick="ResetGame">RESET</button>
         </div>
     </header>
 
-    <section>
-        <div class="section-heading">
-            <h2>CREW TELEMETRY</h2>
-            <span>@Session.State.Crew.Count ACTIVE</span>
+    <div class="operations-grid">
+        <aside class="systems-panel panel">
+            <div class="panel-heading">
+                <div>
+                    <span class="overline">FACILITY</span>
+                    <h2>SYSTEMS</h2>
+                </div>
+                <span class="live-indicator">LIVE</span>
+            </div>
+
+            <div class="room-list">
+                @foreach (var room in Session.State.Facility.Rooms.Values.OrderBy(room => room.Name))
+                {
+                    <button class="@($"room-list-item {(SelectedRoom?.Id == room.Id ? "selected" : "")}")"
+                            @onclick="() => SelectRoom(room.Id)">
+                        <span class="system-dot @RoomHealthClass(room)"></span>
+                        <span>
+                            <strong>@room.Name</strong>
+                            <small>
+                                @(room.IsPowered ? "PWR" : "NO PWR")
+                                · @(room.CameraOnline ? "CAM" : "CAM OFF")
+                            </small>
+                        </span>
+                    </button>
+                }
+            </div>
+
+            <div class="legend">
+                <span><i class="legend-dot crew"></i> visible crew</span>
+                <span><i class="legend-dot open"></i> open door</span>
+                <span><i class="legend-dot locked"></i> locked door</span>
+            </div>
+        </aside>
+
+        <main class="station-panel panel">
+            <div class="panel-heading map-heading">
+                <div>
+                    <span class="overline">DECK A // INTERNAL SURVEILLANCE</span>
+                    <h2>STATION OVERVIEW</h2>
+                </div>
+                <span class="@(_running ? "sim-running" : "sim-paused")">
+                    @(_running ? $"RUNNING {SpeedLabel}" : "PAUSED")
+                </span>
+            </div>
+
+            <div class="station-map">
+                <svg class="connection-layer" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                    @foreach (var door in Session.State.Facility.Doors)
+                    {
+                        var a = Session.State.Facility.Rooms[door.RoomAId];
+                        var b = Session.State.Facility.Rooms[door.RoomBId];
+
+                        <line x1="@a.MapX" y1="@a.MapY" x2="@b.MapX" y2="@b.MapY"
+                              class="@($"connection {(door.IsOpen ? "open" : "closed")} {(door.IsLocked ? "locked" : "")}")" />
+                    }
+                </svg>
+
+                @foreach (var room in Session.State.Facility.Rooms.Values)
+                {
+                    <button class="@RoomClass(room)"
+                            style="@RoomStyle(room)"
+                            aria-label="@($"Select {room.Name}")"
+                            @onclick="() => SelectRoom(room.Id)">
+                        <span class="room-name">@room.Name</span>
+                        <span class="room-data">
+                            <b>@(room.IsPowered ? "PWR" : "OFF")</b>
+                            <b>@room.TemperatureC.ToString("0")°</b>
+                            <b>O₂ @room.OxygenPercent.ToString("0.0")</b>
+                        </span>
+
+                        @if (!room.HasVisualFeed)
+                        {
+                            <span class="signal-lost">VISUAL LOST</span>
+                        }
+                        else if (!room.LightsOn)
+                        {
+                            <span class="lights-out">LIGHTS OFF</span>
+                        }
+                    </button>
+                }
+
+                @foreach (var door in Session.State.Facility.Doors)
+                {
+                    <button class="@DoorClass(door)"
+                            style="@DoorStyle(door)"
+                            title="@DoorTitle(door)"
+                            aria-label="@DoorTitle(door)"
+                            @onclick="() => Session.ToggleDoor(door.Id)">
+                        @(door.IsLocked ? "L" : door.IsOpen ? "O" : "C")
+                    </button>
+                }
+
+                @foreach (var npc in Session.State.Crew.Where(CanSee))
+                {
+                    <button class="@($"crew-token role-{npc.Role.ToString().ToLowerInvariant()} {(SelectedCrew?.Id == npc.Id ? "selected" : "")}")"
+                            style="@CrewStyle(npc)"
+                            title="@($"{npc.Name} — {npc.Role}")"
+                            aria-label="@($"Select {npc.Name}")"
+                            @onclick="() => SelectCrew(npc.Id)">
+                        @Initials(npc.Name)
+                    </button>
+                }
+            </div>
+
+            <div class="map-footer">
+                <span>Click a room or crew member to inspect it.</span>
+                <span>Crew disappear from the map when a camera feed is lost.</span>
+            </div>
+        </main>
+
+        <aside class="inspector-panel panel">
+            @if (SelectedCrew is { } selectedCrew)
+            {
+                var crewRoom = Session.State.Facility.Rooms[selectedCrew.CurrentRoomId];
+
+                <div class="panel-heading">
+                    <div>
+                        <span class="overline">CREW TELEMETRY</span>
+                        <h2>@selectedCrew.Name</h2>
+                    </div>
+                    <span class="crew-badge">@Initials(selectedCrew.Name)</span>
+                </div>
+
+                <p class="role-line">@selectedCrew.Role · @crewRoom.Name</p>
+
+                @if (!crewRoom.HasVisualFeed)
+                {
+                    <div class="warning-box">CAMERA FEED LOST — location is telemetry only.</div>
+                }
+
+                <div class="metric-list">
+                    @Metric("HEALTH", selectedCrew.Health)
+                    @Metric("HUNGER", selectedCrew.Hunger)
+                    @Metric("FATIGUE", selectedCrew.Fatigue)
+                    @Metric("FEAR", selectedCrew.Fear)
+                    @Metric("STRESS", selectedCrew.Stress)
+                </div>
+
+                <div class="thought-card">
+                    <span>CURRENT INTENT</span>
+                    <strong>@selectedCrew.CurrentAction.Kind</strong>
+                    <p>@selectedCrew.CurrentAction.Reason</p>
+                </div>
+
+                <div class="belief-card">
+                    <span>BELIEF ABOUT OVERSEER</span>
+                    <p>@selectedCrew.Beliefs.FirstOrDefault()?.Statement</p>
+                </div>
+            }
+            else if (SelectedRoom is { } selectedRoom)
+            {
+                <div class="panel-heading">
+                    <div>
+                        <span class="overline">ROOM CONTROL</span>
+                        <h2>@selectedRoom.Name</h2>
+                    </div>
+                    <span class="system-dot @RoomHealthClass(selectedRoom)"></span>
+                </div>
+
+                <div class="environment-grid">
+                    <div><span>POWER</span><strong>@(selectedRoom.IsPowered ? "ONLINE" : "OFFLINE")</strong></div>
+                    <div><span>CAMERA</span><strong>@(selectedRoom.CameraOnline ? "ONLINE" : "OFFLINE")</strong></div>
+                    <div><span>LIGHTS</span><strong>@(selectedRoom.LightsOn ? "ON" : "OFF")</strong></div>
+                    <div><span>TEMP</span><strong>@selectedRoom.TemperatureC.ToString("0.0")°C</strong></div>
+                    <div><span>OXYGEN</span><strong>@selectedRoom.OxygenPercent.ToString("0.0")%</strong></div>
+                    <div><span>OCCUPANTS</span><strong>@VisibleOccupantLabel(selectedRoom)</strong></div>
+                </div>
+
+                <div class="control-stack">
+                    <button class="wide" @onclick="() => Session.ToggleRoomPower(selectedRoom.Id)">
+                        @(selectedRoom.IsPowered ? "CUT ROOM POWER" : "RESTORE ROOM POWER")
+                    </button>
+                    <button class="wide secondary" disabled="@(!selectedRoom.IsPowered)"
+                            @onclick="() => Session.ToggleLights(selectedRoom.Id)">
+                        @(selectedRoom.LightsOn ? "LIGHTS OFF" : "LIGHTS ON")
+                    </button>
+                    <button class="wide secondary" disabled="@(!selectedRoom.IsPowered)"
+                            @onclick="() => Session.ToggleCamera(selectedRoom.Id)">
+                        @(selectedRoom.CameraOnline ? "DISABLE CAMERA" : "RESTORE CAMERA")
+                    </button>
+                </div>
+
+                <div class="door-control-list">
+                    <span class="subheading">CONNECTED DOORS</span>
+                    @foreach (var door in ConnectedDoors(selectedRoom))
+                    {
+                        var other = OtherRoom(door, selectedRoom.Id);
+
+                        <div class="door-control">
+                            <div>
+                                <strong>@other.Name</strong>
+                                <small>@(door.IsOpen ? "OPEN" : "CLOSED") · @(door.IsLocked ? "LOCKED" : "UNLOCKED")</small>
+                            </div>
+                            <div>
+                                <button class="mini" @onclick="() => Session.ToggleDoor(door.Id)">
+                                    @(door.IsOpen ? "CLOSE" : "OPEN")
+                                </button>
+                                <button class="mini secondary" @onclick="() => Session.ToggleLock(door.Id)">
+                                    @(door.IsLocked ? "UNLOCK" : "LOCK")
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </aside>
+    </div>
+
+    <section class="event-panel panel">
+        <div class="panel-heading">
+            <div>
+                <span class="overline">FACILITY MEMORY</span>
+                <h2>EVENT STREAM</h2>
+            </div>
+            <span>@Session.State.EventLog.Count RECORDS</span>
         </div>
 
-        <div class="crew-grid">
-            @foreach (var npc in Session.State.Crew.OrderBy(npc => npc.Name))
+        <div class="event-log">
+            @foreach (var entry in Session.State.EventLog.Take(12))
             {
-                var room = Session.State.Facility.Rooms[npc.CurrentRoomId];
-
-                <article class="crew-card">
-                    <div class="crew-title">
-                        <div>
-                            <strong>@npc.Name</strong>
-                            <span>@npc.Role</span>
-                        </div>
-                        <span class="status-dot" title="Online"></span>
-                    </div>
-
-                    <p class="location">@room.Name</p>
-                    <p class="current-action">@npc.CurrentAction.Kind: @npc.CurrentAction.Reason</p>
-
-                    <div class="meter-row">
-                        <label>HLTH <progress value="@npc.Health" max="100"></progress> @npc.Health.ToString("0")</label>
-                        <label>HUNG <progress value="@npc.Hunger" max="100"></progress> @npc.Hunger.ToString("0")</label>
-                        <label>FATG <progress value="@npc.Fatigue" max="100"></progress> @npc.Fatigue.ToString("0")</label>
-                        <label>FEAR <progress value="@npc.Fear" max="100"></progress> @npc.Fear.ToString("0")</label>
-                        <label>STRS <progress value="@npc.Stress" max="100"></progress> @npc.Stress.ToString("0")</label>
-                    </div>
-                </article>
+                <p>@entry</p>
             }
         </div>
     </section>
-
-    <div class="lower-grid">
-        <section>
-            <div class="section-heading">
-                <h2>DOOR CONTROL</h2>
-                <span>@Session.State.Facility.Doors.Count NODES</span>
-            </div>
-
-            <div class="door-list">
-                @foreach (var door in Session.State.Facility.Doors)
-                {
-                    var roomA = Session.State.Facility.Rooms[door.RoomAId];
-                    var roomB = Session.State.Facility.Rooms[door.RoomBId];
-
-                    <div class="door-row">
-                        <div>
-                            <strong>@roomA.Name ↔ @roomB.Name</strong>
-                            <span>@(door.IsOpen ? "OPEN" : "CLOSED") · @(door.IsLocked ? "LOCKED" : "UNLOCKED")</span>
-                        </div>
-                        <div class="door-actions">
-                            <button disabled="@door.IsLocked" @onclick="() => Session.ToggleDoor(door.Id)">
-                                @(door.IsOpen ? "CLOSE" : "OPEN")
-                            </button>
-                            <button class="secondary" @onclick="() => Session.ToggleLock(door.Id)">
-                                @(door.IsLocked ? "UNLOCK" : "LOCK")
-                            </button>
-                        </div>
-                    </div>
-                }
-            </div>
-        </section>
-
-        <section>
-            <div class="section-heading">
-                <h2>EVENT STREAM</h2>
-                <span>LIVE</span>
-            </div>
-
-            <div class="event-log">
-                @foreach (var entry in Session.State.EventLog.Take(20))
-                {
-                    <p>@entry</p>
-                }
-            </div>
-        </section>
-    </div>
 </div>
+
+@code {
+    private string? _selectedRoomId = "control";
+    private Guid? _selectedCrewId;
+    private bool _running;
+    private int _delayMs = 1200;
+    private CancellationTokenSource? _clockCts;
+    private Task? _clockTask;
+
+    private Room? SelectedRoom =>
+        _selectedRoomId is not null
+            && Session.State.Facility.Rooms.TryGetValue(_selectedRoomId, out var room)
+                ? room
+                : null;
+
+    private Npc? SelectedCrew =>
+        _selectedCrewId is { } crewId
+            ? Session.State.Crew.FirstOrDefault(npc => npc.Id == crewId)
+            : null;
+
+    private string SpeedLabel => _delayMs switch
+    {
+        >= 1000 => "1×",
+        >= 300 => "4×",
+        _ => "12×"
+    };
+
+    private void SelectRoom(string roomId)
+    {
+        _selectedRoomId = roomId;
+        _selectedCrewId = null;
+    }
+
+    private void SelectCrew(Guid crewId)
+    {
+        _selectedCrewId = crewId;
+        _selectedRoomId = null;
+    }
+
+    private void StepMinutes(int minutes)
+    {
+        Session.AdvanceMinutes(minutes);
+    }
+
+    private void ResetGame()
+    {
+        StopClock();
+        Session.Reset();
+        _selectedRoomId = "control";
+        _selectedCrewId = null;
+    }
+
+    private void SetSpeed(int delayMs)
+    {
+        _delayMs = delayMs;
+    }
+
+    private Task ToggleRunAsync()
+    {
+        if (_running)
+        {
+            StopClock();
+            return Task.CompletedTask;
+        }
+
+        _running = true;
+        _clockCts = new CancellationTokenSource();
+        _clockTask = RunClockAsync(_clockCts.Token);
+        return Task.CompletedTask;
+    }
+
+    private async Task RunClockAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(_delayMs, cancellationToken);
+                Session.AdvanceOneMinute();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Normal pause/dispose path.
+        }
+    }
+
+    private void StopClock()
+    {
+        _running = false;
+        _clockCts?.Cancel();
+        _clockCts?.Dispose();
+        _clockCts = null;
+        _clockTask = null;
+    }
+
+    private bool CanSee(Npc npc) =>
+        Session.State.Facility.Rooms[npc.CurrentRoomId].HasVisualFeed;
+
+    private static string Initials(string name) =>
+        string.Concat(
+            name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Take(2)
+                .Select(part => char.ToUpperInvariant(part[0])));
+
+    private static RenderFragment Metric(string label, double value) => builder =>
+    {
+        var safeValue = Math.Clamp(value, 0, 100);
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "metric");
+        builder.OpenElement(2, "div");
+        builder.OpenElement(3, "span");
+        builder.AddContent(4, label);
+        builder.CloseElement();
+        builder.OpenElement(5, "strong");
+        builder.AddContent(6, safeValue.ToString("0"));
+        builder.CloseElement();
+        builder.CloseElement();
+        builder.OpenElement(7, "progress");
+        builder.AddAttribute(8, "max", "100");
+        builder.AddAttribute(9, "value", safeValue);
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    private static string RoomHealthClass(Room room) =>
+        !room.IsPowered ? "critical"
+        : !room.CameraOnline ? "warning"
+        : "healthy";
+
+    private string RoomClass(Room room)
+    {
+        var classes = new List<string> { "room-node" };
+
+        if (SelectedRoom?.Id == room.Id)
+            classes.Add("selected");
+
+        if (!room.IsPowered)
+            classes.Add("no-power");
+        else if (!room.CameraOnline)
+            classes.Add("camera-off");
+
+        if (!room.LightsOn)
+            classes.Add("lights-off");
+
+        return string.Join(' ', classes);
+    }
+
+    private static string RoomStyle(Room room) =>
+        FormattableString.Invariant(
+            $"left:{room.MapX}%;top:{room.MapY}%;width:{room.MapWidth}%;height:{room.MapHeight}%;");
+
+    private string CrewStyle(Npc npc)
+    {
+        var room = Session.State.Facility.Rooms[npc.CurrentRoomId];
+        var occupants = Session.State.Crew
+            .Where(other => other.CurrentRoomId == npc.CurrentRoomId)
+            .OrderBy(other => other.Name)
+            .ToList();
+
+        var index = occupants.FindIndex(other => other.Id == npc.Id);
+        var offsets = new (double X, double Y)[]
+        {
+            (-2.4, -1.6),
+            (2.4, -1.6),
+            (-2.4, 1.8),
+            (2.4, 1.8),
+            (0, 0)
+        };
+        var offset = offsets[Math.Max(0, index) % offsets.Length];
+
+        return FormattableString.Invariant(
+            $"left:{room.MapX + offset.X}%;top:{room.MapY + offset.Y}%;");
+    }
+
+    private string DoorStyle(Door door)
+    {
+        var a = Session.State.Facility.Rooms[door.RoomAId];
+        var b = Session.State.Facility.Rooms[door.RoomBId];
+
+        return FormattableString.Invariant(
+            $"left:{(a.MapX + b.MapX) / 2}%;top:{(a.MapY + b.MapY) / 2}%;");
+    }
+
+    private static string DoorClass(Door door) =>
+        $"map-door {(door.IsLocked ? "locked" : door.IsOpen ? "open" : "closed")}";
+
+    private string DoorTitle(Door door)
+    {
+        var a = Session.State.Facility.Rooms[door.RoomAId];
+        var b = Session.State.Facility.Rooms[door.RoomBId];
+        var state = door.IsLocked ? "locked" : door.IsOpen ? "open" : "closed";
+        return $"{a.Name} ↔ {b.Name}: {state}. Click to toggle open/closed.";
+    }
+
+    private IEnumerable<Door> ConnectedDoors(Room room) =>
+        Session.State.Facility.Doors.Where(door =>
+            door.RoomAId == room.Id || door.RoomBId == room.Id);
+
+    private Room OtherRoom(Door door, string roomId) =>
+        Session.State.Facility.Rooms[
+            door.RoomAId == roomId ? door.RoomBId : door.RoomAId];
+
+    private string VisibleOccupantLabel(Room room)
+    {
+        if (!room.HasVisualFeed)
+            return "UNKNOWN";
+
+        return Session.State.Crew.Count(npc => npc.CurrentRoomId == room.Id).ToString();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        var task = _clockTask;
+        StopClock();
+
+        if (task is not null)
+        {
+            try
+            {
+                await task;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+    }
+}
