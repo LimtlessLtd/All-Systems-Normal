@@ -10,7 +10,7 @@ public sealed class SocialSimulationSystem
 
         var minute = (int)Math.Floor(state.Elapsed.TotalMinutes);
 
-        if (minute <= 0 || minute % 5 != 0)
+        if (minute <= 0)
         {
             return;
         }
@@ -51,18 +51,26 @@ public sealed class SocialSimulationSystem
         var firstToSecond = first.Relationships[second.Name];
         var secondToFirst = second.Relationships[first.Name];
 
+        // Violence is urgent and is not held back by conversational pacing.
+        if (TryViolence(state, first, second, firstToSecond, minute, salt: 1)
+            || TryViolence(state, second, first, secondToFirst, minute, salt: 2))
+        {
+            return true;
+        }
+
+        if (state.Elapsed < first.NextConversationAt
+            || state.Elapsed < second.NextConversationAt)
+        {
+            return false;
+        }
+
         if (TryIntimacy(
                 state,
                 first,
                 second,
                 firstToSecond,
-                secondToFirst))
-        {
-            return true;
-        }
-
-        if (TryViolence(state, first, second, firstToSecond, minute, salt: 1)
-            || TryViolence(state, second, first, secondToFirst, minute, salt: 2))
+                secondToFirst,
+                minute))
         {
             return true;
         }
@@ -74,7 +82,9 @@ public sealed class SocialSimulationSystem
 
         var roll = StableRoll(minute, first.Name, second.Name, 11);
 
-        if (friction >= 85 && roll < 0.62)
+        // This system now checks each simulated minute instead of every five,
+        // so the per-turn chance is deliberately lower.
+        if (friction >= 85 && roll < 0.18)
         {
             Argue(state, first, second, firstToSecond, secondToFirst, minute);
             return true;
@@ -88,10 +98,10 @@ public sealed class SocialSimulationSystem
             || state.Facility.Rooms[first.CurrentRoomId].Type == RoomType.Recreation;
 
         var socialChance = Math.Clamp(
-            0.16
-            + ((first.Personality.Sociability + second.Personality.Sociability) / 500),
-            0.16,
-            0.48);
+            0.04
+            + ((first.Personality.Sociability + second.Personality.Sociability) / 1600),
+            0.05,
+            0.14);
 
         if (wantsCompany && roll < socialChance)
         {
@@ -107,7 +117,8 @@ public sealed class SocialSimulationSystem
         Npc first,
         Npc second,
         Relationship firstToSecond,
-        Relationship secondToFirst)
+        Relationship secondToFirst,
+        int minute)
     {
         if (state.Facility.Rooms[first.CurrentRoomId].Type != RoomType.CrewQuarters
             || state.Elapsed < first.RoutineUntil
@@ -143,18 +154,10 @@ public sealed class SocialSimulationSystem
         firstToSecond.Trust = Clamp(firstToSecond.Trust + 0.6);
         secondToFirst.Trust = Clamp(secondToFirst.Trust + 0.6);
 
-        SetBubble(
-            first,
-            "Want some privacy?",
-            NpcBubbleKind.Speech,
-            state.Elapsed,
-            4);
-        SetBubble(
-            second,
-            "Yeah. Come on.",
-            NpcBubbleKind.Speech,
-            state.Elapsed,
-            4);
+        var replyDelay = ReplyDelayMinutes(minute, first.Name, second.Name, 201, 1, 2);
+        QueueSpeech(first, "Want some privacy?", state.Elapsed, 2);
+        QueueSpeech(second, "Yeah. Come on.", state.Elapsed + TimeSpan.FromMinutes(replyDelay), 2);
+        SetConversationCooldown(state, first, second, minute, 202, 18, 24);
 
         Log(state, $"{first.Name} and {second.Name} spend some private time together.");
         return true;
@@ -200,8 +203,8 @@ public sealed class SocialSimulationSystem
             first.Name,
             $"Talking with {first.Name}.");
 
-        first.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(8);
-        second.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(8);
+        first.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(6);
+        second.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(6);
 
         var lineIndex = (int)(StableRoll(minute, first.Name, second.Name, 31) * 5);
         var firstLines = new[]
@@ -221,18 +224,20 @@ public sealed class SocialSimulationSystem
             "Sure. What's up?"
         };
 
-        SetBubble(
+        var replyDelay = ReplyDelayMinutes(minute, first.Name, second.Name, 32, 1, 3);
+
+        QueueSpeech(
             first,
             firstLines[Math.Clamp(lineIndex, 0, firstLines.Length - 1)],
-            NpcBubbleKind.Speech,
             state.Elapsed,
-            4);
-        SetBubble(
+            2);
+        QueueSpeech(
             second,
             secondLines[Math.Clamp(lineIndex, 0, secondLines.Length - 1)],
-            NpcBubbleKind.Speech,
-            state.Elapsed,
-            4);
+            state.Elapsed + TimeSpan.FromMinutes(replyDelay),
+            2);
+
+        SetConversationCooldown(state, first, second, minute, 33, 8, 15);
 
         if ((firstToSecond.Conversations + secondToFirst.Conversations) % 8 == 0)
         {
@@ -281,8 +286,16 @@ public sealed class SocialSimulationSystem
             ? "Don't put this on me."
             : "Back off.";
 
-        SetBubble(first, firstLine, NpcBubbleKind.Speech, state.Elapsed, 4);
-        SetBubble(second, secondLine, NpcBubbleKind.Speech, state.Elapsed, 4);
+        var replyDelay = ReplyDelayMinutes(minute, first.Name, second.Name, 57, 1, 2);
+        QueueSpeech(first, firstLine, state.Elapsed, 2);
+        QueueSpeech(second, secondLine, state.Elapsed + TimeSpan.FromMinutes(replyDelay), 2);
+        SetConversationCooldown(state, first, second, minute, 58, 9, 16);
+
+        AudioCueSystem.Emit(
+            state,
+            AudioCueKind.Warning,
+            first.Id.ToString(),
+            first.CurrentRoomId);
 
         first.Memories.Add(new Memory(
             $"Argument with {second.Name}.",
@@ -318,7 +331,8 @@ public sealed class SocialSimulationSystem
             + (aggressor.Stress - 78) * 0.009
             + (aggressor.Personality.Temper - 60) * 0.006;
 
-        var chance = Math.Clamp(pressure, 0.02, 0.42);
+        // Checked each turn, so keep violence rare even at high pressure.
+        var chance = Math.Clamp(pressure / 4, 0.01, 0.12);
 
         if (StableRoll(minute, aggressor.Name, target.Name, 100 + salt) >= chance)
         {
@@ -340,18 +354,13 @@ public sealed class SocialSimulationSystem
             target.Name,
             $"Attacking {target.Name} after escalating conflict.");
 
-        SetBubble(
-            aggressor,
-            "Stay out of my way!",
-            NpcBubbleKind.Alert,
-            state.Elapsed,
-            3);
-        SetBubble(
-            target,
-            "Help!",
-            NpcBubbleKind.Alert,
-            state.Elapsed,
-            4);
+        SetImmediateBubble(state, aggressor, "Stay out of my way!", NpcBubbleKind.Alert, 3);
+        SetImmediateBubble(state, target, "Help!", NpcBubbleKind.Alert, 4);
+        AudioCueSystem.Emit(
+            state,
+            AudioCueKind.Hostile,
+            aggressor.Id.ToString(),
+            aggressor.CurrentRoomId);
 
         foreach (var witness in state.Crew.Where(npc =>
                      npc.IsAlive
@@ -366,12 +375,7 @@ public sealed class SocialSimulationSystem
                 state.Elapsed,
                 0.92));
 
-            SetBubble(
-                witness,
-                "What the hell?!",
-                NpcBubbleKind.Alert,
-                state.Elapsed,
-                3);
+            SetImmediateBubble(state, witness, "What the hell?!", NpcBubbleKind.Alert, 3);
 
             if (witness.Relationships.TryGetValue(aggressor.Name, out var witnessRelationship))
             {
@@ -394,6 +398,12 @@ public sealed class SocialSimulationSystem
                 state.Elapsed,
                 1.0));
 
+            AudioCueSystem.Emit(
+                state,
+                AudioCueKind.Critical,
+                target.Id.ToString(),
+                target.CurrentRoomId);
+
             Log(state, $"CRITICAL: {target.Name} has been killed by {aggressor.Name}.");
         }
         else
@@ -406,21 +416,77 @@ public sealed class SocialSimulationSystem
             Log(state, $"CRITICAL: {aggressor.Name} attacks {target.Name}.");
         }
 
+        SetConversationCooldown(state, aggressor, target, minute, 150 + salt, 10, 18);
         return true;
     }
 
-    private static void SetBubble(
+    private static void QueueSpeech(
+        Npc npc,
+        string text,
+        TimeSpan startsAt,
+        int durationMinutes) =>
+        ConversationPacingSystem.Schedule(
+            npc,
+            text,
+            NpcBubbleKind.Speech,
+            startsAt,
+            durationMinutes);
+
+    private static void SetImmediateBubble(
+        GameState state,
         Npc npc,
         string text,
         NpcBubbleKind kind,
-        TimeSpan now,
         int durationMinutes)
     {
         npc.Bubble = new NpcBubble(
             text,
             kind,
-            now,
-            now + TimeSpan.FromMinutes(durationMinutes));
+            state.Elapsed,
+            state.Elapsed + TimeSpan.FromMinutes(durationMinutes));
+
+        AudioCueSystem.Emit(
+            state,
+            kind == NpcBubbleKind.Alert
+                ? AudioCueKind.Warning
+                : AudioCueKind.Speech,
+            npc.Id.ToString(),
+            npc.CurrentRoomId);
+    }
+
+    private static void SetConversationCooldown(
+        GameState state,
+        Npc first,
+        Npc second,
+        int minute,
+        int salt,
+        int minMinutes,
+        int maxMinutes)
+    {
+        var delay = ReplyDelayMinutes(
+            minute,
+            first.Name,
+            second.Name,
+            salt,
+            minMinutes,
+            maxMinutes);
+
+        var next = state.Elapsed + TimeSpan.FromMinutes(delay);
+        first.NextConversationAt = next;
+        second.NextConversationAt = next;
+    }
+
+    private static int ReplyDelayMinutes(
+        int minute,
+        string first,
+        string second,
+        int salt,
+        int minMinutes,
+        int maxMinutes)
+    {
+        var range = Math.Max(0, maxMinutes - minMinutes);
+        return minMinutes
+            + (int)Math.Floor(StableRoll(minute, first, second, salt) * (range + 1));
     }
 
     private static double StableRoll(int minute, string first, string second, int salt)
