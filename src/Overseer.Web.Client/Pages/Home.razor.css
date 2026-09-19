@@ -1213,7 +1213,7 @@ button:hover:not(:disabled) {
     filter: brightness(1.08);
 }
 
-button:active:not(:disabled) {
+button:not(.room-node):not(.crew-token):not(.map-door):active:not(:disabled) {
     transform: translateY(1px);
 }
 
@@ -2037,4 +2037,125 @@ button.sound-toggle.sound-on {
     button.sound-toggle {
         min-width: 0;
     }
+}
+
+
+/* Environmental controls */
+.room-type-hydroponics {
+    --room-accent: #79d879;
+}
+
+.fixture-growbed {
+    border: 2px solid rgba(121, 216, 121, .36);
+    border-radius: 5px;
+    background:
+        repeating-linear-gradient(
+            90deg,
+            rgba(98, 190, 105, .20) 0 12%,
+            rgba(26, 70, 40, .18) 12% 22%);
+    box-shadow:
+        inset 0 0 0 2px rgba(4, 20, 12, .32),
+        0 0 10px rgba(85, 190, 103, .08);
+}
+
+.life-support-card,
+.environment-control-card {
+    margin: .9rem;
+    padding: .75rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(14, 31, 40, .78);
+}
+
+.life-support-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .7rem;
+}
+
+.life-support-card > div {
+    min-width: 0;
+}
+
+.life-support-card span,
+.life-support-card strong,
+.life-support-card small {
+    display: block;
+}
+
+.life-support-card span {
+    color: var(--muted);
+    font-size: .54rem;
+    letter-spacing: .09em;
+}
+
+.life-support-card strong {
+    margin-top: .2rem;
+    color: var(--accent);
+    font-size: .72rem;
+}
+
+.life-support-card small {
+    margin-top: .2rem;
+    color: var(--muted);
+    font-size: .5rem;
+    line-height: 1.35;
+}
+
+.danger-text {
+    color: var(--danger) !important;
+}
+
+.environment-control-card .subheading {
+    margin-bottom: .55rem;
+}
+
+.control-unavailable {
+    padding: .55rem;
+    border: 1px dashed rgba(126, 156, 161, .35);
+    border-radius: 6px;
+    color: var(--muted);
+    font-size: .58rem;
+    line-height: 1.35;
+}
+
+.control-unavailable small {
+    display: block;
+    margin-top: .25rem;
+    color: #789196;
+    font-size: .49rem;
+}
+
+.setpoint-control,
+.ventilation-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    margin-bottom: .55rem;
+}
+
+.setpoint-control > div {
+    flex: 1;
+    text-align: center;
+}
+
+.setpoint-control span {
+    display: block;
+    color: var(--muted);
+    font-size: .5rem;
+    letter-spacing: .08em;
+}
+
+.setpoint-control strong {
+    display: block;
+    margin-top: .1rem;
+    color: var(--text);
+    font-size: .85rem;
+}
+
+.ventilation-row strong {
+    color: var(--accent);
+    font-size: .7rem;
 }
