@@ -8,7 +8,7 @@ Playable GitHub Pages build:
 
 https://limtlessltd.github.io/All-Systems-Normal/
 
-The project is currently at **V0.6A — Suspicion, Shutdown & Scenario Stakes**. V0.5A/V0.5B physical movement, hallways, routines and observable social behaviour remain intact, and V0.6A adds the first real scenario/failure loop.
+The project is currently at **V0.6B — Human Counterplay & Richer Shutdown Access**. V0.6A established suspicion/scenario/shutdown stakes; V0.6B makes important shutdown-access variants mechanically distinct and lets qualified crew physically force sealed routes.
 
 The current `main` branch therefore contains substantially more functionality than the older V0.4 notes below. Treat the "Implemented Versions" and "Immediate Task" sections in this document as the authoritative roadmap summary, but still inspect the repository before changing code.
 
@@ -2196,13 +2196,39 @@ The existing stable Blazor @key identity fix remains intact.
 
 Next recommended milestone: **V0.6B — Human Counterplay & Richer Scenario Rules**. Make crew-overridable, hardwired/manual and impossible-to-seal variants mechanically distinct; add physical manual door overrides with skill/time/tool requirements; add investigation/discovery of shutdown hardware; make evidence more perception-limited and event-specific; propagate specific claims through conversations; add scenario success/secondary objectives/telemetry; expose suspicion/evidence in selected-crew UI; and expand regression coverage for those mechanics.
 
+# V0.6B COMPLETION NOTE
+
+V0.6B is implemented:
+
+* crew-overridable shutdown routes now have real manual hatch overrides rather than configuration-only flags
+* manual overrides require physical adjacency, sufficient Engineering/Electrical/Security/Operations skill, and simulated time
+* a completed manual override leaves the hatch physically passable and outside normal Overseer open/lock authority
+* HardwiredManual access uses easier/faster mechanical overrides than ordinary crew-overridable access
+* ImpossibleToSeal access is genuinely outside Overseer door authority and remains passable
+* shutdown teams can follow topology toward a sealed route, stop at the actual blocking hatch, override it, and then continue toward the physical isolation control
+* suspicious door restrictions are now perception-limited: a crew member must actually be at one side of the affected hatch to directly record the event as evidence
+* crew conversations propagate a specific piece of evidence/claim rather than only a generic suspicion number
+* selected-crew UI now exposes Overseer suspicion and recent evidence
+* door UI exposes whether a hatch remains under AI control or has become manual-only
+* regression coverage includes observable vs unobserved restrictions, skilled and unskilled manual overrides, and impossible-to-seal analogue access
+* the existing stable Blazor @key fix remains intact
+
+The next recommended slice is **V0.6C — Investigation, Discovery & Scenario Success**:
+
+1. let crew investigate suspicious station behaviour and discover shutdown hardware/knowledge instead of relying primarily on seeded knowledge
+2. add structured evidence provenance/claims with stronger perception rules
+3. add scenario success conditions, optional objectives and experiment telemetry/scoring
+4. make redundant controls require crew to reason about which control is reachable/known
+5. add richer recruitment/coordination for shutdown teams rather than every convinced NPC independently acting
+6. continue exposing meaningful counterplay state without giving the player omniscient crew knowledge
+
 # 40. YOUR IMMEDIATE TASK
 
 First inspect the current repository state rather than assuming this document perfectly matches every implementation detail.
 
 Then propose or implement the next logical iteration.
 
-V0.6A is now implemented. The recommended next iteration is **V0.6B — Human Counterplay & Richer Scenario Rules**.
+V0.6A and V0.6B are now implemented. The recommended next iteration is **V0.6C — Investigation, Discovery & Scenario Success**.
 
 Priority approximately:
 
