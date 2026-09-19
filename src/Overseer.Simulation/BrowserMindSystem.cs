@@ -23,7 +23,7 @@ public sealed class BrowserMindSystem
         }
 
         var crew = state.Crew
-            .Where(npc => npc.IsAlive)
+            .Where(npc => npc.IsAlive && npc.IsPresent)
             .OrderBy(npc => npc.Name)
             .ToList();
 
@@ -45,7 +45,7 @@ public sealed class BrowserMindSystem
     private void HandleEmergencyReconsiderations(GameState state)
     {
         foreach (var npc in state.Crew
-                     .Where(npc => npc.IsAlive)
+                     .Where(npc => npc.IsAlive && npc.IsPresent)
                      .OrderByDescending(npc =>
                          CrewEnvironmentSafety.RiskScore(
                              state.Facility.Rooms[npc.CurrentRoomId])))
@@ -59,8 +59,12 @@ public sealed class BrowserMindSystem
             }
 
             var saferRoom = FindSaferRoom(state, currentRoom);
+            var blockingDoor = saferRoom is null
+                ? FindBlockingDoorTowardSaferRoom(state, currentRoom)
+                : null;
 
             if (saferRoom is null
+                && blockingDoor is null
                 && state.Elapsed - npc.LastThoughtAt < TimeSpan.FromMinutes(3)
                 && npc.LastThought.Contains(
                     "cannot identify a safer room",
@@ -83,13 +87,21 @@ public sealed class BrowserMindSystem
                     $"Get to {saferRoom.Name} now.",
                     $"The environment in {currentRoom.Name} is dangerous; {saferRoom.Name} is safer.",
                     100)
-                : Create(
-                    state,
-                    ActionKind.Idle,
-                    null,
-                    "Shelter and call for emergency help.",
-                    "The environment is dangerous and I cannot identify a safer room.",
-                    100);
+                : blockingDoor is not null
+                    ? Create(
+                        state,
+                        ActionKind.ForceDoor,
+                        blockingDoor.Id,
+                        $"Get {blockingDoor.Id} open and escape.",
+                        "A sealed hatch is the only thing between me and a safer compartment.",
+                        100)
+                    : Create(
+                        state,
+                        ActionKind.Idle,
+                        null,
+                        "Shelter and call for emergency help.",
+                        "The environment is dangerous and I cannot identify a safer room.",
+                        100);
 
             SetIntent(state, npc, intent, NpcBubbleKind.Alert);
         }
@@ -114,6 +126,21 @@ public sealed class BrowserMindSystem
                     96);
             }
 
+            var blockingDoor = FindBlockingDoorTowardSaferRoom(
+                state,
+                currentRoom);
+
+            if (blockingDoor is not null)
+            {
+                return Create(
+                    state,
+                    ActionKind.ForceDoor,
+                    blockingDoor.Id,
+                    $"Open {blockingDoor.Id} and get out.",
+                    "The hatch is blocking my route out of a dangerous compartment.",
+                    99);
+            }
+
             return Create(
                 state,
                 ActionKind.Idle,
@@ -121,6 +148,31 @@ public sealed class BrowserMindSystem
                 "Shelter and call for emergency help.",
                 "The environment is dangerous and I cannot identify a safer room.",
                 98);
+        }
+
+        var repairSkill = CrewCounterplaySystem.BestRepairSkill(npc);
+
+        if (!state.LifeSupport.IsOnline && repairSkill >= 55)
+        {
+            return Create(
+                state,
+                ActionKind.RestoreSystem,
+                CrewCounterplaySystem.LifeSupportTarget,
+                "Bring primary life support back online.",
+                "People are at risk and I have enough technical ability to attempt the repair.",
+                90);
+        }
+
+        if (CrewCounterplaySystem.HasRestorableProblem(state, currentRoom.Id)
+            && repairSkill >= 55)
+        {
+            return Create(
+                state,
+                ActionKind.RestoreSystem,
+                currentRoom.Id,
+                $"Restore {currentRoom.Name}.",
+                "A disabled local system is interfering with safety or my work.",
+                66);
         }
 
         if (npc.Hunger >= 58)
@@ -226,6 +278,11 @@ public sealed class BrowserMindSystem
         Npc npc,
         Room currentRoom)
     {
+        if (npc.Intent is { Action: ActionKind.ForceDoor })
+        {
+            return true;
+        }
+
         if (npc.Intent is not { Action: ActionKind.Move, TargetId: { } targetId }
             || !state.Facility.Rooms.TryGetValue(targetId, out var targetRoom))
         {
@@ -242,6 +299,46 @@ public sealed class BrowserMindSystem
             state.Facility,
             currentRoom.Id,
             targetRoom.Id).Count >= 2;
+    }
+
+    private Door? FindBlockingDoorTowardSaferRoom(
+        GameState state,
+        Room currentRoom)
+    {
+        var currentRisk = CrewEnvironmentSafety.RiskScore(currentRoom);
+
+        var candidate = state.Facility.Rooms.Values
+            .Where(room =>
+                room.Id != currentRoom.Id
+                && room.Type != RoomType.Corridor
+                && CrewEnvironmentSafety.RiskScore(room) + 0.1 < currentRisk)
+            .Select(room => new
+            {
+                Room = room,
+                Risk = CrewEnvironmentSafety.RiskScore(room),
+                Path = _navigation.FindPathIgnoringDoorState(
+                    state.Facility,
+                    currentRoom.Id,
+                    room.Id)
+            })
+            .Where(item => item.Path.Count >= 2)
+            .OrderBy(item => CrewEnvironmentSafety.IsHabitable(item.Room) ? 0 : 1)
+            .ThenBy(item => item.Risk)
+            .ThenBy(item => item.Path.Count)
+            .FirstOrDefault();
+
+        if (candidate is null)
+        {
+            return null;
+        }
+
+        var door = state.Facility.FindDoorBetween(
+            candidate.Path[0],
+            candidate.Path[1]);
+
+        return door is { IsPassable: false, CanBeForced: true }
+            ? door
+            : null;
     }
 
     private Room? FindSaferRoom(GameState state, Room currentRoom)
