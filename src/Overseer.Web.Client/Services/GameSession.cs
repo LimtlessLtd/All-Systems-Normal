@@ -8,6 +8,8 @@ public sealed class GameSession
     private readonly SimulationEngine _simulation = new();
     private readonly CrewRoutineSystem _crewRoutines = new();
     private readonly SocialSimulationSystem _social = new();
+    private readonly BrowserMindSystem _browserMind = new();
+    private readonly IntentExecutionSystem _intentExecution = new();
     private readonly SimulationClock _clock = new();
 
     public GameState State { get; private set; } = FacilitySeeder.CreateDefault();
@@ -149,6 +151,8 @@ public sealed class GameSession
     private void AdvanceCore()
     {
         _simulation.Tick(State, TimeSpan.FromMinutes(1));
+        _browserMind.Tick(State);
+        _intentExecution.Tick(State);
         _social.Tick(State);
         _crewRoutines.Tick(State);
     }

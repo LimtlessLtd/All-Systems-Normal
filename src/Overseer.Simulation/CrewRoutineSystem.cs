@@ -31,6 +31,11 @@ public sealed class CrewRoutineSystem
 
         foreach (var npc in state.Crew.Where(npc => npc.IsAlive))
         {
+            if (npc.Intent is not null)
+            {
+                continue;
+            }
+
             if ((minute + (int)npc.Role) % 3 != 0)
             {
                 continue;

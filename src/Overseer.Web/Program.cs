@@ -1,3 +1,6 @@
+using Microsoft.Extensions.AI;
+using OllamaSharp;
+using Overseer.AI;
 using Overseer.Web.Components;
 using Overseer.Web.Services;
 
@@ -7,7 +10,25 @@ builder.Services
     .AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddSingleton<GameSession>();
+var ollamaEndpoint =
+    Environment.GetEnvironmentVariable("OLLAMA_ENDPOINT")
+    ?? builder.Configuration["AI:Ollama:Endpoint"]
+    ?? "http://localhost:11434";
+
+var ollamaModel =
+    Environment.GetEnvironmentVariable("OLLAMA_MODEL_NAME")
+    ?? builder.Configuration["AI:Ollama:Model"]
+    ?? "qwen3:4b";
+
+builder.Services.AddSingleton<IChatClient>(
+    _ => new OllamaApiClient(new Uri(ollamaEndpoint), ollamaModel));
+
+builder.Services.AddSingleton<RuleBasedAiDecisionService>();
+builder.Services.AddSingleton<IAiDecisionService, OllamaAiDecisionService>();
+
+// A Blazor Server game session is per browser circuit. Do not share station
+// state between different players by registering it as a singleton.
+builder.Services.AddScoped<GameSession>();
 
 var app = builder.Build();
 

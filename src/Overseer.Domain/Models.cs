@@ -86,6 +86,15 @@ public sealed record NpcAction(
     string? TargetId,
     string Reason);
 
+public sealed record NpcIntent(
+    ActionKind Action,
+    string? TargetId,
+    string Goal,
+    string Reason,
+    int Urgency,
+    string Source,
+    TimeSpan CreatedAt);
+
 public sealed record RoomFixture(
     FixtureType Type,
     string Label,
@@ -122,8 +131,13 @@ public sealed class Npc
 
     public NpcAction CurrentAction { get; set; } =
         new(ActionKind.Idle, null, "Waiting for something to happen.");
-}
 
+    public NpcIntent? Intent { get; set; }
+    public string MindMode { get; set; } = "Routine";
+    public string LastThought { get; set; } = "No deliberate thought yet.";
+    public TimeSpan LastThoughtAt { get; set; }
+}
+    
 public sealed class Room
 {
     public required string Id { get; init; }

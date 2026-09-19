@@ -4,7 +4,7 @@ namespace Overseer.AI;
 
 public interface IAiDecisionService
 {
-    Task<NpcAction> DecideAsync(
+    Task<NpcIntent> DecideAsync(
         Npc npc,
         GameState state,
         CancellationToken cancellationToken = default);

@@ -998,3 +998,40 @@ button.mini {
     font-size: .5rem;
     box-shadow: 0 2px 5px rgba(0,0,0,.45);
 }
+
+
+/* V0.4 autonomous mind inspector */
+.action-card {
+    margin: 0 .9rem .75rem;
+    padding: .75rem;
+    border: 1px solid var(--line);
+    background: rgba(8, 18, 24, .72);
+}
+
+.action-card span,
+.thought-card small {
+    display: block;
+    color: var(--muted);
+    font-size: .52rem;
+    letter-spacing: .08em;
+}
+
+.action-card strong {
+    display: block;
+    margin-top: .35rem;
+    color: #d9f4f6;
+    font-size: .7rem;
+}
+
+.action-card p {
+    margin: .4rem 0 0;
+    color: #9fb6ba;
+    font-size: .64rem;
+    line-height: 1.4;
+}
+
+.thought-card small {
+    margin-top: .6rem;
+    padding-top: .45rem;
+    border-top: 1px solid var(--line);
+}

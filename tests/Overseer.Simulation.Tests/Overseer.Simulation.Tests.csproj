@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../src/Overseer.AI/Overseer.AI.csproj" />
     <ProjectReference Include="../../src/Overseer.Domain/Overseer.Domain.csproj" />
     <ProjectReference Include="../../src/Overseer.Simulation/Overseer.Simulation.csproj" />
   </ItemGroup>

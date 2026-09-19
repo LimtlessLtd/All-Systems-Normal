@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../Overseer.AI/Overseer.AI.csproj" />
     <ProjectReference Include="../Overseer.Domain/Overseer.Domain.csproj" />
     <ProjectReference Include="../Overseer.Simulation/Overseer.Simulation.csproj" />
   </ItemGroup>

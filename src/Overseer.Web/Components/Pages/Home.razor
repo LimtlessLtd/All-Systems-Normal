@@ -199,7 +199,17 @@
                 </div>
 
                 <div class="thought-card">
-                    <span>CURRENT INTENT</span>
+                    <span>CURRENT GOAL · @selectedCrew.MindMode.ToUpperInvariant()</span>
+                    <strong>@(selectedCrew.Intent?.Goal ?? "No active deliberate goal")</strong>
+                    <p>@selectedCrew.LastThought</p>
+                    @if (selectedCrew.Intent is { } intent)
+                    {
+                        <small>Urgency @intent.Urgency/100 · chosen T+@intent.CreatedAt.ToString(@"hh\:mm")</small>
+                    }
+                </div>
+
+                <div class="action-card">
+                    <span>CURRENT PHYSICAL ACTION</span>
                     <strong>@selectedCrew.CurrentAction.Kind</strong>
                     <p>@selectedCrew.CurrentAction.Reason</p>
                 </div>
@@ -341,9 +351,9 @@
         _selectedRoomId = null;
     }
 
-    private void StepMinutes(int minutes)
+    private async Task StepMinutes(int minutes)
     {
-        Session.AdvanceMinutes(minutes);
+        await Session.AdvanceMinutesAsync(minutes);
     }
 
     private void ResetGame()
@@ -389,7 +399,9 @@
             {
                 await Task.Delay(_delayMs, cancellationToken);
 
-                if (!Session.TryAdvanceRunning(generation))
+                if (!await Session.TryAdvanceRunningAsync(
+                        generation,
+                        cancellationToken))
                 {
                     break;
                 }
