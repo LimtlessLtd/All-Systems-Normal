@@ -12,6 +12,7 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
     private readonly CrewRoutineSystem _crewRoutines = new();
     private readonly SocialSimulationSystem _social = new();
     private readonly IntentExecutionSystem _intentExecution = new();
+    private readonly NavigationSystem _navigation = new();
     private readonly LocalMovementSystem _movement = new();
     private readonly SuspicionSystem _suspicion = new();
     private readonly ShutdownSystem _shutdown = new();
@@ -426,8 +427,16 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
             return false;
         }
 
-        return CrewEnvironmentSafety.RiskScore(targetRoom)
-            < CrewEnvironmentSafety.RiskScore(currentRoom);
+        if (CrewEnvironmentSafety.RiskScore(targetRoom)
+            >= CrewEnvironmentSafety.RiskScore(currentRoom))
+        {
+            return false;
+        }
+
+        return _navigation.FindPath(
+            State.Facility,
+            currentRoom.Id,
+            targetRoom.Id).Count >= 2;
     }
 
     private void Log(string message)
