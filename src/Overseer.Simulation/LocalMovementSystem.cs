@@ -150,6 +150,9 @@ public sealed class LocalMovementSystem
                     or FixtureType.MedicalBed
                     or FixtureType.StorageRack),
 
+            ActionKind.ShutdownOverseer => room.Fixtures.FirstOrDefault(fixture =>
+                fixture.Type == FixtureType.OverseerShutdown),
+
             ActionKind.Investigate => room.Fixtures.FirstOrDefault(fixture =>
                 fixture.Type is FixtureType.Console
                     or FixtureType.Workbench
