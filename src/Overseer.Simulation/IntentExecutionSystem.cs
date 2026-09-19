@@ -111,7 +111,102 @@ public sealed class IntentExecutionSystem
             return;
         }
 
-        MoveTowardRoom(state, npc, intent, mechanism.RoomId);
+        var path = _navigation.FindPath(
+            state.Facility,
+            npc.CurrentRoomId,
+            mechanism.RoomId);
+
+        if (path.Count >= 2)
+        {
+            _actions.TryApply(
+                state,
+                npc.Id,
+                new NpcAction(
+                    ActionKind.Move,
+                    path[1],
+                    $"Pursuing shutdown goal: {intent.Goal}"),
+                out _);
+            return;
+        }
+
+        if (!mechanism.CrewCanOverrideRoute)
+        {
+            npc.CurrentAction = new NpcAction(
+                ActionKind.Idle,
+                mechanism.RoomId,
+                $"I want to reach {mechanism.Label}, but its route is sealed.");
+            return;
+        }
+
+        var topologyPath = _navigation.FindPathIgnoringDoorState(
+            state.Facility,
+            npc.CurrentRoomId,
+            mechanism.RoomId);
+
+        if (topologyPath.Count < 2)
+        {
+            npc.CurrentAction = new NpcAction(
+                ActionKind.Idle,
+                mechanism.RoomId,
+                $"I cannot identify a physical route to {mechanism.Label}.");
+            return;
+        }
+
+        var nextRoomId = topologyPath[1];
+        var blockingDoor = state.Facility.FindDoorBetween(
+            npc.CurrentRoomId,
+            nextRoomId);
+
+        if (blockingDoor is null)
+        {
+            npc.CurrentAction = new NpcAction(
+                ActionKind.Idle,
+                mechanism.RoomId,
+                "The route topology is incomplete.");
+            return;
+        }
+
+        if (blockingDoor.IsPassable)
+        {
+            _actions.TryApply(
+                state,
+                npc.Id,
+                new NpcAction(
+                    ActionKind.Move,
+                    nextRoomId,
+                    $"Advancing toward {mechanism.Label}."),
+                out _);
+            return;
+        }
+
+        if (npc.CurrentAction.Kind == ActionKind.OverrideDoor
+            && npc.CurrentAction.TargetId == blockingDoor.Id
+            && npc.RoutineUntil > state.Elapsed)
+        {
+            return;
+        }
+
+        if (_actions.TryApply(
+                state,
+                npc.Id,
+                new NpcAction(
+                    ActionKind.OverrideDoor,
+                    blockingDoor.Id,
+                    $"Force a route toward {mechanism.Label}."),
+                out _))
+        {
+            npc.Bubble = new NpcBubble(
+                "Overseer sealed it. I'm overriding the hatch.",
+                NpcBubbleKind.Alert,
+                state.Elapsed,
+                state.Elapsed + TimeSpan.FromMinutes(4));
+            return;
+        }
+
+        npc.CurrentAction = new NpcAction(
+            ActionKind.Idle,
+            blockingDoor.Id,
+            $"The route to {mechanism.Label} is sealed and I cannot override {blockingDoor.Id}.");
     }
 
     private void ExecuteRoomIntent(GameState state, Npc npc, NpcIntent intent)
