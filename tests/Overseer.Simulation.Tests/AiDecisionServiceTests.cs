@@ -92,6 +92,47 @@ public sealed class AiDecisionServiceTests
 
         Assert.DoesNotContain("SECRET:", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("CONNECTED DOORS YOU CAN DIRECTLY PERCEIVE", prompt);
+        Assert.Contains("STATION STATUS-PANEL ROOM READINGS", prompt);
+    }
+
+    [Fact]
+    public async Task FallbackMind_LeavesRoomAtEarlyDangerThreshold()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        var control = state.Facility.Rooms[david.CurrentRoomId];
+        control.OxygenPercent = 18.8;
+
+        var service = new RuleBasedAiDecisionService();
+        var intent = await service.DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.Move, intent.Action);
+        Assert.NotNull(intent.TargetId);
+        Assert.NotEqual(control.Id, intent.TargetId);
+        Assert.True(
+            CrewEnvironmentSafety.RiskScore(state.Facility.Rooms[intent.TargetId!])
+            < CrewEnvironmentSafety.RiskScore(control));
+    }
+
+    [Fact]
+    public void Prompt_ShowsDangerAndReachabilityForRoomChoice()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        var control = state.Facility.Rooms["control"];
+        control.TemperatureC = 31;
+
+        var sealedDoor = state.Facility.FindDoorBetween("engineering", "hall-engineering")!;
+        sealedDoor.IsOpen = false;
+        sealedDoor.IsLocked = true;
+
+        var prompt = NpcPromptBuilder.Build(david, state);
+
+        Assert.Contains("control = Control Room", prompt);
+        Assert.Contains("DANGER", prompt);
+        Assert.Contains("engineering = Engineering", prompt);
+        Assert.Contains("route sealed", prompt);
+        Assert.Contains("survival should normally override", prompt);
     }
 
     private sealed class StubChatClient : IChatClient
