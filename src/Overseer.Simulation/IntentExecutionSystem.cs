@@ -30,12 +30,23 @@ public sealed class IntentExecutionSystem
                     break;
 
                 case ActionKind.Rest:
-                    MoveOrActInRoom(state, npc, intent, "quarters", ActionKind.Rest);
+                case ActionKind.Sleep:
+                    MoveOrActInRoom(state, npc, intent, "quarters", intent.Action);
+                    break;
+
+                case ActionKind.Recreate:
+                    MoveOrActInRoom(state, npc, intent, "lounge", ActionKind.Recreate);
+                    break;
+
+                case ActionKind.Groom:
+                case ActionKind.Shower:
+                    MoveOrActInRoom(state, npc, intent, "washroom", intent.Action);
                     break;
 
                 case ActionKind.Move:
                 case ActionKind.Investigate:
                 case ActionKind.Repair:
+                case ActionKind.Work:
                     ExecuteRoomIntent(state, npc, intent);
                     break;
 
@@ -52,6 +63,18 @@ public sealed class IntentExecutionSystem
                         null,
                         intent.Reason);
                     npc.Intent = null;
+                    break;
+
+                // Intimacy is deliberately not directly granted by a mind model.
+                // Reciprocal attraction/trust and both people's current needs are
+                // validated by the deterministic social simulation.
+                case ActionKind.Intimacy:
+                    npc.Intent = intent with
+                    {
+                        Action = ActionKind.Socialize,
+                        Goal = $"Spend time with {intent.TargetId}",
+                        Reason = $"{intent.Reason} I will spend time with them and see how they respond."
+                    };
                     break;
 
                 // Violence remains simulation-controlled. LLMs may express anger,
@@ -96,7 +119,7 @@ public sealed class IntentExecutionSystem
                 new NpcAction(arrivalAction, targetRoomId, intent.Reason),
                 out _);
 
-            if (arrivalAction is not ActionKind.Rest)
+            if (arrivalAction is not (ActionKind.Rest or ActionKind.Sleep))
             {
                 npc.Intent = null;
             }
