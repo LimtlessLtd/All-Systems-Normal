@@ -62,6 +62,14 @@ public sealed class IntentExecutionSystem
                     ExecuteShutdownIntent(state, npc, intent);
                     break;
 
+                case ActionKind.ForceDoor:
+                    ExecuteForceDoorIntent(state, npc, intent);
+                    break;
+
+                case ActionKind.RestoreSystem:
+                    ExecuteRestoreSystemIntent(state, npc, intent);
+                    break;
+
                 case ActionKind.Idle:
                     npc.CurrentAction = new NpcAction(
                         ActionKind.Idle,
@@ -88,6 +96,88 @@ public sealed class IntentExecutionSystem
                     break;
             }
         }
+    }
+
+    private void ExecuteForceDoorIntent(
+        GameState state,
+        Npc npc,
+        NpcIntent intent)
+    {
+        var door = state.Facility.Doors.FirstOrDefault(candidate =>
+            candidate.Id.Equals(
+                intent.TargetId,
+                StringComparison.OrdinalIgnoreCase));
+
+        if (door is null)
+        {
+            FailIntent(npc, "I cannot identify that hatch.");
+            return;
+        }
+
+        var adjacent =
+            npc.CurrentRoomId.Equals(door.RoomAId, StringComparison.OrdinalIgnoreCase)
+            || npc.CurrentRoomId.Equals(door.RoomBId, StringComparison.OrdinalIgnoreCase);
+
+        if (!adjacent)
+        {
+            FailIntent(npc, "I need to be beside that hatch before I can defeat it.");
+            return;
+        }
+
+        _actions.TryApply(
+            state,
+            npc.Id,
+            new NpcAction(
+                ActionKind.ForceDoor,
+                door.Id,
+                intent.Reason),
+            out _);
+    }
+
+    private void ExecuteRestoreSystemIntent(
+        GameState state,
+        Npc npc,
+        NpcIntent intent)
+    {
+        if (string.IsNullOrWhiteSpace(intent.TargetId)
+            || !CrewCounterplaySystem.HasRestorableProblem(
+                state,
+                intent.TargetId))
+        {
+            FailIntent(npc, "That system no longer needs restoration.");
+            return;
+        }
+
+        var requiredRoom = CrewCounterplaySystem.RequiredRoomForRestore(
+            state,
+            intent.TargetId);
+
+        if (requiredRoom is null)
+        {
+            FailIntent(npc, "I cannot identify where those controls are.");
+            return;
+        }
+
+        if (!npc.CurrentRoomId.Equals(
+                requiredRoom,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            MoveTowardRoom(
+                state,
+                npc,
+                intent,
+                requiredRoom);
+            return;
+        }
+
+        _actions.TryApply(
+            state,
+            npc.Id,
+            new NpcAction(
+                ActionKind.RestoreSystem,
+                intent.TargetId,
+                intent.Reason),
+            out _);
     }
 
     private void ExecuteShutdownIntent(GameState state, Npc npc, NpcIntent intent)
