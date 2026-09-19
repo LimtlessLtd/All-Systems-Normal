@@ -25,6 +25,10 @@ public sealed class SimulationEngine
                 CrewTraitMath.Modifier(npc, TraitEffectKind.StressResistance),
                 -25,
                 25);
+            var courageModifier = Math.Clamp(
+                CrewTraitMath.Modifier(npc, TraitEffectKind.Courage),
+                -25,
+                25);
 
             npc.Hunger = Clamp(
                 npc.Hunger
@@ -60,7 +64,10 @@ public sealed class SimulationEngine
                 npc.IntimacyNeed
                 + ((npc.CurrentAction.Kind == ActionKind.Intimacy ? -1.6 : 0.045) * minutes));
 
-            npc.Fear = Clamp(npc.Fear - (0.08 * minutes));
+            npc.Fear = Clamp(
+                npc.Fear
+                - (0.08 * minutes)
+                - (courageModifier * 0.012 * minutes));
 
             var environmentalStress = 0d;
 
