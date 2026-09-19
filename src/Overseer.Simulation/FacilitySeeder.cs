@@ -8,25 +8,29 @@ public static class FacilitySeeder
     {
         var facility = new Facility();
 
-        // Functional rooms are deliberately separated from the central spine.
-        // Every room reaches that spine through its own physical hallway with a
-        // door at BOTH ends, so "leaving a room" and "entering the corridor"
-        // are distinct deterministic actions.
-        AddRoom(facility, "quarters", "Crew Quarters", RoomType.CrewQuarters, 11, 18, 17, 14);
-        AddRoom(facility, "kitchen", "Kitchen", RoomType.Kitchen, 30, 18, 15, 14);
-        AddRoom(facility, "lounge", "Recreation Lounge", RoomType.Recreation, 48, 18, 16, 14);
-        AddRoom(facility, "medical", "Medical", RoomType.Medical, 68, 18, 16, 14);
-        AddRoom(facility, "control", "Control Room", RoomType.ControlRoom, 89, 18, 18, 14);
+        // Deck A is laid out as a real orthogonal station plan rather than a
+        // graph with decorative connector lines. Functional rooms sit in two
+        // aligned banks. Each bank reaches the main east/west corridor through
+        // a short north/south access corridor with a hatch at each end.
+        //
+        // Airlock and Overseer Isolation sit at the west/east ends of the spine
+        // and use short east/west access corridors. No connector corridor passes
+        // through another functional room.
+        AddRoom(facility, "quarters", "Crew Quarters", RoomType.CrewQuarters, 14, 15, 15, 13);
+        AddRoom(facility, "kitchen", "Kitchen", RoomType.Kitchen, 32, 15, 14, 13);
+        AddRoom(facility, "lounge", "Recreation Lounge", RoomType.Recreation, 50, 15, 15, 13);
+        AddRoom(facility, "medical", "Medical", RoomType.Medical, 68, 15, 15, 13);
+        AddRoom(facility, "control", "Control Room", RoomType.ControlRoom, 86, 15, 16, 13);
 
-        AddRoom(facility, "airlock", "Airlock", RoomType.Airlock, 5, 50, 8, 12);
-        AddRoom(facility, "corridor", "Central Corridor", RoomType.Corridor, 52, 50, 82, 8);
+        AddRoom(facility, "airlock", "Airlock", RoomType.Airlock, 4, 50, 8, 12);
+        AddRoom(facility, "corridor", "Central Corridor", RoomType.Corridor, 50, 50, 80, 10);
+        AddRoom(facility, "isolation", "Overseer Isolation", RoomType.ControlRoom, 96, 50, 8, 12);
 
-        AddRoom(facility, "washroom", "Washroom", RoomType.Washroom, 11, 82, 16, 14);
-        AddRoom(facility, "storage", "Storage", RoomType.Storage, 29, 82, 15, 14);
-        AddRoom(facility, "engineering", "Engineering", RoomType.Engineering, 49, 82, 18, 14);
-        AddRoom(facility, "generator", "Generator", RoomType.Generator, 70, 82, 16, 14);
-        AddRoom(facility, "reactor", "Reactor", RoomType.Reactor, 90, 82, 16, 14);
-        AddRoom(facility, "isolation", "Overseer Isolation", RoomType.ControlRoom, 52, 96, 14, 8);
+        AddRoom(facility, "washroom", "Washroom", RoomType.Washroom, 14, 85, 14, 13);
+        AddRoom(facility, "storage", "Storage", RoomType.Storage, 32, 85, 14, 13);
+        AddRoom(facility, "engineering", "Engineering", RoomType.Engineering, 50, 85, 16, 13);
+        AddRoom(facility, "generator", "Generator", RoomType.Generator, 68, 85, 15, 13);
+        AddRoom(facility, "reactor", "Reactor", RoomType.Reactor, 86, 85, 15, 13);
 
         foreach (var roomId in new[]
         {
