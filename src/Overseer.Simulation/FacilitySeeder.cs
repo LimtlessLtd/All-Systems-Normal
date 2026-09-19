@@ -27,9 +27,9 @@ public static class FacilitySeeder
         // corridor. Earlier geometry placed these rooms directly against the
         // spine while still forcing a minimum hallway length, which made the
         // hallway render inside both spaces.
-        AddRoom(facility, "airlock", "Airlock", RoomType.Airlock, 3, 50, 6, 12);
+        AddRoom(facility, "airlock", "Airlock", RoomType.Airlock, 2.5, 50, 5, 12);
         AddRoom(facility, "corridor", "Central Corridor", RoomType.Corridor, 50, 50, 82, 10);
-        AddRoom(facility, "isolation", "Overseer Isolation", RoomType.ControlRoom, 97, 50, 6, 12);
+        AddRoom(facility, "isolation", "Overseer Isolation", RoomType.ControlRoom, 97.5, 50, 5, 12);
 
         AddRoom(facility, "washroom", "Washroom", RoomType.Washroom, 14, 85, 14, 13);
         AddRoom(facility, "storage", "Storage", RoomType.Storage, 32, 85, 14, 13);
