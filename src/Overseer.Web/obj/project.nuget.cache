@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "quHhVGF2oYI=",
+  "success": true,
+  "projectFilePath": "E:\\Source\\Overseer\\Overseer\\src\\Overseer.Web\\Overseer.Web.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\fab_f\\.nuget\\packages\\microsoft.aspnetcore.app.internal.assets\\10.0.12\\microsoft.aspnetcore.app.internal.assets.10.0.12.nupkg.sha512"
+  ],
+  "logs": []
+}
