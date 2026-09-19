@@ -1,7 +1,105 @@
-﻿@page "/"
+@page "/"
+@rendermode InteractiveServer
+@inject GameSession Session
 
-<PageTitle>Home</PageTitle>
+<PageTitle>All Systems Normal</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="control-room">
+    <header class="topbar">
+        <div>
+            <p class="eyebrow">FACILITY OVERSEER // ONLINE</p>
+            <h1>ALL SYSTEMS NORMAL</h1>
+            <p class="subtext">You are the system. They are not under your control.</p>
+        </div>
 
-Welcome to your new app.
+        <div class="clock-panel">
+            <span>MISSION TIME</span>
+            <strong>T+@Session.State.Elapsed.ToString(@"hh\:mm")</strong>
+            <div class="actions">
+                <button @onclick="Session.AdvanceOneMinute">+ 1 MINUTE</button>
+                <button class="secondary" @onclick="Session.Reset">RESET</button>
+            </div>
+        </div>
+    </header>
+
+    <section>
+        <div class="section-heading">
+            <h2>CREW TELEMETRY</h2>
+            <span>@Session.State.Crew.Count ACTIVE</span>
+        </div>
+
+        <div class="crew-grid">
+            @foreach (var npc in Session.State.Crew.OrderBy(npc => npc.Name))
+            {
+                var room = Session.State.Facility.Rooms[npc.CurrentRoomId];
+
+                <article class="crew-card">
+                    <div class="crew-title">
+                        <div>
+                            <strong>@npc.Name</strong>
+                            <span>@npc.Role</span>
+                        </div>
+                        <span class="status-dot" title="Online"></span>
+                    </div>
+
+                    <p class="location">@room.Name</p>
+                    <p class="current-action">@npc.CurrentAction.Kind: @npc.CurrentAction.Reason</p>
+
+                    <div class="meter-row">
+                        <label>HLTH <progress value="@npc.Health" max="100"></progress> @npc.Health.ToString("0")</label>
+                        <label>HUNG <progress value="@npc.Hunger" max="100"></progress> @npc.Hunger.ToString("0")</label>
+                        <label>FATG <progress value="@npc.Fatigue" max="100"></progress> @npc.Fatigue.ToString("0")</label>
+                        <label>FEAR <progress value="@npc.Fear" max="100"></progress> @npc.Fear.ToString("0")</label>
+                        <label>STRS <progress value="@npc.Stress" max="100"></progress> @npc.Stress.ToString("0")</label>
+                    </div>
+                </article>
+            }
+        </div>
+    </section>
+
+    <div class="lower-grid">
+        <section>
+            <div class="section-heading">
+                <h2>DOOR CONTROL</h2>
+                <span>@Session.State.Facility.Doors.Count NODES</span>
+            </div>
+
+            <div class="door-list">
+                @foreach (var door in Session.State.Facility.Doors)
+                {
+                    var roomA = Session.State.Facility.Rooms[door.RoomAId];
+                    var roomB = Session.State.Facility.Rooms[door.RoomBId];
+
+                    <div class="door-row">
+                        <div>
+                            <strong>@roomA.Name ↔ @roomB.Name</strong>
+                            <span>@(door.IsOpen ? "OPEN" : "CLOSED") · @(door.IsLocked ? "LOCKED" : "UNLOCKED")</span>
+                        </div>
+                        <div class="door-actions">
+                            <button disabled="@door.IsLocked" @onclick="() => Session.ToggleDoor(door.Id)">
+                                @(door.IsOpen ? "CLOSE" : "OPEN")
+                            </button>
+                            <button class="secondary" @onclick="() => Session.ToggleLock(door.Id)">
+                                @(door.IsLocked ? "UNLOCK" : "LOCK")
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <section>
+            <div class="section-heading">
+                <h2>EVENT STREAM</h2>
+                <span>LIVE</span>
+            </div>
+
+            <div class="event-log">
+                @foreach (var entry in Session.State.EventLog.Take(20))
+                {
+                    <p>@entry</p>
+                }
+            </div>
+        </section>
+    </div>
+</div>

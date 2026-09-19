@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -10,6 +10,10 @@
     <PackageReference Include="Microsoft.Agents.AI" Version="1.22.0" />
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.10.0" />
     <PackageReference Include="OllamaSharp" Version="5.4.30" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Overseer.Domain/Overseer.Domain.csproj" />
   </ItemGroup>
 
 </Project>

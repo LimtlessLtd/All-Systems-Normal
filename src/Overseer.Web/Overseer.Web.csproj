@@ -7,4 +7,9 @@
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="../Overseer.Domain/Overseer.Domain.csproj" />
+    <ProjectReference Include="../Overseer.Simulation/Overseer.Simulation.csproj" />
+  </ItemGroup>
+
 </Project>
