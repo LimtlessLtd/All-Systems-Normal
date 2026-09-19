@@ -22,18 +22,31 @@ public sealed class SocialSimulationSystem
         foreach (var roomGroup in living.GroupBy(npc => npc.CurrentRoomId))
         {
             var occupants = roomGroup.OrderBy(npc => npc.Name).ToList();
+            var engaged = new HashSet<Guid>();
 
             for (var i = 0; i < occupants.Count; i++)
             {
                 for (var j = i + 1; j < occupants.Count; j++)
                 {
-                    ResolvePair(state, occupants[i], occupants[j], minute);
+                    var first = occupants[i];
+                    var second = occupants[j];
+
+                    if (engaged.Contains(first.Id) || engaged.Contains(second.Id))
+                    {
+                        continue;
+                    }
+
+                    if (ResolvePair(state, first, second, minute))
+                    {
+                        engaged.Add(first.Id);
+                        engaged.Add(second.Id);
+                    }
                 }
             }
         }
     }
 
-    private static void ResolvePair(GameState state, Npc first, Npc second, int minute)
+    private static bool ResolvePair(GameState state, Npc first, Npc second, int minute)
     {
         var firstToSecond = first.Relationships[second.Name];
         var secondToFirst = second.Relationships[first.Name];
@@ -45,13 +58,13 @@ public sealed class SocialSimulationSystem
                 firstToSecond,
                 secondToFirst))
         {
-            return;
+            return true;
         }
 
         if (TryViolence(state, first, second, firstToSecond, minute, salt: 1)
             || TryViolence(state, second, first, secondToFirst, minute, salt: 2))
         {
-            return;
+            return true;
         }
 
         var combinedStress = (first.Stress + second.Stress) / 2;
@@ -64,7 +77,7 @@ public sealed class SocialSimulationSystem
         if (friction >= 85 && roll < 0.62)
         {
             Argue(state, first, second, firstToSecond, secondToFirst, minute);
-            return;
+            return true;
         }
 
         var wantsCompany =
@@ -83,7 +96,10 @@ public sealed class SocialSimulationSystem
         if (wantsCompany && roll < socialChance)
         {
             Socialize(state, first, second, firstToSecond, secondToFirst, minute);
+            return true;
         }
+
+        return false;
     }
 
     private static bool TryIntimacy(
