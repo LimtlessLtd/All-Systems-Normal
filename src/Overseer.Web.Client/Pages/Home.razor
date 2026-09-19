@@ -823,20 +823,20 @@
 
     private bool IsVerticalHallway(Room hallway)
     {
-        var neighbours = ConnectedDoors(hallway)
-            .Select(door => OtherRoom(door, hallway.Id))
-            .ToList();
+        var door = ConnectedDoors(hallway).FirstOrDefault();
 
-        if (neighbours.Count >= 2)
+        if (door is null)
         {
-            var first = neighbours[0];
-            var second = neighbours[1];
-
-            return Math.Abs(first.MapY - second.MapY)
-                >= Math.Abs(first.MapX - second.MapX);
+            return hallway.MapHeight >= hallway.MapWidth;
         }
 
-        return hallway.MapHeight >= hallway.MapWidth;
+        var neighbour = OtherRoom(door, hallway.Id);
+        var portal = StationGeometry.FindSharedPortal(hallway, neighbour);
+
+        // A vertical passage terminates on a horizontal wall; a horizontal
+        // passage terminates on a vertical wall. This remains correct even
+        // when a very short connector is wider than it is long.
+        return portal.Wall == StationWall.Horizontal;
     }
 
 
