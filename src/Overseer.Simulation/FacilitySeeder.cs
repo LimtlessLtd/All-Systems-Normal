@@ -8,29 +8,35 @@ public static class FacilitySeeder
     {
         var facility = new Facility();
 
-        AddRoom(facility, "quarters", "Crew Quarters", RoomType.CrewQuarters, 15, 29, 20, 19);
-        AddRoom(facility, "kitchen", "Kitchen", RoomType.Kitchen, 38, 29, 18, 19);
-        AddRoom(facility, "medical", "Medical", RoomType.Medical, 59, 29, 18, 19);
-        AddRoom(facility, "control", "Control Room", RoomType.ControlRoom, 83, 29, 24, 20);
-        AddRoom(facility, "airlock", "Airlock", RoomType.Airlock, 7, 52, 10, 14);
-        AddRoom(facility, "corridor", "Central Corridor", RoomType.Corridor, 50, 52, 76, 12);
-        AddRoom(facility, "storage", "Storage", RoomType.Storage, 17, 76, 18, 20);
-        AddRoom(facility, "engineering", "Engineering", RoomType.Engineering, 41, 76, 22, 20);
-        AddRoom(facility, "generator", "Generator", RoomType.Generator, 67, 76, 18, 20);
-        AddRoom(facility, "reactor", "Reactor", RoomType.Reactor, 88, 76, 18, 22);
+        // Functional rooms are deliberately separated from the central spine.
+        // Every room reaches that spine through its own physical hallway with a
+        // door at BOTH ends, so "leaving a room" and "entering the corridor"
+        // are distinct deterministic actions.
+        AddRoom(facility, "quarters", "Crew Quarters", RoomType.CrewQuarters, 11, 18, 17, 14);
+        AddRoom(facility, "kitchen", "Kitchen", RoomType.Kitchen, 30, 18, 15, 14);
+        AddRoom(facility, "lounge", "Recreation Lounge", RoomType.Recreation, 48, 18, 16, 14);
+        AddRoom(facility, "medical", "Medical", RoomType.Medical, 68, 18, 16, 14);
+        AddRoom(facility, "control", "Control Room", RoomType.ControlRoom, 89, 18, 18, 14);
+
+        AddRoom(facility, "airlock", "Airlock", RoomType.Airlock, 5, 50, 8, 12);
+        AddRoom(facility, "corridor", "Central Corridor", RoomType.Corridor, 52, 50, 82, 8);
+
+        AddRoom(facility, "washroom", "Washroom", RoomType.Washroom, 11, 82, 16, 14);
+        AddRoom(facility, "storage", "Storage", RoomType.Storage, 29, 82, 15, 14);
+        AddRoom(facility, "engineering", "Engineering", RoomType.Engineering, 49, 82, 18, 14);
+        AddRoom(facility, "generator", "Generator", RoomType.Generator, 70, 82, 16, 14);
+        AddRoom(facility, "reactor", "Reactor", RoomType.Reactor, 90, 82, 16, 14);
+
+        foreach (var roomId in new[]
+        {
+            "quarters", "kitchen", "lounge", "medical", "control",
+            "airlock", "washroom", "storage", "engineering", "generator", "reactor"
+        })
+        {
+            AddHallwayToCorridor(facility, roomId, "corridor");
+        }
 
         AddFixtures(facility);
-
-        Connect(facility, "quarters", "corridor");
-        Connect(facility, "kitchen", "corridor");
-        Connect(facility, "medical", "corridor");
-        Connect(facility, "control", "corridor");
-        Connect(facility, "engineering", "corridor");
-        Connect(facility, "storage", "corridor");
-        Connect(facility, "airlock", "corridor");
-        Connect(facility, "engineering", "reactor");
-        Connect(facility, "engineering", "generator");
-        Connect(facility, "control", "generator");
 
         var state = new GameState
         {
@@ -72,22 +78,30 @@ public static class FacilitySeeder
                     PersonName = other.Name,
                     Affinity = 50,
                     Trust = 50,
-                    Resentment = 0
+                    Resentment = 0,
+                    Attraction = InitialAttraction(npc.Name, other.Name)
                 };
             }
         }
 
-        // A few mild pre-existing tensions give the social simulation something to work with
-        // without scripting an outcome.
+        // Mild pre-existing history makes social outcomes possible without
+        // scripting what must happen.
         state.Crew.Single(npc => npc.Name == "Marcus Reed")
             .Relationships["Emma Voss"].Resentment = 24;
         state.Crew.Single(npc => npc.Name == "Emma Voss")
             .Relationships["Marcus Reed"].Resentment = 18;
 
-        state.Crew.Single(npc => npc.Name == "Sarah Chen")
-            .Relationships["Felix Ward"].Trust = 62;
-        state.Crew.Single(npc => npc.Name == "Felix Ward")
-            .Relationships["Sarah Chen"].Trust = 64;
+        var sarahToFelix = state.Crew.Single(npc => npc.Name == "Sarah Chen")
+            .Relationships["Felix Ward"];
+        sarahToFelix.Trust = 66;
+        sarahToFelix.Affinity = 67;
+        sarahToFelix.Attraction = 64;
+
+        var felixToSarah = state.Crew.Single(npc => npc.Name == "Felix Ward")
+            .Relationships["Sarah Chen"];
+        felixToSarah.Trust = 68;
+        felixToSarah.Affinity = 69;
+        felixToSarah.Attraction = 66;
 
         state.EventLog.Add("T+00:00: ALL SYSTEMS NORMAL. Six crew members online.");
 
@@ -114,6 +128,60 @@ public static class FacilitySeeder
             MapWidth = mapWidth,
             MapHeight = mapHeight
         });
+    }
+
+    private static void AddHallwayToCorridor(
+        Facility facility,
+        string roomId,
+        string corridorId)
+    {
+        var room = facility.Rooms[roomId];
+        var corridor = facility.Rooms[corridorId];
+        var hallwayId = $"hall-{roomId}";
+
+        if (Math.Abs(room.MapY - corridor.MapY) >= Math.Abs(room.MapX - corridor.MapX))
+        {
+            var roomAbove = room.MapY < corridor.MapY;
+            var roomEdge = room.MapY
+                + (roomAbove ? room.MapHeight / 2 : -room.MapHeight / 2);
+            var corridorEdge = corridor.MapY
+                + (roomAbove ? -corridor.MapHeight / 2 : corridor.MapHeight / 2);
+            var top = Math.Min(roomEdge, corridorEdge);
+            var bottom = Math.Max(roomEdge, corridorEdge);
+
+            AddRoom(
+                facility,
+                hallwayId,
+                $"{room.Name} Hallway",
+                RoomType.Corridor,
+                room.MapX,
+                (top + bottom) / 2,
+                4.2,
+                Math.Max(3, bottom - top));
+        }
+        else
+        {
+            var roomLeft = room.MapX < corridor.MapX;
+            var roomEdge = room.MapX
+                + (roomLeft ? room.MapWidth / 2 : -room.MapWidth / 2);
+            var corridorEdge = corridor.MapX
+                + (roomLeft ? -corridor.MapWidth / 2 : corridor.MapWidth / 2);
+            var left = Math.Min(roomEdge, corridorEdge);
+            var right = Math.Max(roomEdge, corridorEdge);
+
+            AddRoom(
+                facility,
+                hallwayId,
+                $"{room.Name} Hallway",
+                RoomType.Corridor,
+                (left + right) / 2,
+                room.MapY,
+                Math.Max(3, right - left),
+                4.2);
+        }
+
+        Connect(facility, roomId, hallwayId);
+        Connect(facility, hallwayId, corridorId);
     }
 
     private static void Connect(Facility facility, string roomAId, string roomBId)
@@ -149,15 +217,42 @@ public static class FacilitySeeder
         return npc;
     }
 
+    private static double InitialAttraction(string observer, string other)
+    {
+        unchecked
+        {
+            uint hash = 2166136261;
+
+            foreach (var ch in $"{observer}>{other}")
+            {
+                hash ^= ch;
+                hash *= 16777619;
+            }
+
+            return 20 + (hash % 51);
+        }
+    }
+
     private static void AddFixtures(Facility facility)
     {
-        AddFixture(facility, "quarters", FixtureType.Bed, "Bunk A", 22, 35, 24, 18);
-        AddFixture(facility, "quarters", FixtureType.Bed, "Bunk B", 62, 35, 24, 18);
-        AddFixture(facility, "quarters", FixtureType.Bed, "Bunk C", 22, 68, 24, 18);
+        AddFixture(facility, "quarters", FixtureType.Bed, "Bunk A", 23, 30, 25, 19);
+        AddFixture(facility, "quarters", FixtureType.Bed, "Bunk B", 63, 30, 25, 19);
+        AddFixture(facility, "quarters", FixtureType.Bed, "Bunk C", 23, 68, 25, 19);
         AddFixture(facility, "quarters", FixtureType.Locker, "Lockers", 72, 70, 18, 16);
+        AddFixture(facility, "quarters", FixtureType.Mirror, "Mirror", 50, 82, 22, 8);
 
         AddFixture(facility, "kitchen", FixtureType.KitchenCounter, "Galley", 50, 22, 68, 20);
         AddFixture(facility, "kitchen", FixtureType.Table, "Mess Table", 50, 62, 48, 25);
+
+        AddFixture(facility, "lounge", FixtureType.Sofa, "Sofa", 38, 55, 48, 24);
+        AddFixture(facility, "lounge", FixtureType.RecreationConsole, "Games Terminal", 76, 36, 25, 24);
+        AddFixture(facility, "lounge", FixtureType.Table, "Coffee Table", 45, 78, 35, 12);
+
+        AddFixture(facility, "washroom", FixtureType.Shower, "Shower A", 24, 33, 25, 35);
+        AddFixture(facility, "washroom", FixtureType.Shower, "Shower B", 62, 33, 25, 35);
+        AddFixture(facility, "washroom", FixtureType.Sink, "Sink", 25, 78, 28, 14);
+        AddFixture(facility, "washroom", FixtureType.Mirror, "Mirror", 50, 78, 28, 10);
+        AddFixture(facility, "washroom", FixtureType.Toilet, "Toilet", 78, 76, 18, 22);
 
         AddFixture(facility, "medical", FixtureType.MedicalBed, "Med Bed A", 30, 42, 30, 22);
         AddFixture(facility, "medical", FixtureType.MedicalBed, "Med Bed B", 68, 42, 30, 22);
@@ -180,9 +275,8 @@ public static class FacilitySeeder
         AddFixture(facility, "reactor", FixtureType.Console, "Reactor Control", 50, 82, 48, 13);
 
         AddFixture(facility, "airlock", FixtureType.AirlockDoor, "Outer Hatch", 50, 50, 60, 55);
-
-        AddFixture(facility, "corridor", FixtureType.Console, "Security Panel", 18, 50, 10, 45);
-        AddFixture(facility, "corridor", FixtureType.Console, "Utility Panel", 82, 50, 10, 45);
+        AddFixture(facility, "corridor", FixtureType.Console, "Security Panel", 18, 50, 8, 50);
+        AddFixture(facility, "corridor", FixtureType.Console, "Utility Panel", 82, 50, 8, 50);
 
         foreach (var room in facility.Rooms.Values)
         {

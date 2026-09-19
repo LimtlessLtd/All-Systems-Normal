@@ -196,6 +196,13 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
         var npc = living[_mindCursor % living.Count];
         _mindCursor++;
 
+        // Do not let a fresh model call erase a goal that the human is already
+        // physically pursuing (including mutually coordinated social routines).
+        if (npc.Intent is not null)
+        {
+            return;
+        }
+
         var intent = await _aiDecisionService.DecideAsync(
             npc,
             State,
@@ -205,6 +212,11 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
         npc.MindMode = intent.Source;
         npc.LastThought = intent.Reason;
         npc.LastThoughtAt = State.Elapsed;
+        npc.Bubble = new NpcBubble(
+            intent.Goal,
+            NpcBubbleKind.Thought,
+            State.Elapsed,
+            State.Elapsed + TimeSpan.FromMinutes(4));
 
         npc.Memories.Add(new Memory(
             $"I decided to: {intent.Goal}",

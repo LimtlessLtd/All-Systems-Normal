@@ -34,9 +34,9 @@
             <button class="@(Session.IsRunning ? "danger" : "")" @onclick="ToggleRunAsync">
                 @(Session.IsRunning ? "PAUSE" : "RUN")
             </button>
-            <button class="secondary" @onclick="() => SetSpeed(1200)">1×</button>
-            <button class="secondary" @onclick="() => SetSpeed(450)">4×</button>
-            <button class="secondary" @onclick="() => SetSpeed(160)">12×</button>
+            <button class="secondary" @onclick="() => SetSpeed(3000)">1×</button>
+            <button class="secondary" @onclick="() => SetSpeed(750)">4×</button>
+            <button class="secondary" @onclick="() => SetSpeed(250)">12×</button>
             <button class="secondary" @onclick="() => StepMinutes(1)">+1m</button>
             <button class="secondary" @onclick="ResetGame">RESET</button>
         </div>
@@ -53,7 +53,9 @@
             </div>
 
             <div class="room-list">
-                @foreach (var room in Session.State.Facility.Rooms.Values.OrderBy(room => room.Name))
+                @foreach (var room in Session.State.Facility.Rooms.Values
+                    .Where(room => !IsConnectorHallway(room))
+                    .OrderBy(room => room.Name))
                 {
                     <button @key="room.Id"
                             class="@($"room-list-item {(SelectedRoom?.Id == room.Id ? "selected" : "")}")"
@@ -88,7 +90,7 @@
                 </span>
             </div>
 
-            <div class="station-map">
+            <div class="station-map" style="@StationMapStyle">
                 <svg class="connection-layer" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                     @foreach (var door in Session.State.Facility.Doors)
                     {
@@ -158,6 +160,10 @@
                             @onclick="() => SelectCrew(npc.Id)">
                         @if (npc.IsAlive)
                         {
+                            @if (ActiveBubble(npc) is { } bubble)
+                            {
+                                <span class="@BubbleClass(bubble)">@bubble.Text</span>
+                            }
                             <span class="person-icon" aria-hidden="true"><i class="person-head"></i><i class="person-body"></i></span>
                             <span class="crew-initials">@Initials(npc.Name)</span>
                         }
@@ -201,6 +207,11 @@
                     @Metric("FATIGUE", selectedCrew.Fatigue)
                     @Metric("FEAR", selectedCrew.Fear)
                     @Metric("STRESS", selectedCrew.Stress)
+                    @Metric("HYGIENE NEED", selectedCrew.HygieneNeed)
+                    @Metric("BLADDER", selectedCrew.BladderNeed)
+                    @Metric("RECREATION NEED", selectedCrew.RecreationNeed)
+                    @Metric("SOCIAL NEED", selectedCrew.SocialNeed)
+                    @Metric("INTIMACY NEED", selectedCrew.IntimacyNeed)
                 </div>
 
                 <div class="thought-card">
@@ -232,7 +243,7 @@
                     {
                         <div class="relationship-row">
                             <strong>@relationship.PersonName</strong>
-                            <small>Trust @relationship.Trust.ToString("0") · Affinity @relationship.Affinity.ToString("0") · Resentment @relationship.Resentment.ToString("0")</small>
+                            <small>Trust @relationship.Trust.ToString("0") · Affinity @relationship.Affinity.ToString("0") · Attraction @relationship.Attraction.ToString("0") · Resentment @relationship.Resentment.ToString("0")</small>
                         </div>
                     }
                 </div>
@@ -322,7 +333,7 @@
 @code {
     private string? _selectedRoomId = "control";
     private Guid? _selectedCrewId;
-    private int _delayMs = 1200;
+    private int _delayMs = 3000;
     private CancellationTokenSource? _clockCts;
     private Task? _clockTask;
 
@@ -339,10 +350,14 @@
 
     private string SpeedLabel => _delayMs switch
     {
-        >= 1000 => "1×",
-        >= 300 => "4×",
+        >= 2000 => "1×",
+        >= 500 => "4×",
         _ => "12×"
     };
+
+    private string StationMapStyle =>
+        FormattableString.Invariant(
+            $"--crew-step-duration:{(_delayMs >= 2000 ? 2.65 : _delayMs >= 500 ? 0.62 : 0.18)}s;");
 
     private void SelectRoom(string roomId)
     {
@@ -474,6 +489,9 @@
     {
         var classes = new List<string> { "room-node" };
 
+        if (IsConnectorHallway(room))
+            classes.Add("hallway");
+
         if (SelectedRoom?.Id == room.Id)
             classes.Add("selected");
 
@@ -508,13 +526,45 @@
     {
         var a = Session.State.Facility.Rooms[door.RoomAId];
         var b = Session.State.Facility.Rooms[door.RoomBId];
+        var dx = b.MapX - a.MapX;
+        var dy = b.MapY - a.MapY;
 
-        return FormattableString.Invariant(
-            $"left:{(a.MapX + b.MapX) / 2}%;top:{(a.MapY + b.MapY) / 2}%;");
+        double x;
+        double y;
+
+        if (Math.Abs(dx) >= Math.Abs(dy))
+        {
+            var direction = Math.Sign(dx);
+            var aEdge = a.MapX + (direction * a.MapWidth / 2);
+            var bEdge = b.MapX - (direction * b.MapWidth / 2);
+            x = (aEdge + bEdge) / 2;
+            y = (a.MapY + b.MapY) / 2;
+        }
+        else
+        {
+            var direction = Math.Sign(dy);
+            var aEdge = a.MapY + (direction * a.MapHeight / 2);
+            var bEdge = b.MapY - (direction * b.MapHeight / 2);
+            x = (a.MapX + b.MapX) / 2;
+            y = (aEdge + bEdge) / 2;
+        }
+
+        return FormattableString.Invariant($"left:{x}%;top:{y}%;");
     }
 
-    private static string DoorClass(Door door) =>
-        $"map-door {(door.IsLocked ? "locked" : door.IsOpen ? "open" : "closed")}";
+    private string DoorClass(Door door)
+    {
+        var a = Session.State.Facility.Rooms[door.RoomAId];
+        var b = Session.State.Facility.Rooms[door.RoomBId];
+        var passageRunsHorizontally =
+            Math.Abs(b.MapX - a.MapX) >= Math.Abs(b.MapY - a.MapY);
+        var orientation = passageRunsHorizontally
+            ? "door-vertical"
+            : "door-horizontal";
+        var state = door.IsLocked ? "locked" : door.IsOpen ? "open" : "closed";
+
+        return $"map-door {orientation} {state}";
+    }
 
     private string DoorTitle(Door door)
     {
@@ -531,6 +581,18 @@
     private Room OtherRoom(Door door, string roomId) =>
         Session.State.Facility.Rooms[
             door.RoomAId == roomId ? door.RoomBId : door.RoomAId];
+
+    private static bool IsConnectorHallway(Room room) =>
+        room.Type == RoomType.Corridor
+        && room.Id.StartsWith("hall-", StringComparison.OrdinalIgnoreCase);
+
+    private NpcBubble? ActiveBubble(Npc npc) =>
+        npc.Bubble is { } bubble && bubble.ExpiresAt > Session.State.Elapsed
+            ? bubble
+            : null;
+
+    private static string BubbleClass(NpcBubble bubble) =>
+        $"npc-bubble bubble-{bubble.Kind.ToString().ToLowerInvariant()}";
 
     private string VisibleOccupantLabel(Room room)
     {

@@ -99,7 +99,8 @@ public sealed class LocalMovementSystem
             or ActionKind.Socialize
             or ActionKind.Argue
             or ActionKind.Attack
-            or ActionKind.RequestHelp)
+            or ActionKind.RequestHelp
+            or ActionKind.Intimacy)
         {
             var target = state.Crew.FirstOrDefault(other =>
                 other.IsAlive
@@ -120,20 +121,39 @@ public sealed class LocalMovementSystem
 
         var preferredFixture = npc.CurrentAction.Kind switch
         {
-            ActionKind.Rest => room.Fixtures.FirstOrDefault(fixture =>
-                fixture.Type is FixtureType.Bed or FixtureType.MedicalBed),
+            ActionKind.Rest or ActionKind.Sleep or ActionKind.Intimacy =>
+                room.Fixtures.FirstOrDefault(fixture =>
+                    fixture.Type is FixtureType.Bed or FixtureType.MedicalBed),
 
             ActionKind.Eat => room.Fixtures.FirstOrDefault(fixture =>
                 fixture.Type is FixtureType.Table or FixtureType.KitchenCounter),
 
-            ActionKind.Repair => room.Fixtures.FirstOrDefault(fixture =>
+            ActionKind.Recreate => room.Fixtures.FirstOrDefault(fixture =>
+                fixture.Type is FixtureType.Sofa
+                    or FixtureType.RecreationConsole
+                    or FixtureType.Table),
+
+            ActionKind.Groom => room.Fixtures.FirstOrDefault(fixture =>
+                fixture.Type is FixtureType.Mirror or FixtureType.Sink),
+
+            ActionKind.Shower => room.Fixtures.FirstOrDefault(fixture =>
+                fixture.Type == FixtureType.Shower),
+
+            ActionKind.UseToilet => room.Fixtures.FirstOrDefault(fixture =>
+                fixture.Type == FixtureType.Toilet),
+
+            ActionKind.Work or ActionKind.Repair => room.Fixtures.FirstOrDefault(fixture =>
                 fixture.Type is FixtureType.Workbench
                     or FixtureType.Console
                     or FixtureType.Generator
-                    or FixtureType.ReactorCore),
+                    or FixtureType.ReactorCore
+                    or FixtureType.MedicalBed
+                    or FixtureType.StorageRack),
 
             ActionKind.Investigate => room.Fixtures.FirstOrDefault(fixture =>
-                fixture.Type is FixtureType.Console or FixtureType.Workbench),
+                fixture.Type is FixtureType.Console
+                    or FixtureType.Workbench
+                    or FixtureType.StorageRack),
 
             _ => null
         };

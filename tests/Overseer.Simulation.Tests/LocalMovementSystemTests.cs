@@ -6,7 +6,7 @@ namespace Overseer.Simulation.Tests;
 public sealed class LocalMovementSystemTests
 {
     [Fact]
-    public void Tick_MovesCrewTowardTheDoorBeforeCrossing()
+    public void Tick_MovesCrewTowardTheCorridorEndOfAHallwayBeforeCrossing()
     {
         var state = FacilitySeeder.CreateDefault();
         var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
@@ -16,8 +16,8 @@ public sealed class LocalMovementSystemTests
             marcus.Id,
             new NpcAction(
                 ActionKind.Move,
-                "airlock",
-                "Inspect the airlock."),
+                "hall-airlock",
+                "Heading toward the airlock."),
             out _);
 
         new LocalMovementSystem().Tick(
@@ -30,19 +30,19 @@ public sealed class LocalMovementSystemTests
     }
 
     [Fact]
-    public void Tick_RechecksDoorAtThresholdAndStopsIfPlayerSealsIt()
+    public void Tick_RechecksHallwayDoorAtThresholdAndStopsIfPlayerSealsIt()
     {
         var state = FacilitySeeder.CreateDefault();
         var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
-        var door = state.Facility.FindDoorBetween("corridor", "airlock")!;
+        var door = state.Facility.FindDoorBetween("corridor", "hall-airlock")!;
 
         new ActionResolver().TryApply(
             state,
             marcus.Id,
             new NpcAction(
                 ActionKind.Move,
-                "airlock",
-                "Inspect the airlock."),
+                "hall-airlock",
+                "Heading toward the airlock."),
             out _);
 
         new LocalMovementSystem().Tick(

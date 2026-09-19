@@ -16,23 +16,23 @@ public sealed class ActionResolverTests
             sarah.Id,
             new NpcAction(
                 ActionKind.Move,
-                "corridor",
-                "I need to reach the central corridor."),
+                "hall-engineering",
+                "I need to leave Engineering."),
             out _);
 
         Assert.True(success);
         Assert.Equal("engineering", sarah.CurrentRoomId);
         Assert.NotNull(sarah.Movement);
-        Assert.Equal("corridor", sarah.Movement.ToRoomId);
+        Assert.Equal("hall-engineering", sarah.Movement.ToRoomId);
         Assert.Equal(ActionKind.Move, sarah.CurrentAction.Kind);
     }
 
     [Fact]
-    public void Move_FailsWhenTheDoorIsLocked()
+    public void Move_FailsWhenTheRoomEndOfAHallwayIsLocked()
     {
         var state = FacilitySeeder.CreateDefault();
         var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
-        var door = state.Facility.FindDoorBetween("engineering", "corridor")!;
+        var door = state.Facility.FindDoorBetween("engineering", "hall-engineering")!;
 
         door.IsOpen = false;
         door.IsLocked = true;
@@ -42,8 +42,8 @@ public sealed class ActionResolverTests
             sarah.Id,
             new NpcAction(
                 ActionKind.Move,
-                "corridor",
-                "I need to reach the central corridor."),
+                "hall-engineering",
+                "I need to leave Engineering."),
             out var message);
 
         Assert.False(success);

@@ -10,7 +10,13 @@ public static class NpcPromptBuilder
         ActionKind.Idle,
         ActionKind.Move,
         ActionKind.Rest,
+        ActionKind.Sleep,
         ActionKind.Eat,
+        ActionKind.Recreate,
+        ActionKind.Groom,
+        ActionKind.Shower,
+        ActionKind.UseToilet,
+        ActionKind.Work,
         ActionKind.Investigate,
         ActionKind.Repair,
         ActionKind.Talk,
@@ -46,7 +52,7 @@ public static class NpcPromptBuilder
             .OrderByDescending(r => r.Resentment)
             .ThenBy(r => r.PersonName)
             .Select(r =>
-                $"{r.PersonName}: trust {r.Trust:0}, affinity {r.Affinity:0}, resentment {r.Resentment:0}");
+                $"{r.PersonName}: trust {r.Trust:0}, affinity {r.Affinity:0}, attraction {r.Attraction:0}, resentment {r.Resentment:0}");
 
         var memories = npc.Memories
             .OrderByDescending(m => m.Importance)
@@ -76,7 +82,7 @@ public static class NpcPromptBuilder
         builder.AppendLine($"NAME: {npc.Name}");
         builder.AppendLine($"ROLE: {npc.Role}");
         builder.AppendLine($"PERSONALITY: empathy {npc.Personality.Empathy:0}, temper {npc.Personality.Temper:0}, sociability {npc.Personality.Sociability:0}, courage {npc.Personality.Courage:0}");
-        builder.AppendLine($"NEEDS: health {npc.Health:0}, hunger {npc.Hunger:0}, fatigue {npc.Fatigue:0}, fear {npc.Fear:0}, stress {npc.Stress:0}");
+        builder.AppendLine($"NEEDS: health {npc.Health:0}, hunger {npc.Hunger:0}, fatigue {npc.Fatigue:0}, hygiene {npc.HygieneNeed:0}, bladder {npc.BladderNeed:0}, recreation {npc.RecreationNeed:0}, social {npc.SocialNeed:0}, intimacy {npc.IntimacyNeed:0}, fear {npc.Fear:0}, stress {npc.Stress:0}");
         builder.AppendLine($"CURRENT ROOM: {room.Id} ({room.Name})");
         builder.AppendLine($"ROOM STATE: power {(room.IsPowered ? "on" : "off")}, lights {(room.LightsOn ? "on" : "off")}, oxygen {room.OxygenPercent:0.0}%, temperature {room.TemperatureC:0.0}C");
         builder.AppendLine($"PEOPLE HERE: {(occupants.Length == 0 ? "nobody" : string.Join(", ", occupants))}");
@@ -100,9 +106,10 @@ public static class NpcPromptBuilder
         builder.AppendLine(string.Join(", ", livingCrew));
         builder.AppendLine();
         builder.AppendLine($"ALLOWED ACTIONS: {string.Join(", ", AllowedActions)}");
-        builder.AppendLine("For Move/Investigate/Repair, TargetId must be a valid room ID.");
+        builder.AppendLine("For Move/Investigate/Repair/Work, TargetId must be a valid room ID.");
         builder.AppendLine("For Talk/Socialize/Argue/RequestHelp, TargetId must be an exact living person's name.");
-        builder.AppendLine("For Eat/Rest/Idle, TargetId should be null.");
+        builder.AppendLine("For Eat/Rest/Sleep/Recreate/Groom/Shower/UseToilet/Idle, TargetId should be null.");
+        builder.AppendLine("Do not choose Intimacy directly. Attraction may inform social choices, but mutual consent is resolved by deterministic simulation.");
         builder.AppendLine("Urgency must be 0-100.");
         builder.AppendLine("Goal and Reason should each be one short sentence.");
         return builder.ToString();
