@@ -21,6 +21,12 @@ public sealed class ActionResolver
             return false;
         }
 
+        if (!npc.IsAlive)
+        {
+            message = $"{npc.Name} cannot act because they are deceased.";
+            return false;
+        }
+
         return action.Kind switch
         {
             ActionKind.Move => TryMove(state, npc, action, out message),
@@ -29,6 +35,9 @@ public sealed class ActionResolver
             ActionKind.Investigate => SetAction(state, npc, action, "starts investigating", out message),
             ActionKind.Repair => SetAction(state, npc, action, "starts a repair attempt", out message),
             ActionKind.Talk => SetAction(state, npc, action, "starts a conversation", out message),
+            ActionKind.Socialize => SetAction(state, npc, action, "socialises", out message),
+            ActionKind.Argue => SetAction(state, npc, action, "argues", out message),
+            ActionKind.Attack => SetAction(state, npc, action, "attacks", out message),
             ActionKind.RequestHelp => SetAction(state, npc, action, "requests help", out message),
             ActionKind.Idle => SetAction(state, npc, action, "waits", out message),
             _ => Fail("Unsupported action.", out message)
@@ -62,7 +71,7 @@ public sealed class ActionResolver
             return false;
         }
 
-        if (!door.IsPowered || door.IsLocked || !door.IsOpen)
+        if (!door.IsPassable)
         {
             message = $"{npc.Name} is blocked by {door.Id}.";
             return false;
@@ -72,7 +81,8 @@ public sealed class ActionResolver
         npc.CurrentRoomId = targetRoom.Id;
         npc.CurrentAction = action;
 
-        message = $"{npc.Name} moves from {fromRoom.Name} to {targetRoom.Name}.";
+        message =
+            $"{npc.Name} crosses {door.Id} from {fromRoom.Name} to {targetRoom.Name}.";
         Log(state, message);
         return true;
     }

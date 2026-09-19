@@ -685,3 +685,316 @@ button.mini {
         transition: none;
     }
 }
+
+
+/* V0.3 visual station pass */
+.station-map {
+    background:
+        linear-gradient(rgba(124, 153, 164, .05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124, 153, 164, .05) 1px, transparent 1px),
+        radial-gradient(circle at 50% 45%, rgba(92,225,210,.075), transparent 46%),
+        #061017;
+    background-size: 18px 18px, 18px 18px, auto, auto;
+    box-shadow: inset 0 0 70px rgba(0, 0, 0, .55);
+}
+
+.room-node {
+    border: 3px solid #435864;
+    border-radius: 2px;
+    background:
+        linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+        #13242d;
+    background-size: 12px 12px;
+    box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,.025),
+        inset 0 -16px 30px rgba(0,0,0,.14);
+}
+
+.room-node::before {
+    content: "";
+    position: absolute;
+    inset: 5px;
+    border: 1px solid rgba(151, 185, 194, .12);
+    pointer-events: none;
+}
+
+.room-node.no-power {
+    background:
+        repeating-linear-gradient(135deg, rgba(90,35,42,.15) 0 8px, transparent 8px 16px),
+        #100d12;
+}
+
+.room-node.lights-off {
+    filter: brightness(.52) saturate(.75);
+}
+
+.room-name,
+.room-data,
+.signal-lost,
+.lights-out {
+    position: relative;
+    z-index: 4;
+}
+
+.fixture-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.fixture {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: block;
+    border: 1px solid rgba(190, 217, 222, .28);
+    background: rgba(167, 193, 198, .10);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .28);
+}
+
+.fixture-bed,
+.fixture-medicalbed {
+    border-radius: 3px;
+    background:
+        linear-gradient(90deg, rgba(210,230,233,.34) 0 24%, rgba(111,139,147,.19) 24% 100%);
+}
+
+.fixture-medicalbed {
+    border-color: rgba(170, 201, 235, .45);
+}
+
+.fixture-table,
+.fixture-kitchencounter,
+.fixture-workbench,
+.fixture-storagerack,
+.fixture-locker {
+    border-radius: 2px;
+}
+
+.fixture-table {
+    background: rgba(195, 177, 139, .18);
+}
+
+.fixture-kitchencounter {
+    background:
+        repeating-linear-gradient(90deg, rgba(195,216,219,.20) 0 13%, rgba(108,131,137,.13) 13% 16%);
+}
+
+.fixture-workbench {
+    background:
+        repeating-linear-gradient(90deg, rgba(188,158,112,.18) 0 20%, rgba(73,91,96,.12) 20% 25%);
+}
+
+.fixture-storagerack,
+.fixture-locker {
+    background:
+        repeating-linear-gradient(0deg, rgba(133,158,165,.17) 0 19%, transparent 19% 24%);
+}
+
+.fixture-console {
+    border-color: rgba(92,225,210,.42);
+    background:
+        repeating-linear-gradient(90deg, rgba(92,225,210,.16) 0 18%, rgba(22,46,54,.32) 18% 25%);
+}
+
+.fixture-generator {
+    border: 2px solid rgba(240, 182, 91, .38);
+    border-radius: 9px;
+    background:
+        radial-gradient(circle at 50% 50%, rgba(240,182,91,.28) 0 15%, transparent 16% 30%, rgba(240,182,91,.10) 31% 45%, transparent 46%),
+        #152028;
+}
+
+.fixture-reactorcore {
+    border: 2px solid rgba(92,225,210,.46);
+    border-radius: 50%;
+    background:
+        radial-gradient(circle, rgba(92,225,210,.40) 0 8%, rgba(92,225,210,.13) 9% 28%, transparent 29% 42%, rgba(92,225,210,.14) 43% 49%, transparent 50%),
+        #102027;
+    box-shadow: 0 0 18px rgba(92,225,210,.16);
+}
+
+.fixture-airlockdoor {
+    border: 3px double rgba(166, 191, 198, .45);
+    border-radius: 45%;
+    background:
+        linear-gradient(90deg, transparent 46%, rgba(190,215,220,.28) 47% 53%, transparent 54%),
+        rgba(82,103,110,.16);
+}
+
+.fixture-camera {
+    width: 8px !important;
+    height: 8px !important;
+    border-radius: 50%;
+    border-color: rgba(92,225,210,.55);
+    background: rgba(92,225,210,.32);
+    box-shadow: 0 0 7px rgba(92,225,210,.24);
+}
+
+.crew-token {
+    width: 34px;
+    height: 42px;
+    min-height: 42px;
+    border-radius: 8px;
+    background: rgba(8, 17, 23, .94);
+    color: var(--text);
+    overflow: visible;
+    box-shadow: 0 3px 8px rgba(0,0,0,.45);
+}
+
+.person-icon {
+    position: absolute;
+    left: 50%;
+    top: 5px;
+    width: 18px;
+    height: 25px;
+    transform: translateX(-50%);
+}
+
+.person-head {
+    position: absolute;
+    left: 5px;
+    top: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.person-body {
+    position: absolute;
+    left: 4px;
+    top: 9px;
+    width: 10px;
+    height: 13px;
+    border-radius: 5px 5px 3px 3px;
+    background: currentColor;
+}
+
+.person-body::before,
+.person-body::after {
+    content: "";
+    position: absolute;
+    bottom: -5px;
+    width: 3px;
+    height: 7px;
+    border-radius: 2px;
+    background: currentColor;
+}
+
+.person-body::before {
+    left: 1px;
+}
+
+.person-body::after {
+    right: 1px;
+}
+
+.crew-initials {
+    position: absolute;
+    left: 50%;
+    bottom: -15px;
+    transform: translateX(-50%);
+    padding: 1px 3px;
+    border: 1px solid #263f4b;
+    background: #071017;
+    color: #dceff1;
+    font-size: .47rem;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.crew-token.role-engineer,
+.crew-token.role-technician {
+    color: #9de3c7;
+}
+
+.crew-token.role-security {
+    color: #efc983;
+}
+
+.crew-token.role-doctor {
+    color: #a9c9ff;
+}
+
+.crew-token.role-scientist {
+    color: #cbb0ed;
+}
+
+.crew-token.role-commander {
+    color: #f0f3f4;
+}
+
+.crew-token.deceased {
+    width: 34px;
+    height: 24px;
+    min-height: 24px;
+    border-color: var(--danger);
+    color: var(--danger);
+    background: rgba(40, 8, 13, .92);
+    transform: translate(-50%, -50%) rotate(-12deg);
+}
+
+.body-marker {
+    font-size: 1.15rem;
+    line-height: 1;
+}
+
+.relationship-card {
+    margin: 0 .9rem .9rem;
+    padding: .75rem;
+    border: 1px solid var(--line);
+    background: var(--panel-raised);
+}
+
+.relationship-card > span {
+    display: block;
+    margin-bottom: .4rem;
+    color: var(--muted);
+    font-size: .55rem;
+    letter-spacing: .09em;
+}
+
+.relationship-row {
+    padding: .42rem 0;
+    border-top: 1px solid rgba(54,85,101,.48);
+}
+
+.relationship-row strong,
+.relationship-row small {
+    display: block;
+}
+
+.relationship-row strong {
+    font-size: .62rem;
+}
+
+.relationship-row small {
+    margin-top: .15rem;
+    color: var(--muted);
+    font-size: .5rem;
+    line-height: 1.35;
+}
+
+.connection {
+    stroke-width: 4;
+    opacity: .8;
+}
+
+.connection.open {
+    stroke: #385965;
+}
+
+.connection.closed {
+    stroke-width: 3;
+}
+
+.map-door {
+    border-radius: 3px;
+    width: 27px;
+    height: 18px;
+    min-height: 18px;
+    font-size: .5rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,.45);
+}

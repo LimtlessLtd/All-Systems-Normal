@@ -7,8 +7,12 @@ public sealed class GameSession
 {
     private readonly SimulationEngine _simulation = new();
     private readonly CrewRoutineSystem _crewRoutines = new();
+    private readonly SocialSimulationSystem _social = new();
+    private readonly SimulationClock _clock = new();
 
     public GameState State { get; private set; } = FacilitySeeder.CreateDefault();
+
+    public bool IsRunning => _clock.IsRunning;
 
     public int PoweredRoomCount =>
         State.Facility.Rooms.Values.Count(room => room.IsPowered);
@@ -16,29 +20,48 @@ public sealed class GameSession
     public int CameraCount =>
         State.Facility.Rooms.Values.Count(room => room.HasVisualFeed);
 
+    public int LivingCrewCount =>
+        State.Crew.Count(npc => npc.IsAlive);
+
     public int AlertCount =>
         State.Facility.Rooms.Values.Count(room =>
             !room.IsPowered
             || !room.CameraOnline
             || room.OxygenPercent < 19.5
-            || room.TemperatureC is < 16 or > 28);
+            || room.TemperatureC is < 16 or > 28)
+        + State.Crew.Count(npc => !npc.IsAlive);
 
-    public void AdvanceOneMinute()
+    public (bool Started, long Generation) StartClock() =>
+        _clock.Start();
+
+    public void PauseClock() =>
+        _clock.Pause();
+
+    public bool TryAdvanceRunning(long generation)
     {
-        _simulation.Tick(State, TimeSpan.FromMinutes(1));
-        _crewRoutines.Tick(State);
+        if (!_clock.IsActive(generation))
+        {
+            return false;
+        }
+
+        AdvanceCore();
+        return true;
     }
+
+    public void AdvanceOneMinute() =>
+        AdvanceCore();
 
     public void AdvanceMinutes(int minutes)
     {
         for (var i = 0; i < Math.Max(0, minutes); i++)
         {
-            AdvanceOneMinute();
+            AdvanceCore();
         }
     }
 
     public void Reset()
     {
+        _clock.Pause();
         State = FacilitySeeder.CreateDefault();
     }
 
@@ -121,6 +144,13 @@ public sealed class GameSession
 
         room.CameraOnline = !room.CameraOnline;
         Log($"{room.Name} camera {(room.CameraOnline ? "ONLINE" : "OFFLINE")}.");
+    }
+
+    private void AdvanceCore()
+    {
+        _simulation.Tick(State, TimeSpan.FromMinutes(1));
+        _social.Tick(State);
+        _crewRoutines.Tick(State);
     }
 
     private void Log(string message)

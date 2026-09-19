@@ -32,8 +32,8 @@
         </div>
 
         <div class="time-controls">
-            <button class="@(_running ? "danger" : "")" @onclick="ToggleRunAsync">
-                @(_running ? "PAUSE" : "RUN")
+            <button class="@(Session.IsRunning ? "danger" : "")" @onclick="ToggleRunAsync">
+                @(Session.IsRunning ? "PAUSE" : "RUN")
             </button>
             <button class="secondary" @onclick="() => SetSpeed(1200)">1×</button>
             <button class="secondary" @onclick="() => SetSpeed(450)">4×</button>
@@ -83,8 +83,8 @@
                     <span class="overline">DECK A // INTERNAL SURVEILLANCE</span>
                     <h2>STATION OVERVIEW</h2>
                 </div>
-                <span class="@(_running ? "sim-running" : "sim-paused")">
-                    @(_running ? $"RUNNING {SpeedLabel}" : "PAUSED")
+                <span class="@(Session.IsRunning ? "sim-running" : "sim-paused")">
+                    @(Session.IsRunning ? $"RUNNING {SpeedLabel}" : "PAUSED")
                 </span>
             </div>
 
@@ -113,6 +113,15 @@
                             <b>O₂ @room.OxygenPercent.ToString("0.0")</b>
                         </span>
 
+                        <span class="fixture-layer" aria-hidden="true">
+                            @foreach (var fixture in room.Fixtures)
+                            {
+                                <i class="@FixtureClass(fixture)"
+                                   style="@FixtureStyle(fixture)"
+                                   title="@fixture.Label"></i>
+                            }
+                        </span>
+
                         @if (!room.HasVisualFeed)
                         {
                             <span class="signal-lost">VISUAL LOST</span>
@@ -137,12 +146,20 @@
 
                 @foreach (var npc in Session.State.Crew.Where(CanSee))
                 {
-                    <button class="@($"crew-token role-{npc.Role.ToString().ToLowerInvariant()} {(SelectedCrew?.Id == npc.Id ? "selected" : "")}")"
+                    <button class="@($"crew-token role-{npc.Role.ToString().ToLowerInvariant()} {(SelectedCrew?.Id == npc.Id ? "selected" : "")} {(!npc.IsAlive ? "deceased" : "")}")"
                             style="@CrewStyle(npc)"
-                            title="@($"{npc.Name} — {npc.Role}")"
+                            title="@($"{npc.Name} — {npc.Role}{(!npc.IsAlive ? " — DECEASED" : "")}")"
                             aria-label="@($"Select {npc.Name}")"
                             @onclick="() => SelectCrew(npc.Id)">
-                        @Initials(npc.Name)
+                        @if (npc.IsAlive)
+                        {
+                            <span class="person-icon" aria-hidden="true"><i class="person-head"></i><i class="person-body"></i></span>
+                            <span class="crew-initials">@Initials(npc.Name)</span>
+                        }
+                        else
+                        {
+                            <span class="body-marker" aria-hidden="true">×</span>
+                        }
                     </button>
                 }
             </div>
@@ -191,6 +208,24 @@
                     <span>BELIEF ABOUT OVERSEER</span>
                     <p>@selectedCrew.Beliefs.FirstOrDefault()?.Statement</p>
                 </div>
+
+                <div class="relationship-card">
+                    <span>RELATIONSHIPS</span>
+                    @foreach (var relationship in selectedCrew.Relationships.Values
+                        .OrderByDescending(r => r.Resentment)
+                        .ThenByDescending(r => r.Trust))
+                    {
+                        <div class="relationship-row">
+                            <strong>@relationship.PersonName</strong>
+                            <small>Trust @relationship.Trust.ToString("0") · Affinity @relationship.Affinity.ToString("0") · Resentment @relationship.Resentment.ToString("0")</small>
+                        </div>
+                    }
+                </div>
+
+                @if (!selectedCrew.IsAlive)
+                {
+                    <div class="warning-box">@selectedCrew.CauseOfDeath</div>
+                }
             }
             else if (SelectedRoom is { } selectedRoom)
             {
@@ -272,7 +307,6 @@
 @code {
     private string? _selectedRoomId = "control";
     private Guid? _selectedCrewId;
-    private bool _running;
     private int _delayMs = 1200;
     private CancellationTokenSource? _clockCts;
     private Task? _clockTask;
@@ -327,26 +361,39 @@
 
     private Task ToggleRunAsync()
     {
-        if (_running)
+        if (Session.IsRunning)
         {
             StopClock();
             return Task.CompletedTask;
         }
 
-        _running = true;
+        var (started, generation) = Session.StartClock();
+
+        if (!started)
+        {
+            return Task.CompletedTask;
+        }
+
+        _clockCts?.Cancel();
+        _clockCts?.Dispose();
         _clockCts = new CancellationTokenSource();
-        _clockTask = RunClockAsync(_clockCts.Token);
+        _clockTask = RunClockAsync(generation, _clockCts.Token);
         return Task.CompletedTask;
     }
 
-    private async Task RunClockAsync(CancellationToken cancellationToken)
+    private async Task RunClockAsync(long generation, CancellationToken cancellationToken)
     {
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
                 await Task.Delay(_delayMs, cancellationToken);
-                Session.AdvanceOneMinute();
+
+                if (!Session.TryAdvanceRunning(generation))
+                {
+                    break;
+                }
+
                 await InvokeAsync(StateHasChanged);
             }
         }
@@ -358,7 +405,9 @@
 
     private void StopClock()
     {
-        _running = false;
+        // Pause first. This invalidates every prior clock generation, so even a
+        // stale UI loop cannot advance simulation time after PAUSE.
+        Session.PauseClock();
         _clockCts?.Cancel();
         _clockCts?.Dispose();
         _clockCts = null;
@@ -373,6 +422,13 @@
             name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
                 .Take(2)
                 .Select(part => char.ToUpperInvariant(part[0])));
+
+    private static string FixtureClass(RoomFixture fixture) =>
+        $"fixture fixture-{fixture.Type.ToString().ToLowerInvariant()}";
+
+    private static string FixtureStyle(RoomFixture fixture) =>
+        FormattableString.Invariant(
+            $"left:{fixture.X}%;top:{fixture.Y}%;width:{fixture.Width}%;height:{fixture.Height}%;");
 
     private static RenderFragment Metric(string label, double value) => builder =>
     {
