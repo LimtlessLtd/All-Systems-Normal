@@ -113,7 +113,8 @@ public enum ActionKind
     Argue,
     Attack,
     RequestHelp,
-    ShutdownOverseer
+    ShutdownOverseer,
+    OverrideDoor
 }
 
 public sealed record Memory(
@@ -274,8 +275,13 @@ public sealed class Door
     public bool IsOpen { get; set; } = true;
     public bool IsLocked { get; set; }
     public bool IsPowered { get; set; } = true;
+    public bool IsAiControllable { get; set; } = true;
+    public bool ManualOverrideAvailable { get; set; }
+    public bool IsManuallyOverridden { get; set; }
+    public int ManualOverrideMinutes { get; set; } = 3;
+    public int ManualOverrideSkillRequired { get; set; } = 65;
 
-    public bool IsPassable => IsPowered && IsOpen && !IsLocked;
+    public bool IsPassable => IsManuallyOverridden || (IsPowered && IsOpen && !IsLocked);
 
     public bool Connects(string firstRoomId, string secondRoomId) =>
         (RoomAId.Equals(firstRoomId, StringComparison.OrdinalIgnoreCase)
