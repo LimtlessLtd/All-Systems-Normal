@@ -20,10 +20,24 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
         }
         else if (npc.Fatigue >= 72)
         {
-            intent = Create(npc, state, ActionKind.Rest, null,
-                "Get some rest.",
+            intent = Create(npc, state, ActionKind.Sleep, null,
+                "Get some sleep.",
                 "I am too tired to keep working effectively.",
                 78);
+        }
+        else if (npc.HygieneNeed >= 65)
+        {
+            intent = Create(npc, state, ActionKind.Shower, null,
+                "Take a shower.",
+                "I need to clean up before I can comfortably focus.",
+                66);
+        }
+        else if (npc.RecreationNeed >= 62)
+        {
+            intent = Create(npc, state, ActionKind.Recreate, null,
+                "Take a break.",
+                "I need some recreation before I burn out.",
+                52);
         }
         else
         {
