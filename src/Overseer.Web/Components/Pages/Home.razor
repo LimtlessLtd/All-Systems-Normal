@@ -507,14 +507,18 @@
             {
                 await Task.Delay(_delayMs, cancellationToken);
 
-                if (!await Session.TryAdvanceRunningAsync(
-                        generation,
-                        cancellationToken))
+                var keepRunning = await Session.TryAdvanceRunningAsync(
+                    generation,
+                    cancellationToken);
+
+                // Always render the resolved turn, including the terminal turn
+                // that may have just shut Overseer down.
+                await InvokeAsync(StateHasChanged);
+
+                if (!keepRunning)
                 {
                     break;
                 }
-
-                await InvokeAsync(StateHasChanged);
             }
         }
         catch (OperationCanceledException)
