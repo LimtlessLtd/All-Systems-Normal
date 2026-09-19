@@ -232,8 +232,16 @@ public sealed class BrowserMindSystem
             return false;
         }
 
-        return CrewEnvironmentSafety.RiskScore(targetRoom)
-            < CrewEnvironmentSafety.RiskScore(currentRoom);
+        if (CrewEnvironmentSafety.RiskScore(targetRoom)
+            >= CrewEnvironmentSafety.RiskScore(currentRoom))
+        {
+            return false;
+        }
+
+        return _navigation.FindPath(
+            state.Facility,
+            currentRoom.Id,
+            targetRoom.Id).Count >= 2;
     }
 
     private Room? FindSaferRoom(GameState state, Room currentRoom)
@@ -260,6 +268,9 @@ public sealed class BrowserMindSystem
                 CrewEnvironmentSafety.IsHabitable(candidate.Room) ? 0 : 1)
             .ThenBy(candidate => candidate.Risk)
             .ThenBy(candidate => candidate.Path.Count)
+            .ThenBy(candidate =>
+                Math.Abs(candidate.Room.MapX - currentRoom.MapX)
+                + Math.Abs(candidate.Room.MapY - currentRoom.MapY))
             .ThenBy(candidate => candidate.Room.Id)
             .Select(candidate => candidate.Room)
             .FirstOrDefault();
