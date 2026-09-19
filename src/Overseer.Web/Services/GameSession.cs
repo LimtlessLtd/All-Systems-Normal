@@ -205,6 +205,11 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
         npc.MindMode = intent.Source;
         npc.LastThought = intent.Reason;
         npc.LastThoughtAt = State.Elapsed;
+        npc.Bubble = new NpcBubble(
+            intent.Goal,
+            NpcBubbleKind.Thought,
+            State.Elapsed,
+            State.Elapsed + TimeSpan.FromMinutes(4));
 
         npc.Memories.Add(new Memory(
             $"I decided to: {intent.Goal}",
