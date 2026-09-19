@@ -40,6 +40,11 @@ public sealed class BrowserMindSystem
         npc.MindMode = "Browser demo";
         npc.LastThought = intent.Reason;
         npc.LastThoughtAt = state.Elapsed;
+        npc.Bubble = new NpcBubble(
+            intent.Goal,
+            NpcBubbleKind.Thought,
+            state.Elapsed,
+            state.Elapsed + TimeSpan.FromMinutes(4));
     }
 
     private static NpcIntent Decide(Npc npc, GameState state)
@@ -54,10 +59,26 @@ public sealed class BrowserMindSystem
 
         if (npc.Fatigue >= 68)
         {
-            return Create(state, ActionKind.Rest, null,
+            return Create(state, ActionKind.Sleep, null,
                 "Get some sleep.",
-                "I am exhausted enough that I should rest.",
+                "I am exhausted enough that I should sleep.",
                 72);
+        }
+
+        if (npc.HygieneNeed >= 60)
+        {
+            return Create(state, ActionKind.Shower, null,
+                "Take a shower.",
+                "I feel grimy and want to clean up.",
+                64);
+        }
+
+        if (npc.RecreationNeed >= 58)
+        {
+            return Create(state, ActionKind.Recreate, null,
+                "Take a proper break.",
+                "I need time to unwind instead of working constantly.",
+                55);
         }
 
         var tense = npc.Relationships.Values
