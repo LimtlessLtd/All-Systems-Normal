@@ -2070,6 +2070,18 @@ Also continue environmental primitives:
 
 Add:
 
+* autonomous station robots as physical agents; Overseer does **not** directly control their movement
+* robot behavioural policy modes controlled by Overseer:
+  * **Friendly** — accepts human work orders, assists where possible, protects humans from danger and intervenes in life-or-death situations
+  * **Neutral** — may accept routine work orders but can ignore them, prioritises self-preservation, and will not voluntarily intervene to save humans from lethal danger
+  * **Hostile** — autonomously treats humans as hostile targets and attempts to hunt/attack them through normal deterministic navigation/action rules
+* remote robot shutdown where communications/control links permit it
+* scenario-gated robot self-destruct protocols with deterministic arming time, location, blast consequences and crew counterplay
+* multiple eventual robot classes such as maintenance, cargo, medical and security units
+* robot decisions remain autonomous/deterministic at the movement/action layer: policy can change what a robot wants to do, but robots still have to path, traverse doors, reach targets and obey physical constraints
+* robot behaviour should create Overseer suspicion/evidence, especially unexplained Hostile mode changes, refusal to aid humans, suspicious shutdowns, or self-destruction
+* crew counterplay should eventually include manual robot shutdown, network isolation, power/charging denial, damage, barricades, local reboot/control and reprogramming where scenario-appropriate
+
 * preparedness
 * emergency procedures
 * manual overrides
