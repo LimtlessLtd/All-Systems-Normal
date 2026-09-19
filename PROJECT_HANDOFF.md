@@ -8,7 +8,7 @@ Playable GitHub Pages build:
 
 https://limtlessltd.github.io/All-Systems-Normal/
 
-The project is currently at **V0.6B — Human Counterplay & Richer Shutdown Access**. V0.6A established suspicion/scenario/shutdown stakes; V0.6B makes important shutdown-access variants mechanically distinct and lets qualified crew physically force sealed routes.
+The project is currently at **V0.6D — Station Architecture & Interior Pass**. V0.6A established suspicion/scenario/shutdown stakes; V0.6B added human counterplay; the environment/audio/orthogonal-layout passes followed; and V0.6D now makes the rendered deck geometry match deterministic station topology while substantially enriching room interiors.
 
 The current `main` branch therefore contains substantially more functionality than the older V0.4 notes below. Treat the "Implemented Versions" and "Immediate Task" sections in this document as the authoritative roadmap summary, but still inspect the repository before changing code.
 
@@ -2418,7 +2418,7 @@ Recommended milestone name:
 
 **V0.6D — Station Architecture & Interior Pass**
 
-# 40. YOUR IMMEDIATE TASK
+# 40. COMPLETED TASK — V0.6D STATION ARCHITECTURE
 
 First inspect the current `main` branch and read this handoff in full. Treat actual code as authoritative where it differs from this document.
 
@@ -2456,3 +2456,73 @@ After this pass, resume approximately:
 
 The end goal remains a polished emergent game where the player watches believable humans inhabit a real-feeling station and manipulates physical/environmental/social systems without directly controlling the humans.
 
+
+
+# V0.6D COMPLETION NOTE
+
+**V0.6D — Station Architecture & Interior Pass** is implemented.
+
+Geometry / architecture:
+
+* new shared `StationGeometry` is the authoritative physical-portal helper used by both deterministic NPC movement and both Blazor station renderers
+* door visuals no longer infer hatch positions/orientations from room centres; every hatch is rendered at the same exact shared-wall portal used by movement
+* Airlock and Overseer Isolation now have real positive-length service necks to the Central Corridor instead of zero-gap connections
+* connector hallway lengths are exactly the boundary-to-boundary distance; the old forced minimum length that could penetrate rooms/corridors is gone
+* connector hallways terminate flush at both ends and accidental hallway/hallway interior overlap is regression-tested
+* rendered rooms/corridors/fixtures explicitly use border-box geometry so visual bulkhead thickness does not silently enlarge seeded rectangles
+* the main corridor, connector halls and room bulkheads now read as one constructed cutaway deck with thick walls, inset floor panels, utility strips and proper hatch frames
+
+Interior / fixture pass:
+
+* `FixtureType` now includes chairs, cabinets, crates, suit lockers, treatment equipment, irrigation hardware, pipes, vents, utility panels, screens and tool storage
+* `RoomFixture` now carries optional interaction anchors, intended use pose and facing metadata so future NPC animation can bind to the same physical furniture rather than inventing separate animation-only coordinates
+* Crew Quarters now contain six bunks, personal storage and a desk
+* Kitchen / Galley has counters, food storage, sink, dining table and chairs
+* Recreation has entertainment equipment, sofas, a low table and seating
+* Medical has beds, treatment gantry, diagnostics and storage
+* Control has command displays, multiple operator consoles/chairs and a command station
+* Hydroponics has three grow beds, irrigation tank/manifold and climate control hardware
+* Washroom has showers, toilets, basins, mirror and linen storage
+* Storage has multiple racks and cargo pallets
+* Engineering has fabrication/electronics benches, tool storage, coolant piping and systems controls
+* Generator and Reactor have substantially richer machinery, piping, control and emergency panels
+* Airlock has an outer hatch, suit lockers, pressure controls and vent hardware
+* Overseer Isolation visibly centres the emergency shutdown/disconnect hardware
+* corridors and connector halls now contain restrained vents/utility panels without blocking walking lanes
+* fixtures received room-readable top-down styling rather than generic rectangles
+
+Regression coverage:
+
+* every door portal must lie on the boundary of both connected spaces
+* connector hallways may touch connected spaces only at the shared boundary and may not penetrate them
+* connector hallways may not overlap one another accidentally
+* fixture bounds and interaction anchors must remain inside their rooms
+* human-use fixture pose metadata is validated for beds, chairs, showers and toilets
+
+Preserved invariants:
+
+* `CurrentRoomId` remains authoritative containment
+* deterministic A* / physical threshold movement remains unchanged in authority
+* LLMs still choose wants while deterministic C# decides what is physically possible
+* life-support/environment systems remain intact
+* suspicion/shutdown/manual-override mechanics remain intact
+* soft-turn pacing and semantic audio remain intact
+* stable Blazor `@key` identities remain intact
+* the full Ollama/server build and deterministic GitHub Pages build share the same station geometry and visual pass
+
+# 41. YOUR IMMEDIATE TASK
+
+Resume the deferred gameplay slice:
+
+**V0.6C — Investigation, Discovery & Scenario Success**
+
+Recommended priorities:
+
+1. let crew investigate suspicious station behaviour and discover shutdown hardware/knowledge rather than relying mainly on seeded knowledge
+2. strengthen structured evidence provenance/claims and perception rules
+3. add scenario success conditions, optional objectives and experiment telemetry/scoring
+4. make redundant shutdown controls require crew to reason about which controls are known and reachable
+5. add richer recruitment/coordination for shutdown teams rather than every convinced NPC independently acting
+6. continue exposing useful counterplay information without giving the player omniscient crew knowledge
+
+After that, continue toward pressure/decompression/airlock topology, food/resources, private messaging/social claims, robots/security systems and the corporate experiment campaign layer.
