@@ -1,14 +1,19 @@
+using Overseer.AI;
 using Overseer.Domain;
 using Overseer.Simulation;
 
 namespace Overseer.Web.Services;
 
-public sealed class GameSession
+public sealed class GameSession(IAiDecisionService aiDecisionService)
 {
+    private readonly IAiDecisionService _aiDecisionService = aiDecisionService;
     private readonly SimulationEngine _simulation = new();
     private readonly CrewRoutineSystem _crewRoutines = new();
     private readonly SocialSimulationSystem _social = new();
+    private readonly IntentExecutionSystem _intentExecution = new();
     private readonly SimulationClock _clock = new();
+
+    private int _mindCursor;
 
     public GameState State { get; private set; } = FacilitySeeder.CreateDefault();
 
@@ -37,31 +42,38 @@ public sealed class GameSession
     public void PauseClock() =>
         _clock.Pause();
 
-    public bool TryAdvanceRunning(long generation)
+    public async Task<bool> TryAdvanceRunningAsync(
+        long generation,
+        CancellationToken cancellationToken = default)
     {
         if (!_clock.IsActive(generation))
         {
             return false;
         }
 
-        AdvanceCore();
-        return true;
+        await AdvanceCoreAsync(cancellationToken);
+        return _clock.IsActive(generation);
     }
 
-    public void AdvanceOneMinute() =>
-        AdvanceCore();
+    public Task AdvanceOneMinuteAsync(
+        CancellationToken cancellationToken = default) =>
+        AdvanceCoreAsync(cancellationToken);
 
-    public void AdvanceMinutes(int minutes)
+    public async Task AdvanceMinutesAsync(
+        int minutes,
+        CancellationToken cancellationToken = default)
     {
         for (var i = 0; i < Math.Max(0, minutes); i++)
         {
-            AdvanceCore();
+            cancellationToken.ThrowIfCancellationRequested();
+            await AdvanceCoreAsync(cancellationToken);
         }
     }
 
     public void Reset()
     {
         _clock.Pause();
+        _mindCursor = 0;
         State = FacilitySeeder.CreateDefault();
     }
 
@@ -146,11 +158,59 @@ public sealed class GameSession
         Log($"{room.Name} camera {(room.CameraOnline ? "ONLINE" : "OFFLINE")}.");
     }
 
-    private void AdvanceCore()
+    private async Task AdvanceCoreAsync(CancellationToken cancellationToken)
     {
         _simulation.Tick(State, TimeSpan.FromMinutes(1));
+
+        await ThinkIfDueAsync(cancellationToken);
+
+        _intentExecution.Tick(State);
         _social.Tick(State);
         _crewRoutines.Tick(State);
+    }
+
+    private async Task ThinkIfDueAsync(CancellationToken cancellationToken)
+    {
+        var minute = (int)Math.Floor(State.Elapsed.TotalMinutes);
+
+        // One mind every four simulated minutes. With six crew this gives each
+        // person a fresh deliberate thought roughly every 24 simulated minutes,
+        // while keeping local-model latency and token usage under control.
+        if (minute <= 0 || minute % 4 != 0)
+        {
+            return;
+        }
+
+        var living = State.Crew
+            .Where(npc => npc.IsAlive)
+            .OrderBy(npc => npc.Name)
+            .ToList();
+
+        if (living.Count == 0)
+        {
+            return;
+        }
+
+        var npc = living[_mindCursor % living.Count];
+        _mindCursor++;
+
+        var intent = await _aiDecisionService.DecideAsync(
+            npc,
+            State,
+            cancellationToken);
+
+        npc.Intent = intent;
+        npc.MindMode = intent.Source;
+        npc.LastThought = intent.Reason;
+        npc.LastThoughtAt = State.Elapsed;
+
+        npc.Memories.Add(new Memory(
+            $"I decided to: {intent.Goal}",
+            State.Elapsed,
+            Math.Clamp(intent.Urgency / 100d, 0.2, 0.75)));
+
+        Log(
+            $"{npc.Name} forms an intention [{intent.Source}]: {intent.Goal}");
     }
 
     private void Log(string message)
