@@ -28,7 +28,9 @@ public sealed class OllamaAiDecisionService(
         ActionKind.Talk,
         ActionKind.Socialize,
         ActionKind.Argue,
-        ActionKind.RequestHelp
+        ActionKind.RequestHelp,
+        ActionKind.ForceDoor,
+        ActionKind.RestoreSystem
     ];
 
     public async Task<NpcIntent> DecideAsync(
@@ -118,6 +120,33 @@ public sealed class OllamaAiDecisionService(
                 target = null;
             }
         }
+        else if (action == ActionKind.ForceDoor)
+        {
+            var door = state.Facility.Doors.FirstOrDefault(candidate =>
+                candidate.Id.Equals(target, StringComparison.OrdinalIgnoreCase)
+                && !candidate.IsPassable
+                && candidate.CanBeForced
+                && (candidate.RoomAId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
+                    || candidate.RoomBId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)));
+
+            if (door is null)
+            {
+                action = ActionKind.Idle;
+                target = null;
+            }
+            else
+            {
+                target = door.Id;
+            }
+        }
+        else if (action == ActionKind.RestoreSystem)
+        {
+            if (target is null || !IsRestorableTarget(state, target))
+            {
+                action = ActionKind.Idle;
+                target = null;
+            }
+        }
         else if (action is ActionKind.Talk
             or ActionKind.Socialize
             or ActionKind.Argue
@@ -154,6 +183,21 @@ public sealed class OllamaAiDecisionService(
             Math.Clamp(decision.Urgency, 0, 100),
             "Ollama",
             state.Elapsed);
+    }
+
+    private static bool IsRestorableTarget(GameState state, string target)
+    {
+        if (target.Equals("life-support", StringComparison.OrdinalIgnoreCase))
+        {
+            return !state.LifeSupport.IsOnline;
+        }
+
+        return state.Facility.Rooms.TryGetValue(target, out var room)
+            && (!room.IsPowered
+                || !room.CameraOnline
+                || !room.LightsOn
+                || (room.HasTemperatureControl && !room.TemperatureControlOnline)
+                || (room.HasVentilationControl && !room.VentilationEnabled));
     }
 
     private static string Clean(string? value, string fallback)
