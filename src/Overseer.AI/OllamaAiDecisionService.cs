@@ -16,7 +16,12 @@ public sealed class OllamaAiDecisionService(
         ActionKind.Idle,
         ActionKind.Move,
         ActionKind.Rest,
+        ActionKind.Sleep,
         ActionKind.Eat,
+        ActionKind.Recreate,
+        ActionKind.Groom,
+        ActionKind.Shower,
+        ActionKind.Work,
         ActionKind.Investigate,
         ActionKind.Repair,
         ActionKind.Talk,
@@ -104,7 +109,7 @@ public sealed class OllamaAiDecisionService(
 
         string? target = decision.TargetId?.Trim();
 
-        if (action is ActionKind.Move or ActionKind.Investigate or ActionKind.Repair)
+        if (action is ActionKind.Move or ActionKind.Investigate or ActionKind.Repair or ActionKind.Work)
         {
             if (target is null || !state.Facility.Rooms.ContainsKey(target))
             {
