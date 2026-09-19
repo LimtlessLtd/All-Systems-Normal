@@ -101,7 +101,11 @@ public sealed class CrewRoutineSystem
                 && npc.Intent is null
                 && npc.Movement is null
                 && state.Elapsed >= npc.RoutineUntil
-                && npc.CurrentAction.Kind is not (ActionKind.Attack or ActionKind.RequestHelp))
+                && npc.CurrentAction.Kind is not (ActionKind.Attack or ActionKind.RequestHelp)
+                && npc.Hunger < 65
+                && npc.Fatigue < 80
+                && npc.BladderNeed < 75
+                && npc.HygieneNeed < 75)
             .OrderBy(npc => npc.Name)
             .ToList();
 
@@ -210,6 +214,18 @@ public sealed class CrewRoutineSystem
                 "I really need some sleep.",
                 "I'm going to sleep.",
                 90);
+        }
+
+        if (npc.BladderNeed >= 70)
+        {
+            return new(
+                "washroom",
+                ActionKind.UseToilet,
+                null,
+                "Going to the washroom.",
+                "I need the toilet.",
+                "That's better.",
+                8);
         }
 
         if (npc.HygieneNeed >= 65)
