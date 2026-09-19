@@ -2002,3 +2002,39 @@ button:active:not(:disabled) {
         border-radius: 4px;
     }
 }
+
+
+/* Soft-turn pacing and audio controls */
+.time-controls .live-indicator {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 7px;
+    background: rgba(98, 229, 213, .08);
+}
+
+button.selected-speed {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+button.sound-toggle {
+    min-width: 108px;
+}
+
+button.sound-toggle.sound-on {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(98, 229, 213, .08);
+}
+
+@media (max-width: 760px) {
+    .time-controls .live-indicator {
+        display: none;
+    }
+
+    button.sound-toggle {
+        min-width: 0;
+    }
+}
