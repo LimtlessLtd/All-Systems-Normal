@@ -33,7 +33,7 @@ public sealed class NavigationSystemTests
             "reactor");
 
         Assert.Equal(
-            ["control", "corridor", "engineering", "reactor"],
+            new[] { "control", "corridor", "engineering", "reactor" },
             path);
     }
 
