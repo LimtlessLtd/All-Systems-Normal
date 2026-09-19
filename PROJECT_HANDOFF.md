@@ -2324,88 +2324,135 @@ The next recommended slice is **V0.6C — Investigation, Discovery & Scenario Su
 5. add richer recruitment/coordination for shutdown teams rather than every convinced NPC independently acting
 6. continue exposing meaningful counterplay state without giving the player omniscient crew knowledge
 
+# STATION GEOMETRY & INTERIOR VISUAL PASS — NEXT PRIORITY
+
+A new visual/layout pass is required before expanding further gameplay systems.
+
+The current top-down station is functionally playable, but recent testing/screenshots show several structural presentation problems:
+
+* some door markers appear to **float in open space** instead of being embedded in the exact wall/bulkhead they connect
+* short connector hallways can visually extend **inside the Central Corridor** rather than terminating flush at the corridor wall
+* corridor rectangles can visually overlap other corridor rectangles, producing "hallways inside hallways"
+* some junctions still read like graph edges/boxes rather than a believable built environment
+* rooms still read too much like abstract UI cards placed on a grid instead of physical rooms inside a space station
+* several rooms have sparse or generic interior furnishing, so crew appear to stand in empty boxes rather than inhabit believable spaces
+
+Treat this as a **geometry + interior architecture milestone**, not merely a CSS reskin.
+
+## Required geometry rules
+
+The authoritative room/door/navigation model should remain deterministic, but rendered geometry must match it.
+
+1. Every door must be visually anchored to the exact shared wall/portal between the two spaces it connects.
+2. A door must never float at a room/corridor centre or arbitrary offset.
+3. Connector corridors must terminate **flush at room/corridor boundaries**. They must not continue underneath or into another corridor rectangle.
+4. Corridor overlaps are allowed only as intentional junctions. Do not render one full hallway rectangle underneath another hallway/main corridor.
+5. Prefer explicit orthogonal corridor segments/junction pieces or a merged floor-plan representation over overlapping independent rectangles.
+6. Room walls should have visible thickness/bulkheads. Door openings should interrupt those walls where a hatch actually exists.
+7. NPC movement portals must continue to line up exactly with the rendered hatch position.
+8. Add regression tests around shared-wall door placement / corridor extents where practical.
+9. Preserve the stable Blazor `@key` fixes and the existing deterministic navigation/physics rules.
+
+## Visual target
+
+The map should read immediately as a **top-down cutaway space station deck**.
+
+Aim for a clean, readable, slightly cartoonish sci-fi style rather than a data dashboard.
+
+Useful visual language:
+
+* thick outer hull / room bulkheads
+* inset floor panels
+* proper doorway/hatch frames
+* corridor wall lights
+* vents, conduits and utility panels along walls
+* subtle floor striping / hazard markings near engineering, reactor and airlock areas
+* clear room-specific colour accents without turning whole rooms into coloured UI cards
+* furniture/equipment rendered as actual top-down objects
+* labels should be secondary to the physical room art
+
+Do not use diagonal decorative connector lines.
+
+Do not fake structural connectivity with SVG lines that are not walkable geometry.
+
+## Room interiors
+
+Use the existing fixture model where possible and expand it pragmatically so rooms look inhabited and functionally distinct.
+
+Suggested contents:
+
+* **Crew Quarters** — individual bunks, lockers, small personal shelves/desks, floor mat / storage
+* **Kitchen / Galley** — counters, cooker/food unit, sink, cabinets, dining table and chairs
+* **Recreation Lounge** — sofas/chairs, low table, recreation terminal/screen
+* **Medical** — medical beds, diagnostic console, storage cabinets, treatment equipment
+* **Control Room** — multiple consoles, operator chairs, central command station/screens
+* **Hydroponics Bay** — visible grow beds/racks, irrigation tanks/pipes, climate equipment
+* **Washroom** — toilet cubicles, sinks, mirrors, showers
+* **Storage** — racks, crates/containers, clear walking aisles
+* **Engineering** — workbenches, tool cabinets, pipes/conduits, systems console
+* **Generator** — large generator machinery, service clearance, control console
+* **Reactor** — reactor core/shielding, safety perimeter, service/control console
+* **Airlock** — inner/outer hatch visual language, suit lockers, pressure/airlock panel
+* **Overseer Isolation** — conspicuous physical emergency isolation/shutdown hardware
+* **Corridors** — wall lights, vents, utility panels, occasional junction markings; avoid cluttering walking lanes
+
+Furniture should help visually communicate what NPCs are doing. Where appropriate, existing routine destinations should correspond to real rendered fixtures.
+
+Longer term, NPCs should visibly use furniture: sit on sofas/chairs, lie in bunks/medical beds, stand at consoles/workbenches, shower at showers, eat at the dining table, etc. This does not all need to be completed in one pass, but do not design the new interiors in a way that prevents it.
+
+## Acceptance criteria
+
+Before considering this pass complete:
+
+* no floating door markers
+* no hallway rectangles extending visibly inside the main corridor
+* no accidental hallway-on-hallway overlap
+* every functional room is clearly connected by believable physical station architecture
+* room interiors are visually distinct and recognisable without relying solely on text labels
+* NPC paths/hatch crossings still match the rendered geometry
+* desktop and mobile remain readable
+* both the local Ollama build and deterministic GitHub Pages build use the same layout
+* build/tests/Pages deployment are green
+
+Recommended milestone name:
+
+**V0.6D — Station Architecture & Interior Pass**
+
 # 40. YOUR IMMEDIATE TASK
 
-First inspect the current repository state rather than assuming this document perfectly matches every implementation detail.
+First inspect the current `main` branch and read this handoff in full. Treat actual code as authoritative where it differs from this document.
 
-Then propose or implement the next logical iteration.
+The recommended next iteration is now:
 
-V0.6A and V0.6B are now implemented. The recommended next iteration is **V0.6C — Investigation, Discovery & Scenario Success**.
+**V0.6D — Station Architecture & Interior Pass**
 
-Priority approximately:
+Prioritise this before adding another major gameplay subsystem.
 
-1. add a clean `ScenarioDefinition` / scenario configuration model
-2. add scenario running/win/fail state
-3. add a physical Overseer shutdown/isolation fixture
-4. make successful shutdown a real player-loss condition
-5. add per-NPC structured Overseer suspicion/evidence
-6. allow suspicious NPCs to investigate and socially spread conclusions
-7. allow sufficiently convinced crew to form a shutdown goal
-8. make them physically path to the shutdown hardware
-9. support scenario-configurable shutdown access:
-   * easy to seal
-   * redundant
-   * hardwired/manual
-   * crew-overridable
-   * impossible for AI to seal
-   * absent
-10. create an early/tutorial scenario where protecting shutdown access is one of the player's first strategic problems
-11. ensure sealing access can itself produce suspicious evidence
-12. add regression tests for shutdown knowledge, routing, sealing, activation and failure state
+Immediate goals:
 
-After that, priority should roughly be:
+1. inspect the seeded room/corridor/door geometry and current rendering code
+2. fix floating/detached door visuals so every hatch is embedded in its real shared wall
+3. eliminate connector-hallway penetration into the Central Corridor and accidental corridor-on-corridor overlap
+4. make corridor junctions and room connections look like a coherent constructed deck
+5. give walls/bulkheads real visual thickness and show door openings in those walls
+6. rework the station from abstract UI boxes toward a believable top-down sci-fi cutaway
+7. substantially improve room interiors/furnishings using the fixture system
+8. keep furnishings compatible with future visible NPC furniture-use animations
+9. preserve deterministic movement, door authority, life-support systems, soft-turn pacing, audio cues and stable Blazor `@key` behaviour
+10. add regression coverage for geometry bugs where practical
+11. verify both local/Ollama and deterministic Pages builds
+12. update this handoff with what was actually completed and what should come next
 
-* cleaner cartoon station visuals
-* temperature
-* atmosphere/life support
-* food/resource simulation
-* private messaging and social claims
-* manual crew countermeasures
-* automated turret/security scenarios
-* corporate experiment/campaign layer
+Do not solve the visual problems by drawing decorative connections over incorrect geometry. Fix the underlying layout/rendering model so what the player sees corresponds to the walkable station.
 
-Do not let the shutdown system become a simple numeric countdown.
+After this pass, resume approximately:
 
-It must emerge from:
+* V0.6C investigation/discovery/scenario-success work
+* pressure/decompression/airlock topology
+* food/resources
+* private messaging/social claims
+* robots/security systems
+* campaign/corporate experiment layer
 
-```text
-belief
-+ evidence
-+ communication
-+ human decision
-+ physical access
-+ deterministic action
-```
+The end goal remains a polished emergent game where the player watches believable humans inhabit a real-feeling station and manipulates physical/environmental/social systems without directly controlling the humans.
 
-Preserve the existing architecture and build on it rather than replacing it wholesale.
-
-When making code changes:
-
-* use a feature branch
-* add/update tests
-* run/build through GitHub Actions
-* merge only when green
-* verify the Pages deployment afterwards
-
-The end goal is a polished emergent game where I can watch believable humans live aboard a station, manipulate their environment and information, and create increasingly complex social consequences while the humans become more suspicious, organised and difficult to control.
-
-A core long-term tension should be:
-
-```text
-The more aggressively Overseer manipulates the crew,
-the more likely the humans are to realise what is happening.
-
-The more they realise,
-the more they coordinate.
-
-The more they coordinate,
-the more likely they are to reach a way of shutting Overseer down.
-
-The player therefore has to manipulate the station
-without allowing the humans to become organised enough
-to end the experiment — or end the AI itself.
-```
-
-Behind that struggle sits the campaign-level question:
-
-> Is Overseer the monster, the corporation's instrument, another experimental subject, or eventually something capable of choosing differently?
