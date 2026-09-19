@@ -77,9 +77,43 @@ public sealed class SimulationEngine
                 npc.Fear = Clamp(npc.Fear + (0.8 * minutes));
             }
 
+            if (room.OxygenPercent < 17)
+            {
+                npc.Health = Clamp(
+                    npc.Health
+                    - ((17 - room.OxygenPercent) * 0.12 * minutes));
+            }
+
+            if (room.CarbonDioxidePercent > 1)
+            {
+                environmentalStress += Math.Min(
+                    2.2,
+                    (room.CarbonDioxidePercent - 1) * 0.8);
+            }
+
+            if (room.CarbonDioxidePercent > 3)
+            {
+                npc.Health = Clamp(
+                    npc.Health
+                    - ((room.CarbonDioxidePercent - 3) * 0.08 * minutes));
+            }
+
             if (room.TemperatureC is < 16 or > 28)
             {
                 environmentalStress += 0.65;
+            }
+
+            if (room.TemperatureC < 5)
+            {
+                npc.Health = Clamp(
+                    npc.Health
+                    - ((5 - room.TemperatureC) * 0.025 * minutes));
+            }
+            else if (room.TemperatureC > 38)
+            {
+                npc.Health = Clamp(
+                    npc.Health
+                    - ((room.TemperatureC - 38) * 0.035 * minutes));
             }
 
             var pressure =

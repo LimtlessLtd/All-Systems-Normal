@@ -6,6 +6,7 @@ namespace Overseer.Web.Client.Services;
 public sealed class GameSession
 {
     private readonly SimulationEngine _simulation = new();
+    private readonly EnvironmentSystem _environment = new();
     private readonly CrewRoutineSystem _crewRoutines = new();
     private readonly SocialSimulationSystem _social = new();
     private readonly BrowserMindSystem _browserMind = new();
@@ -36,7 +37,11 @@ public sealed class GameSession
             || !room.CameraOnline
             || room.OxygenPercent < 19.5
             || room.TemperatureC is < 16 or > 28)
-        + State.Crew.Count(npc => !npc.IsAlive);
+        + State.Crew.Count(npc => !npc.IsAlive)
+        + (State.LifeSupport.IsOnline ? 0 : 1)
+        + State.Facility.Rooms.Values.Count(room =>
+            room.CarbonDioxidePercent > 1.0
+            || room.PressureKpa < 90);
 
     public (bool Started, long Generation) StartClock() =>
         _clock.Start();
@@ -188,10 +193,104 @@ public sealed class GameSession
         Log($"{room.Name} camera {(room.CameraOnline ? "ONLINE" : "OFFLINE")}.");
     }
 
+    public void AdjustTemperatureSetpoint(string roomId, double deltaC)
+    {
+        var room = State.Facility.Rooms[roomId];
+
+        if (!room.HasTemperatureControl || !room.IsTemperatureAiControllable)
+        {
+            Log($"{room.Name} temperature command refused: LOCAL/AUTONOMOUS CONTROL.");
+            AudioCueSystem.Emit(State, AudioCueKind.Warning, roomId: room.Id);
+            return;
+        }
+
+        if (!room.IsPowered)
+        {
+            Log($"{room.Name} temperature command refused: NO POWER.");
+            return;
+        }
+
+        room.TemperatureSetpointC = Math.Clamp(
+            room.TemperatureSetpointC + deltaC,
+            5,
+            40);
+
+        AudioCueSystem.Emit(State, AudioCueKind.System, roomId: room.Id);
+        Log($"{room.Name} temperature setpoint is now {room.TemperatureSetpointC:0.0}°C.");
+    }
+
+    public void ToggleTemperatureControl(string roomId)
+    {
+        var room = State.Facility.Rooms[roomId];
+
+        if (!room.HasTemperatureControl || !room.IsTemperatureAiControllable)
+        {
+            Log($"{room.Name} climate controller refused command: LOCAL/AUTONOMOUS CONTROL.");
+            AudioCueSystem.Emit(State, AudioCueKind.Warning, roomId: room.Id);
+            return;
+        }
+
+        if (!room.IsPowered)
+        {
+            Log($"{room.Name} climate controller refused command: NO POWER.");
+            return;
+        }
+
+        room.TemperatureControlOnline = !room.TemperatureControlOnline;
+        AudioCueSystem.Emit(
+            State,
+            room.TemperatureControlOnline ? AudioCueKind.System : AudioCueKind.Warning,
+            roomId: room.Id);
+        Log($"{room.Name} climate control {(room.TemperatureControlOnline ? "ONLINE" : "OFFLINE")}.");
+    }
+
+    public void ToggleVentilation(string roomId)
+    {
+        var room = State.Facility.Rooms[roomId];
+
+        if (!room.HasVentilationControl || !room.IsVentilationAiControllable)
+        {
+            Log($"{room.Name} ventilation command refused: LOCAL/AUTONOMOUS CONTROL.");
+            AudioCueSystem.Emit(State, AudioCueKind.Warning, roomId: room.Id);
+            return;
+        }
+
+        if (!room.IsPowered)
+        {
+            Log($"{room.Name} ventilation command refused: NO POWER.");
+            return;
+        }
+
+        room.VentilationEnabled = !room.VentilationEnabled;
+        AudioCueSystem.Emit(
+            State,
+            room.VentilationEnabled ? AudioCueKind.System : AudioCueKind.Warning,
+            roomId: room.Id);
+        Log($"{room.Name} ventilation {(room.VentilationEnabled ? "OPEN" : "ISOLATED")}.");
+    }
+
+    public void ToggleLifeSupport()
+    {
+        if (!State.LifeSupport.IsAiControllable)
+        {
+            Log("Life support refused command: MANUAL CONTROL ONLY.");
+            AudioCueSystem.Emit(State, AudioCueKind.Warning);
+            return;
+        }
+
+        State.LifeSupport.IsOnline = !State.LifeSupport.IsOnline;
+        AudioCueSystem.Emit(
+            State,
+            State.LifeSupport.IsOnline ? AudioCueKind.System : AudioCueKind.Critical);
+        Log($"PRIMARY LIFE SUPPORT {(State.LifeSupport.IsOnline ? "ONLINE" : "OFFLINE")}.");
+    }
+
     private void AdvanceCore()
     {
         if (State.ScenarioStatus != ScenarioStatus.Running) return;
-        _simulation.Tick(State, TimeSpan.FromMinutes(1));
+        var turn = TimeSpan.FromMinutes(1);
+        _environment.Tick(State, turn);
+        _simulation.Tick(State, turn);
         _browserMind.Tick(State);
         _intentExecution.Tick(State);
         _manualOverrides.Tick(State);

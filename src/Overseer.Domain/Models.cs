@@ -22,6 +22,7 @@ public enum RoomType
     Storage,
     Recreation,
     Washroom,
+    Hydroponics,
     Corridor,
     Airlock
 }
@@ -46,6 +47,7 @@ public enum FixtureType
     Sofa,
     RecreationConsole,
     Mirror,
+    GrowBed,
     OverseerShutdown
 }
 
@@ -272,6 +274,14 @@ public sealed class Npc
     public TimeSpan LastThoughtAt { get; set; }
 }
     
+public sealed class LifeSupportState
+{
+    public bool IsOnline { get; set; } = true;
+    public bool IsAiControllable { get; set; } = true;
+    public double OxygenReservePercent { get; set; } = 100;
+    public double ScrubberEfficiencyPercent { get; set; } = 100;
+}
+
 public sealed class Room
 {
     public required string Id { get; init; }
@@ -286,8 +296,19 @@ public sealed class Room
     public bool IsPowered { get; set; } = true;
     public bool LightsOn { get; set; } = true;
     public bool CameraOnline { get; set; } = true;
+
     public double TemperatureC { get; set; } = 21;
+    public double TemperatureSetpointC { get; set; } = 21;
+    public bool HasTemperatureControl { get; set; } = true;
+    public bool TemperatureControlOnline { get; set; } = true;
+    public bool IsTemperatureAiControllable { get; set; } = true;
+
     public double OxygenPercent { get; set; } = 20.9;
+    public double CarbonDioxidePercent { get; set; } = 0.04;
+    public double PressureKpa { get; set; } = 101.3;
+    public bool VentilationEnabled { get; set; } = true;
+    public bool HasVentilationControl { get; set; } = true;
+    public bool IsVentilationAiControllable { get; set; } = true;
 
     public List<RoomFixture> Fixtures { get; } = [];
 
@@ -338,6 +359,7 @@ public sealed class GameState
     public ScenarioDefinition? Scenario { get; set; }
     public ScenarioStatus ScenarioStatus { get; set; } = ScenarioStatus.Running;
     public string? ScenarioOutcome { get; set; }
+    public LifeSupportState LifeSupport { get; } = new();
     public List<ShutdownMechanism> ShutdownMechanisms { get; } = [];
     public List<AudioCue> AudioCues { get; } = [];
     public long NextAudioCueSequence { get; set; } = 1;

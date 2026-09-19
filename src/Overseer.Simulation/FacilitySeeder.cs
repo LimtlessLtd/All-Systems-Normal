@@ -16,14 +16,15 @@ public static class FacilitySeeder
         // Airlock and Overseer Isolation sit at the west/east ends of the spine
         // and use short east/west access corridors. No connector corridor passes
         // through another functional room.
-        AddRoom(facility, "quarters", "Crew Quarters", RoomType.CrewQuarters, 14, 15, 15, 13);
-        AddRoom(facility, "kitchen", "Kitchen", RoomType.Kitchen, 32, 15, 14, 13);
-        AddRoom(facility, "lounge", "Recreation Lounge", RoomType.Recreation, 50, 15, 15, 13);
-        AddRoom(facility, "medical", "Medical", RoomType.Medical, 68, 15, 15, 13);
-        AddRoom(facility, "control", "Control Room", RoomType.ControlRoom, 86, 15, 16, 13);
+        AddRoom(facility, "quarters", "Crew Quarters", RoomType.CrewQuarters, 10, 15, 13, 13);
+        AddRoom(facility, "kitchen", "Kitchen", RoomType.Kitchen, 26, 15, 13, 13);
+        AddRoom(facility, "lounge", "Recreation Lounge", RoomType.Recreation, 42, 15, 13, 13);
+        AddRoom(facility, "hydroponics", "Hydroponics Bay", RoomType.Hydroponics, 58, 15, 13, 13);
+        AddRoom(facility, "medical", "Medical", RoomType.Medical, 74, 15, 13, 13);
+        AddRoom(facility, "control", "Control Room", RoomType.ControlRoom, 90, 15, 14, 13);
 
         AddRoom(facility, "airlock", "Airlock", RoomType.Airlock, 4, 50, 8, 12);
-        AddRoom(facility, "corridor", "Central Corridor", RoomType.Corridor, 50, 50, 80, 10);
+        AddRoom(facility, "corridor", "Central Corridor", RoomType.Corridor, 50, 50, 84, 10);
         AddRoom(facility, "isolation", "Overseer Isolation", RoomType.ControlRoom, 96, 50, 8, 12);
 
         AddRoom(facility, "washroom", "Washroom", RoomType.Washroom, 14, 85, 14, 13);
@@ -34,7 +35,7 @@ public static class FacilitySeeder
 
         foreach (var roomId in new[]
         {
-            "quarters", "kitchen", "lounge", "medical", "control",
+            "quarters", "kitchen", "lounge", "hydroponics", "medical", "control",
             "airlock", "washroom", "storage", "engineering", "generator", "reactor", "isolation"
         })
         {
@@ -42,6 +43,7 @@ public static class FacilitySeeder
         }
 
         AddFixtures(facility);
+        ConfigureEnvironmentControls(facility);
 
         var state = new GameState
         {
@@ -275,6 +277,10 @@ public static class FacilitySeeder
         AddFixture(facility, "washroom", FixtureType.Mirror, "Mirror", 50, 78, 28, 10);
         AddFixture(facility, "washroom", FixtureType.Toilet, "Toilet", 78, 76, 18, 22);
 
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed A", 30, 46, 30, 58);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed B", 70, 46, 30, 58);
+        AddFixture(facility, "hydroponics", FixtureType.Console, "Climate Supervisor", 50, 82, 45, 12);
+
         AddFixture(facility, "medical", FixtureType.MedicalBed, "Med Bed A", 30, 42, 30, 22);
         AddFixture(facility, "medical", FixtureType.MedicalBed, "Med Bed B", 68, 42, 30, 22);
         AddFixture(facility, "medical", FixtureType.Console, "Diagnostics", 50, 76, 42, 15);
@@ -304,6 +310,44 @@ public static class FacilitySeeder
         {
             AddFixture(facility, room.Id, FixtureType.Camera, "Camera", 90, 12, 8, 8);
         }
+    }
+
+
+    private static void ConfigureEnvironmentControls(Facility facility)
+    {
+        foreach (var room in facility.Rooms.Values)
+        {
+            room.TemperatureSetpointC = room.TemperatureC;
+        }
+
+        // Corridors share a passive station air loop. Overseer can observe them,
+        // but there is no individual thermostat or ventilation damper to abuse.
+        foreach (var room in facility.Rooms.Values.Where(room => room.Type == RoomType.Corridor))
+        {
+            room.HasTemperatureControl = false;
+            room.IsTemperatureAiControllable = false;
+            room.HasVentilationControl = false;
+            room.IsVentilationAiControllable = false;
+        }
+
+        var airlock = facility.Rooms["airlock"];
+        airlock.HasTemperatureControl = false;
+        airlock.IsTemperatureAiControllable = false;
+        airlock.HasVentilationControl = false;
+        airlock.IsVentilationAiControllable = false;
+
+        // Hydroponics runs its own horticultural climate controller. The player
+        // can monitor it but cannot directly alter its temperature or damper.
+        var hydroponics = facility.Rooms["hydroponics"];
+        hydroponics.TemperatureC = 24;
+        hydroponics.TemperatureSetpointC = 24;
+        hydroponics.IsTemperatureAiControllable = false;
+        hydroponics.IsVentilationAiControllable = false;
+
+        // Reactor room climate is tied to a safety cooling loop rather than the
+        // ordinary habitation thermostat.
+        var reactor = facility.Rooms["reactor"];
+        reactor.IsTemperatureAiControllable = false;
     }
 
     private static void AddFixture(
