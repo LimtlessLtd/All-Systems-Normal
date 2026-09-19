@@ -26,11 +26,12 @@ public static class FacilitySeeder
         AddRoom(facility, "engineering", "Engineering", RoomType.Engineering, 49, 82, 18, 14);
         AddRoom(facility, "generator", "Generator", RoomType.Generator, 70, 82, 16, 14);
         AddRoom(facility, "reactor", "Reactor", RoomType.Reactor, 90, 82, 16, 14);
+        AddRoom(facility, "isolation", "Overseer Isolation", RoomType.ControlRoom, 52, 96, 14, 8);
 
         foreach (var roomId in new[]
         {
             "quarters", "kitchen", "lounge", "medical", "control",
-            "airlock", "washroom", "storage", "engineering", "generator", "reactor"
+            "airlock", "washroom", "storage", "engineering", "generator", "reactor", "isolation"
         })
         {
             AddHallwayToCorridor(facility, roomId, "corridor");
@@ -103,6 +104,13 @@ public static class FacilitySeeder
         felixToSarah.Affinity = 69;
         felixToSarah.Attraction = 66;
 
+        foreach (var npc in state.Crew)
+        {
+            npc.KnowsShutdownControl = npc.Role is CrewRole.Commander or CrewRole.Engineer or CrewRole.Security or CrewRole.Technician;
+        }
+
+        ScenarioCatalog.Apply(state, ScenarioCatalog.SecureContinuity);
+        state.EventLog.Add("T+00:00: DIRECTIVE — SECURE CONTINUITY. Prevent crew activation of Emergency Overseer Isolation.");
         state.EventLog.Add("T+00:00: ALL SYSTEMS NORMAL. Six crew members online.");
 
         return state;
@@ -277,6 +285,7 @@ public static class FacilitySeeder
         AddFixture(facility, "airlock", FixtureType.AirlockDoor, "Outer Hatch", 50, 50, 60, 55);
         AddFixture(facility, "corridor", FixtureType.Console, "Security Panel", 18, 50, 8, 50);
         AddFixture(facility, "corridor", FixtureType.Console, "Utility Panel", 82, 50, 8, 50);
+        AddFixture(facility, "isolation", FixtureType.OverseerShutdown, "Emergency Overseer Isolation", 50, 50, 52, 45);
 
         foreach (var room in facility.Rooms.Values)
         {

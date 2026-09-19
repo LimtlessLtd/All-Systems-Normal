@@ -43,6 +43,15 @@
         </div>
     </header>
 
+    @if (Session.State.Scenario is { } scenario)
+    {
+        <section class="panel" style="margin-bottom: 12px; padding: 12px 16px;">
+            <span class="overline">DIRECTIVE // @Session.State.ScenarioStatus</span>
+            <strong style="display:block">@scenario.Title</strong>
+            <span>@(Session.State.ScenarioOutcome ?? scenario.Briefing)</span>
+        </section>
+    }
+
     <div class="operations-grid">
         <aside class="systems-panel panel">
             <div class="panel-heading">

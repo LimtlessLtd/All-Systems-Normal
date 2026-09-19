@@ -8,7 +8,7 @@ Playable GitHub Pages build:
 
 https://limtlessltd.github.io/All-Systems-Normal/
 
-The project is currently at **V0.5B — Lived-In Station**, with V0.5A physical movement/A* navigation and V0.5B hallways, everyday routines, richer social behaviour, speech/thought bubbles and human-scale pacing already merged into `main`.
+The project is currently at **V0.6A — Suspicion, Shutdown & Scenario Stakes**. V0.5A/V0.5B physical movement, hallways, routines and observable social behaviour remain intact, and V0.6A adds the first real scenario/failure loop.
 
 The current `main` branch therefore contains substantially more functionality than the older V0.4 notes below. Treat the "Implemented Versions" and "Immediate Task" sections in this document as the authoritative roadmap summary, but still inspect the repository before changing code.
 
@@ -2176,13 +2176,21 @@ Most importantly:
 
 Do not build a collection of scripted story events.
 
+# V0.6A COMPLETION NOTE
+
+V0.6A is implemented. It adds strongly typed scenario state/objectives; the SECURE CONTINUITY tutorial; a physical Overseer Isolation room and Emergency Overseer Isolation fixture; scenario-configurable shutdown variants; per-NPC Overseer suspicion, evidence and shutdown knowledge; suspicion from restricting shutdown access; trust-gated suspicion spread; deterministic ShutdownOverseer goals; physical A* routing and validated activation; a real scenario failure state; shared support in the Ollama/server and deterministic Pages builds; visible scenario status; and regression coverage.
+
+The existing stable Blazor @key identity fix remains intact.
+
+Next recommended milestone: **V0.6B — Human Counterplay & Richer Scenario Rules**. Make crew-overridable, hardwired/manual and impossible-to-seal variants mechanically distinct; add physical manual door overrides with skill/time/tool requirements; add investigation/discovery of shutdown hardware; make evidence more perception-limited and event-specific; propagate specific claims through conversations; add scenario success/secondary objectives/telemetry; expose suspicion/evidence in selected-crew UI; and expand regression coverage for those mechanics.
+
 # 40. YOUR IMMEDIATE TASK
 
 First inspect the current repository state rather than assuming this document perfectly matches every implementation detail.
 
 Then propose or implement the next logical iteration.
 
-The recommended next iteration is **V0.6A — Suspicion, Shutdown & Scenario Stakes**.
+V0.6A is now implemented. The recommended next iteration is **V0.6B — Human Counterplay & Richer Scenario Rules**.
 
 Priority approximately:
 

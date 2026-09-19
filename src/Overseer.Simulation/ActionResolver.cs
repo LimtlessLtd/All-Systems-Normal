@@ -53,6 +53,7 @@ public sealed class ActionResolver
             ActionKind.Argue => TrySocialAction(state, npc, action, "argues", out message),
             ActionKind.Attack => SetAction(state, npc, action, "attacks", out message),
             ActionKind.RequestHelp => TrySocialAction(state, npc, action, "requests help", out message),
+            ActionKind.ShutdownOverseer => TryShutdown(state, npc, action, out message),
             ActionKind.Idle => SetAction(state, npc, action, "waits", out message),
             _ => Fail("Unsupported action.", out message)
         };
@@ -216,6 +217,23 @@ public sealed class ActionResolver
         message = $"{npc.Name} spends private time with {partner.Name}.";
         Log(state, message);
         return true;
+    }
+
+    private static bool TryShutdown(GameState state, Npc npc, NpcAction action, out string message)
+    {
+        var mechanism = state.ShutdownMechanisms.FirstOrDefault(m =>
+            m.IsOnline && m.Id.Equals(action.TargetId, StringComparison.OrdinalIgnoreCase));
+        if (mechanism is null || !npc.KnowsShutdownControl)
+        {
+            message = $"{npc.Name} does not know a usable shutdown mechanism.";
+            return false;
+        }
+        if (!npc.CurrentRoomId.Equals(mechanism.RoomId, StringComparison.OrdinalIgnoreCase))
+        {
+            message = $"{npc.Name} must physically reach {mechanism.Label}.";
+            return false;
+        }
+        return SetAction(state, npc, action, $"begins operating {mechanism.Label}", out message);
     }
 
     private static bool SetAction(

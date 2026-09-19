@@ -12,6 +12,8 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
     private readonly SocialSimulationSystem _social = new();
     private readonly IntentExecutionSystem _intentExecution = new();
     private readonly LocalMovementSystem _movement = new();
+    private readonly SuspicionSystem _suspicion = new();
+    private readonly ShutdownSystem _shutdown = new();
     private readonly SimulationClock _clock = new();
 
     private int _mindCursor;
@@ -95,6 +97,7 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
         }
 
         door.IsOpen = !door.IsOpen;
+        _suspicion.ObservePlayerDoorChange(State, door, becameRestrictive: !door.IsOpen);
         Log($"{door.Id} is now {(door.IsOpen ? "OPEN" : "CLOSED")}.");
     }
 
@@ -114,6 +117,7 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
         }
 
         door.IsLocked = !door.IsLocked;
+        _suspicion.ObservePlayerDoorChange(State, door, becameRestrictive: door.IsLocked);
         Log($"{door.Id} is now {(door.IsLocked ? "LOCKED" : "UNLOCKED")}.");
     }
 
@@ -161,14 +165,17 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
 
     private async Task AdvanceCoreAsync(CancellationToken cancellationToken)
     {
+        if (State.ScenarioStatus != ScenarioStatus.Running) return;
         _simulation.Tick(State, TimeSpan.FromMinutes(1));
 
         await ThinkIfDueAsync(cancellationToken);
 
         _intentExecution.Tick(State);
         _social.Tick(State);
+        _suspicion.Tick(State);
         _crewRoutines.Tick(State);
         _movement.Tick(State, TimeSpan.FromMinutes(1));
+        _shutdown.Tick(State);
     }
 
     private async Task ThinkIfDueAsync(CancellationToken cancellationToken)
