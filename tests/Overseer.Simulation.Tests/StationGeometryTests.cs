@@ -142,8 +142,10 @@ public sealed class StationGeometryTests
 
             Assert.True(neighbours.Count >= 2);
 
-            var vertical = Math.Abs(neighbours[0].MapY - neighbours[1].MapY)
-                >= Math.Abs(neighbours[0].MapX - neighbours[1].MapX);
+            var portal = StationGeometry.FindSharedPortal(
+                hallway,
+                neighbours[0]);
+            var vertical = portal.Wall == StationWall.Horizontal;
             var passageWidth = vertical ? hallway.MapWidth : hallway.MapHeight;
 
             Assert.True(
