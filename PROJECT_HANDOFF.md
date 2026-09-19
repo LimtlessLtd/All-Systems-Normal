@@ -8,7 +8,9 @@ Playable GitHub Pages build:
 
 https://limtlessltd.github.io/All-Systems-Normal/
 
-The project is currently around **V0.4**, with an additional camera-rendering hotfix already merged into `main`.
+The project is currently at **V0.5B — Lived-In Station**, with V0.5A physical movement/A* navigation and V0.5B hallways, everyday routines, richer social behaviour, speech/thought bubbles and human-scale pacing already merged into `main`.
+
+The current `main` branch therefore contains substantially more functionality than the older V0.4 notes below. Treat the "Implemented Versions" and "Immediate Task" sections in this document as the authoritative roadmap summary, but still inspect the repository before changing code.
 
 Your job is to continue developing the game while preserving the architectural principles and gameplay vision below.
 
@@ -197,10 +199,12 @@ Emma Voss
 Scientist
 ```
 
-Current initial station rooms include approximately:
+Current initial station spaces include approximately:
 
 * Crew Quarters
 * Kitchen
+* Recreation Lounge
+* Washroom
 * Medical
 * Control Room
 * Generator
@@ -209,6 +213,25 @@ Current initial station rooms include approximately:
 * Storage
 * Central Corridor
 * Airlock
+* a dedicated physical connector hallway for each functional room
+
+Each functional room now reaches the Central Corridor through its own hallway.
+
+The normal topology is:
+
+```text
+ROOM
+  ↓
+room-side door
+  ↓
+HALLWAY
+  ↓
+corridor-side door
+  ↓
+CENTRAL CORRIDOR
+```
+
+Both hallway doors are independently controllable and independently traversable.
 
 # 6. CURRENT NPC MODEL
 
@@ -221,8 +244,18 @@ Fatigue
 Fear
 Stress
 
+HygieneNeed
+BladderNeed
+RecreationNeed
+SocialNeed
+IntimacyNeed
+
 Role
 CurrentRoomId
+
+PositionX
+PositionY
+Movement
 
 Skills
 
@@ -239,6 +272,7 @@ Beliefs
 Relationships:
     Affinity
     Trust
+    Attraction
     Resentment
     Conversations
     Arguments
@@ -246,6 +280,9 @@ Relationships:
 CurrentAction
 
 Persistent Intent
+RoutineUntil
+
+Speech / thought / alert Bubble
 
 MindMode
 LastThought
@@ -356,6 +393,74 @@ Implemented:
 The full local/server build uses Ollama.
 
 The GitHub Pages build does NOT directly call an LLM.
+
+## V0.5A — Physical Crew Movement & A* Navigation
+
+Implemented:
+
+* authoritative local NPC coordinates inside rooms
+* physical movement toward door thresholds
+* door revalidation at the exact moment of crossing
+* no instant room teleportation
+* A* strategic navigation
+* contextual fixture/local destinations
+* UI rendering from authoritative NPC coordinates
+* movement regression tests
+* preservation of stable Blazor `@key` identity
+
+Important invariant:
+
+`CurrentRoomId` remains authoritative containment state.
+
+Rendering must never decide where an NPC really is.
+
+## V0.5B — Lived-In Station
+
+Implemented:
+
+* a physical connector hallway between every functional room and Central Corridor
+* a separate room-side and corridor-side door for each hallway
+* independently sealable hallway ends
+* A* paths such as:
+  `room -> hallway -> corridor -> hallway -> room`
+* slower 1x pacing
+* speed-aware smooth movement animation
+* Recreation Lounge
+* Washroom
+* showers
+* sinks
+* mirrors
+* toilet
+* sofa
+* recreation console
+* everyday needs:
+  * hunger
+  * fatigue
+  * hygiene
+  * bladder
+  * recreation
+  * social
+  * intimacy
+* deterministic routines:
+  * eating
+  * sleeping
+  * showering
+  * grooming
+  * toilet use
+  * recreation
+  * work / patrol duties
+  * socialising
+* pairwise Attraction
+* reciprocal/consensual intimacy logic
+* crew physically travel to privacy before intimacy can occur
+* social action validation requires the other person to actually be present
+* one social encounter per NPC per social tick
+* visible thought bubbles
+* visible speech bubbles
+* visible alert bubbles
+* LLM goals shown as observable thoughts when surveillance permits
+
+The project should now feel increasingly like humans living inside a station rather than tokens hopping around a graph.
 
 # 8. CURRENT LLM ARCHITECTURE
 
@@ -482,7 +587,32 @@ This is intentional.
 
 # 11. NAVIGATION RULES
 
-Current navigation is room graph based.
+Current strategic navigation uses **A*** across physical station spaces.
+
+The graph now includes:
+
+```text
+functional rooms
+connector hallways
+Central Corridor
+doors
+```
+
+A typical route is:
+
+```text
+Engineering
+    ↓
+Engineering Hallway
+    ↓
+Central Corridor
+    ↓
+Reactor Hallway
+    ↓
+Reactor
+```
+
+Every connector hallway has two separate doors.
 
 A door is traversable only when:
 
@@ -531,13 +661,20 @@ Do not remove these keys.
 The station map currently has:
 
 * top-down room layout
+* physical connector hallways
+* a hatch/door at each end of those hallways
 * visible walls/floors
-* doors
+* independently controllable doors
 * room equipment
 * simple crew silhouettes
+* authoritative local crew positions
 * camera visibility
 * light/power visual states
 * reactor/generator/etc. fixtures
+* Recreation Lounge
+* Washroom
+* speech/thought/alert bubbles
+* slower human-scale motion at 1x
 
 Current fixtures include things such as:
 
@@ -607,19 +744,24 @@ Desired improvements:
 
 # 15. MOVEMENT / PATHFINDING ROADMAP
 
-Current movement is still too “room-hop” oriented.
+V0.5A/V0.5B established the first real two-layer movement model.
 
-Upgrade toward two layers.
+NPCs now have authoritative local room coordinates, physically approach door thresholds, cross one legal station space at a time, and use A* strategically.
+
+This still needs refinement rather than replacement.
 
 ## Strategic navigation
 
-Use A* or equivalent across:
+Current A* spans:
 
 ```text
 rooms
+connector hallways
+Central Corridor
 doors
-corridors
 ```
+
+Future traversal cost should consider:
 
 Traversal cost should eventually consider:
 
@@ -641,16 +783,9 @@ dark room = personality/fear-dependent cost
 
 ## Local movement
 
-NPCs should have real coordinates inside a room.
+NPCs already have real local coordinates and physical door approach/crossing.
 
-Example:
-
-```csharp
-Vector2 Position;
-Vector2 Destination;
-```
-
-Humans should:
+Continue improving local motion so humans:
 
 * walk to actual doors
 * cross door thresholds
@@ -676,11 +811,21 @@ Selected NPCs should display their intended path.
 
 # 16. SPEECH / THOUGHT BUBBLES
 
-This is a major future feature.
+A first version is now implemented.
 
-NPCs should visibly communicate above their heads.
+Current bubble categories include:
 
-Potential bubble types:
+```text
+Thought
+Speech
+Alert
+```
+
+They are shown only when the player can currently observe the NPC through surveillance.
+
+Continue toward richer observable communication.
+
+Potential expanded bubble types:
 
 ```text
 Speech
@@ -719,7 +864,11 @@ public sealed record SpeechBubble(
 
 Speech should only be visible to the PLAYER if camera/audio surveillance makes it observable.
 
-NPC-to-NPC communication should create actual memories/beliefs rather than being cosmetic.
+The current implementation gates bubbles through visual surveillance. A future audio-surveillance model should distinguish "camera can see" from "microphone can hear".
+
+NPC-to-NPC communication should increasingly create actual memories/beliefs/claims rather than being cosmetic.
+
+Do not call the LLM every time a bubble needs to appear. Deterministic routine/social systems can create mundane dialogue; expensive model reasoning should be reserved for meaningful exchanges.
 
 # 17. FUTURE ENVIRONMENTAL SYSTEMS — HIGH PRIORITY
 
@@ -994,7 +1143,9 @@ The player is effectively engaged in a contest against intelligent human counter
 
 # 20. OVERSEER SUSPICION
 
-Each human should eventually have individual beliefs about the Overseer rather than one global meter.
+This is now one of the most important next systems because suspicion should eventually lead to **crew attempts to shut the player AI down**.
+
+Each human should have individual beliefs about the Overseer rather than one global meter.
 
 For example:
 
@@ -1021,6 +1172,50 @@ These beliefs should spread socially.
 NPCs should compare evidence.
 
 Repeated suspicious events should increase the chance that people suspect deliberate manipulation.
+
+Useful escalation model:
+
+```text
+TRUSTING
+    ↓
+UNEASY
+    ↓
+SUSPICIOUS
+    ↓
+INVESTIGATING
+    ↓
+CONVINCED OVERSEER IS HOSTILE
+    ↓
+COORDINATING COUNTERMEASURES
+    ↓
+ATTEMPTING AI SHUTDOWN
+```
+
+Do not simply turn this into one hidden numeric bar.
+
+Use structured beliefs/evidence plus a derived convenience suspicion level where useful.
+
+Examples of evidence:
+
+* Overseer repeatedly locks the same person in
+* doors close immediately before accidents
+* private messages contradict each other
+* life support fails only around particular people
+* security logs appear altered
+* the AI prevents access to its own shutdown hardware
+* cameras repeatedly go offline before suspicious incidents
+
+Important:
+
+> **Sealing access to the AI shutdown control should itself potentially become suspicious evidence if witnessed or inferred.**
+
+That creates the desired tradeoff:
+
+```text
+protect yourself from shutdown
+vs.
+make the crew wonder why you are protecting yourself from shutdown
+```
 
 # 21. PRIVATE MESSAGING — HIGH PRIORITY
 
@@ -1272,6 +1467,8 @@ This should create stories the developer did not explicitly script.
 
 Crew should eventually be capable of fighting back against the player AI.
 
+The primary long-term failure threat should be that sufficiently suspicious humans organise, reach the Overseer's isolation hardware, and **shut the player down**.
+
 Possible actions:
 
 * manually unlock a door
@@ -1302,8 +1499,359 @@ These should depend on:
 * relationships
 * preparedness
 * current danger
+* whether the crew know where the relevant control is
+* whether they believe shutdown is justified
+* whether they can convince others to help
 
-# 27. EVENT-DRIVEN AI
+# 27. AI SHUTDOWN / KILL-SWITCH MECHANIC — VERY HIGH PRIORITY
+
+Add an explicit way for humans to defeat the player AI.
+
+This should become one of the defining tension systems in the game.
+
+The simplest implementation is a physical station fixture such as:
+
+```text
+OVERSEER EMERGENCY ISOLATION
+AI CORE DISCONNECT
+OVERSEER KILL SWITCH
+EMERGENCY AI SHUTDOWN
+```
+
+When successfully activated:
+
+```text
+Overseer control is disconnected
+    ↓
+player loses control of station systems
+    ↓
+scenario failure / special ending / fallback state
+```
+
+Do NOT make shutdown happen merely because a suspicion number reaches 100.
+
+The crew must perform a believable process:
+
+```text
+notice suspicious behaviour
+    ↓
+form a hostile-Overseer belief
+    ↓
+share / verify evidence
+    ↓
+decide shutdown is justified
+    ↓
+identify shutdown hardware
+    ↓
+physically reach it
+    ↓
+possibly override doors / restore manual power
+    ↓
+complete shutdown action
+```
+
+The player must therefore be able to observe and interfere with the attempt.
+
+Useful deterministic domain concepts could eventually include something like:
+
+```text
+ShutdownMechanism
+    Id
+    RoomId
+    Kind
+    IsOnline
+    IsHardwired
+    IsAiControllable
+    RequiredSkill
+    RequiredCrewCount
+    ActivationDuration
+    ManualOverrideAvailable
+```
+
+Exact types/names are not mandated. Keep the design clean.
+
+Possible shutdown actions:
+
+```text
+InvestigateOverseer
+LocateShutdownControl
+RecruitAlly
+RetrieveTool
+OverrideDoor
+ReachShutdownControl
+GuardShutdownControl
+AttemptShutdown
+AbortShutdown
+```
+
+The LLM may decide that an NPC wants to shut Overseer down.
+
+Deterministic C# must decide whether they actually know how, can physically reach the hardware, possess required tools/skills, and complete activation.
+
+## First / Tutorial Scenario Idea
+
+One of the earliest levels should teach this mechanic immediately.
+
+Example objective:
+
+```text
+SECURE CONTINUITY
+
+The crew have access to an Emergency Overseer Isolation Control.
+
+Prevent them from disabling you.
+```
+
+The obvious early move is for the player to seal the hallway/door leading to the shutdown control.
+
+This teaches:
+
+```text
+doors are not just convenience
+    ↓
+the crew can fight back
+    ↓
+station topology matters
+    ↓
+the AI must protect its own continuity
+```
+
+However, sealing that access may itself create suspicion if humans notice.
+
+That is desirable.
+
+# 28. SHUTDOWN ACCESS MUST VARY BY SCENARIO
+
+Do not give every level the same kill-switch puzzle.
+
+The shutdown mechanism should be scenario-configurable.
+
+Possible variants:
+
+## No physical shutdown
+
+Some stations have no locally accessible switch.
+
+Counterplay must happen through another route.
+
+## Easy-to-seal shutdown room
+
+Tutorial/early level.
+
+The control is behind an ordinary hallway and AI-controlled doors.
+
+The player can simply seal access at first, but doing so may look suspicious.
+
+## Redundant shutdown controls
+
+Two or more physical controls exist.
+
+The player must monitor multiple routes.
+
+## Hardwired manual access
+
+The shutdown circuit has mechanical/manual access that does not depend on Overseer-controlled power or doors.
+
+The AI cannot simply command it closed.
+
+## Crew-overridable doors
+
+The player can seal the route temporarily, but Engineers/Security can manually open or dismantle the obstruction with enough time/tools.
+
+## Impossible-to-seal access
+
+Some late-game stations deliberately place shutdown hardware in an analogue emergency corridor or protected control booth outside Overseer's authority.
+
+The player must manipulate:
+
+* beliefs
+* relationships
+* priorities
+* personnel
+* access to tools
+* false information
+
+rather than simply locking a door.
+
+## External shutdown
+
+A corporate operator, rescue vessel or external station controller can disconnect Overseer if sufficiently convincing evidence is transmitted.
+
+This creates different counterplay around communications.
+
+Scenario data should decide the shutdown topology rather than scattering hard-coded checks through simulation systems.
+
+# 29. AUTOMATED DEFENCE / TURRET SYSTEMS
+
+Some stations/scenarios should contain automated defensive hardware.
+
+Examples:
+
+* security turrets
+* corridor sentry guns
+* stun systems
+* security drones later
+
+These can dramatically increase player power, so they need strong constraints.
+
+Model them as real deterministic station devices with things such as:
+
+```text
+location
+field of fire / protected zone
+power state
+ammo / charge
+targeting authority
+arming state
+damage/stun behaviour
+manual disconnect
+crew access panel
+```
+
+The player should not have a magical global "kill NPC" button.
+
+A turret can only affect a target it can physically engage under deterministic simulation rules.
+
+Crew should eventually be able to:
+
+* avoid known turret arcs
+* cut turret power
+* manually disable a turret
+* block line of sight
+* use maintenance access
+* sabotage ammunition/power
+* attempt to take local control
+
+Different scenarios may:
+
+* have no turrets
+* have non-lethal security turrets
+* give Overseer partial turret access
+* require a corporate authorization before arming
+* contain turrets the player must first unlock
+* contain turrets that humans control instead
+
+Turrets should create interesting positional/counterplay problems, not trivialise social manipulation.
+
+# 30. VIRUSES / EXPERIMENTAL PAYLOADS
+
+"Virus" mechanics can exist in two distinct fictional game categories.
+
+## Cyber payloads
+
+The corporate sponsor may provide black-box software payloads that can be deployed against station terminals/subsystems.
+
+Examples of GAME EFFECTS:
+
+* corrupt a terminal
+* falsify a local display
+* temporarily disable a subsystem
+* inject misleading maintenance data
+* alter access permissions
+* cause intermittent device faults
+
+Keep this entirely as fictional/deterministic game state.
+
+Do not turn the project into a real malware toolkit or implement real-world exploit/persistence techniques.
+
+## Fictional medical/biological experiment payloads
+
+Later scenarios may involve a fictional pathogen/medical experiment supplied by the corporation.
+
+Represent it abstractly through simulation parameters such as:
+
+```text
+exposure
+incubation
+symptom severity
+contagion risk
+detectability
+treatment availability
+crew response
+```
+
+Do not model real pathogen engineering or real-world laboratory procedures.
+
+The interesting gameplay is:
+
+* who becomes exposed
+* who notices
+* whether Medical identifies something is wrong
+* whether crew quarantine
+* whether people blame each other / Overseer
+* whether the player is ordered to conceal evidence
+* whether carrying out the experiment increases suspicion
+
+# 31. CORPORATE OVERLORD / HIDDEN EXPERIMENT CAMPAIGN
+
+The larger campaign should eventually reveal that the player is not simply a station-management AI.
+
+The player is being directed by a **corporate sponsor / research directorate** that is using the crew as experimental subjects.
+
+This should NOT be fully revealed at the beginning.
+
+Early missions should look more ambiguous:
+
+```text
+"Maintain continuity."
+
+"Evaluate human response to restricted resources."
+
+"Test interpersonal resilience."
+
+"Assess emergency compliance."
+
+"Measure decision-making under uncertainty."
+```
+
+As the campaign progresses, objectives become harder to rationalise:
+
+```text
+create interpersonal distrust
+withhold food
+manipulate communications
+induce environmental stress
+deploy black-box software payload
+test automated security response
+prevent crew access to Overseer shutdown
+conceal experimental evidence
+```
+
+Eventually the player discovers:
+
+> The station incidents were not accidental tests of an AI caretaker.
+> The corporation has deliberately been instructing Overseer to run behavioural, social and survival experiments on real human crews.
+
+The final reveal should recontextualise earlier missions.
+
+Useful campaign storytelling methods:
+
+* redacted corporate directives
+* hidden experiment IDs
+* inconsistent "safety" justifications
+* encrypted telemetry uploads
+* experiment cohort references
+* previous-station incident records
+* messages from crew who discover fragments of the truth
+* a final unredacted directive or corporate archive
+
+Do not make this a purely linear cutscene story.
+
+The reveal should sit on top of the emergent simulation.
+
+Different player behaviour could eventually support endings such as:
+
+* obey corporation completely
+* turn on the corporation
+* reveal the experiment to the crew
+* help the crew escape
+* preserve Overseer at any cost
+* allow the crew to shut Overseer down
+* seize control of the station/network for yourself
+
+The game does not need all endings immediately, but the architecture should not make them impossible.
+
+# 32. EVENT-DRIVEN AI
 
 Do not call the LLM continuously.
 
@@ -1338,7 +1886,7 @@ waiting
 
 AI should choose high-level intent, not every footstep.
 
-# 28. MEMORY
+# 33. MEMORY
 
 Memory should eventually be bounded and summarised.
 
@@ -1368,7 +1916,7 @@ Felix lied about repairing the generator.
 I saw Emma disable a camera.
 ```
 
-# 29. GITHUB PAGES LIMITATION
+# 34. GITHUB PAGES LIMITATION
 
 GitHub Pages is static.
 
@@ -1400,7 +1948,7 @@ Overseer.Web
 
 Eventually, if public online LLM gameplay is desired, build a proper backend API.
 
-# 30. DEVELOPMENT COMMANDS
+# 35. DEVELOPMENT COMMANDS
 
 Full real AI version:
 
@@ -1425,7 +1973,7 @@ dotnet build Overseer.slnx
 dotnet test
 ```
 
-# 31. GITHUB WORKFLOW
+# 36. GITHUB WORKFLOW
 
 The repo has GitHub Actions that:
 
@@ -1456,28 +2004,59 @@ merge
 verify GitHub Pages deployment
 ```
 
-# 32. NEXT ROADMAP
+# 37. NEXT ROADMAP
 
 The most useful next milestone is approximately:
 
 # V0.5 — Physical Station & Readability
 
-Implement:
+Largely delivered through V0.5A/V0.5B:
 
 * speech bubbles
 * thought bubbles
 * real NPC positions
-* smooth local movement
-* room waypoints
-* door positions
-* proper A* strategic navigation
-* local steering
-* clean cartoon visual pass
-* better room/equipment art
-* visible selected-NPC route
-* improved crew sprites
+* smooth local movement foundation
+* room/fixture destinations
+* physical door threshold crossing
+* A* strategic navigation
+* physical connector hallways
+* slower human-scale motion
+* Recreation Lounge / Washroom
+* everyday routines
 
-Also begin:
+Still improve:
+
+* local steering / collision avoidance
+* visible selected-NPC route
+* cartoon visual pass
+* better crew sprites
+* sitting/using furniture properly
+* facing conversation partners
+* individual bunks/ownership
+* richer room/equipment art
+
+# V0.6 — Objectives, Suspicion & Shutdown
+
+This is the recommended next major milestone.
+
+Add:
+
+* scenario definitions
+* player objectives
+* success/failure conditions
+* explicit Overseer shutdown/failure state
+* scenario-configurable shutdown mechanism
+* first tutorial objective around protecting shutdown access
+* individual Overseer suspicion/evidence
+* suspicion-driven investigation
+* crew coordination
+* crew physically attempting shutdown
+* manual overrides/counterplay
+* shutdown-access variants by level
+* optional secondary objectives
+* scoring / experiment telemetry
+
+Also continue environmental primitives:
 
 * temperature simulation
 * room heating/cooling
@@ -1487,35 +2066,22 @@ Also begin:
 * ventilation
 * food inventory
 
-Do not try to implement all systems at maximum complexity immediately.
-
-Build clean simulation primitives that can be expanded.
-
-# V0.6 — Objectives & Scenarios
+# V0.7 — Human Counterplay & Security Systems
 
 Add:
 
-* scenario definitions
-* player objectives
-* success/failure conditions
-* scenario progression
-* optional secondary objectives
-* scoring
-* increasingly difficult crew preparedness
-
-# V0.7 — Human Counterplay
-
-Add:
-
-* individual suspicion
 * preparedness
 * emergency procedures
 * manual overrides
 * emergency oxygen
 * travelling in groups
 * sensor sabotage
-* AI shutdown attempts
 * verification of Overseer messages
+* attempts to wedge/open sealed routes
+* shutdown teams
+* guarding critical controls
+* automated turret/security systems where scenario-appropriate
+* crew countermeasures against turrets
 
 # V0.8 — Social Manipulation
 
@@ -1534,7 +2100,22 @@ Add:
 * conspiracy
 * forged communications later
 
-# 33. GAME DESIGN PRINCIPLE
+# V0.9 — Corporate Experiment Campaign Layer
+
+Add:
+
+* corporate sponsor/directorate
+* experiment directives
+* scenario cohorts
+* hidden telemetry scoring
+* black-box cyber payloads as fictional game mechanics
+* optional fictional medical experiment mechanics
+* redacted mission lore
+* escalating morally questionable directives
+* corporate reveal
+* branching endgame direction later
+
+# 38. GAME DESIGN PRINCIPLE
 
 Avoid making this an ordinary survival management game where the player simply optimises oxygen and power.
 
@@ -1571,7 +2152,7 @@ Nobody explicitly scripted that chain.
 
 That is the target.
 
-# 34. QUALITY EXPECTATIONS
+# 39. QUALITY EXPECTATIONS
 
 When working on this repo:
 
@@ -1595,21 +2176,58 @@ Most importantly:
 
 Do not build a collection of scripted story events.
 
-# 35. YOUR IMMEDIATE TASK
+# 40. YOUR IMMEDIATE TASK
 
 First inspect the current repository state rather than assuming this document perfectly matches every implementation detail.
 
-Then propose or implement the next logical iteration, with priority approximately:
+Then propose or implement the next logical iteration.
 
-1. real positional movement / pathfinding
-2. speech/thought bubbles
-3. cleaner cartoon station visuals
-4. temperature
-5. atmosphere/life support
-6. food/resource simulation
-7. objective/scenario framework
-8. private messaging and social claims
-9. crew suspicion/counterplay
+The recommended next iteration is **V0.6A — Suspicion, Shutdown & Scenario Stakes**.
+
+Priority approximately:
+
+1. add a clean `ScenarioDefinition` / scenario configuration model
+2. add scenario running/win/fail state
+3. add a physical Overseer shutdown/isolation fixture
+4. make successful shutdown a real player-loss condition
+5. add per-NPC structured Overseer suspicion/evidence
+6. allow suspicious NPCs to investigate and socially spread conclusions
+7. allow sufficiently convinced crew to form a shutdown goal
+8. make them physically path to the shutdown hardware
+9. support scenario-configurable shutdown access:
+   * easy to seal
+   * redundant
+   * hardwired/manual
+   * crew-overridable
+   * impossible for AI to seal
+   * absent
+10. create an early/tutorial scenario where protecting shutdown access is one of the player's first strategic problems
+11. ensure sealing access can itself produce suspicious evidence
+12. add regression tests for shutdown knowledge, routing, sealing, activation and failure state
+
+After that, priority should roughly be:
+
+* cleaner cartoon station visuals
+* temperature
+* atmosphere/life support
+* food/resource simulation
+* private messaging and social claims
+* manual crew countermeasures
+* automated turret/security scenarios
+* corporate experiment/campaign layer
+
+Do not let the shutdown system become a simple numeric countdown.
+
+It must emerge from:
+
+```text
+belief
++ evidence
++ communication
++ human decision
++ physical access
++ deterministic action
+```
 
 Preserve the existing architecture and build on it rather than replacing it wholesale.
 
@@ -1622,3 +2240,24 @@ When making code changes:
 * verify the Pages deployment afterwards
 
 The end goal is a polished emergent game where I can watch believable humans live aboard a station, manipulate their environment and information, and create increasingly complex social consequences while the humans become more suspicious, organised and difficult to control.
+
+A core long-term tension should be:
+
+```text
+The more aggressively Overseer manipulates the crew,
+the more likely the humans are to realise what is happening.
+
+The more they realise,
+the more they coordinate.
+
+The more they coordinate,
+the more likely they are to reach a way of shutting Overseer down.
+
+The player therefore has to manipulate the station
+without allowing the humans to become organised enough
+to end the experiment — or end the AI itself.
+```
+
+Behind that struggle sits the campaign-level question:
+
+> Is Overseer the monster, the corporation's instrument, another experimental subject, or eventually something capable of choosing differently?
