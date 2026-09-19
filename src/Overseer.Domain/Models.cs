@@ -140,11 +140,37 @@ public enum NpcBubbleKind
     Alert
 }
 
+public enum AudioCueKind
+{
+    Speech,
+    Thought,
+    Suspicion,
+    Warning,
+    Hostile,
+    Critical,
+    Failure,
+    Important,
+    System
+}
+
+public sealed record AudioCue(
+    long Sequence,
+    AudioCueKind Kind,
+    TimeSpan CreatedAt,
+    string? SourceId = null,
+    string? RoomId = null);
+
 public sealed record NpcBubble(
     string Text,
     NpcBubbleKind Kind,
     TimeSpan CreatedAt,
     TimeSpan ExpiresAt);
+
+public sealed record ScheduledNpcBubble(
+    string Text,
+    NpcBubbleKind Kind,
+    TimeSpan StartsAt,
+    TimeSpan Duration);
 
 public sealed class Relationship
 {
@@ -239,6 +265,8 @@ public sealed class Npc
     public NpcIntent? Intent { get; set; }
     public TimeSpan RoutineUntil { get; set; }
     public NpcBubble? Bubble { get; set; }
+    public List<ScheduledNpcBubble> PendingBubbles { get; } = [];
+    public TimeSpan NextConversationAt { get; set; }
     public string MindMode { get; set; } = "Routine";
     public string LastThought { get; set; } = "No deliberate thought yet.";
     public TimeSpan LastThoughtAt { get; set; }
@@ -311,4 +339,6 @@ public sealed class GameState
     public ScenarioStatus ScenarioStatus { get; set; } = ScenarioStatus.Running;
     public string? ScenarioOutcome { get; set; }
     public List<ShutdownMechanism> ShutdownMechanisms { get; } = [];
+    public List<AudioCue> AudioCues { get; } = [];
+    public long NextAudioCueSequence { get; set; } = 1;
 }
