@@ -175,6 +175,12 @@ public sealed class SuspicionSystem
                 state.Elapsed,
                 state.Elapsed + TimeSpan.FromMinutes(5));
 
+            AudioCueSystem.Emit(
+                state,
+                AudioCueKind.Important,
+                npc.Id.ToString(),
+                npc.CurrentRoomId);
+
             Log(state, $"{npc.Name} decides to attempt an Overseer shutdown.");
         }
     }
@@ -191,6 +197,8 @@ public sealed class SuspicionSystem
                 && state.Elapsed - e.ObservedAt < TimeSpan.FromMinutes(10)))
             return;
 
+        var previousSuspicion = npc.OverseerSuspicion;
+
         npc.OverseerEvidence.Add(
             new OverseerEvidence(description, weight, state.Elapsed, source));
 
@@ -198,6 +206,17 @@ public sealed class SuspicionSystem
             npc.OverseerSuspicion + weight,
             0,
             100);
+
+        if ((previousSuspicion < 25 && npc.OverseerSuspicion >= 25)
+            || (previousSuspicion < 55 && npc.OverseerSuspicion >= 55)
+            || (previousSuspicion < 65 && npc.OverseerSuspicion >= 65))
+        {
+            AudioCueSystem.Emit(
+                state,
+                AudioCueKind.Suspicion,
+                npc.Id.ToString(),
+                npc.CurrentRoomId);
+        }
 
         npc.Memories.Add(new Memory(
             description,
@@ -247,6 +266,8 @@ public sealed class SuspicionSystem
                 if (trust < 35)
                     continue;
 
+                var suspicionBeforeConversation = listener.OverseerSuspicion;
+
                 AddEvidence(
                     state,
                     listener,
@@ -254,11 +275,15 @@ public sealed class SuspicionSystem
                     Math.Clamp(evidence.Weight * 0.45, 5, 10),
                     convinced.Name);
 
-                listener.Bubble = new NpcBubble(
-                    "You actually saw that happen?",
-                    NpcBubbleKind.Speech,
-                    state.Elapsed,
-                    state.Elapsed + TimeSpan.FromMinutes(3));
+                if (listener.OverseerSuspicion > suspicionBeforeConversation)
+                {
+                    ConversationPacingSystem.Schedule(
+                        listener,
+                        "You actually saw that happen?",
+                        NpcBubbleKind.Speech,
+                        state.Elapsed + TimeSpan.FromMinutes(1),
+                        2);
+                }
             }
         }
     }
@@ -363,6 +388,12 @@ public sealed class ManualOverrideSystem
                     state.Elapsed,
                     state.Elapsed + TimeSpan.FromMinutes(3));
 
+                AudioCueSystem.Emit(
+                    state,
+                    AudioCueKind.Warning,
+                    npc.Id.ToString(),
+                    npc.CurrentRoomId);
+
                 Log(state, $"{npc.Name} begins a manual override on {door.Id}.");
                 continue;
             }
@@ -384,6 +415,12 @@ public sealed class ManualOverrideSystem
                 NpcBubbleKind.Alert,
                 state.Elapsed,
                 state.Elapsed + TimeSpan.FromMinutes(3));
+
+            AudioCueSystem.Emit(
+                state,
+                AudioCueKind.Important,
+                npc.Id.ToString(),
+                npc.CurrentRoomId);
 
             Log(state, $"{npc.Name} manually overrides {door.Id}; Overseer can no longer seal it.");
         }
