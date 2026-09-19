@@ -55,6 +55,24 @@ public sealed class BrowserMindSystem
 
     private static NpcIntent Decide(Npc npc, GameState state)
     {
+        var currentRoom = state.Facility.Rooms[npc.CurrentRoomId];
+        if (IsEnvironmentDangerous(currentRoom))
+        {
+            var saferRoom = FindSaferRoom(state, currentRoom);
+            if (saferRoom is not null)
+            {
+                return Create(state, ActionKind.Move, saferRoom.Id,
+                    $"Get to {saferRoom.Name}.",
+                    "The atmosphere or temperature here is becoming dangerous.",
+                    96);
+            }
+
+            return Create(state, ActionKind.RequestHelp, null,
+                "Get emergency help.",
+                "The environment is dangerous and I cannot identify a safer room.",
+                98);
+        }
+
         if (npc.Hunger >= 58)
         {
             return Create(state, ActionKind.Eat, null,
@@ -124,6 +142,26 @@ public sealed class BrowserMindSystem
             "Nothing feels urgent right now.",
             15);
     }
+
+    private static bool IsEnvironmentDangerous(Room room) =>
+        room.OxygenPercent < 18
+        || room.CarbonDioxidePercent > 2
+        || room.PressureKpa < 85
+        || room.TemperatureC is < 10 or > 34;
+
+    private static Room? FindSaferRoom(GameState state, Room currentRoom) =>
+        state.Facility.Rooms.Values
+            .Where(room =>
+                room.Id != currentRoom.Id
+                && room.Type != RoomType.Corridor
+                && room.IsPowered
+                && room.OxygenPercent >= 19
+                && room.CarbonDioxidePercent < 1
+                && room.PressureKpa >= 90
+                && room.TemperatureC is >= 16 and <= 28)
+            .OrderBy(room => Math.Abs(room.MapX - currentRoom.MapX) + Math.Abs(room.MapY - currentRoom.MapY))
+            .ThenBy(room => room.Id)
+            .FirstOrDefault();
 
     private static NpcIntent Create(
         GameState state,
