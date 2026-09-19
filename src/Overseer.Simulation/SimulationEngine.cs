@@ -22,11 +22,35 @@ public sealed class SimulationEngine
         {
             var room = state.Facility.Rooms[npc.CurrentRoomId];
 
-            npc.Hunger = Clamp(npc.Hunger + (0.18 * minutes));
+            npc.Hunger = Clamp(
+                npc.Hunger
+                + ((npc.CurrentAction.Kind == ActionKind.Eat ? -1.9 : 0.11) * minutes));
 
-            npc.Fatigue = npc.CurrentAction.Kind == ActionKind.Rest
-                ? Clamp(npc.Fatigue - (1.4 * minutes))
-                : Clamp(npc.Fatigue + (0.25 * minutes));
+            npc.Fatigue = npc.CurrentAction.Kind is ActionKind.Rest or ActionKind.Sleep
+                ? Clamp(npc.Fatigue - (0.9 * minutes))
+                : Clamp(npc.Fatigue + (0.065 * minutes));
+
+            npc.HygieneNeed = Clamp(
+                npc.HygieneNeed
+                + ((npc.CurrentAction.Kind == ActionKind.Shower ? -2.2
+                    : npc.CurrentAction.Kind == ActionKind.Groom ? -1.0
+                    : 0.055) * minutes));
+
+            npc.RecreationNeed = Clamp(
+                npc.RecreationNeed
+                + ((npc.CurrentAction.Kind == ActionKind.Recreate ? -1.45 : 0.045) * minutes));
+
+            npc.SocialNeed = Clamp(
+                npc.SocialNeed
+                + ((npc.CurrentAction.Kind is ActionKind.Talk
+                    or ActionKind.Socialize
+                    or ActionKind.Intimacy
+                        ? -1.15
+                        : 0.04) * minutes));
+
+            npc.IntimacyNeed = Clamp(
+                npc.IntimacyNeed
+                + ((npc.CurrentAction.Kind == ActionKind.Intimacy ? -1.6 : 0.025) * minutes));
 
             npc.Fear = Clamp(npc.Fear - (0.08 * minutes));
 
@@ -57,7 +81,10 @@ public sealed class SimulationEngine
             var pressure =
                 Math.Max(0, npc.Hunger - 65)
                 + Math.Max(0, npc.Fatigue - 65)
-                + Math.Max(0, npc.Fear - 55);
+                + Math.Max(0, npc.Fear - 55)
+                + (Math.Max(0, npc.HygieneNeed - 70) * 0.35)
+                + (Math.Max(0, npc.RecreationNeed - 75) * 0.25)
+                + (Math.Max(0, npc.SocialNeed - 75) * 0.3);
 
             npc.Stress = Clamp(
                 npc.Stress
