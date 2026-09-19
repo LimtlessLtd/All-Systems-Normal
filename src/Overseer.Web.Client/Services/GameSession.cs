@@ -11,6 +11,8 @@ public sealed class GameSession
     private readonly BrowserMindSystem _browserMind = new();
     private readonly IntentExecutionSystem _intentExecution = new();
     private readonly LocalMovementSystem _movement = new();
+    private readonly SuspicionSystem _suspicion = new();
+    private readonly ShutdownSystem _shutdown = new();
     private readonly SimulationClock _clock = new();
 
     public GameState State { get; private set; } = FacilitySeeder.CreateDefault();
@@ -85,6 +87,7 @@ public sealed class GameSession
         }
 
         door.IsOpen = !door.IsOpen;
+        _suspicion.ObservePlayerDoorChange(State, door, becameRestrictive: !door.IsOpen);
         Log($"{door.Id} is now {(door.IsOpen ? "OPEN" : "CLOSED")}.");
     }
 
@@ -104,6 +107,7 @@ public sealed class GameSession
         }
 
         door.IsLocked = !door.IsLocked;
+        _suspicion.ObservePlayerDoorChange(State, door, becameRestrictive: door.IsLocked);
         Log($"{door.Id} is now {(door.IsLocked ? "LOCKED" : "UNLOCKED")}.");
     }
 
@@ -151,12 +155,15 @@ public sealed class GameSession
 
     private void AdvanceCore()
     {
+        if (State.ScenarioStatus != ScenarioStatus.Running) return;
         _simulation.Tick(State, TimeSpan.FromMinutes(1));
         _browserMind.Tick(State);
         _intentExecution.Tick(State);
         _social.Tick(State);
+        _suspicion.Tick(State);
         _crewRoutines.Tick(State);
         _movement.Tick(State, TimeSpan.FromMinutes(1));
+        _shutdown.Tick(State);
     }
 
     private void Log(string message)
