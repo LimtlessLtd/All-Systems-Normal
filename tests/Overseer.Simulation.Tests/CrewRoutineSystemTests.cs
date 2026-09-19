@@ -6,7 +6,7 @@ namespace Overseer.Simulation.Tests;
 public sealed class CrewRoutineSystemTests
 {
     [Fact]
-    public void Tick_MovesCrewThroughTheFacilityOnTheirSchedule()
+    public void Tick_SchedulesCrewMovementInsteadOfTeleporting()
     {
         var state = FacilitySeeder.CreateDefault();
         var david = state.Crew.Single(npc => npc.Name == "David Hale");
@@ -15,8 +15,16 @@ public sealed class CrewRoutineSystemTests
 
         new CrewRoutineSystem().Tick(state);
 
-        Assert.Equal("corridor", david.CurrentRoomId);
+        Assert.Equal("control", david.CurrentRoomId);
+        Assert.NotNull(david.Movement);
+        Assert.Equal("corridor", david.Movement.ToRoomId);
         Assert.Equal(ActionKind.Move, david.CurrentAction.Kind);
+
+        new LocalMovementSystem().Tick(
+            state,
+            TimeSpan.FromMinutes(2));
+
+        Assert.Equal("corridor", david.CurrentRoomId);
     }
 
     [Fact]
@@ -33,6 +41,7 @@ public sealed class CrewRoutineSystemTests
         new CrewRoutineSystem().Tick(state);
 
         Assert.Equal("engineering", sarah.CurrentRoomId);
+        Assert.Null(sarah.Movement);
         Assert.Equal(ActionKind.Idle, sarah.CurrentAction.Kind);
         Assert.Contains("sealed", sarah.CurrentAction.Reason, StringComparison.OrdinalIgnoreCase);
     }
