@@ -164,8 +164,8 @@ public sealed class LocalMovementSystem
         if (preferredFixture is not null)
         {
             return (
-                Math.Clamp(preferredFixture.X, 8, 92),
-                Math.Clamp(preferredFixture.Y, 8, 92));
+                Math.Clamp(preferredFixture.InteractionX ?? preferredFixture.X, 8, 92),
+                Math.Clamp(preferredFixture.InteractionY ?? preferredFixture.Y, 8, 92));
         }
 
         return PersonalIdlePoint(npc.Name);
@@ -236,7 +236,7 @@ internal static class MovementGeometry
         Room fromRoom,
         Room toRoom)
     {
-        var portal = FindSharedPortal(fromRoom, toRoom);
+        var portal = StationGeometry.FindSharedPortal(fromRoom, toRoom);
 
         return new NpcMovement(
             door.Id,
@@ -247,66 +247,6 @@ internal static class MovementGeometry
             ToLocalX(toRoom, portal.X),
             ToLocalY(toRoom, portal.Y));
     }
-
-    private static (double X, double Y) FindSharedPortal(
-        Room fromRoom,
-        Room toRoom)
-    {
-        var from = Bounds(fromRoom);
-        var to = Bounds(toRoom);
-
-        var horizontalOverlapStart = Math.Max(from.Left, to.Left);
-        var horizontalOverlapEnd = Math.Min(from.Right, to.Right);
-        var horizontalOverlap = horizontalOverlapEnd - horizontalOverlapStart;
-
-        var verticalOverlapStart = Math.Max(from.Top, to.Top);
-        var verticalOverlapEnd = Math.Min(from.Bottom, to.Bottom);
-        var verticalOverlap = verticalOverlapEnd - verticalOverlapStart;
-
-        var movingRight = toRoom.MapX >= fromRoom.MapX;
-        var horizontalEdgeDistance = movingRight
-            ? Math.Abs(from.Right - to.Left)
-            : Math.Abs(from.Left - to.Right);
-
-        var movingDown = toRoom.MapY >= fromRoom.MapY;
-        var verticalEdgeDistance = movingDown
-            ? Math.Abs(from.Bottom - to.Top)
-            : Math.Abs(from.Top - to.Bottom);
-
-        var canMeetOnVerticalWall = verticalOverlap > PortalTolerance;
-        var canMeetOnHorizontalWall = horizontalOverlap > PortalTolerance;
-
-        if (canMeetOnVerticalWall
-            && (!canMeetOnHorizontalWall
-                || horizontalEdgeDistance <= verticalEdgeDistance))
-        {
-            var x = movingRight
-                ? (from.Right + to.Left) / 2
-                : (from.Left + to.Right) / 2;
-            var y = (verticalOverlapStart + verticalOverlapEnd) / 2;
-            return (x, y);
-        }
-
-        if (canMeetOnHorizontalWall)
-        {
-            var x = (horizontalOverlapStart + horizontalOverlapEnd) / 2;
-            var y = movingDown
-                ? (from.Bottom + to.Top) / 2
-                : (from.Top + to.Bottom) / 2;
-            return (x, y);
-        }
-
-        throw new InvalidOperationException(
-            $"Rooms '{fromRoom.Id}' and '{toRoom.Id}' do not share a physical corridor edge.");
-    }
-
-    private static (double Left, double Right, double Top, double Bottom) Bounds(Room room) =>
-        (
-            room.MapX - (room.MapWidth / 2),
-            room.MapX + (room.MapWidth / 2),
-            room.MapY - (room.MapHeight / 2),
-            room.MapY + (room.MapHeight / 2)
-        );
 
     private static double ToLocalX(Room room, double globalX) =>
         Math.Clamp(
