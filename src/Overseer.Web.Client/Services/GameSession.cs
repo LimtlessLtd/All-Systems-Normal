@@ -10,6 +10,7 @@ public sealed class GameSession
     private readonly SocialSimulationSystem _social = new();
     private readonly BrowserMindSystem _browserMind = new();
     private readonly IntentExecutionSystem _intentExecution = new();
+    private readonly LocalMovementSystem _movement = new();
     private readonly SimulationClock _clock = new();
 
     public GameState State { get; private set; } = FacilitySeeder.CreateDefault();
@@ -155,6 +156,7 @@ public sealed class GameSession
         _intentExecution.Tick(State);
         _social.Tick(State);
         _crewRoutines.Tick(State);
+        _movement.Tick(State, TimeSpan.FromMinutes(1));
     }
 
     private void Log(string message)
