@@ -15,7 +15,9 @@ public sealed class SocialSimulationSystem
             return;
         }
 
-        var living = state.Crew.Where(npc => npc.IsAlive).ToList();
+        var living = state.Crew
+            .Where(npc => npc.IsAlive && npc.Movement is null)
+            .ToList();
 
         foreach (var roomGroup in living.GroupBy(npc => npc.CurrentRoomId))
         {
