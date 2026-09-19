@@ -449,7 +449,7 @@ public sealed class ShutdownSystem
 
             state.EventLog.Insert(
                 0,
-                $"T+{state.Elapsed:hh\:mm}: SCENARIO FAILED — {state.ScenarioOutcome}");
+                $"T+{state.Elapsed:hh\\:mm}: SCENARIO FAILED — {state.ScenarioOutcome}");
 
             break;
         }
