@@ -484,6 +484,12 @@ public sealed class ShutdownSystem
                 state.Elapsed,
                 state.Elapsed + TimeSpan.FromMinutes(10));
 
+            AudioCueSystem.Emit(
+                state,
+                AudioCueKind.Failure,
+                npc.Id.ToString(),
+                npc.CurrentRoomId);
+
             state.EventLog.Insert(
                 0,
                 $"T+{state.Elapsed:hh\\:mm}: SCENARIO FAILED — {state.ScenarioOutcome}");
