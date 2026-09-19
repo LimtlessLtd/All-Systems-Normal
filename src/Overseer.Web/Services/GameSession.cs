@@ -14,6 +14,7 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
     private readonly LocalMovementSystem _movement = new();
     private readonly SuspicionSystem _suspicion = new();
     private readonly ShutdownSystem _shutdown = new();
+    private readonly ManualOverrideSystem _manualOverrides = new();
     private readonly SimulationClock _clock = new();
 
     private int _mindCursor;
@@ -84,6 +85,12 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
     {
         var door = State.Facility.Doors.First(door => door.Id == doorId);
 
+        if (!door.IsAiControllable || door.IsManuallyOverridden)
+        {
+            Log($"{door.Id} refused OPEN/CLOSE command: MANUAL CONTROL ONLY.");
+            return;
+        }
+
         if (!door.IsPowered)
         {
             Log($"{door.Id} refused OPEN/CLOSE command: NO POWER.");
@@ -104,6 +111,12 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
     public void ToggleLock(string doorId)
     {
         var door = State.Facility.Doors.First(door => door.Id == doorId);
+
+        if (!door.IsAiControllable || door.IsManuallyOverridden)
+        {
+            Log($"{door.Id} refused LOCK command: MANUAL CONTROL ONLY.");
+            return;
+        }
 
         if (!door.IsPowered)
         {
@@ -171,6 +184,7 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
         await ThinkIfDueAsync(cancellationToken);
 
         _intentExecution.Tick(State);
+        _manualOverrides.Tick(State);
         _social.Tick(State);
         _suspicion.Tick(State);
         _crewRoutines.Tick(State);
