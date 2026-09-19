@@ -129,7 +129,8 @@ public sealed class LocalMovementSystemTests
             Assert.Contains("corridor", otherRoomIds);
 
             var functionalRoomId = Assert.Single(
-                otherRoomIds.Where(id => !id.Equals("corridor", StringComparison.OrdinalIgnoreCase)));
+                otherRoomIds,
+                id => !id.Equals("corridor", StringComparison.OrdinalIgnoreCase));
             var functionalRoom = state.Facility.Rooms[functionalRoomId];
 
             if (hallway.MapHeight >= hallway.MapWidth)
