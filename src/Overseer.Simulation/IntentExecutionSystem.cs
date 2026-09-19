@@ -40,6 +40,7 @@ public sealed class IntentExecutionSystem
 
                 case ActionKind.Groom:
                 case ActionKind.Shower:
+                case ActionKind.UseToilet:
                     MoveOrActInRoom(state, npc, intent, "washroom", intent.Action);
                     break;
 
