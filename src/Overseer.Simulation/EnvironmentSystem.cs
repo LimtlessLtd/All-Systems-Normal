@@ -20,8 +20,11 @@ public sealed class EnvironmentSystem
             throw new ArgumentOutOfRangeException(nameof(delta));
 
         var minutes = delta.TotalMinutes;
-        var livingCrew = state.Crew.Where(npc => npc.IsAlive).ToList();
+        var livingCrew = state.Crew
+            .Where(npc => npc.IsAlive && npc.IsPresent)
+            .ToList();
         var totalCrew = livingCrew.Count;
+        var vacuumDepths = FindVacuumDepths(state);
 
         if (state.LifeSupport.IsOnline && state.LifeSupport.OxygenReservePercent > 0)
         {
@@ -36,14 +39,88 @@ public sealed class EnvironmentSystem
             var occupants = livingCrew.Count(npc =>
                 npc.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase));
 
-            TickAtmosphere(state, room, occupants, minutes);
-            TickTemperature(state, room, occupants, minutes);
+            if (vacuumDepths.TryGetValue(room.Id, out var vacuumDepth))
+            {
+                TickVacuum(room, vacuumDepth, minutes);
+            }
+            else
+            {
+                TickAtmosphere(state, room, occupants, minutes);
+            }
 
-            // Pressure is currently a monitored foundation for later breaches,
-            // airlocks and decompression. Ordinary life-support loss does not
-            // magically remove room pressure.
+            TickTemperature(state, room, occupants, minutes);
             room.PressureKpa = Math.Clamp(room.PressureKpa, 0, NominalPressure);
         }
+    }
+
+    /// <summary>
+    /// Returns every compartment with an unbroken open-hatch path to space.
+    /// Depth zero is the room whose exterior hatch is open; increasing depth
+    /// means the decompression wave has crossed another open internal hatch.
+    /// </summary>
+    public static IReadOnlyDictionary<string, int> FindVacuumDepths(GameState state)
+    {
+        var depths = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var queue = new Queue<string>();
+
+        foreach (var source in state.Facility.Rooms.Values.Where(room =>
+                     room.HasExteriorHatch && room.ExteriorHatchOpen))
+        {
+            depths[source.Id] = 0;
+            queue.Enqueue(source.Id);
+        }
+
+        while (queue.TryDequeue(out var currentRoomId))
+        {
+            var currentDepth = depths[currentRoomId];
+
+            foreach (var door in state.Facility.Doors.Where(door =>
+                         IsAtmosphericallyOpen(door)
+                         && (door.RoomAId.Equals(currentRoomId, StringComparison.OrdinalIgnoreCase)
+                             || door.RoomBId.Equals(currentRoomId, StringComparison.OrdinalIgnoreCase))))
+            {
+                var next = door.RoomAId.Equals(currentRoomId, StringComparison.OrdinalIgnoreCase)
+                    ? door.RoomBId
+                    : door.RoomAId;
+
+                if (depths.ContainsKey(next))
+                {
+                    continue;
+                }
+
+                depths[next] = currentDepth + 1;
+                queue.Enqueue(next);
+            }
+        }
+
+        return depths;
+    }
+
+    private static bool IsAtmosphericallyOpen(Door door) =>
+        door.IsOpen || door.IsManuallyOverridden;
+
+    private static void TickVacuum(Room room, int depth, double minutes)
+    {
+        var previousPressure = Math.Max(room.PressureKpa, 0.001);
+
+        // Direct exposure is violent; pressure loss propagates more slowly
+        // through each additional open hatch so the player has a short window
+        // to contain an accidentally opened airlock.
+        var pressureLossPerMinute = 80d / (1 + (depth * 0.75));
+        room.PressureKpa = Math.Max(
+            0,
+            room.PressureKpa - (pressureLossPerMinute * minutes));
+
+        var pressureRatio = Math.Clamp(room.PressureKpa / previousPressure, 0, 1);
+        room.OxygenPercent *= pressureRatio;
+        room.CarbonDioxidePercent *= pressureRatio;
+        room.OxygenPercent = Math.Clamp(room.OxygenPercent, 0, 23);
+        room.CarbonDioxidePercent = Math.Clamp(room.CarbonDioxidePercent, 0, 10);
+
+        room.TemperatureC = MoveToward(
+            room.TemperatureC,
+            -20,
+            (0.75 / (1 + depth)) * minutes);
     }
 
     private static void TickAtmosphere(
@@ -74,6 +151,12 @@ public sealed class EnvironmentSystem
                 room.CarbonDioxidePercent,
                 NominalCo2,
                 0.055 * scrubberFactor * minutes);
+
+            var repressurisationRate = room.Type == RoomType.Airlock ? 14 : 6;
+            room.PressureKpa = MoveToward(
+                room.PressureKpa,
+                NominalPressure,
+                repressurisationRate * minutes);
         }
 
         if (occupants > 0)
