@@ -2196,6 +2196,22 @@ The existing stable Blazor @key identity fix remains intact.
 
 Next recommended milestone: **V0.6B — Human Counterplay & Richer Scenario Rules**. Make crew-overridable, hardwired/manual and impossible-to-seal variants mechanically distinct; add physical manual door overrides with skill/time/tool requirements; add investigation/discovery of shutdown hardware; make evidence more perception-limited and event-specific; propagate specific claims through conversations; add scenario success/secondary objectives/telemetry; expose suspicion/evidence in selected-crew UI; and expand regression coverage for those mechanics.
 
+# CARTOON TOP-DOWN UI PASS — COMPLETED
+
+The station UI received a focused visual refresh after V0.6B:
+
+* crew are now rendered as original CSS-built top-down cartoon characters rather than simple silhouette tokens
+* each crew role has a distinct suit palette and small role marker
+* walking characters face their actual movement direction and visibly animate with alternating legs/arms and body bob
+* idle, working, socialising and resting states have separate restrained animations
+* authoritative simulation coordinates remain unchanged; animation is presentation only
+* room visuals are cleaner, rounded and type-themed with more readable floor/equipment treatment
+* doors read as chunkier physical hatches
+* mobile removes the redundant room list and gives more space to the clickable station map
+* room telemetry is suppressed inside tiny mobile rooms to reduce clutter while room inspection still exposes the full data
+* stable Blazor @key bindings remain mandatory and intact
+* both the local Ollama UI and deterministic Pages UI use the same visual treatment
+
 # V0.6B COMPLETION NOTE
 
 V0.6B is implemented:
