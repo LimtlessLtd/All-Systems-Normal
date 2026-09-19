@@ -4,10 +4,17 @@ namespace Overseer.Simulation;
 
 public sealed class NavigationSystem
 {
-    public IReadOnlyList<string> FindPath(
+    public IReadOnlyList<string> FindPath(Facility facility, string startRoomId, string targetRoomId) =>
+        FindPathCore(facility, startRoomId, targetRoomId, requirePassable: true);
+
+    public IReadOnlyList<string> FindPathIgnoringDoorState(Facility facility, string startRoomId, string targetRoomId) =>
+        FindPathCore(facility, startRoomId, targetRoomId, requirePassable: false);
+
+    private static IReadOnlyList<string> FindPathCore(
         Facility facility,
         string startRoomId,
-        string targetRoomId)
+        string targetRoomId,
+        bool requirePassable)
     {
         ArgumentNullException.ThrowIfNull(facility);
 
@@ -41,7 +48,7 @@ public sealed class NavigationSystem
                 return Reconstruct(previous, targetRoomId);
             }
 
-            foreach (var door in facility.Doors.Where(door => door.IsPassable))
+            foreach (var door in facility.Doors.Where(door => !requirePassable || door.IsPassable))
             {
                 var neighbour = OtherSide(door, current);
 
