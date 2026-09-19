@@ -2196,6 +2196,22 @@ The existing stable Blazor @key identity fix remains intact.
 
 Next recommended milestone: **V0.6B — Human Counterplay & Richer Scenario Rules**. Make crew-overridable, hardwired/manual and impossible-to-seal variants mechanically distinct; add physical manual door overrides with skill/time/tool requirements; add investigation/discovery of shutdown hardware; make evidence more perception-limited and event-specific; propagate specific claims through conversations; add scenario success/secondary objectives/telemetry; expose suspicion/evidence in selected-crew UI; and expand regression coverage for those mechanics.
 
+# ORTHOGONAL STATION CORRIDOR PASS — COMPLETED
+
+Deck A now uses a real orthogonal station plan rather than graph-like visual connections:
+
+* functional rooms are arranged in aligned north/south banks around a continuous east/west Central Corridor
+* every normal functional room reaches the main spine through a straight physical access corridor with a hatch at each end
+* Airlock and Overseer Isolation sit at opposite ends of the spine with short horizontal access corridors
+* no access corridor passes through another functional room
+* the old diagonal SVG connection/tunnel layer has been removed; only real walkable corridor spaces are rendered
+* connector corridors render according to their actual horizontal/vertical orientation
+* door crossing geometry is now derived from the real shared wall/portal between room rectangles rather than centre-to-centre direction
+* crossing a hatch therefore preserves the exact same global map coordinate on both sides, eliminating the visible diagonal glide/jump at corridor junctions
+* regression tests enforce portal continuity for every seeded door and straight orthogonal connector topology
+* navigation remains deterministic and still uses the existing room/hallway/door graph
+* stable Blazor @key bindings remain intact
+
 # CARTOON TOP-DOWN UI PASS — COMPLETED
 
 The station UI received a focused visual refresh after V0.6B:

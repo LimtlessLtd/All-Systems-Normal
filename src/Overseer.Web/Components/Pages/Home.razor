@@ -101,18 +101,6 @@
             </div>
 
             <div class="station-map" style="@StationMapStyle">
-                <svg class="connection-layer" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                    @foreach (var door in Session.State.Facility.Doors)
-                    {
-                        var a = Session.State.Facility.Rooms[door.RoomAId];
-                        var b = Session.State.Facility.Rooms[door.RoomBId];
-
-                        <line @key="door.Id"
-                              x1="@a.MapX" y1="@a.MapY" x2="@b.MapX" y2="@b.MapY"
-                              class="@($"connection {(door.IsOpen ? "open" : "closed")} {(door.IsLocked ? "locked" : "")}")" />
-                    }
-                </svg>
-
                 @foreach (var room in Session.State.Facility.Rooms.Values)
                 {
                     <button @key="room.Id"
@@ -599,7 +587,16 @@
         };
 
         if (IsConnectorHallway(room))
+        {
             classes.Add("hallway");
+            classes.Add(room.MapHeight >= room.MapWidth
+                ? "hallway-vertical"
+                : "hallway-horizontal");
+        }
+        else if (room.Id.Equals("corridor", StringComparison.OrdinalIgnoreCase))
+        {
+            classes.Add("main-corridor");
+        }
 
         if (SelectedRoom?.Id == room.Id)
             classes.Add("selected");
