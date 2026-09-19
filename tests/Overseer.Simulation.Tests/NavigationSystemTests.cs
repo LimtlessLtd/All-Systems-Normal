@@ -6,10 +6,10 @@ namespace Overseer.Simulation.Tests;
 public sealed class NavigationSystemTests
 {
     [Fact]
-    public void FindPath_CannotEnterRoomWhoseOnlyDoorIsLocked()
+    public void FindPath_CannotEnterRoomWhenItsHallwayDoorIsLocked()
     {
         var state = FacilitySeeder.CreateDefault();
-        var airlockDoor = state.Facility.FindDoorBetween("corridor", "airlock")!;
+        var airlockDoor = state.Facility.FindDoorBetween("airlock", "hall-airlock")!;
 
         airlockDoor.IsOpen = false;
         airlockDoor.IsLocked = true;
@@ -23,7 +23,7 @@ public sealed class NavigationSystemTests
     }
 
     [Fact]
-    public void FindPath_PrefersTheLowerPhysicalCostRoute()
+    public void FindPath_UsesRoomHallwaySpineHallwayRoom()
     {
         var state = FacilitySeeder.CreateDefault();
 
@@ -33,12 +33,19 @@ public sealed class NavigationSystemTests
             "reactor");
 
         Assert.Equal(
-            new[] { "control", "corridor", "engineering", "reactor" },
+            new[]
+            {
+                "control",
+                "hall-control",
+                "corridor",
+                "hall-reactor",
+                "reactor"
+            },
             path);
     }
 
     [Fact]
-    public void LocalMovement_RecordsTheExactDoorCrossed()
+    public void LocalMovement_RecordsTheExactHallwayDoorCrossed()
     {
         var state = FacilitySeeder.CreateDefault();
         var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
@@ -48,8 +55,8 @@ public sealed class NavigationSystemTests
             marcus.Id,
             new NpcAction(
                 ActionKind.Move,
-                "airlock",
-                "Inspecting the airlock."),
+                "hall-airlock",
+                "Heading toward the airlock."),
             out _);
 
         Assert.True(success);
@@ -59,9 +66,9 @@ public sealed class NavigationSystemTests
             state,
             TimeSpan.FromMinutes(2));
 
-        Assert.Equal("airlock", marcus.CurrentRoomId);
+        Assert.Equal("hall-airlock", marcus.CurrentRoomId);
         Assert.Contains(
-            "door-airlock-corridor",
+            "door-hall-airlock-corridor",
             state.EventLog[0],
             StringComparison.OrdinalIgnoreCase);
         Assert.Contains(
