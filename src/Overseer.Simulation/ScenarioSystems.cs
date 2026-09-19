@@ -141,11 +141,39 @@ public sealed class SuspicionSystem
         }
     }
 
+    public void ObserveExteriorHatchChange(
+        GameState state,
+        Room airlock,
+        bool opened)
+    {
+        if (!opened || state.ScenarioStatus != ScenarioStatus.Running)
+        {
+            return;
+        }
+
+        // Only people physically close enough to observe the dangerous hatch
+        // operation receive direct evidence. Victims swept into space may never
+        // get a chance to share what they saw.
+        foreach (var npc in state.Crew.Where(npc =>
+                     npc.IsAlive
+                     && npc.IsPresent
+                     && (npc.CurrentRoomId.Equals(airlock.Id, StringComparison.OrdinalIgnoreCase)
+                         || npc.CurrentRoomId.Equals("hall-airlock", StringComparison.OrdinalIgnoreCase))))
+        {
+            AddEvidence(
+                state,
+                npc,
+                "I witnessed the exterior airlock hatch open while the station was occupied.",
+                22);
+        }
+    }
+
     public void Tick(GameState state)
     {
         if (state.ScenarioStatus != ScenarioStatus.Running)
             return;
 
+        DiscoverBodies(state);
         SpreadSuspicion(state);
 
         foreach (var npc in state.Crew.Where(n =>
@@ -199,11 +227,19 @@ public sealed class SuspicionSystem
 
         var previousSuspicion = npc.OverseerSuspicion;
 
+        var sensitivity = Math.Clamp(
+            1 + (CrewTraitMath.Modifier(
+                npc,
+                TraitEffectKind.SuspicionSensitivity) / 100d),
+            0.65,
+            1.4);
+        var adjustedWeight = Math.Max(0, weight * sensitivity);
+
         npc.OverseerEvidence.Add(
-            new OverseerEvidence(description, weight, state.Elapsed, source));
+            new OverseerEvidence(description, adjustedWeight, state.Elapsed, source));
 
         npc.OverseerSuspicion = Math.Clamp(
-            npc.OverseerSuspicion + weight,
+            npc.OverseerSuspicion + adjustedWeight,
             0,
             100);
 
@@ -221,7 +257,7 @@ public sealed class SuspicionSystem
         npc.Memories.Add(new Memory(
             description,
             state.Elapsed,
-            Math.Clamp(weight / 30d, .35, .9)));
+            Math.Clamp(adjustedWeight / 30d, .35, .9)));
 
         npc.Beliefs.RemoveAll(b =>
             b.Subject.Equals("Overseer hostility", StringComparison.OrdinalIgnoreCase));
@@ -230,6 +266,63 @@ public sealed class SuspicionSystem
             "Overseer hostility",
             description,
             npc.OverseerSuspicion / 100d));
+    }
+
+    private static void DiscoverBodies(GameState state)
+    {
+        var bodies = state.Crew
+            .Where(npc => !npc.IsAlive && npc.IsPresent)
+            .ToList();
+
+        if (bodies.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var witness in state.Crew.Where(npc =>
+                     npc.IsAlive && npc.IsPresent))
+        {
+            foreach (var body in bodies.Where(body =>
+                         body.Id != witness.Id
+                         && body.CurrentRoomId.Equals(
+                             witness.CurrentRoomId,
+                             StringComparison.OrdinalIgnoreCase)))
+            {
+                if (!witness.DiscoveredBodies.Add(body.Id))
+                {
+                    continue;
+                }
+
+                var causeLooksHuman = body.CauseOfDeath?.Contains(
+                    "Killed by",
+                    StringComparison.OrdinalIgnoreCase) == true;
+                var weight = causeLooksHuman ? 3 : 14;
+
+                AddEvidence(
+                    state,
+                    witness,
+                    $"I found {body.Name}'s body in {state.Facility.Rooms[body.CurrentRoomId].Name}.",
+                    weight);
+
+                witness.Fear = Math.Clamp(witness.Fear + 18, 0, 100);
+                witness.Stress = Math.Clamp(witness.Stress + 15, 0, 100);
+                witness.Bubble = new NpcBubble(
+                    $"Oh God... {body.Name}.",
+                    NpcBubbleKind.Alert,
+                    state.Elapsed,
+                    state.Elapsed + TimeSpan.FromMinutes(4));
+
+                AudioCueSystem.Emit(
+                    state,
+                    AudioCueKind.Warning,
+                    witness.Id.ToString(),
+                    witness.CurrentRoomId);
+
+                Log(
+                    state,
+                    $"{witness.Name} discovers {body.Name}'s body.");
+            }
+        }
     }
 
     private static void SpreadSuspicion(GameState state)
