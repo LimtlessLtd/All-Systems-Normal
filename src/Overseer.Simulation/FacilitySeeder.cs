@@ -151,7 +151,16 @@ public static class FacilitySeeder
         var corridor = facility.Rooms[corridorId];
         var hallwayId = $"hall-{roomId}";
 
-        if (Math.Abs(room.MapY - corridor.MapY) >= Math.Abs(room.MapX - corridor.MapX))
+        var roomBottom = room.MapY + (room.MapHeight / 2);
+        var roomTop = room.MapY - (room.MapHeight / 2);
+        var corridorTop = corridor.MapY - (corridor.MapHeight / 2);
+        var corridorBottom = corridor.MapY + (corridor.MapHeight / 2);
+
+        var verticallySeparated =
+            roomBottom <= corridorTop
+            || roomTop >= corridorBottom;
+
+        if (verticallySeparated)
         {
             var roomAbove = room.MapY < corridor.MapY;
             var roomEdge = room.MapY
