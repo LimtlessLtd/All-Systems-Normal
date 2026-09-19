@@ -30,8 +30,20 @@ public sealed class ActionResolver
         return action.Kind switch
         {
             ActionKind.Move => TryMove(state, npc, action, out message),
-            ActionKind.Eat => TryEat(state, npc, action, out message),
-            ActionKind.Rest => SetAction(state, npc, action, "starts resting", out message),
+            ActionKind.Eat => TryInRoomType(
+                state, npc, action, RoomType.Kitchen, "eat", "starts eating", out message),
+            ActionKind.Rest => TryInRoomType(
+                state, npc, action, RoomType.CrewQuarters, "rest", "starts resting", out message),
+            ActionKind.Sleep => TryInRoomType(
+                state, npc, action, RoomType.CrewQuarters, "sleep", "settles down to sleep", out message),
+            ActionKind.Recreate => TryInRoomType(
+                state, npc, action, RoomType.Recreation, "relax", "starts relaxing", out message),
+            ActionKind.Groom => TryInRoomType(
+                state, npc, action, RoomType.Washroom, "groom", "starts grooming", out message),
+            ActionKind.Shower => TryInRoomType(
+                state, npc, action, RoomType.Washroom, "shower", "takes a shower", out message),
+            ActionKind.Work => SetAction(state, npc, action, "gets on with their work", out message),
+            ActionKind.Intimacy => TryIntimacy(state, npc, action, out message),
             ActionKind.Investigate => SetAction(state, npc, action, "starts investigating", out message),
             ActionKind.Repair => SetAction(state, npc, action, "starts a repair attempt", out message),
             ActionKind.Talk => SetAction(state, npc, action, "starts a conversation", out message),
@@ -111,7 +123,27 @@ public sealed class ActionResolver
         return true;
     }
 
-    private static bool TryEat(
+    private static bool TryInRoomType(
+        GameState state,
+        Npc npc,
+        NpcAction action,
+        RoomType requiredRoomType,
+        string verb,
+        string description,
+        out string message)
+    {
+        var room = state.Facility.Rooms[npc.CurrentRoomId];
+
+        if (room.Type != requiredRoomType)
+        {
+            message = $"{npc.Name} needs an appropriate room to {verb}.";
+            return false;
+        }
+
+        return SetAction(state, npc, action, description, out message);
+    }
+
+    private static bool TryIntimacy(
         GameState state,
         Npc npc,
         NpcAction action,
@@ -119,16 +151,39 @@ public sealed class ActionResolver
     {
         var room = state.Facility.Rooms[npc.CurrentRoomId];
 
-        if (room.Type != RoomType.Kitchen)
+        if (room.Type != RoomType.CrewQuarters
+            || string.IsNullOrWhiteSpace(action.TargetId))
         {
-            message = $"{npc.Name} needs to be in the Kitchen to eat.";
+            message = $"{npc.Name} needs privacy and a consenting partner.";
             return false;
         }
 
-        npc.Hunger = Math.Clamp(npc.Hunger - 25, 0, 100);
-        npc.CurrentAction = action;
+        var partner = state.Crew.FirstOrDefault(other =>
+            other.IsAlive
+            && other.Id != npc.Id
+            && other.CurrentRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
+            && other.Name.Equals(action.TargetId, StringComparison.OrdinalIgnoreCase));
 
-        message = $"{npc.Name} eats a meal.";
+        if (partner is null
+            || !npc.Relationships.TryGetValue(partner.Name, out var towardPartner)
+            || !partner.Relationships.TryGetValue(npc.Name, out var towardNpc)
+            || npc.IntimacyNeed < 55
+            || partner.IntimacyNeed < 55
+            || towardPartner.Trust < 60
+            || towardPartner.Affinity < 65
+            || towardPartner.Attraction < 55
+            || towardPartner.Resentment >= 25
+            || towardNpc.Trust < 60
+            || towardNpc.Affinity < 65
+            || towardNpc.Attraction < 55
+            || towardNpc.Resentment >= 25)
+        {
+            message = $"{npc.Name} and {action.TargetId} do not mutually want intimacy right now.";
+            return false;
+        }
+
+        npc.CurrentAction = action;
+        message = $"{npc.Name} spends private time with {partner.Name}.";
         Log(state, message);
         return true;
     }
