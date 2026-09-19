@@ -196,6 +196,13 @@ public sealed class GameSession(IAiDecisionService aiDecisionService)
         var npc = living[_mindCursor % living.Count];
         _mindCursor++;
 
+        // Do not let a fresh model call erase a goal that the human is already
+        // physically pursuing (including mutually coordinated social routines).
+        if (npc.Intent is not null)
+        {
+            return;
+        }
+
         var intent = await _aiDecisionService.DecideAsync(
             npc,
             State,
