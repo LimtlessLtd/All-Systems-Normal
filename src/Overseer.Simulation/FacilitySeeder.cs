@@ -177,8 +177,8 @@ public static class FacilitySeeder
                 RoomType.Corridor,
                 room.MapX,
                 (top + bottom) / 2,
-                4.2,
-                Math.Max(3, bottom - top));
+                3.4,
+                Math.Max(4.2, bottom - top));
         }
         else
         {
@@ -197,8 +197,8 @@ public static class FacilitySeeder
                 RoomType.Corridor,
                 (left + right) / 2,
                 room.MapY,
-                Math.Max(3, right - left),
-                4.2);
+                Math.Max(4.2, right - left),
+                3.4);
         }
 
         Connect(facility, roomId, hallwayId);
