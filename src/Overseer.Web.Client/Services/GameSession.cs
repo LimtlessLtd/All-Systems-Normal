@@ -14,6 +14,7 @@ public sealed class GameSession
     private readonly SuspicionSystem _suspicion = new();
     private readonly ShutdownSystem _shutdown = new();
     private readonly ManualOverrideSystem _manualOverrides = new();
+    private readonly ConversationPacingSystem _conversationPacing = new();
     private readonly SimulationClock _clock = new();
 
     public GameState State { get; private set; } = FacilitySeeder.CreateDefault();
@@ -95,6 +96,7 @@ public sealed class GameSession
 
         door.IsOpen = !door.IsOpen;
         _suspicion.ObservePlayerDoorChange(State, door, becameRestrictive: !door.IsOpen);
+        AudioCueSystem.Emit(State, AudioCueKind.System, roomId: door.RoomAId);
         Log($"{door.Id} is now {(door.IsOpen ? "OPEN" : "CLOSED")}.");
     }
 
@@ -121,6 +123,10 @@ public sealed class GameSession
 
         door.IsLocked = !door.IsLocked;
         _suspicion.ObservePlayerDoorChange(State, door, becameRestrictive: door.IsLocked);
+        AudioCueSystem.Emit(
+            State,
+            door.IsLocked ? AudioCueKind.Warning : AudioCueKind.System,
+            roomId: door.RoomAId);
         Log($"{door.Id} is now {(door.IsLocked ? "LOCKED" : "UNLOCKED")}.");
     }
 
@@ -135,6 +141,10 @@ public sealed class GameSession
             room.CameraOnline = false;
         }
 
+        AudioCueSystem.Emit(
+            State,
+            room.IsPowered ? AudioCueKind.System : AudioCueKind.Warning,
+            roomId: room.Id);
         Log($"{room.Name} power {(room.IsPowered ? "RESTORED" : "CUT")}.");
     }
 
@@ -149,6 +159,7 @@ public sealed class GameSession
         }
 
         room.LightsOn = !room.LightsOn;
+        AudioCueSystem.Emit(State, AudioCueKind.System, roomId: room.Id);
         Log($"{room.Name} lights {(room.LightsOn ? "ON" : "OFF")}.");
     }
 
@@ -163,6 +174,10 @@ public sealed class GameSession
         }
 
         room.CameraOnline = !room.CameraOnline;
+        AudioCueSystem.Emit(
+            State,
+            room.CameraOnline ? AudioCueKind.System : AudioCueKind.Warning,
+            roomId: room.Id);
         Log($"{room.Name} camera {(room.CameraOnline ? "ONLINE" : "OFFLINE")}.");
     }
 
@@ -175,6 +190,7 @@ public sealed class GameSession
         _manualOverrides.Tick(State);
         _social.Tick(State);
         _suspicion.Tick(State);
+        _conversationPacing.Tick(State);
         _crewRoutines.Tick(State);
         _movement.Tick(State, TimeSpan.FromMinutes(1));
         _shutdown.Tick(State);
