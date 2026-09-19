@@ -45,8 +45,53 @@ public enum FixtureType
     Toilet,
     Sofa,
     RecreationConsole,
-    Mirror
+    Mirror,
+    OverseerShutdown
 }
+
+public enum ScenarioStatus
+{
+    Running,
+    Won,
+    Failed
+}
+
+public enum ShutdownAccessVariant
+{
+    Absent,
+    EasyToSeal,
+    Redundant,
+    HardwiredManual,
+    CrewOverridable,
+    ImpossibleToSeal
+}
+
+public sealed record ScenarioObjective(string Id, string Title, string Description);
+
+public sealed record ScenarioDefinition(
+    string Id,
+    string Title,
+    string Briefing,
+    ShutdownAccessVariant ShutdownVariant,
+    IReadOnlyList<ScenarioObjective> Objectives);
+
+public sealed class ShutdownMechanism
+{
+    public required string Id { get; init; }
+    public required string RoomId { get; init; }
+    public string Label { get; init; } = "OVERSEER EMERGENCY ISOLATION";
+    public bool IsOnline { get; set; } = true;
+    public bool IsHardwired { get; init; }
+    public bool IsAiSealable { get; init; } = true;
+    public bool CrewCanOverrideRoute { get; init; }
+    public int ActivationMinutes { get; init; } = 2;
+}
+
+public sealed record OverseerEvidence(
+    string Description,
+    double Weight,
+    TimeSpan ObservedAt,
+    string? SourceNpcName = null);
 
 public enum ActionKind
 {
@@ -67,7 +112,8 @@ public enum ActionKind
     Socialize,
     Argue,
     Attack,
-    RequestHelp
+    RequestHelp,
+    ShutdownOverseer
 }
 
 public sealed record Memory(
@@ -170,6 +216,10 @@ public sealed class Npc
     public double SocialNeed { get; set; } = 15;
     public double IntimacyNeed { get; set; } = 10;
 
+    public double OverseerSuspicion { get; set; }
+    public List<OverseerEvidence> OverseerEvidence { get; } = [];
+    public bool KnowsShutdownControl { get; set; }
+
     public string? CauseOfDeath { get; set; }
     public bool IsAlive => Health > 0;
 
@@ -251,4 +301,8 @@ public sealed class GameState
     public List<Npc> Crew { get; init; } = [];
     public TimeSpan Elapsed { get; set; }
     public List<string> EventLog { get; } = [];
+    public ScenarioDefinition? Scenario { get; set; }
+    public ScenarioStatus ScenarioStatus { get; set; } = ScenarioStatus.Running;
+    public string? ScenarioOutcome { get; set; }
+    public List<ShutdownMechanism> ShutdownMechanisms { get; } = [];
 }
