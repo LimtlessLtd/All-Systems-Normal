@@ -3476,6 +3476,19 @@ Workflow rule remains mandatory:
 **feature branch → implementation → full tests/build/publish → PR → green CI → merge into `main` → verify GitHub Pages.**
 Workflow rule: work on a feature branch, open a PR, require green CI, merge completed work into main, then verify the GitHub Pages deployment before handoff.
 
+## HANDOFF PROMPT RULE
+
+Future handoff prompts must be **concise**. They should tell the next agent to:
+
+1. read `PROJECT_HANDOFF.md` in full,
+2. inspect the current repository / open PR / CI state,
+3. continue the next milestone,
+4. follow the mandatory branch → PR → green CI → merge → Pages verification workflow.
+
+Do **not** duplicate architecture, completed work, roadmap, invariants, test counts, implementation notes or long milestone descriptions in the chat handoff prompt. Put those details in `PROJECT_HANDOFF.md` (and other repository documentation where appropriate) before handing off.
+
+The handoff prompt should normally be only a few short paragraphs because the repository documentation is the source of truth.
+
 
 # V0.7 — CORPORATE CAMPAIGN, SUSPICION DYNAMICS & OVERSEER COMMS — COMPLETED
 
