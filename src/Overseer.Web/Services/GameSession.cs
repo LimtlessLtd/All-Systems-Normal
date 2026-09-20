@@ -217,6 +217,13 @@ public sealed class GameSession(
             room.CameraOnline = false;
         }
 
+        _suspicion.ObservePlayerRoomSystemChange(
+            State,
+            room,
+            "local power",
+            becameDisruptive: !room.IsPowered,
+            weight: 8);
+
         AudioCueSystem.Emit(
             State,
             room.IsPowered ? AudioCueKind.System : AudioCueKind.Warning,
@@ -235,6 +242,12 @@ public sealed class GameSession(
         }
 
         room.LightsOn = !room.LightsOn;
+        _suspicion.ObservePlayerRoomSystemChange(
+            State,
+            room,
+            "lighting",
+            becameDisruptive: !room.LightsOn,
+            weight: 3);
         AudioCueSystem.Emit(State, AudioCueKind.System, roomId: room.Id);
         Log($"{room.Name} lights {(room.LightsOn ? "ON" : "OFF")}.");
     }
@@ -250,6 +263,12 @@ public sealed class GameSession(
         }
 
         room.CameraOnline = !room.CameraOnline;
+        _suspicion.ObservePlayerRoomSystemChange(
+            State,
+            room,
+            "surveillance",
+            becameDisruptive: !room.CameraOnline,
+            weight: 3);
         AudioCueSystem.Emit(
             State,
             room.CameraOnline ? AudioCueKind.System : AudioCueKind.Warning,
@@ -301,6 +320,12 @@ public sealed class GameSession(
         }
 
         room.TemperatureControlOnline = !room.TemperatureControlOnline;
+        _suspicion.ObservePlayerRoomSystemChange(
+            State,
+            room,
+            "climate control",
+            becameDisruptive: !room.TemperatureControlOnline,
+            weight: 5);
         AudioCueSystem.Emit(
             State,
             room.TemperatureControlOnline ? AudioCueKind.System : AudioCueKind.Warning,
@@ -326,6 +351,12 @@ public sealed class GameSession(
         }
 
         room.VentilationEnabled = !room.VentilationEnabled;
+        _suspicion.ObservePlayerRoomSystemChange(
+            State,
+            room,
+            "ventilation",
+            becameDisruptive: !room.VentilationEnabled,
+            weight: 9);
         AudioCueSystem.Emit(
             State,
             room.VentilationEnabled ? AudioCueKind.System : AudioCueKind.Warning,
