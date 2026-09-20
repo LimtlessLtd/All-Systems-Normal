@@ -106,6 +106,12 @@ public sealed class TurretCountermeasureSystem
             return;
         }
 
+        if (!HasHostileTurretEvidence(npc, turret))
+        {
+            End(npc, $"I do not have personally grounded evidence to justify isolating {turret.Name}.");
+            return;
+        }
+
         if (turret.IsNetworkIsolated)
         {
             End(npc, $"{turret.Name}'s remote link is already isolated.");
@@ -138,6 +144,12 @@ public sealed class TurretCountermeasureSystem
             || CrewCounterplaySystem.BestTechnicalSkill(npc) < 45)
         {
             End(npc, "I need the Engineering security-power controls to deny turret power.");
+            return;
+        }
+
+        if (!HasHostileTurretEvidence(npc, turret))
+        {
+            End(npc, $"I do not have personally grounded evidence to justify denying {turret.Name}'s power.");
             return;
         }
 
