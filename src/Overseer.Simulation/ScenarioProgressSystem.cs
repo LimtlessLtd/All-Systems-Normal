@@ -111,7 +111,7 @@ public sealed class ScenarioProgressSystem
         AudioCueSystem.Emit(state, AudioCueKind.Important);
         state.EventLog.Insert(
             0,
-            $"T+{state.Elapsed:hh\:mm}: SCENARIO COMPLETE — {state.ScenarioOutcome}");
+            $"T+{state.Elapsed:hh\\:mm}: SCENARIO COMPLETE — {state.ScenarioOutcome}");
     }
 
     private static void UpdateScore(
