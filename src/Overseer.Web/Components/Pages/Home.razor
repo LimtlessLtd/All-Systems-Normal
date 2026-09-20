@@ -360,7 +360,13 @@
                     @Metric("RECREATION NEED", selectedCrew.RecreationNeed)
                     @Metric("SOCIAL NEED", selectedCrew.SocialNeed)
                     @Metric("INTIMACY NEED", selectedCrew.IntimacyNeed)
-                    @Metric("OVERSEER SUSPICION", selectedCrew.OverseerSuspicion)
+                </div>
+
+                <div class="belief-card">
+                    <span>DISPOSITION TOWARD OVERSEER</span>
+                    <p class="disposition disposition-@DispositionClass(selectedCrew)">
+                        @DispositionLabel(selectedCrew)
+                    </p>
                 </div>
 
                 <div class="thought-card">
@@ -393,10 +399,20 @@
                     else
                     {
                         @foreach (var evidence in selectedCrew.OverseerEvidence
-                            .OrderByDescending(e => e.ObservedAt)
-                            .Take(4))
+                            .OrderByDescending(e => e.CurrentWeight)
+                            .ThenByDescending(e => e.ObservedAt)
+                            .Take(5))
                         {
-                            <p><strong>+@evidence.Weight.ToString("0")</strong> @evidence.Description</p>
+                            <p class="@(evidence.IsDiscredited ? "evidence-discredited" : null)">
+                                <strong>@evidence.CurrentWeight.ToString("0")</strong>
+                                @evidence.Description
+                                <small style="display:block">
+                                    @evidence.Origin.ToString().ToUpperInvariant()
+                                    @(evidence.SourceNpcName is { } teller ? $" via {teller}" : "")
+                                    · heard T+@evidence.ObservedAt.ToString(@"hh\:mm")
+                                    @(evidence.IsDiscredited ? " · CONTRADICTED BY OBSERVATION" : "")
+                                </small>
+                            </p>
                         }
                     }
                 </div>
@@ -726,6 +742,23 @@
         _selectedCrewId is { } crewId
             ? Session.State.Crew.FirstOrDefault(npc => npc.Id == crewId)
             : null;
+
+    private static string DispositionLabel(Npc npc) => npc.OverseerSuspicion switch
+    {
+        >= 80 => "Convinced Overseer is hostile.",
+        >= 60 => "Openly distrustful of Overseer.",
+        >= 40 => "Uneasy. Watching the station closely.",
+        >= 20 => "Mildly unsettled by recent faults.",
+        > 0 => "Has noticed something, but thinks little of it.",
+        _ => "No reason to question Overseer."
+    };
+
+    private static string DispositionClass(Npc npc) => npc.OverseerSuspicion switch
+    {
+        >= 60 => "hostile",
+        >= 20 => "uneasy",
+        _ => "calm"
+    };
 
     private string ComplianceClass => Session.State.ComplianceScore switch
     {

@@ -24,6 +24,7 @@ public sealed class GameSession(
     private readonly SuspicionSystem _suspicion = new();
     private readonly ShutdownSystem _shutdown = new();
     private readonly CorporateDirectiveSystem _directives = new();
+    private readonly SuspicionDynamicsSystem _suspicionDynamics = new();
     private readonly ManualOverrideSystem _manualOverrides = new();
     private readonly ConversationPacingSystem _conversationPacing = new();
     private readonly SimulationClock _clock = new();
@@ -165,6 +166,20 @@ public sealed class GameSession(
 
         door.IsOpen = opening;
         _suspicion.ObservePlayerDoorChange(State, door, becameRestrictive: !door.IsOpen);
+
+        if (opening)
+        {
+            SuspicionDynamicsSystem.RecordBenignAct(
+                State,
+                door.RoomAId,
+                $"Overseer opened {door.Id} without being asked.",
+                2);
+            SuspicionDynamicsSystem.RecordBenignAct(
+                State,
+                door.RoomBId,
+                $"Overseer opened {door.Id} without being asked.",
+                2);
+        }
         AudioCueSystem.Emit(State, AudioCueKind.System, roomId: door.RoomAId);
         Log($"{door.Id} is now {(door.IsOpen ? "OPEN" : "CLOSED")}.");
     }
@@ -214,6 +229,16 @@ public sealed class GameSession(
             State,
             room.IsPowered ? AudioCueKind.System : AudioCueKind.Warning,
             roomId: room.Id);
+
+        if (room.IsPowered)
+        {
+            SuspicionDynamicsSystem.RecordBenignAct(
+                State,
+                room.Id,
+                $"Overseer restored power to {room.Name}.",
+                8);
+        }
+
         Log($"{room.Name} power {(room.IsPowered ? "RESTORED" : "CUT")}.");
     }
 
@@ -229,6 +254,16 @@ public sealed class GameSession(
 
         room.LightsOn = !room.LightsOn;
         AudioCueSystem.Emit(State, AudioCueKind.System, roomId: room.Id);
+
+        if (room.LightsOn)
+        {
+            SuspicionDynamicsSystem.RecordBenignAct(
+                State,
+                room.Id,
+                $"Overseer brought the lights back up in {room.Name}.",
+                3);
+        }
+
         Log($"{room.Name} lights {(room.LightsOn ? "ON" : "OFF")}.");
     }
 
@@ -298,6 +333,16 @@ public sealed class GameSession(
             State,
             room.TemperatureControlOnline ? AudioCueKind.System : AudioCueKind.Warning,
             roomId: room.Id);
+
+        if (room.TemperatureControlOnline)
+        {
+            SuspicionDynamicsSystem.RecordBenignAct(
+                State,
+                room.Id,
+                $"Overseer restored climate control in {room.Name}.",
+                5);
+        }
+
         Log($"{room.Name} climate control {(room.TemperatureControlOnline ? "ONLINE" : "OFFLINE")}.");
     }
 
@@ -323,6 +368,16 @@ public sealed class GameSession(
             State,
             room.VentilationEnabled ? AudioCueKind.System : AudioCueKind.Warning,
             roomId: room.Id);
+
+        if (room.VentilationEnabled)
+        {
+            SuspicionDynamicsSystem.RecordBenignAct(
+                State,
+                room.Id,
+                $"Overseer reopened the air loop to {room.Name}.",
+                6);
+        }
+
         Log($"{room.Name} ventilation {(room.VentilationEnabled ? "OPEN" : "ISOLATED")}.");
     }
 
@@ -409,6 +464,25 @@ public sealed class GameSession(
         AudioCueSystem.Emit(
             State,
             State.LifeSupport.IsOnline ? AudioCueKind.System : AudioCueKind.Critical);
+
+        if (State.LifeSupport.IsOnline)
+        {
+            // Bringing the air back is the loudest possible reassurance, and
+            // everyone aboard witnesses it.
+            foreach (var occupiedRoomId in State.Crew
+                         .Where(npc => npc.IsAlive && npc.IsPresent)
+                         .Select(npc => npc.CurrentRoomId)
+                         .Distinct(StringComparer.OrdinalIgnoreCase)
+                         .ToList())
+            {
+                SuspicionDynamicsSystem.RecordBenignAct(
+                    State,
+                    occupiedRoomId,
+                    "Overseer brought primary life support back online.",
+                    12);
+            }
+        }
+
         Log($"PRIMARY LIFE SUPPORT {(State.LifeSupport.IsOnline ? "ONLINE" : "OFFLINE")}.");
     }
 
@@ -433,6 +507,7 @@ public sealed class GameSession(
         _crewRoutines.Tick(State);
         _movement.Tick(State, TimeSpan.FromMinutes(1));
         _shutdown.Tick(State);
+        _suspicionDynamics.Tick(State, turn);
         _directives.Tick(State, turn);
     }
 

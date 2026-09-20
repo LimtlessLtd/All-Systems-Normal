@@ -112,11 +112,63 @@ public sealed class ShutdownMechanism
     public int ActivationMinutes { get; init; } = 2;
 }
 
+/// <summary>
+/// How an NPC came to hold a piece of evidence. Hearsay is weaker, fades
+/// faster, and is what gets discredited when the world contradicts it.
+/// </summary>
+public enum EvidenceOrigin
+{
+    /// <summary>The NPC personally witnessed it.</summary>
+    Direct,
+
+    /// <summary>Another crew member told them.</summary>
+    Hearsay,
+
+    /// <summary>Inferred from circumstance rather than observed.</summary>
+    Inference
+}
+
+/// <summary>
+/// A falsifiable assertion embedded in a piece of evidence. Claims are what
+/// make deceit possible: an NPC who can directly observe the subject of a
+/// claim can discover that the claim is no longer true.
+/// </summary>
+public enum EvidenceClaim
+{
+    /// <summary>Nothing about this evidence can be checked against the world.</summary>
+    None,
+
+    /// <summary>Overseer restricted access to the subject room.</summary>
+    AccessRestricted,
+
+    /// <summary>Overseer cut power to the subject room.</summary>
+    PowerCut,
+
+    /// <summary>Overseer disabled primary life support.</summary>
+    LifeSupportDisabled,
+
+    /// <summary>Overseer opened an exterior hatch.</summary>
+    HatchOpened
+}
+
 public sealed record OverseerEvidence(
     string Description,
     double Weight,
     TimeSpan ObservedAt,
-    string? SourceNpcName = null);
+    string? SourceNpcName = null,
+    EvidenceOrigin Origin = EvidenceOrigin.Direct,
+    EvidenceClaim Claim = EvidenceClaim.None,
+    string? SubjectRoomId = null)
+{
+    /// <summary>
+    /// Set when the NPC personally observed the world contradicting this claim.
+    /// Discredited evidence keeps a residue of doubt rather than vanishing.
+    /// </summary>
+    public bool IsDiscredited { get; init; }
+
+    /// <summary>Current decayed weight. Starts equal to <see cref="Weight"/>.</summary>
+    public double CurrentWeight { get; set; } = Weight;
+}
 
 public enum AirlockCycleMode
 {
@@ -368,6 +420,11 @@ public sealed class Npc
     public Dictionary<Guid, CrewSighting> LastSeenCrew { get; } = [];
     public Dictionary<Guid, MissingPersonConcern> MissingPersonConcerns { get; } = [];
     public HashSet<string> ObservedUnsafeAirlocks { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    // Faults this person has personally noticed, keyed "roomId:fault". Cleared
+    // when the fault clears so a recurring failure can be noticed again.
+    public HashSet<string> ObservedFaults { get; } =
         new(StringComparer.OrdinalIgnoreCase);
     public bool NeedsMindReconsideration { get; set; }
 

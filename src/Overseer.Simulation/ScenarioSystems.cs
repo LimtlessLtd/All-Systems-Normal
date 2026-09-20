@@ -219,7 +219,10 @@ public sealed class SuspicionSystem
                     state,
                     npc,
                     $"I saw Overseer restrict {door.Id} on the route toward {mechanism.Label}.",
-                    18);
+                    18,
+                    origin: EvidenceOrigin.Direct,
+                    claim: EvidenceClaim.AccessRestricted,
+                    subjectRoomId: door.RoomAId);
             }
         }
     }
@@ -247,7 +250,10 @@ public sealed class SuspicionSystem
                 state,
                 npc,
                 "I witnessed the exterior airlock hatch open while the station was occupied.",
-                22);
+                22,
+                origin: EvidenceOrigin.Direct,
+                claim: EvidenceClaim.HatchOpened,
+                subjectRoomId: airlock.Id);
         }
     }
 
@@ -301,7 +307,10 @@ public sealed class SuspicionSystem
         Npc npc,
         string description,
         double weight,
-        string? source = null)
+        string? source = null,
+        EvidenceOrigin origin = EvidenceOrigin.Direct,
+        EvidenceClaim claim = EvidenceClaim.None,
+        string? subjectRoomId = null)
     {
         if (npc.OverseerEvidence.Any(e =>
                 e.Description == description
@@ -319,7 +328,14 @@ public sealed class SuspicionSystem
         var adjustedWeight = Math.Max(0, weight * sensitivity);
 
         npc.OverseerEvidence.Add(
-            new OverseerEvidence(description, adjustedWeight, state.Elapsed, source));
+            new OverseerEvidence(
+                description,
+                adjustedWeight,
+                state.Elapsed,
+                source,
+                origin,
+                claim,
+                subjectRoomId));
 
         npc.OverseerSuspicion = Math.Clamp(
             npc.OverseerSuspicion + adjustedWeight,
@@ -425,9 +441,13 @@ public sealed class SuspicionSystem
                 continue;
 
             var evidence = convinced.OverseerEvidence
-                .OrderByDescending(e => e.Weight)
+                .Where(e => !e.IsDiscredited)
+                .OrderByDescending(e => e.CurrentWeight)
                 .ThenByDescending(e => e.ObservedAt)
-                .First();
+                .FirstOrDefault();
+
+            if (evidence is null)
+                continue;
 
             foreach (var listener in group.Where(n =>
                          n.Id != convinced.Id
@@ -448,8 +468,11 @@ public sealed class SuspicionSystem
                     state,
                     listener,
                     $"{convinced.Name} told me: {evidence.Description}",
-                    Math.Clamp(evidence.Weight * 0.45, 5, 10),
-                    convinced.Name);
+                    Math.Clamp(evidence.CurrentWeight * 0.45, 5, 10),
+                    convinced.Name,
+                    EvidenceOrigin.Hearsay,
+                    evidence.Claim,
+                    evidence.SubjectRoomId);
 
                 if (listener.OverseerSuspicion > suspicionBeforeConversation)
                 {

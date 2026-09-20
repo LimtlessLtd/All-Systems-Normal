@@ -3392,3 +3392,23 @@ button.sound-toggle.sound-on {
     letter-spacing: .08em;
     opacity: .75;
 }
+
+.disposition {
+    margin: 0;
+    font-size: .78rem;
+    line-height: 1.4;
+}
+
+.disposition-calm { color: var(--muted); }
+.disposition-uneasy { color: var(--warning); }
+.disposition-hostile { color: var(--danger); }
+
+.evidence-discredited {
+    opacity: .55;
+    text-decoration: line-through solid rgba(232, 247, 246, .35);
+}
+
+.evidence-discredited small {
+    text-decoration: none;
+    color: var(--warning);
+}
