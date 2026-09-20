@@ -6,56 +6,102 @@ namespace Overseer.Simulation.Tests;
 public sealed class ScenarioShutdownTests
 {
     [Fact]
-    public void DefaultScenario_SeedsPhysicalShutdownControl()
+    public void DefaultScenario_SeedsPhysicalShutdownControlButNotOmniscientKnowledge()
     {
         var state = FacilitySeeder.CreateDefault();
+
         Assert.Equal("secure-continuity", state.Scenario?.Id);
         var shutdown = Assert.Single(state.ShutdownMechanisms);
         Assert.Equal("isolation", shutdown.RoomId);
-        Assert.Contains(state.Facility.Rooms["isolation"].Fixtures, f => f.Type == FixtureType.OverseerShutdown);
+        Assert.Contains(
+            state.Facility.Rooms["isolation"].Fixtures,
+            fixture => fixture.Type == FixtureType.OverseerShutdown);
+
+        Assert.All(state.Crew, npc =>
+        {
+            Assert.False(npc.KnowsShutdownControl);
+            Assert.Empty(npc.KnownShutdownMechanismIds);
+        });
+
+        Assert.Contains(
+            state.Crew,
+            npc => npc.InvestigationLeads.Values.Any(lead =>
+                lead.RoomId == "isolation"));
     }
 
     [Fact]
-    public void RestrictingShutdownRoute_CreatesIndividualEvidence()
+    public void RestrictingIsolationRoute_CreatesEvidenceOnlyForPhysicalObserver()
     {
         var state = FacilitySeeder.CreateDefault();
-        var npc = state.Crew.First(n => n.KnowsShutdownControl);
-        npc.CurrentRoomId = "hall-isolation";
+        var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        sarah.CurrentRoomId = "hall-isolation";
+        david.CurrentRoomId = "control";
+
         var door = state.Facility.FindDoorBetween("isolation", "hall-isolation")!;
         door.IsOpen = false;
         door.IsLocked = true;
 
         new SuspicionSystem().ObservePlayerDoorChange(state, door, true);
 
-        Assert.True(npc.OverseerSuspicion > 0);
-        Assert.NotEmpty(npc.OverseerEvidence);
+        Assert.True(sarah.OverseerSuspicion > 0);
+        Assert.NotEmpty(sarah.OverseerEvidence);
+        Assert.Equal(0, david.OverseerSuspicion);
+        Assert.Empty(david.OverseerEvidence);
     }
 
     [Fact]
-    public void SuspiciousCrew_FormShutdownGoalButCannotBypassSealedRoute()
+    public void SuspiciousCrewWithoutControlKnowledge_GeneratesInvestigationLeadNotShutdownIntent()
     {
         var state = FacilitySeeder.CreateDefault();
-        var marcus = state.Crew.Single(n => n.Name == "Marcus Reed");
-        marcus.OverseerSuspicion = 90;
-        var door = state.Facility.FindDoorBetween("isolation", "hall-isolation")!;
-        door.IsOpen = false;
-        door.IsLocked = true;
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        marcus.OverseerSuspicion = 70;
+        marcus.InvestigationLeads.Clear();
 
         new SuspicionSystem().Tick(state);
 
         Assert.Null(marcus.Intent);
-        Assert.NotEqual("isolation", marcus.CurrentRoomId);
+        Assert.Empty(marcus.KnownShutdownMechanismIds);
+        Assert.Contains(
+            marcus.InvestigationLeads.Values,
+            lead => lead.Stage == InvestigationLeadStage.Open);
+        Assert.True(marcus.NeedsMindReconsideration);
     }
 
     [Fact]
-    public void ShutdownRequiresPhysicalPresenceAndProducesFailureOnlyAfterActivation()
+    public void ShutdownRequiresPersonalKnowledgeTeamPresenceAndActivationTime()
     {
         var state = FacilitySeeder.CreateDefault();
-        var marcus = state.Crew.Single(n => n.Name == "Marcus Reed");
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
         var mechanism = Assert.Single(state.ShutdownMechanisms);
+
         marcus.CurrentRoomId = mechanism.RoomId;
+        david.CurrentRoomId = mechanism.RoomId;
         marcus.OverseerSuspicion = 90;
-        marcus.Intent = new NpcIntent(ActionKind.ShutdownOverseer, mechanism.Id, "Shut it down.", "Evidence.", 95, "Test", state.Elapsed);
+        marcus.KnownShutdownMechanismIds.Add(mechanism.Id);
+        marcus.KnowsShutdownControl = true;
+
+        var team = new ShutdownTeam
+        {
+            Id = "test-team",
+            MechanismId = mechanism.Id,
+            LeaderId = marcus.Id,
+            FormedAt = state.Elapsed
+        };
+        team.MemberIds.Add(marcus.Id);
+        team.MemberIds.Add(david.Id);
+        state.ShutdownTeams.Add(team);
+        marcus.ShutdownTeamId = team.Id;
+
+        marcus.Intent = new NpcIntent(
+            ActionKind.ShutdownOverseer,
+            mechanism.Id,
+            "Shut it down.",
+            "Evidence.",
+            95,
+            "Test",
+            state.Elapsed);
 
         new IntentExecutionSystem().Tick(state);
         Assert.Equal(ActionKind.ShutdownOverseer, marcus.CurrentAction.Kind);
@@ -67,44 +113,55 @@ public sealed class ScenarioShutdownTests
 
         state.Elapsed += TimeSpan.FromMinutes(mechanism.ActivationMinutes);
         shutdown.Tick(state);
+
         Assert.Equal(ScenarioStatus.Failed, state.ScenarioStatus);
         Assert.Contains("Marcus Reed", state.ScenarioOutcome);
+        Assert.Equal(1, state.Telemetry.ShutdownAttempts);
     }
 
     [Fact]
-    public void DoorRestriction_IsNotMagicallyObservedFromElsewhere()
-    {
-        var state = FacilitySeeder.CreateDefault();
-        var david = state.Crew.Single(n => n.Name == "David Hale");
-        david.CurrentRoomId = "control";
-        var door = state.Facility.FindDoorBetween("isolation", "hall-isolation")!;
-        door.IsOpen = false;
-        door.IsLocked = true;
-
-        new SuspicionSystem().ObservePlayerDoorChange(state, door, true);
-
-        Assert.Equal(0, david.OverseerSuspicion);
-        Assert.Empty(david.OverseerEvidence);
-    }
-
-    [Fact]
-    public void CrewOverridableRoute_CanBePhysicallyForcedBySkilledCrew()
+    public void CrewOverridableRoute_CanBePhysicallyForcedBySkilledCoordinatedCrew()
     {
         var state = FacilitySeeder.CreateDefault();
         ScenarioCatalog.Apply(state, new ScenarioDefinition(
             "override", "OVERRIDE", "", ShutdownAccessVariant.CrewOverridable, []));
 
-        var marcus = state.Crew.Single(n => n.Name == "Marcus Reed");
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        var mechanism = Assert.Single(state.ShutdownMechanisms);
+
         marcus.CurrentRoomId = "corridor";
         marcus.OverseerSuspicion = 90;
+        marcus.KnownShutdownMechanismIds.Add(mechanism.Id);
+        marcus.KnowsShutdownControl = true;
+
+        var team = new ShutdownTeam
+        {
+            Id = "override-team",
+            MechanismId = mechanism.Id,
+            LeaderId = marcus.Id,
+            FormedAt = state.Elapsed
+        };
+        team.MemberIds.Add(marcus.Id);
+        team.MemberIds.Add(david.Id);
+        state.ShutdownTeams.Add(team);
+        marcus.ShutdownTeamId = team.Id;
+
         var door = state.Facility.FindDoorBetween("hall-isolation", "corridor")!;
         door.IsOpen = false;
         door.IsLocked = true;
 
-        new SuspicionSystem().Tick(state);
-        Assert.NotNull(marcus.Intent);
+        marcus.Intent = new NpcIntent(
+            ActionKind.ShutdownOverseer,
+            mechanism.Id,
+            "Reach isolation.",
+            "I know where it is.",
+            95,
+            "Test",
+            state.Elapsed);
 
         new IntentExecutionSystem().Tick(state);
+
         Assert.Equal(ActionKind.OverrideDoor, marcus.CurrentAction.Kind);
         Assert.Equal(door.Id, marcus.CurrentAction.TargetId);
 
@@ -127,9 +184,9 @@ public sealed class ScenarioShutdownTests
         ScenarioCatalog.Apply(state, new ScenarioDefinition(
             "analogue", "ANALOGUE", "", ShutdownAccessVariant.ImpossibleToSeal, []));
 
-        var routeDoors = state.Facility.Doors.Where(d =>
-            d.Connects("isolation", "hall-isolation")
-            || d.Connects("hall-isolation", "corridor"));
+        var routeDoors = state.Facility.Doors.Where(door =>
+            door.Connects("isolation", "hall-isolation")
+            || door.Connects("hall-isolation", "corridor"));
 
         Assert.All(routeDoors, door =>
         {
@@ -146,7 +203,7 @@ public sealed class ScenarioShutdownTests
         ScenarioCatalog.Apply(state, new ScenarioDefinition(
             "override", "OVERRIDE", "", ShutdownAccessVariant.CrewOverridable, []));
 
-        var nadia = state.Crew.Single(n => n.Name == "Nadia Okafor");
+        var nadia = state.Crew.Single(npc => npc.Name == "Nadia Okafor");
         nadia.CurrentRoomId = "corridor";
         var door = state.Facility.FindDoorBetween("hall-isolation", "corridor")!;
         door.IsOpen = false;
@@ -166,10 +223,18 @@ public sealed class ScenarioShutdownTests
     public void ScenarioCatalog_SupportsAbsentAndRedundantShutdowns()
     {
         var state = FacilitySeeder.CreateDefault();
-        ScenarioCatalog.Apply(state, new ScenarioDefinition("none", "NONE", "", ShutdownAccessVariant.Absent, []));
+
+        ScenarioCatalog.Apply(
+            state,
+            new ScenarioDefinition(
+                "none", "NONE", "", ShutdownAccessVariant.Absent, []));
         Assert.Empty(state.ShutdownMechanisms);
 
-        ScenarioCatalog.Apply(state, new ScenarioDefinition("redundant", "REDUNDANT", "", ShutdownAccessVariant.Redundant, []));
+        ScenarioCatalog.Apply(
+            state,
+            new ScenarioDefinition(
+                "redundant", "REDUNDANT", "", ShutdownAccessVariant.Redundant, []));
         Assert.Equal(2, state.ShutdownMechanisms.Count);
+        Assert.All(state.Crew, npc => Assert.Empty(npc.KnownShutdownMechanismIds));
     }
 }
