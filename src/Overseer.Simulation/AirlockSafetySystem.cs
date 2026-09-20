@@ -164,7 +164,10 @@ public sealed class AirlockSafetySystem
                     state,
                     observer,
                     "I witnessed Overseer disable the airlock safety interlocks.",
-                    14);
+                    14,
+                    origin: EvidenceOrigin.DirectObservation,
+                    locationId: airlock.Id,
+                    evidenceId: $"airlock-interlock-bypass:{airlock.Id}:{state.Elapsed.Ticks}");
             }
 
             AudioCueSystem.Emit(
