@@ -2912,31 +2912,178 @@ button.sound-toggle.sound-on {
 }
 
 
-/* V0.6F — adjustable control-room layout and map inspection */
+/* V0.6G — visible IDE-style workspace splitters */
+.workspace-shell {
+    --systems-width: 220px;
+    --inspector-width: 320px;
+    --event-height: 220px;
+    --map-height: clamp(460px, 62vh, 820px);
+    margin-top: .75rem;
+}
+
+.workspace-shell .operations-grid {
+    margin-top: 0;
+}
+
+.layout-splitter {
+    position: relative;
+    z-index: 30;
+    display: none;
+    flex: 0 0 auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    outline: none;
+    touch-action: none;
+}
+
+.layout-splitter::before,
+.layout-splitter::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+    transition: background .14s ease, box-shadow .14s ease, opacity .14s ease, transform .14s ease;
+}
+
+.layout-splitter-vertical {
+    width: 12px;
+    min-width: 12px;
+    cursor: col-resize;
+}
+
+.layout-splitter-vertical::before {
+    top: 8px;
+    bottom: 8px;
+    left: 5px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--line-bright);
+    opacity: .72;
+}
+
+.layout-splitter-vertical::after {
+    top: 50%;
+    left: 3px;
+    width: 6px;
+    height: 38px;
+    border: 1px solid var(--line-bright);
+    border-radius: 5px;
+    background: rgba(9, 24, 31, .96);
+    opacity: .78;
+    transform: translateY(-50%);
+}
+
+.layout-splitter-horizontal {
+    width: 100%;
+    height: 12px;
+    min-height: 12px;
+    cursor: row-resize;
+}
+
+.layout-splitter-horizontal::before {
+    top: 5px;
+    right: 8px;
+    left: 8px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--line-bright);
+    opacity: .72;
+}
+
+.layout-splitter-horizontal::after {
+    top: 3px;
+    left: 50%;
+    width: 38px;
+    height: 6px;
+    border: 1px solid var(--line-bright);
+    border-radius: 5px;
+    background: rgba(9, 24, 31, .96);
+    opacity: .78;
+    transform: translateX(-50%);
+}
+
+.layout-splitter:hover::before,
+.layout-splitter:focus-visible::before,
+.layout-splitter.is-active::before {
+    background: var(--accent);
+    box-shadow: 0 0 10px rgba(98, 229, 213, .55);
+    opacity: 1;
+}
+
+.layout-splitter:hover::after,
+.layout-splitter:focus-visible::after,
+.layout-splitter.is-active::after {
+    border-color: var(--accent);
+    background: rgba(18, 49, 54, .98);
+    box-shadow: 0 0 0 2px rgba(98, 229, 213, .12);
+    opacity: 1;
+}
+
+.layout-splitter:focus-visible {
+    box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.workspace-shell.is-resizing .station-map,
+.workspace-shell.is-resizing .crew-token {
+    pointer-events: none;
+}
+
+.layout-reset {
+    white-space: nowrap;
+}
+
+.map-splitter {
+    border-top: 1px solid rgba(39, 69, 82, .55);
+    border-bottom: 1px solid rgba(39, 69, 82, .55);
+    background: rgba(5, 14, 19, .88);
+}
+
+.event-splitter {
+    margin: 0;
+}
+
 @media (min-width: 1181px) {
     .operations-grid {
-        grid-template-columns: auto minmax(480px, 1fr) auto;
+        grid-template-columns:
+            clamp(165px, var(--systems-width), 360px)
+            12px
+            minmax(480px, 1fr)
+            12px
+            clamp(250px, var(--inspector-width), 470px);
+        gap: 0;
     }
 
-    .systems-panel {
-        width: 220px;
-        min-width: 165px;
-        max-width: 360px;
-        resize: horizontal;
-        overflow: auto;
-    }
-
-    .inspector-panel {
-        width: 320px;
-        min-width: 250px;
-        max-width: 470px;
-        resize: horizontal;
-        overflow: auto;
+    .layout-splitter {
+        display: block;
     }
 
     .systems-panel,
     .inspector-panel {
+        width: auto;
         max-height: calc(100vh - 190px);
+        resize: none;
+        overflow: auto;
+    }
+
+    .station-map-viewport {
+        height: var(--map-height);
+        min-height: 360px;
+        max-height: 86vh;
+        resize: none;
+    }
+
+    .event-panel {
+        height: var(--event-height);
+        min-height: 140px;
+        max-height: 58vh;
+        margin-top: 0;
+        resize: none;
+        overflow: auto;
+    }
+
+    .event-panel .event-log {
+        max-height: none;
     }
 }
 
@@ -2988,7 +3135,7 @@ button.sound-toggle.sound-on {
     min-height: 360px;
     max-height: 86vh;
     overflow: auto;
-    resize: vertical;
+    resize: none;
     background: #03090d;
     scrollbar-color: var(--line-bright) #07121a;
     scrollbar-width: thin;
@@ -3016,7 +3163,7 @@ button.sound-toggle.sound-on {
 .event-panel {
     min-height: 140px;
     max-height: 58vh;
-    resize: vertical;
+    resize: none;
     overflow: auto;
 }
 
@@ -3025,6 +3172,10 @@ button.sound-toggle.sound-on {
 }
 
 @media (max-width: 1180px) {
+    .workspace-shell {
+        margin-top: .75rem;
+    }
+
     .systems-panel,
     .inspector-panel {
         width: auto;
@@ -3036,6 +3187,12 @@ button.sound-toggle.sound-on {
 
     .station-map-viewport {
         height: clamp(430px, 58vh, 700px);
+    }
+
+    .event-panel {
+        height: auto;
+        max-height: none;
+        margin-top: .75rem;
     }
 }
 
@@ -3049,6 +3206,10 @@ button.sound-toggle.sound-on {
         margin-left: 0;
     }
 
+    .layout-reset {
+        margin-left: auto;
+    }
+
     .station-map-viewport {
         height: 470px;
         min-height: 360px;
@@ -3060,7 +3221,15 @@ button.sound-toggle.sound-on {
     }
 
     .event-panel {
+        height: auto;
         resize: none;
         max-height: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .layout-splitter::before,
+    .layout-splitter::after {
+        transition: none;
     }
 }

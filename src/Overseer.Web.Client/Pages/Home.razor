@@ -60,6 +60,7 @@
         </section>
     }
 
+    <div id="overseer-workspace" class="workspace-shell">
     <div class="operations-grid">
         <aside class="systems-panel panel">
             <div class="panel-heading">
@@ -97,6 +98,15 @@
             </div>
         </aside>
 
+        <div class="layout-splitter layout-splitter-vertical"
+             data-splitter="systems"
+             role="separator"
+             aria-orientation="vertical"
+             aria-label="Resize Systems panel"
+             aria-valuemin="165"
+             aria-valuemax="360"
+             tabindex="0"></div>
+
         <main class="station-panel panel">
             <div class="panel-heading map-heading">
                 <div>
@@ -115,7 +125,11 @@
                     <button class="secondary zoom-readout" @onclick="ResetMapZoom" title="Reset map zoom">@MapZoomPercent%</button>
                     <button class="secondary mini" disabled="@(_mapZoom >= MaxMapZoom)" @onclick="ZoomIn" aria-label="Zoom map in">+</button>
                 </div>
-                <small>Scroll the deck while zoomed · drag side panel resize handles to reclaim map space.</small>
+                <small>Scroll while zoomed · drag the visible splitters to resize · layout is saved locally.</small>
+                <button type="button"
+                        class="secondary mini layout-reset"
+                        data-layout-reset
+                        title="Restore default panel and map sizes">RESET LAYOUT</button>
             </div>
 
             <div class="station-map-viewport">
@@ -210,11 +224,29 @@
                 </div>
             </div>
 
+            <div class="layout-splitter layout-splitter-horizontal map-splitter"
+                 data-splitter="map"
+                 role="separator"
+                 aria-orientation="horizontal"
+                 aria-label="Resize Station Overview map height"
+                 aria-valuemin="360"
+                 aria-valuemax="900"
+                 tabindex="0"></div>
+
             <div class="map-footer">
                 <span>Click a room or crew member to inspect it.</span>
                 <span>Crew disappear from the map when a camera feed is lost.</span>
             </div>
         </main>
+
+        <div class="layout-splitter layout-splitter-vertical"
+             data-splitter="inspector"
+             role="separator"
+             aria-orientation="vertical"
+             aria-label="Resize Inspector panel"
+             aria-valuemin="250"
+             aria-valuemax="470"
+             tabindex="0"></div>
 
         <aside class="inspector-panel panel">
             @if (SelectedCrew is { } selectedCrew)
@@ -483,6 +515,15 @@
         </aside>
     </div>
 
+    <div class="layout-splitter layout-splitter-horizontal event-splitter"
+         data-splitter="events"
+         role="separator"
+         aria-orientation="horizontal"
+         aria-label="Resize Event Stream"
+         aria-valuemin="140"
+         aria-valuemax="700"
+         tabindex="0"></div>
+
     <section class="event-panel panel">
         <div class="panel-heading">
             <div>
@@ -499,6 +540,7 @@
             }
         </div>
     </section>
+    </div>
 </div>
 
 @code {
@@ -586,6 +628,7 @@
     {
         if (firstRender)
         {
+            await JS.InvokeVoidAsync("overseerLayout.init", "#overseer-workspace");
             StartAutoClock();
         }
 
