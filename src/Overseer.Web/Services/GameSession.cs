@@ -44,6 +44,8 @@ public sealed class GameSession(
 
     public GameState State { get; private set; } = FacilitySeeder.CreateDefault();
 
+    public CampaignState Campaign { get; private set; } = new();
+
     public bool IsRunning => _clock.IsRunning;
 
     public int PoweredRoomCount =>
@@ -131,6 +133,7 @@ public sealed class GameSession(
     {
         _clock.Pause();
         _mindCursor = 0;
+        Campaign = new CampaignState();
         var crew = await _crewGenerator.GenerateAsync(cancellationToken);
         State = FacilitySeeder.CreateDefault(crew);
         _initialized = true;
@@ -153,9 +156,14 @@ public sealed class GameSession(
 
         _clock.Pause();
         _mindCursor = 0;
-        var crew = await _crewGenerator.GenerateAsync(cancellationToken);
+        CampaignProgressionSystem.CaptureCompletedMission(Campaign, State);
+
+        var continuingCrew = CampaignProgressionSystem.CreateContinuingCrew(Campaign);
+        var crew = continuingCrew ?? await _crewGenerator.GenerateAsync(cancellationToken);
         State = FacilitySeeder.CreateDefault(crew);
         ScenarioCatalog.Apply(State, scenario);
+        CampaignProgressionSystem.ApplyCarryOver(Campaign, State);
+        Campaign.CurrentScenarioId = scenario.Id;
         _initialized = true;
 
         Log($"DIRECTIVE PACKAGE LOADED — {scenario.Title}.");

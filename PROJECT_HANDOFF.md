@@ -3676,3 +3676,45 @@ After that, the next recommended architectural milestone is **persistent campaig
 Potential campaign carry-over includes only intentionally modelled long-term state such as compliance history, selected crew identity/relationships/memories, relevant Overseer credibility/suspicion, previous corporate performance, persistent equipment/provision consequences where appropriate, progressive `TruePurpose` reveal, and campaign endings.
 
 Do not retain arbitrary runtime objects between missions. Model explicit campaign state and deliberately transfer only fields that are supposed to persist.
+
+
+# V0.8D — PERSISTENT CAMPAIGN PROGRESSION & CONSEQUENCES — COMPLETED
+
+This milestone replaces mission-by-mission reseeding with an explicit campaign continuity model. It deliberately carries only authored long-term state; runtime navigation, jobs, intents, bubbles, investigation leads and other transient objects are rebuilt for each assignment.
+
+Implemented:
+
+* new `CampaignState` records mission history, cumulative sponsor compliance, reveal stage, crew continuity snapshots, equipment condition and provision stores
+* completed missions are captured idempotently; running missions are never snapshotted
+* the same crew identity, generated traits and skills continue between assignments in both Pages and Ollama/server sessions
+* pairwise relationship history, Overseer credibility and a damped portion of prior suspicion persist
+* only the eight highest-importance episodic memories per crew member carry forward, preventing unbounded campaign memory growth
+* crew health/presence consequences persist, so losses are campaign consequences rather than magically reset
+* station wear and food/water/nutrient stores carry forward explicitly by stable device/store identifiers
+* transient state such as `Intent`, `Movement`, maintenance/provisioning jobs and local room activity is intentionally not retained
+* campaign progression follows `ScenarioCatalog.Campaign` order and can identify the next incomplete assignment
+* corporate `TruePurpose` material is progressively declassified through Classified → Uneasy → Compromised → Exposed stages rather than exposed globally from mission one
+* both UIs show campaign assignment count, cumulative compliance, continuity explanation and only the sponsor-purpose fragments earned by the current reveal stage
+* RESET starts a genuinely new campaign; loading another assignment after a terminal result captures the completed mission before creating the fresh station
+* regression coverage verifies carry-over, idempotent capture, catalog progression, bounded memories, deliberate runtime-state reset and staged reveal
+
+Preserved invariants:
+
+* campaign persistence uses explicit snapshots rather than retaining arbitrary `GameState` / NPC runtime objects
+* `CurrentRoomId` remains authoritative within each mission
+* deterministic C# remains authoritative for physical results
+* LLMs still choose only high-level wants
+* Pages remains model/credential free
+* the existing investigation, airlock, door, upkeep, power, provisioning, suspicion and comms systems remain authoritative
+
+## Next recommended milestone
+
+Build the **campaign transition/endgame layer** on top of this explicit continuity model:
+
+1. make progression UX guide the player to the next unlocked assignment rather than treating the mission selector as an unrelated sandbox dropdown
+2. add campaign consequences/briefings that reference prior performance and surviving crew without leaking private NPC knowledge
+3. finish the corporate reveal using the staged declassification model
+4. add explicit campaign endings/branches for obeying the sponsor, exposing it to the crew, protecting Overseer at any cost, or accepting crew shutdown
+5. persist campaign state across browser/server restarts only after the in-memory transition semantics are stable; do not serialize arbitrary runtime `GameState`
+
+Workflow remains mandatory: **feature branch → implementation → tests/build/publish → PR → green CI → merge into main → verify GitHub Pages.**

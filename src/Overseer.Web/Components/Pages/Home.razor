@@ -159,6 +159,40 @@
                 </div>
             }
         </section>
+
+        @if (Session.Campaign.MissionHistory.Count > 0)
+        {
+            <section class="panel scenario-panel">
+                <div class="scenario-heading">
+                    <div>
+                        <span class="overline">CAMPAIGN CONTINUITY // @Session.Campaign.RevealStage</span>
+                        <strong>@Session.Campaign.MissionHistory.Count / @ScenarioCatalog.Campaign.Count ASSIGNMENTS RECORDED</strong>
+                        <span>
+                            Long-term crew relationships, selected memories, sponsor standing,
+                            station wear and provisions carry into the next assignment.
+                        </span>
+                    </div>
+                    <div class="scenario-score">
+                        <span>CAMPAIGN COMPLIANCE</span>
+                        <strong>@Session.Campaign.CumulativeCompliance.ToString("0")%</strong>
+                    </div>
+                </div>
+
+                @if (CampaignProgressionSystem.RevealedTruePurposes(Session.Campaign) is { Count: > 0 } revealedPurposes)
+                {
+                    <div class="scenario-objectives">
+                        @foreach (var purpose in revealedPurposes)
+                        {
+                            <div class="scenario-objective">
+                                <span>RECOVERED SPONSOR RECORD</span>
+                                <strong>DECLASSIFIED FRAGMENT</strong>
+                                <small>@purpose</small>
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+        }
     }
 
     <div id="overseer-workspace" class="workspace-shell">
