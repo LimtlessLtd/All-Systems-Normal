@@ -229,6 +229,61 @@ public sealed class BrowserMindSystem
                 missingConcern.Stage == MissingPersonConcernStage.Escalated ? 88 : 76);
         }
 
+        if (npc.PendingShutdownTeamInvitation is { } invitation
+            && ShouldJoinShutdownTeam(npc, invitation))
+        {
+            return Create(
+                state,
+                ActionKind.JoinShutdownTeam,
+                invitation.TeamId,
+                "Join the proposed Overseer isolation team.",
+                $"{invitation.FromNpcName} asked for coordinated help and I take the claim seriously enough to join.",
+                90);
+        }
+
+        if (npc.OverseerSuspicion >= 38
+            && FindInvestigationLead(state, npc) is { } investigationLead)
+        {
+            var leadRoom = state.Facility.Rooms[investigationLead.RoomId];
+            return Create(
+                state,
+                ActionKind.Investigate,
+                leadRoom.Id,
+                $"Investigate {leadRoom.Name}.",
+                investigationLead.Description,
+                npc.OverseerSuspicion >= 60 ? 91 : 74);
+        }
+
+        if (npc.OverseerSuspicion >= 65
+            && FindKnownShutdownMechanism(state, npc) is { } knownMechanism)
+        {
+            var team = FindShutdownTeam(state, npc, knownMechanism);
+            if (team is null || team.MemberIds.Count < knownMechanism.RequiredCrewCount)
+            {
+                var recruit = FindShutdownRecruit(state, npc, team);
+                if (recruit is not null)
+                {
+                    return Create(
+                        state,
+                        ActionKind.RecruitShutdownAlly,
+                        recruit.Name,
+                        $"Recruit {recruit.Name} to help isolate Overseer.",
+                        $"I verified {knownMechanism.Label}, but operating it safely requires coordinated crew.",
+                        94);
+                }
+            }
+            else
+            {
+                return Create(
+                    state,
+                    ActionKind.ShutdownOverseer,
+                    knownMechanism.Id,
+                    $"Reach {knownMechanism.Label} with the team and isolate Overseer.",
+                    "I have verified the hardware and enough crew have committed to the same plan.",
+                    98);
+            }
+        }
+
         if (CrewCounterplaySystem.HasRestorableProblem(state, currentRoom.Id)
             && repairSkill >= 55)
         {
@@ -337,6 +392,78 @@ public sealed class BrowserMindSystem
             "Stay alert and continue normal duties.",
             "Nothing feels urgent enough to interrupt my routine.",
             15);
+    }
+
+    private bool ShouldJoinShutdownTeam(
+        Npc npc,
+        ShutdownTeamInvitation invitation)
+    {
+        var trust = npc.Relationships.TryGetValue(
+            invitation.FromNpcName,
+            out var relationship)
+            ? relationship.Trust
+            : 50;
+
+        return npc.OverseerSuspicion >= 50 && trust >= 35;
+    }
+
+    private InvestigationLead? FindInvestigationLead(
+        GameState state,
+        Npc npc) =>
+        npc.InvestigationLeads.Values
+            .Where(lead =>
+                lead.Stage == InvestigationLeadStage.Open
+                && state.Facility.Rooms.ContainsKey(lead.RoomId)
+                && (npc.CurrentRoomId.Equals(lead.RoomId, StringComparison.OrdinalIgnoreCase)
+                    || _navigation.FindPath(
+                        state.Facility,
+                        npc.CurrentRoomId,
+                        lead.RoomId).Count >= 2))
+            .OrderByDescending(lead =>
+                lead.Id.Contains("team-claim", StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(lead =>
+                lead.Id.Contains("shutdown", StringComparison.OrdinalIgnoreCase))
+            .ThenBy(lead => lead.CreatedAt)
+            .FirstOrDefault();
+
+    private static ShutdownMechanism? FindKnownShutdownMechanism(
+        GameState state,
+        Npc npc) =>
+        state.ShutdownMechanisms
+            .Where(mechanism =>
+                mechanism.IsOnline
+                && npc.KnownShutdownMechanismIds.Contains(mechanism.Id))
+            .OrderBy(mechanism => mechanism.Id)
+            .FirstOrDefault();
+
+    private static ShutdownTeam? FindShutdownTeam(
+        GameState state,
+        Npc npc,
+        ShutdownMechanism mechanism) =>
+        state.ShutdownTeams.FirstOrDefault(team =>
+            team.IsActive
+            && team.MechanismId.Equals(mechanism.Id, StringComparison.OrdinalIgnoreCase)
+            && team.MemberIds.Contains(npc.Id));
+
+    private static Npc? FindShutdownRecruit(
+        GameState state,
+        Npc npc,
+        ShutdownTeam? team)
+    {
+        var excluded = team?.MemberIds ?? [];
+        return state.Crew
+            .Where(other =>
+                other.IsAlive
+                && other.IsPresent
+                && other.Id != npc.Id
+                && !excluded.Contains(other.Id)
+                && (team is null || !team.InvitedNpcIds.Contains(other.Id)))
+            .OrderByDescending(other =>
+                npc.Relationships.TryGetValue(other.Name, out var relation)
+                    ? relation.Trust + relation.Affinity
+                    : 100)
+            .ThenBy(other => other.Name)
+            .FirstOrDefault();
     }
 
     private static Room? FindPerceivedUnsafeAirlock(
