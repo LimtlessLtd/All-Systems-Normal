@@ -92,6 +92,14 @@ public sealed class IntentExecutionSystem
                     ExecuteDoorWorkIntent(state, npc, intent);
                     break;
 
+                case ActionKind.ShutdownRobot:
+                case ActionKind.IsolateRobotNetwork:
+                case ActionKind.DisableRobotCharging:
+                case ActionKind.DamageRobot:
+                case ActionKind.ReprogramRobot:
+                    ExecuteRobotCountermeasureIntent(state, npc, intent);
+                    break;
+
                 case ActionKind.Idle:
                     npc.CurrentAction = new NpcAction(
                         ActionKind.Idle,
@@ -117,6 +125,49 @@ public sealed class IntentExecutionSystem
                     };
                     break;
             }
+        }
+    }
+
+    private void ExecuteRobotCountermeasureIntent(
+        GameState state,
+        Npc npc,
+        NpcIntent intent)
+    {
+        var robot = RobotCountermeasureSystem.FindRobot(state, intent.TargetId);
+        if (robot is null || robot.IsDestroyed)
+        {
+            FailIntent(npc, "That robot is no longer an actionable target.");
+            return;
+        }
+
+        if (intent.Action is ActionKind.IsolateRobotNetwork
+            or ActionKind.DisableRobotCharging)
+        {
+            if (!npc.CurrentRoomId.Equals(
+                    RobotCountermeasureSystem.ControlRoomId,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                MoveTowardRoom(
+                    state,
+                    npc,
+                    intent,
+                    RobotCountermeasureSystem.ControlRoomId);
+                return;
+            }
+        }
+        else if (!RobotCountermeasureSystem.IsCoLocated(npc, robot))
+        {
+            MoveTowardRoom(state, npc, intent, robot.CurrentRoomId);
+            return;
+        }
+
+        if (_actions.TryApply(
+                state,
+                npc.Id,
+                new NpcAction(intent.Action, robot.Id, intent.Reason),
+                out _))
+        {
+            npc.Intent = null;
         }
     }
 
