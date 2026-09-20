@@ -1,6 +1,10 @@
 window.overseerAudio = (() => {
     let context = null;
     let enabled = false;
+    let musicEnabled = false;
+    let musicTimer = null;
+    let musicStep = 0;
+    let musicBus = null;
 
     const ensureContext = () => {
         if (!context) {
@@ -118,6 +122,99 @@ window.overseerAudio = (() => {
         }
     };
 
+    const ensureMusicBus = ctx => {
+        if (!musicBus) {
+            const filter = ctx.createBiquadFilter();
+            filter.type = "lowpass";
+            filter.frequency.value = 1350;
+            filter.Q.value = 0.35;
+
+            const gain = ctx.createGain();
+            gain.gain.value = 0.72;
+            filter.connect(gain);
+            gain.connect(ctx.destination);
+
+            musicBus = { filter, gain };
+        }
+
+        return musicBus;
+    };
+
+    const padTone = (ctx, frequency, delay, duration, gainAmount, type = "sine") => {
+        const bus = ensureMusicBus(ctx);
+        const start = ctx.currentTime + delay;
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        oscillator.type = type;
+        oscillator.frequency.setValueAtTime(frequency, start);
+
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(gainAmount, start + 1.35);
+        gain.gain.setValueAtTime(gainAmount, start + Math.max(1.5, duration - 2.1));
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+
+        oscillator.connect(gain);
+        gain.connect(bus.filter);
+        oscillator.start(start);
+        oscillator.stop(start + duration + 0.05);
+    };
+
+    const playAmbientChord = (ctx, frequencies, step) => {
+        const duration = 7.8;
+        frequencies.forEach((frequency, index) => {
+            padTone(
+                ctx,
+                frequency,
+                index * 0.08,
+                duration,
+                index === 0 ? 0.010 : 0.0065,
+                index === 0 ? "sine" : "triangle");
+        });
+
+        // A very quiet upper note every other chord keeps the loop musical
+        // without turning the station ambience into a foreground soundtrack.
+        if (step % 2 === 0) {
+            padTone(ctx, frequencies[2] * 2, 1.2, 4.8, 0.0026, "sine");
+        }
+    };
+
+    const scheduleMusicPhrase = () => {
+        if (!musicEnabled) return;
+
+        const ctx = ensureContext();
+        if (!ctx || ctx.state !== "running") return;
+
+        const progression = [
+            [146.83, 220.00, 293.66], // Dm/A
+            [116.54, 174.61, 261.63], // Bb/F
+            [130.81, 196.00, 261.63], // F/C
+            [130.81, 196.00, 293.66]  // C/G/D suspension
+        ];
+
+        const chord = progression[musicStep % progression.length];
+        playAmbientChord(ctx, chord, musicStep);
+        musicStep = (musicStep + 1) % progression.length;
+
+        musicTimer = window.setTimeout(scheduleMusicPhrase, 6200);
+    };
+
+    const stopMusic = () => {
+        if (musicTimer !== null) {
+            window.clearTimeout(musicTimer);
+            musicTimer = null;
+        }
+
+        if (musicBus && context) {
+            const now = context.currentTime;
+            musicBus.gain.gain.cancelScheduledValues(now);
+            musicBus.gain.gain.setValueAtTime(
+                Math.max(0.0001, musicBus.gain.gain.value),
+                now);
+            musicBus.gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.0);
+        }
+    };
+
     const setEnabled = async value => {
         enabled = !!value;
         if (!enabled) return true;
@@ -142,5 +239,43 @@ window.overseerAudio = (() => {
         return false;
     };
 
-    return { play, setEnabled };
+    const setMusicEnabled = async value => {
+        const next = !!value;
+
+        if (!next) {
+            musicEnabled = false;
+            stopMusic();
+            return true;
+        }
+
+        const ctx = ensureContext();
+        if (!ctx) return false;
+
+        if (ctx.state === "suspended") {
+            try {
+                await ctx.resume();
+            } catch {
+                return false;
+            }
+        }
+
+        if (ctx.state !== "running") return false;
+
+        musicEnabled = true;
+        const bus = ensureMusicBus(ctx);
+        const now = ctx.currentTime;
+        bus.gain.gain.cancelScheduledValues(now);
+        bus.gain.gain.setValueAtTime(
+            Math.max(0.0001, bus.gain.gain.value),
+            now);
+        bus.gain.gain.exponentialRampToValueAtTime(0.72, now + 0.8);
+
+        if (musicTimer === null) {
+            scheduleMusicPhrase();
+        }
+
+        return true;
+    };
+
+    return { play, setEnabled, setMusicEnabled };
 })();
