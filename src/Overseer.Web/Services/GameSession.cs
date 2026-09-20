@@ -153,6 +153,25 @@ public sealed class GameSession(
         _initialized = true;
     }
 
+    public async Task RegenerateStationAsync(
+        int? seed = null,
+        CancellationToken cancellationToken = default)
+    {
+        _clock.Pause();
+        _mindCursor = 0;
+
+        var scenario = State.Scenario ?? ScenarioCatalog.SecureContinuity;
+        var crew = await _crewGenerator.GenerateAsync(cancellationToken);
+        State = FacilitySeeder.CreateDefault(
+            crew,
+            stationSeed: seed,
+            stationConstraints: scenario.StationConstraints);
+        ScenarioCatalog.Apply(State, scenario);
+        CampaignProgressionSystem.ApplyCarryOver(Campaign, State);
+        Campaign.CurrentScenarioId = scenario.Id;
+        _initialized = true;
+    }
+
     public void CaptureCampaignProgress() =>
         CampaignProgressionSystem.CaptureCompletedMission(Campaign, State);
 
@@ -171,12 +190,15 @@ public sealed class GameSession(
 
         var continuingCrew = CampaignProgressionSystem.CreateContinuingCrew(Campaign);
         var crew = continuingCrew ?? await _crewGenerator.GenerateAsync(cancellationToken);
-        State = FacilitySeeder.CreateDefault(crew);
 
         var next = CampaignProgressionSystem.NextScenario(Campaign);
         var last = Campaign.MissionHistory.LastOrDefault();
         var scenario = next
             ?? (last is null ? null : ScenarioCatalog.Find(last.ScenarioId));
+
+        State = FacilitySeeder.CreateDefault(
+            crew,
+            stationConstraints: scenario?.StationConstraints);
 
         if (scenario is not null)
         {
@@ -222,7 +244,9 @@ public sealed class GameSession(
 
         var continuingCrew = CampaignProgressionSystem.CreateContinuingCrew(Campaign);
         var crew = continuingCrew ?? await _crewGenerator.GenerateAsync(cancellationToken);
-        State = FacilitySeeder.CreateDefault(crew);
+        State = FacilitySeeder.CreateDefault(
+            crew,
+            stationConstraints: scenario.StationConstraints);
         ScenarioCatalog.Apply(State, scenario);
         CampaignProgressionSystem.ApplyCarryOver(Campaign, State);
         Campaign.CurrentScenarioId = scenario.Id;
