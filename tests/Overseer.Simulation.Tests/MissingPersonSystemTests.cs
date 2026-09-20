@@ -119,7 +119,10 @@ public sealed class MissingPersonSystemTests
 
         Assert.DoesNotContain(marcus.Id, sarah.MissingPersonConcerns.Keys);
 
-        sarah.CurrentRoomId = nadia.CurrentRoomId;
+        // Meet somewhere that is not Marcus' expected duty room so Sarah
+        // cannot independently infer the absence before Nadia tells her.
+        nadia.CurrentRoomId = "control";
+        sarah.CurrentRoomId = "control";
         state.Elapsed = TimeSpan.FromMinutes(35);
         system.Tick(state);
 
