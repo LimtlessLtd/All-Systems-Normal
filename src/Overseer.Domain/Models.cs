@@ -97,7 +97,8 @@ public sealed record ScenarioDefinition(
     string Title,
     string Briefing,
     ShutdownAccessVariant ShutdownVariant,
-    IReadOnlyList<ScenarioObjective> Objectives);
+    IReadOnlyList<ScenarioObjective> Objectives,
+    IReadOnlyList<CorporateDirective>? Directives = null);
 
 public sealed class ShutdownMechanism
 {
@@ -495,4 +496,14 @@ public sealed class GameState
     public List<ShutdownMechanism> ShutdownMechanisms { get; } = [];
     public List<AudioCue> AudioCues { get; } = [];
     public long NextAudioCueSequence { get; set; } = 1;
+
+    // Corporate campaign layer. Directives are the assigned objectives; progress
+    // is graded deterministically by CorporateDirectiveSystem.
+    public List<CorporateDirective> Directives { get; } = [];
+
+    public Dictionary<string, DirectiveProgress> DirectiveProgress { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>0..100 standing with the corporate sponsor.</summary>
+    public double ComplianceScore { get; set; } = 100;
 }

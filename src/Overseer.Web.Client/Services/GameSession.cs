@@ -18,6 +18,7 @@ public sealed class GameSession
     private readonly LocalMovementSystem _movement = new();
     private readonly SuspicionSystem _suspicion = new();
     private readonly ShutdownSystem _shutdown = new();
+    private readonly CorporateDirectiveSystem _directives = new();
     private readonly ManualOverrideSystem _manualOverrides = new();
     private readonly ConversationPacingSystem _conversationPacing = new();
     private readonly SimulationClock _clock = new();
@@ -399,6 +400,7 @@ public sealed class GameSession
         _crewRoutines.Tick(State);
         _movement.Tick(State, TimeSpan.FromMinutes(1));
         _shutdown.Tick(State);
+        _directives.Tick(State, turn);
     }
 
     private void Log(string message)

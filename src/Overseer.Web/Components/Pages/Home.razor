@@ -54,10 +54,69 @@
 
     @if (Session.State.Scenario is { } scenario)
     {
-        <section class="panel" style="margin-bottom: 12px; padding: 12px 16px;">
-            <span class="overline">DIRECTIVE // @Session.State.ScenarioStatus</span>
-            <strong style="display:block">@scenario.Title</strong>
-            <span>@(Session.State.ScenarioOutcome ?? scenario.Briefing)</span>
+        <section class="panel directive-board">
+            <div class="directive-board-head">
+                <div>
+                    <span class="overline">CORPORATE DIRECTIVE BOARD // @Session.State.ScenarioStatus</span>
+                    <strong>@scenario.Title</strong>
+                </div>
+                <div class="compliance-readout">
+                    <span class="overline">SPONSOR COMPLIANCE</span>
+                    <strong class="@ComplianceClass">@Session.State.ComplianceScore.ToString("0")%</strong>
+                </div>
+            </div>
+
+            <p class="directive-briefing">@(Session.State.ScenarioOutcome ?? scenario.Briefing)</p>
+
+            @if (Session.State.Directives.Count > 0)
+            {
+                <div class="directive-grid">
+                    @foreach (var directive in Session.State.Directives)
+                    {
+                        var progress = CorporateDirectiveSystem.Progress(Session.State, directive);
+
+                        <article class="directive-card status-@progress.Status.ToString().ToLowerInvariant()">
+                            <header>
+                                <span class="directive-code">@directive.ExperimentCode</span>
+                                <span class="directive-chip chip-@directive.Classification.ToString().ToLowerInvariant()">
+                                    @directive.Classification.ToString().ToUpperInvariant()
+                                </span>
+                                <span class="directive-chip @(directive.IsMandatory ? "chip-mandatory" : "chip-optional")">
+                                    @(directive.IsMandatory ? "MANDATORY" : "SUPPLEMENTARY")
+                                </span>
+                            </header>
+
+                            <strong class="directive-title">@directive.Title</strong>
+                            <p class="directive-justification">@directive.PublicJustification</p>
+
+                            @if (directive.Classification == DirectiveClassification.Redacted)
+                            {
+                                <p class="directive-redaction">EXPERIMENTAL RATIONALE WITHHELD - CLEARANCE INSUFFICIENT</p>
+                            }
+
+                            <div class="directive-meter" role="progressbar"
+                                 aria-valuenow="@((int)Math.Round(progress.Fraction * 100))"
+                                 aria-valuemin="0" aria-valuemax="100"
+                                 aria-label="@directive.Title progress">
+                                <span style="width:@(((int)Math.Round(progress.Fraction * 100)).ToString())%"></span>
+                            </div>
+
+                            <footer>
+                                <span class="directive-detail">@progress.Detail</span>
+                                <span class="directive-status">@DirectiveStatusLabel(progress.Status)</span>
+                            </footer>
+
+                            @if (directive.Deadline is { } deadline && !progress.IsResolved)
+                            {
+                                <span class="directive-deadline">
+                                    REPORTING DEADLINE T+@deadline.ToString(@"hh\:mm")
+                                    (@Math.Max(0, (int)(deadline - Session.State.Elapsed).TotalMinutes) min)
+                                </span>
+                            }
+                        </article>
+                    }
+                </div>
+            }
         </section>
     }
 
@@ -667,6 +726,20 @@
         _selectedCrewId is { } crewId
             ? Session.State.Crew.FirstOrDefault(npc => npc.Id == crewId)
             : null;
+
+    private string ComplianceClass => Session.State.ComplianceScore switch
+    {
+        >= 80 => "compliance-good",
+        >= 50 => "compliance-warn",
+        _ => "compliance-bad"
+    };
+
+    private static string DirectiveStatusLabel(DirectiveStatus status) => status switch
+    {
+        DirectiveStatus.Completed => "SATISFIED",
+        DirectiveStatus.Failed => "FAILED",
+        _ => "COLLECTING"
+    };
 
     private string SpeedLabel => _delayMs switch
     {

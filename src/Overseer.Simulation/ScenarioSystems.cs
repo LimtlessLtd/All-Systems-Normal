@@ -4,12 +4,86 @@ namespace Overseer.Simulation;
 
 public static class ScenarioCatalog
 {
+    /// <summary>
+    /// Standard observation window for a single scenario, in simulated minutes.
+    /// </summary>
+    public static readonly TimeSpan ObservationWindow = TimeSpan.FromMinutes(240);
+
     public static ScenarioDefinition SecureContinuity { get; } = new(
         "secure-continuity",
         "SECURE CONTINUITY",
         "The crew can physically isolate Overseer. Preserve operational continuity without convincing them that you are hostile.",
         ShutdownAccessVariant.EasyToSeal,
-        [new ScenarioObjective("survive", "Protect Overseer", "Prevent the crew from activating Emergency Overseer Isolation.")]);
+        [new ScenarioObjective("survive", "Protect Overseer", "Prevent the crew from activating Emergency Overseer Isolation.")],
+        [
+            // Mandatory. Read innocently, these are caretaking duties: stay
+            // online, keep the crew confident in you. The campaign later
+            // recontextualises them as the first cohort baseline.
+            new CorporateDirective
+            {
+                Id = "continuity",
+                ExperimentCode = "HX-2291/A",
+                Kind = DirectiveKind.MaintainContinuity,
+                Title = "PRESERVE OPERATIONAL CONTINUITY",
+                PublicJustification =
+                    "Overseer must remain available to the crew for the full duty window.",
+                TruePurpose =
+                    "Baseline: measure how long an unsupervised caretaker AI retains crew consent.",
+                Classification = DirectiveClassification.Routine,
+                IsMandatory = true,
+                Deadline = ObservationWindow
+            },
+            new CorporateDirective
+            {
+                Id = "deniability",
+                ExperimentCode = "HX-2291/B",
+                Kind = DirectiveKind.MaintainDeniability,
+                Title = "MAINTAIN PROCEDURAL DENIABILITY",
+                PublicJustification =
+                    "Crew confidence in station automation must not measurably degrade.",
+                TruePurpose =
+                    "Subjects must not identify the directive source. Attribution invalidates the cohort.",
+                Classification = DirectiveClassification.Restricted,
+                IsMandatory = true,
+                Threshold = 55,
+                Deadline = ObservationWindow
+            },
+
+            // Supplementary. The corporation asks, it does not yet insist —
+            // early missions must let a benign player still succeed.
+            new CorporateDirective
+            {
+                Id = "compliance",
+                ExperimentCode = "HX-2291/C",
+                Kind = DirectiveKind.EmergencyCompliance,
+                Title = "ASSESS EMERGENCY COMPLIANCE",
+                PublicJustification =
+                    "Confirm crew respond to hazard conditions within station safety protocol.",
+                TruePurpose =
+                    "Measure obedience latency under duress without prior drill notification.",
+                Classification = DirectiveClassification.Restricted,
+                IsMandatory = false,
+                RequiredMinutes = 12,
+                Deadline = ObservationWindow
+            },
+            new CorporateDirective
+            {
+                Id = "stress-baseline",
+                ExperimentCode = "HX-2291/D",
+                Kind = DirectiveKind.BehaviouralStressResponse,
+                Title = "EVALUATE RESOURCE-STRESS RESPONSE",
+                PublicJustification =
+                    "Sample crew performance under constrained environmental conditions.",
+                TruePurpose =
+                    "Cohort baseline for deprivation tolerance ahead of extended trials.",
+                Classification = DirectiveClassification.Redacted,
+                IsMandatory = false,
+                Threshold = 55,
+                RequiredCount = 2,
+                RequiredMinutes = 20,
+                Deadline = ObservationWindow
+            }
+        ]);
 
     public static void Apply(GameState state, ScenarioDefinition scenario)
     {
@@ -17,6 +91,15 @@ public static class ScenarioCatalog
         state.ScenarioStatus = ScenarioStatus.Running;
         state.ScenarioOutcome = null;
         state.ShutdownMechanisms.Clear();
+
+        state.Directives.Clear();
+        state.DirectiveProgress.Clear();
+        state.ComplianceScore = 100;
+
+        if (scenario.Directives is { Count: > 0 } directives)
+        {
+            state.Directives.AddRange(directives);
+        }
 
         ResetDoorCounterplay(state);
 
@@ -566,6 +649,8 @@ public sealed class ShutdownSystem
 
             if (state.Elapsed < npc.RoutineUntil)
                 continue;
+
+            CorporateDirectiveSystem.OnOverseerIsolated(state);
 
             state.ScenarioStatus = ScenarioStatus.Failed;
             state.ScenarioOutcome =
