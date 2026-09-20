@@ -58,9 +58,37 @@ public sealed class ActionResolver
             ActionKind.ForceDoor => TryForceDoor(state, npc, action, out message),
             ActionKind.RestoreSystem => TryRestoreSystem(state, npc, action, out message),
             ActionKind.SecureAirlock => TrySecureAirlock(state, npc, action, out message),
+            ActionKind.RepairDoor => TryDoorWork(state, npc, action, "repair", out message),
+            ActionKind.WeldDoor => TryDoorWork(state, npc, action, "weld", out message),
+            ActionKind.BarricadeDoor => TryDoorWork(state, npc, action, "barricade", out message),
             ActionKind.Idle => SetAction(state, npc, action, "waits", out message),
             _ => Fail("Unsupported action.", out message)
         };
+    }
+
+    private static bool TryDoorWork(GameState state, Npc npc, NpcAction action, string verb, out string message)
+    {
+        var door = state.Facility.Doors.FirstOrDefault(candidate =>
+            candidate.Id.Equals(action.TargetId, StringComparison.OrdinalIgnoreCase));
+
+        if (door is null)
+        {
+            message = "Target hatch does not exist.";
+            return false;
+        }
+
+        if (!door.RoomAId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
+            && !door.RoomBId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
+        {
+            message = $"{npc.Name} must be beside {door.Id} to {verb} it.";
+            return false;
+        }
+
+        npc.CurrentAction = action;
+        npc.RoutineUntil = TimeSpan.Zero;
+        message = $"{npc.Name} prepares to {verb} {door.Id}.";
+        Log(state, message);
+        return true;
     }
 
     private static bool TryMove(
