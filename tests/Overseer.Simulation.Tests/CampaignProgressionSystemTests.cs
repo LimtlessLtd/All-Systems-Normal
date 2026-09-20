@@ -259,7 +259,8 @@ public sealed class CampaignProgressionSystemTests
             memory => memory.Description.Contains("campaign memory", StringComparison.OrdinalIgnoreCase));
 
         Assert.DoesNotContain("Transient search", json, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("lighting:medical", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ServicingDeviceId", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("CurrentAction", json, StringComparison.OrdinalIgnoreCase);
         Assert.Null(CampaignStateSerializer.Deserialize("{not-json"));
     }
 
