@@ -133,7 +133,11 @@ public sealed class EnvironmentSystem
             state.LifeSupport.IsOnline
             && state.LifeSupport.OxygenReservePercent > 0
             && room.IsPowered
-            && room.VentilationEnabled;
+            && room.VentilationEnabled
+            // The airlock pressure pump owns chamber pressure during an
+            // intentional depressurization cycle; the central air loop must
+            // not simultaneously fight that operation.
+            && room.AirlockCycleMode != AirlockCycleMode.Depressurizing;
 
         if (ventilationActive)
         {
