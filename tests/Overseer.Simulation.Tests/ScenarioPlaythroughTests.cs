@@ -29,6 +29,7 @@ public sealed class ScenarioPlaythroughTests
         private readonly ShutdownSystem _shutdown = new();
         private readonly ManualOverrideSystem _manualOverrides = new();
         private readonly ConversationPacingSystem _conversationPacing = new();
+        private readonly ScenarioProgressSystem _scenarioProgress = new();
         private readonly CorporateDirectiveSystem _directives = new();
         private readonly SuspicionDynamicsSystem _suspicionDynamics = new();
 
@@ -54,6 +55,7 @@ public sealed class ScenarioPlaythroughTests
             _crewRoutines.Tick(state);
             _movement.Tick(state, Minute);
             _shutdown.Tick(state);
+            _scenarioProgress.Tick(state, Minute);
             _suspicionDynamics.Tick(state, Minute);
             _directives.Tick(state, Minute);
         }

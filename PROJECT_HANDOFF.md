@@ -8,7 +8,7 @@ Playable GitHub Pages build:
 
 https://limtlessltd.github.io/All-Systems-Normal/
 
-The project is currently at **V0.6F — Map Inspection, Resizable UI & Ambient Music**. V0.6E established real exterior-airlock decompression, body discovery, generated crew traits and LLM-selected human door/repair counterplay; V0.6F adds map zoom, resizable control-room regions and chilled procedural ambient music.
+The project is currently at **V0.6C — Investigation, Discovery & Scenario Success**, implemented after the V0.6G–V0.6J counterplay sequence. The current simulation includes grounded missing-person reasoning, pressure-cycled airlock safety, persistent damaged-door counterplay, observer-specific investigation/evidence, physically discovered shutdown controls, coordinated shutdown teams, and explicit scenario success/objective scoring.
 
 The current `main` branch therefore contains substantially more functionality than the older V0.4 notes below. Treat the "Implemented Versions" and "Immediate Task" sections in this document as the authoritative roadmap summary, but still inspect the repository before changing code.
 
@@ -3215,10 +3215,265 @@ Preserved invariants:
 * stable Blazor @key identity is unchanged
 * V0.6H missing-person reasoning and V0.6I airlock safety remain perception-limited
 
-# NEXT IMMEDIATE MILESTONE — V0.6C INVESTIGATION, DISCOVERY & SCENARIO SUCCESS
+# V0.6C — INVESTIGATION, DISCOVERY & SCENARIO SUCCESS — COMPLETED
 
-The next agent should implement the scenario-facing investigation loop: grounded evidence discovery, escalating crew investigation, explicit objective/success/failure evaluation, and readable player feedback without giving NPCs omniscient knowledge.
+This milestone turns the earlier suspicion/shutdown prototype into a grounded investigation and countermeasure loop while preserving the central authority rule:
 
+> **The LLM decides what an NPC WANTS to do. Deterministic C# decides what the NPC CAN do.**
+
+## Structured evidence and provenance
+
+`OverseerEvidence` now carries structured provenance in addition to its human-readable description:
+
+* `EvidenceOrigin`: DirectObservation, PhysicalDiscovery, Testimony or Inference
+* physical/source location when one is genuinely known
+* stable evidence/root IDs so the same underlying event cannot endlessly amplify through repeated retelling
+* source NPC for testimony
+* reliability, which reduces the effect of second-hand claims
+
+Direct observations and physical discoveries can create `InvestigationLead` records. A lead is deliberately a hypothesis/location worth checking, **not hidden truth**.
+
+Witness-only local sabotage evidence is now generated for disruptive Overseer actions such as:
+
+* local power cuts
+* lighting shutdown
+* camera shutdown
+* climate-control shutdown
+* ventilation isolation
+* shutdown-route restrictions
+* unsafe exterior-airlock operation
+* safety-interlock bypass
+
+Only crew physically able to perceive the relevant local event receive that direct evidence. Distant crew do not.
+
+Missing-person/airlock causal reasoning now records an Inference linked back to the original direct airlock evidence rather than flattening both into the same evidence type.
+
+## Grounded investigation
+
+New shared `InvestigationSystem` is used by both Pages and Ollama/server sessions.
+
+Investigation works physically:
+
+1. an NPC forms an `Investigate` intention toward a known lead/location
+2. normal deterministic A* and movement must get them there
+3. the NPC must actually be in that authoritative `CurrentRoomId`
+4. inspection takes simulated time
+5. deterministic C# resolves what is physically present and discoverable
+
+Remote investigation cannot reveal hardware.
+
+Investigating a room can currently verify:
+
+* real Overseer isolation/shutdown hardware
+* visible persistent hatch damage
+* technical door bypass state
+* compromised local airlock safety state
+
+A completed investigation records a structured `KnowledgeDiscovery` and can trigger event-driven reconsideration.
+
+## Shutdown hardware is no longer seeded knowledge
+
+Role alone no longer means an NPC magically knows a shutdown control exists.
+
+Exact observer knowledge is now represented by:
+
+`KnownShutdownMechanismIds`
+
+The older `KnowsShutdownControl` boolean remains only as a compatibility/readability convenience and is set after a real discovery. Deterministic shutdown validation uses the exact mechanism ID set.
+
+Commander/Engineer can begin with a procedural **lead** that emergency isolation hardware should be physically verified, but this is not knowledge that the hardware exists.
+
+For redundant-shutdown scenarios:
+
+* discovering one real control does not reveal the second control as fact
+* the first physical control can expose a grounded redundancy clue
+* that clue creates a lead to the second location
+* the second control still has to be physically investigated and verified
+* cognition reasons only over controls that the individual NPC actually knows
+
+## Evidence sharing and claims
+
+Specific evidence can spread only through co-located, trust-gated conversation.
+
+Second-hand evidence:
+
+* is marked Testimony
+* names its source
+* links to the original root evidence
+* has reduced reliability/weight
+* cannot repeatedly bounce between people for unlimited suspicion gain
+* can create a lead to verify the claimed location
+
+A trusted NPC who says they found isolation hardware can give another NPC a **claim/lead** to that location. It does not copy `KnownShutdownMechanismIds`.
+
+## Coordinated shutdown teams
+
+The previous behaviour where every convinced NPC could independently decide to rush shutdown hardware has been replaced by explicit coordination.
+
+New concepts:
+
+* `ShutdownTeam`
+* `ShutdownTeamInvitation`
+* `RecruitShutdownAlly`
+* `JoinShutdownTeam`
+
+Flow:
+
+1. a suspicious NPC must personally know a real shutdown control
+2. if the control requires multiple crew, they may decide to recruit someone they trust
+3. recruitment requires the humans to physically meet
+4. the listener receives a social invitation plus a claim about the target location
+5. accepting the team does **not** transfer verified control knowledge
+6. the recruit can physically investigate the claimed location
+7. once enough committed crew exist, the team can converge on the same verified mechanism
+8. the shutdown action still requires the required number of team members physically present in the mechanism room for the full deterministic activation time
+
+The tutorial shutdown mechanism now requires two coordinated crew.
+
+This preserves visible player counterplay: routes can still be sealed, overridden, damaged, repaired, welded or barricaded under the existing deterministic door rules.
+
+## Ollama / browser cognition
+
+Both cognition paths now understand the same grounded loop.
+
+The browser/fallback minds can:
+
+* investigate open leads
+* accept a credible shutdown-team invitation
+* recruit an ally after personally verifying a control
+* pursue a coordinated shutdown only when team requirements are met
+
+The Ollama prompt now explicitly separates:
+
+* **OPEN INVESTIGATION LEADS** — hypotheses/locations worth checking
+* **VERIFIED SHUTDOWN CONTROLS** — controls this NPC personally knows exist
+* **SHUTDOWN TEAM** — known social coordination state
+* **PENDING TEAM INVITATION** — a teammate's claim, explicitly not physical verification
+
+Ollama may choose `RecruitShutdownAlly`, `JoinShutdownTeam` or `ShutdownOverseer`, but validation rejects:
+
+* invented shutdown mechanism IDs
+* unverified shutdown hardware
+* fake team invitations
+* shutdown attempts without a sufficiently committed team
+
+Deterministic C# still owns all physical validation and results.
+
+## Scenario success, optional objectives and scoring
+
+The default **SECURE CONTINUITY** scenario now has a real success condition rather than only a failure state.
+
+Primary objective:
+
+* remain operational for 60 simulated minutes without successful crew isolation
+
+Optional objectives:
+
+* keep all six crew aboard/alive
+* keep primary life support online for at least 95% of the scenario
+
+`ScenarioProgressSystem` tracks objective progress and evaluates success after shutdown resolution each turn, so a successful crew isolation on the same turn still takes precedence over player victory.
+
+`ExperimentTelemetry` tracks structured run statistics including:
+
+* simulated time
+* life-support uptime
+* completed investigations
+* shutdown controls discovered
+* evidence shared
+* shutdown teams formed
+* shutdown attempts
+* restrictive door commands
+* airlock-safety bypasses
+* experiment score
+
+The player-facing directive panel in both UIs shows:
+
+* scenario state
+* primary/optional objective progress
+* final outcome
+* experiment score
+
+It deliberately does **not** globally list which private facts each NPC knows. Detailed evidence/investigation state remains associated with the selected individual crew member, continuing the existing crew-inspector pattern.
+
+## Regression coverage added/updated
+
+Coverage now verifies:
+
+* default crew do not begin with omniscient shutdown-control knowledge
+* route restrictions create evidence only for physical observers
+* suspicion without verified hardware creates an investigation lead rather than a magical shutdown goal
+* remote investigation cannot discover a shutdown mechanism
+* physical investigation requires simulated time before discovery
+* redundant shutdown discovery creates a lead, not knowledge, for the second control
+* testimony preserves source/root provenance and does not transfer physical hardware knowledge
+* witnessed local system disruption creates a local lead without informing distant crew
+* recruitment requires grounded coordination
+* joining a team does not grant hardware knowledge
+* shutdown requires exact control knowledge, a sufficiently large team, physical team presence and activation time
+* crew-overridable shutdown routes still use real manual-door counterplay
+* scenario primary success and optional objectives are evaluated and scored
+* Ollama rejects invented shutdown controls and accepts a personally verified coordinated target
+* prompts clearly separate leads/claims from verified shutdown knowledge
+
+Existing V0.6H missing-person, V0.6I airlock, V0.6J door-counterplay, A*, local movement, environment and UI identity tests remain part of the full suite.
+
+## Current gameplay state / invariants
+
+Preserve these rules going forward:
+
+* `CurrentRoomId` remains authoritative containment
+* stable Blazor `@key` identity remains mandatory
+* navigation and hatch traversal remain deterministic
+* `Door.IsPassable` remains the physical navigation authority
+* an investigation lead is not a fact
+* testimony is not direct observation
+* joining a team does not transfer physical knowledge
+* exact `KnownShutdownMechanismIds` are observer-specific
+* shutdown requires real physical hardware, route access, team presence and time
+* the global objective UI must not become a private-NPC knowledge dump
+* Pages and Ollama/server use the same authoritative investigation/scenario state
+* LLMs choose intentions only; deterministic simulation mutates reality
+
+# NEXT RECOMMENDED MILESTONE — LOCAL MOVEMENT & READABILITY POLISH
+
+With perception, survival, investigation and human counterplay now substantially grounded, the next highest-value pass is moment-to-moment physical readability rather than another large strategic subsystem.
+
+Recommended priorities:
+
+1. **Selected-NPC route overlay**
+   * show the actual intended A* route for the selected crew member
+   * derive it from current authoritative intent/movement state
+   * never let the rendering layer invent or alter navigation
+
+2. **Two-way local steering / occupancy avoidance**
+   * reduce crew overlap inside rooms and connector corridors
+   * allow opposing traffic to pass naturally
+   * keep `CurrentRoomId` and deterministic portal crossing authoritative
+
+3. **Fixture interaction anchors**
+   * make existing `RoomFixture` interaction coordinates the real local destinations for work, eating, sleeping, showering, toilet use, consoles and seating
+   * avoid separate animation-only fake positions
+
+4. **Visible furniture-use poses**
+   * sit at chairs/sofas
+   * lie in bunks/medical beds
+   * face/use consoles and workbenches
+   * stand at showers/toilets/sinks appropriately
+   * keep poses presentation-driven from authoritative activity state
+
+5. **Conversation positioning/facing**
+   * people should approach and face one another rather than stacking on the same point
+
+After that, continue approximately:
+
+**Food / Consumable Resources → Private Messaging / Claims / Social Manipulation → Robots / Security / Human Countermeasures → Corporate Experiment Campaign Layer.**
+
+The new V0.6C provenance and claim structures should be reused for the future private-messaging/social-manipulation milestone rather than creating a second incompatible information model.
+
+Workflow rule remains mandatory:
+
+**feature branch → implementation → full tests/build/publish → PR → green CI → merge into `main` → verify GitHub Pages.**
 Workflow rule: work on a feature branch, open a PR, require green CI, merge completed work into main, then verify the GitHub Pages deployment before handoff.
 
 

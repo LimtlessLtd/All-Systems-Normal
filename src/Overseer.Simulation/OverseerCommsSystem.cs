@@ -344,9 +344,9 @@ public sealed class OverseerCommsSystem
             npc,
             $"Overseer told me \"{Shorten(claim.Statement)}\" and I have seen for myself that it was not true.",
             cost,
-            origin: EvidenceOrigin.Direct,
+            origin: EvidenceOrigin.DirectObservation,
             claim: EvidenceClaim.None,
-            subjectRoomId: claim.SubjectRoomId);
+            locationId: claim.SubjectRoomId);
 
         // An accusation that collapses rehabilitates the person it was aimed at.
         if (claim.Kind == OverseerClaimKind.BlameCrew

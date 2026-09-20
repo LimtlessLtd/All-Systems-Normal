@@ -109,11 +109,8 @@ public static class FacilitySeeder
             ApplyDemoTraits(state);
         }
 
-        foreach (var npc in state.Crew)
-        {
-            npc.KnowsShutdownControl = npc.Role is CrewRole.Commander or CrewRole.Engineer or CrewRole.Security or CrewRole.Technician;
-        }
-
+        // Shutdown-control knowledge is no longer seeded from role. V0.6C
+        // requires crew to physically investigate and verify hardware.
         ScenarioCatalog.Apply(state, ScenarioCatalog.SecureContinuity);
         state.EventLog.Add("T+00:00: DIRECTIVE — SECURE CONTINUITY. Prevent crew activation of Emergency Overseer Isolation.");
         state.EventLog.Add($"T+00:00: ALL SYSTEMS NORMAL. {state.Crew.Count} crew members online.");

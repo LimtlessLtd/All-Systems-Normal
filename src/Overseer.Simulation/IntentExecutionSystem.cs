@@ -55,7 +55,12 @@ public sealed class IntentExecutionSystem
                 case ActionKind.Socialize:
                 case ActionKind.Argue:
                 case ActionKind.RequestHelp:
+                case ActionKind.RecruitShutdownAlly:
                     ExecuteSocialIntent(state, npc, intent);
+                    break;
+
+                case ActionKind.JoinShutdownTeam:
+                    ExecuteJoinShutdownTeamIntent(state, npc, intent);
                     break;
 
                 case ActionKind.ShutdownOverseer:
@@ -267,9 +272,22 @@ public sealed class IntentExecutionSystem
     {
         var mechanism = state.ShutdownMechanisms.FirstOrDefault(m =>
             m.IsOnline && m.Id.Equals(intent.TargetId, StringComparison.OrdinalIgnoreCase));
-        if (mechanism is null || !npc.KnowsShutdownControl)
+        if (mechanism is null || !SuspicionSystem.KnowsMechanism(npc, mechanism))
         {
-            FailIntent(npc, "I cannot identify a usable shutdown control.");
+            FailIntent(npc, "I have not personally verified that shutdown control.");
+            return;
+        }
+
+        var team = state.ShutdownTeams.FirstOrDefault(candidate =>
+            candidate.IsActive
+            && candidate.MechanismId.Equals(mechanism.Id, StringComparison.OrdinalIgnoreCase)
+            && candidate.MemberIds.Contains(npc.Id));
+
+        if (mechanism.RequiredCrewCount > 1
+            && (team is null || team.MemberIds.Count < mechanism.RequiredCrewCount))
+        {
+            FailIntent(npc, $"I need a coordinated team before attempting {mechanism.Label}.");
+            npc.NeedsMindReconsideration = true;
             return;
         }
 
@@ -524,6 +542,32 @@ public sealed class IntentExecutionSystem
                 path[1],
                 $"Pursuing goal: {intent.Goal}"),
             out _);
+    }
+
+    private void ExecuteJoinShutdownTeamIntent(
+        GameState state,
+        Npc npc,
+        NpcIntent intent)
+    {
+        var invitation = npc.PendingShutdownTeamInvitation;
+        if (invitation is null
+            || string.IsNullOrWhiteSpace(intent.TargetId)
+            || !invitation.TeamId.Equals(intent.TargetId, StringComparison.OrdinalIgnoreCase))
+        {
+            FailIntent(npc, "There is no matching shutdown-team invitation.");
+            return;
+        }
+
+        _actions.TryApply(
+            state,
+            npc.Id,
+            new NpcAction(
+                ActionKind.JoinShutdownTeam,
+                invitation.TeamId,
+                intent.Reason),
+            out _);
+
+        npc.Intent = null;
     }
 
     private void ExecuteSocialIntent(GameState state, Npc npc, NpcIntent intent)

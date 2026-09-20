@@ -539,6 +539,14 @@ public sealed class CorporateDirectiveSystem
 
         if (failed.Count == 0)
         {
+            // Symmetric with ScenarioProgressSystem: satisfying the sponsor does
+            // not end the scenario while the station's own required objectives
+            // are still outstanding.
+            if (!StationObjectivesComplete(state))
+            {
+                return;
+            }
+
             state.ScenarioStatus = ScenarioStatus.Won;
             state.ScenarioOutcome =
                 $"All mandatory directives satisfied. Compliance {state.ComplianceScore:0}%"
@@ -558,6 +566,37 @@ public sealed class CorporateDirectiveSystem
 
         AudioCueSystem.Emit(state, AudioCueKind.Failure);
         Log(state, $"SCENARIO FAILED — {state.ScenarioOutcome}");
+    }
+
+    /// <summary>
+    /// True when every mandatory directive has been graded and satisfied, or
+    /// when this scenario carries no directives at all.
+    /// </summary>
+    public static bool MandatoryDirectivesSatisfied(GameState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        return state.Directives
+            .Where(directive => directive.IsMandatory)
+            .All(directive => Progress(state, directive).Status == DirectiveStatus.Completed);
+    }
+
+    /// <summary>
+    /// True when the station's own required objectives are complete, or when the
+    /// scenario declares none.
+    /// </summary>
+    private static bool StationObjectivesComplete(GameState state)
+    {
+        if (state.Scenario is null)
+        {
+            return true;
+        }
+
+        return state.Scenario.Objectives
+            .Where(objective => !objective.IsOptional)
+            .All(objective =>
+                state.ObjectiveProgress.TryGetValue(objective.Id, out var progress)
+                && progress.IsComplete);
     }
 
     private static double Fraction(DirectiveProgress progress, CorporateDirective directive) =>

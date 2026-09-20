@@ -33,6 +33,12 @@ public sealed class SuspicionDynamicsSystem
 
     private static readonly TimeSpan MisattributionWindow = TimeSpan.FromMinutes(45);
 
+    /// <summary>
+    /// How recently a crew member must already hold evidence about a compartment
+    /// for a newly noticed fault there to count as the same incident.
+    /// </summary>
+    private static readonly TimeSpan RecentEvidenceWindow = TimeSpan.FromMinutes(20);
+
     public void Tick(GameState state, TimeSpan delta)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -86,6 +92,21 @@ public sealed class SuspicionDynamicsSystem
                 continue;
             }
 
+            // SuspicionSystem.ObservePlayerRoomSystemChange already charges
+            // anybody standing in the room when the player broke it. Witnessing
+            // the act blames Overseer; only discovering the aftermath is
+            // ambiguous enough to be pinned on a colleague. Without this guard a
+            // single command would be counted twice against the same person.
+            if (npc.OverseerEvidence.Any(evidence =>
+                    string.Equals(
+                        evidence.LocationId,
+                        room.Id,
+                        StringComparison.OrdinalIgnoreCase)
+                    && state.Elapsed - evidence.ObservedAt <= RecentEvidenceWindow))
+            {
+                continue;
+            }
+
             if (fault.CanBlameACrewmate
                 && TryMisattribute(state, npc, room.Id, fault.Description))
             {
@@ -99,7 +120,7 @@ public sealed class SuspicionDynamicsSystem
                 fault.Weight,
                 origin: EvidenceOrigin.Inference,
                 claim: fault.Claim,
-                subjectRoomId: room.Id);
+                locationId: room.Id);
         }
 
         ForgetClearedFaults(state, npc, room);
@@ -330,7 +351,7 @@ public sealed class SuspicionDynamicsSystem
         {
             var rate = evidence.Origin switch
             {
-                EvidenceOrigin.Hearsay => 0.10,
+                EvidenceOrigin.Testimony => 0.10,
                 EvidenceOrigin.Inference => 0.07,
                 _ => 0.045
             };
@@ -383,7 +404,7 @@ public sealed class SuspicionDynamicsSystem
 
             // The payoff. A rumour that fails inspection costs the teller, not
             // Overseer — which is exactly the wedge the player is looking for.
-            if (evidence.Origin == EvidenceOrigin.Hearsay
+            if (evidence.Origin == EvidenceOrigin.Testimony
                 && evidence.SourceNpcName is { } teller
                 && npc.Relationships.TryGetValue(teller, out var relationship))
             {
@@ -420,7 +441,7 @@ public sealed class SuspicionDynamicsSystem
                 && here.IsPowered;
         }
 
-        return evidence.SubjectRoomId is { } subject
+        return evidence.LocationId is { } subject
             && npc.CurrentRoomId.Equals(subject, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -432,17 +453,17 @@ public sealed class SuspicionDynamicsSystem
                 return !state.LifeSupport.IsOnline;
 
             case EvidenceClaim.PowerCut:
-                return evidence.SubjectRoomId is { } powerRoom
+                return evidence.LocationId is { } powerRoom
                     && state.Facility.Rooms.TryGetValue(powerRoom, out var room)
                     && !room.IsPowered;
 
             case EvidenceClaim.HatchOpened:
-                return evidence.SubjectRoomId is { } hatchRoom
+                return evidence.LocationId is { } hatchRoom
                     && state.Facility.Rooms.TryGetValue(hatchRoom, out var airlock)
                     && (airlock.ExteriorHatchOpen || airlock.AirlockAlarmActive);
 
             case EvidenceClaim.AccessRestricted:
-                return evidence.SubjectRoomId is { } sealedRoom
+                return evidence.LocationId is { } sealedRoom
                     && state.Facility.Doors.Any(door =>
                         (door.RoomAId.Equals(sealedRoom, StringComparison.OrdinalIgnoreCase)
                             || door.RoomBId.Equals(sealedRoom, StringComparison.OrdinalIgnoreCase))
@@ -455,7 +476,7 @@ public sealed class SuspicionDynamicsSystem
 
     private static string ClaimSummary(GameState state, OverseerEvidence evidence)
     {
-        var roomName = evidence.SubjectRoomId is { } id
+        var roomName = evidence.LocationId is { } id
             && state.Facility.Rooms.TryGetValue(id, out var room)
                 ? room.Name
                 : "the compartment";

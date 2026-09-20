@@ -58,12 +58,12 @@ public sealed class SuspicionDynamicsSystemTests
 
         SuspicionSystem.AddEvidence(
             state, witness, "I saw Overseer seal the hatch.", 20,
-            origin: EvidenceOrigin.Direct);
+            origin: EvidenceOrigin.DirectObservation);
 
         SuspicionSystem.AddEvidence(
             state, listener, "Someone told me Overseer sealed the hatch.", 20,
             source: witness.Name,
-            origin: EvidenceOrigin.Hearsay);
+            origin: EvidenceOrigin.Testimony);
 
         Advance(state, new SuspicionDynamicsSystem(), 60);
 
@@ -84,9 +84,9 @@ public sealed class SuspicionDynamicsSystemTests
 
         SuspicionSystem.AddEvidence(
             state, npc, "Overseer cut the power in Medical.", 20,
-            origin: EvidenceOrigin.Direct,
+            origin: EvidenceOrigin.DirectObservation,
             claim: EvidenceClaim.PowerCut,
-            subjectRoomId: "medical");
+            locationId: "medical");
 
         Advance(state, new SuspicionDynamicsSystem(), 1);
 
@@ -112,9 +112,9 @@ public sealed class SuspicionDynamicsSystemTests
         SuspicionSystem.AddEvidence(
             state, listener, $"{teller.Name} told me Overseer cut the power in Medical.", 12,
             source: teller.Name,
-            origin: EvidenceOrigin.Hearsay,
+            origin: EvidenceOrigin.Testimony,
             claim: EvidenceClaim.PowerCut,
-            subjectRoomId: "medical");
+            locationId: "medical");
 
         Advance(state, new SuspicionDynamicsSystem(), 1);
 

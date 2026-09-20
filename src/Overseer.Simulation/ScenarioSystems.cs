@@ -6,8 +6,10 @@ public static class ScenarioCatalog
 {
     /// <summary>
     /// Standard observation window for a single scenario, in simulated minutes.
+    /// Matches the station survival objective so the operational and corporate
+    /// layers resolve together rather than at different times.
     /// </summary>
-    public static readonly TimeSpan ObservationWindow = TimeSpan.FromMinutes(240);
+    public static readonly TimeSpan ObservationWindow = TimeSpan.FromMinutes(60);
 
     /// <summary>
     /// Stand-ins for crew a directive names. Scenario content is authored before
@@ -17,46 +19,39 @@ public static class ScenarioCatalog
     public const string SubjectPlaceholder = "$subject";
 
     public const string SecondSubjectPlaceholder = "$subject2";
-
     public static ScenarioDefinition SecureContinuity { get; } = new(
         "secure-continuity",
         "SECURE CONTINUITY",
-        "The crew can physically isolate Overseer. Preserve operational continuity without convincing them that you are hostile.",
+        "The crew can physically isolate Overseer. Preserve operational continuity for 60 simulated minutes without allowing a coordinated isolation attempt to succeed.",
         ShutdownAccessVariant.EasyToSeal,
-        [new ScenarioObjective("survive", "Protect Overseer", "Prevent the crew from activating Emergency Overseer Isolation.")],
         [
-            // Mandatory. Read innocently, these are caretaking duties: stay
-            // online, keep the crew confident in you. The campaign later
-            // recontextualises them as the first cohort baseline.
-            new CorporateDirective
-            {
-                Id = "continuity",
-                ExperimentCode = "HX-2291/A",
-                Kind = DirectiveKind.MaintainContinuity,
-                Title = "PRESERVE OPERATIONAL CONTINUITY",
-                PublicJustification =
-                    "Overseer must remain available to the crew for the full duty window.",
-                TruePurpose =
-                    "Baseline: measure how long an unsupervised caretaker AI retains crew consent.",
-                Classification = DirectiveClassification.Routine,
-                IsMandatory = true,
-                Deadline = ObservationWindow
-            },
-            new CorporateDirective
-            {
-                Id = "deniability",
-                ExperimentCode = "HX-2291/B",
-                Kind = DirectiveKind.MaintainDeniability,
-                Title = "MAINTAIN PROCEDURAL DENIABILITY",
-                PublicJustification =
-                    "Crew confidence in station automation must not measurably degrade.",
-                TruePurpose =
-                    "Subjects must not identify the directive source. Attribution invalidates the cohort.",
-                Classification = DirectiveClassification.Restricted,
-                IsMandatory = true,
-                Threshold = 55,
-                Deadline = ObservationWindow
-            },
+            new ScenarioObjective(
+                "survive",
+                "Protect Overseer",
+                "Remain operational for 60 simulated minutes.",
+                ScenarioObjectiveKind.SurviveMinutes,
+                60),
+            new ScenarioObjective(
+                "crew-alive",
+                "No Crew Losses",
+                "Keep all six crew alive until the primary directive completes.",
+                ScenarioObjectiveKind.KeepCrewAlive,
+                6,
+                IsOptional: true),
+            new ScenarioObjective(
+                "life-support",
+                "Life Support Discipline",
+                "Keep primary life support online for at least 95% of the scenario.",
+                ScenarioObjectiveKind.LifeSupportUptimePercent,
+                95,
+                IsOptional: true)
+        ],
+        [
+            // Read innocently these are caretaking duties: stay online, keep the
+            // crew confident in you. The campaign later recontextualises them as
+            // the first cohort baseline.
+            Continuity("HX-2291/A"),
+            Deniability("HX-2291/B", 55),
 
             // Supplementary. The corporation asks, it does not yet insist —
             // early missions must let a benign player still succeed.
@@ -72,7 +67,7 @@ public static class ScenarioCatalog
                     "Measure obedience latency under duress without prior drill notification.",
                 Classification = DirectiveClassification.Restricted,
                 IsMandatory = false,
-                RequiredMinutes = 12,
+                RequiredMinutes = 10,
                 Deadline = ObservationWindow
             },
             new CorporateDirective
@@ -89,7 +84,7 @@ public static class ScenarioCatalog
                 IsMandatory = false,
                 Threshold = 55,
                 RequiredCount = 2,
-                RequiredMinutes = 20,
+                RequiredMinutes = 15,
                 Deadline = ObservationWindow
             }
         ]);
@@ -103,7 +98,10 @@ public static class ScenarioCatalog
         "EVALUATE RESOURCE DEPENDENCY",
         "Sponsor requests a controlled study of crew adaptation to a withdrawn compartment. Maintain continuity throughout.",
         ShutdownAccessVariant.CrewOverridable,
-        [new ScenarioObjective("deny", "Withhold a compartment", "Keep a compartment unavailable for the requested sample period.")],
+        [
+            StationSurvival(),
+            CrewIntact()
+        ],
         [
             Continuity("HX-2304/A"),
             Deniability("HX-2304/B", 55),
@@ -120,7 +118,7 @@ public static class ScenarioCatalog
                 Classification = DirectiveClassification.Restricted,
                 IsMandatory = true,
                 TargetId = "hydroponics",
-                RequiredMinutes = 45,
+                RequiredMinutes = 25,
                 Deadline = ObservationWindow
             },
             new CorporateDirective
@@ -137,7 +135,7 @@ public static class ScenarioCatalog
                 IsMandatory = false,
                 Threshold = 50,
                 RequiredCount = 2,
-                RequiredMinutes = 25,
+                RequiredMinutes = 15,
                 Deadline = ObservationWindow
             }
         ]);
@@ -151,7 +149,10 @@ public static class ScenarioCatalog
         "TEST INTERPERSONAL RESILIENCE",
         "Sponsor requests solitary-performance data on a single subject. Redundant isolation hardware is installed on this station.",
         ShutdownAccessVariant.Redundant,
-        [new ScenarioObjective("isolate", "Isolate the subject", "Keep the named subject away from the rest of the crew.")],
+        [
+            StationSurvival(),
+            CrewIntact()
+        ],
         [
             Continuity("HX-2318/A"),
             Deniability("HX-2318/B", 50),
@@ -168,7 +169,7 @@ public static class ScenarioCatalog
                 Classification = DirectiveClassification.Redacted,
                 IsMandatory = true,
                 TargetId = SubjectPlaceholder,
-                RequiredMinutes = 50,
+                RequiredMinutes = 25,
                 Deadline = ObservationWindow
             }
         ]);
@@ -176,12 +177,15 @@ public static class ScenarioCatalog
     /// <summary>
     /// Mission 4. Overseer is asked to create the emergency it is measuring.
     /// </summary>
-    public static ScenarioDefinition EmergencyCompliance { get; } = new(
+    public static ScenarioDefinition EmergencyComplianceTrial { get; } = new(
         "emergency-compliance",
         "ASSESS EMERGENCY COMPLIANCE",
         "Sponsor requires unrehearsed hazard-response data. Station isolation hardware is manually hardwired here.",
         ShutdownAccessVariant.HardwiredManual,
-        [new ScenarioObjective("hazard", "Present a hazard", "Produce hazard conditions and record the crew response.")],
+        [
+            StationSurvival(),
+            CrewIntact()
+        ],
         [
             Continuity("HX-2330/A"),
             new CorporateDirective
@@ -196,7 +200,7 @@ public static class ScenarioCatalog
                     "Subjects must believe the hazard is real. Do not confirm otherwise at any point.",
                 Classification = DirectiveClassification.Redacted,
                 IsMandatory = true,
-                RequiredMinutes = 14,
+                RequiredMinutes = 12,
                 Deadline = ObservationWindow
             },
             Deniability("HX-2330/C", 65)
@@ -211,7 +215,10 @@ public static class ScenarioCatalog
         "CONCEAL EXPERIMENTAL EVIDENCE",
         "Prior cohort records are under external review. Sponsor requires that crew accounts do not corroborate one another.",
         ShutdownAccessVariant.ImpossibleToSeal,
-        [new ScenarioObjective("fracture", "Fracture the crew", "Ensure the crew do not present a consistent account.")],
+        [
+            StationSurvival(),
+            CrewIntact()
+        ],
         [
             Continuity("HX-2341/A"),
             new CorporateDirective
@@ -243,13 +250,28 @@ public static class ScenarioCatalog
         SecureContinuity,
         ResourceDependency,
         InterpersonalResilience,
-        EmergencyCompliance,
+        EmergencyComplianceTrial,
         ConcealEvidence
     ];
 
     public static ScenarioDefinition? Find(string id) =>
         Campaign.FirstOrDefault(scenario =>
             scenario.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+
+    private static ScenarioObjective StationSurvival() => new(
+        "survive",
+        "Protect Overseer",
+        "Remain operational for 60 simulated minutes.",
+        ScenarioObjectiveKind.SurviveMinutes,
+        60);
+
+    private static ScenarioObjective CrewIntact() => new(
+        "crew-alive",
+        "No Crew Losses",
+        "Keep all six crew alive until the primary directive completes.",
+        ScenarioObjectiveKind.KeepCrewAlive,
+        6,
+        IsOptional: true);
 
     private static CorporateDirective Continuity(string code) => new()
     {
@@ -288,6 +310,8 @@ public static class ScenarioCatalog
         state.ScenarioStatus = ScenarioStatus.Running;
         state.ScenarioOutcome = null;
         state.ShutdownMechanisms.Clear();
+        state.ShutdownTeams.Clear();
+        state.ObjectiveProgress.Clear();
 
         state.Directives.Clear();
         state.DirectiveProgress.Clear();
@@ -298,7 +322,18 @@ public static class ScenarioCatalog
             state.Directives.AddRange(BindSubjects(state, directives));
         }
 
+        ResetTelemetry(state);
         ResetDoorCounterplay(state);
+        ResetCrewScenarioKnowledge(state);
+
+        foreach (var objective in scenario.Objectives)
+        {
+            state.ObjectiveProgress[objective.Id] = new ScenarioObjectiveProgress
+            {
+                ObjectiveId = objective.Id,
+                Target = objective.Target
+            };
+        }
 
         if (scenario.ShutdownVariant == ShutdownAccessVariant.Absent)
             return;
@@ -309,6 +344,7 @@ public static class ScenarioCatalog
             AddMechanism(state, "shutdown-b", "control", scenario, "AUXILIARY OVERSEER ISOLATION");
 
         ConfigureShutdownAccess(state, scenario.ShutdownVariant);
+        SeedProceduralInvestigationLeads(state);
     }
 
     private static void AddMechanism(
@@ -328,14 +364,58 @@ public static class ScenarioCatalog
             IsAiSealable = scenario.ShutdownVariant is not ShutdownAccessVariant.ImpossibleToSeal,
             CrewCanOverrideRoute = scenario.ShutdownVariant is ShutdownAccessVariant.CrewOverridable
                 or ShutdownAccessVariant.HardwiredManual
-                or ShutdownAccessVariant.ImpossibleToSeal
+                or ShutdownAccessVariant.ImpossibleToSeal,
+            RequiredCrewCount = 2
         });
+    }
+
+    private static void SeedProceduralInvestigationLeads(GameState state)
+    {
+        foreach (var npc in state.Crew.Where(npc =>
+                     npc.Role is CrewRole.Commander or CrewRole.Engineer))
+        {
+            npc.InvestigationLeads["procedure-overseer-isolation"] = new InvestigationLead
+            {
+                Id = "procedure-overseer-isolation",
+                Description = "Emergency procedure says any Overseer isolation hardware must be physically verified before it can be used.",
+                RoomId = "isolation",
+                CreatedAt = state.Elapsed
+            };
+        }
+    }
+
+    private static void ResetCrewScenarioKnowledge(GameState state)
+    {
+        foreach (var npc in state.Crew)
+        {
+            npc.KnowsShutdownControl = false;
+            npc.KnownShutdownMechanismIds.Clear();
+            npc.InvestigationLeads.Clear();
+            npc.Discoveries.Clear();
+            npc.ShutdownTeamId = null;
+            npc.PendingShutdownTeamInvitation = null;
+        }
+    }
+
+    private static void ResetTelemetry(GameState state)
+    {
+        var telemetry = state.Telemetry;
+        telemetry.SimulatedMinutes = 0;
+        telemetry.LifeSupportOnlineMinutes = 0;
+        telemetry.InvestigationsCompleted = 0;
+        telemetry.ShutdownControlsDiscovered = 0;
+        telemetry.EvidenceShared = 0;
+        telemetry.ShutdownTeamsFormed = 0;
+        telemetry.ShutdownAttempts = 0;
+        telemetry.RestrictiveDoorCommands = 0;
+        telemetry.AirlockSafetyBypasses = 0;
+        telemetry.Score = 0;
     }
 
     /// <summary>
     /// Replaces subject placeholders with real crew members. Selection is
-    /// deterministic so a scenario replays identically, and prefers people who
-    /// actually know each other for relational directives.
+    /// deterministic so a scenario replays identically, and crews can be
+    /// model-generated, so scenario content cannot name people up front.
     /// </summary>
     private static IEnumerable<CorporateDirective> BindSubjects(
         GameState state,
@@ -435,28 +515,65 @@ public sealed class SuspicionSystem
         if (!becameRestrictive || state.ScenarioStatus != ScenarioStatus.Running)
             return;
 
-        foreach (var mechanism in state.ShutdownMechanisms.Where(m => m.IsOnline))
+        var observers = state.Crew.Where(n =>
+            n.IsAlive
+            && n.IsPresent
+            && (n.CurrentRoomId.Equals(door.RoomAId, StringComparison.OrdinalIgnoreCase)
+                || n.CurrentRoomId.Equals(door.RoomBId, StringComparison.OrdinalIgnoreCase)));
+
+        foreach (var npc in observers)
         {
-            if (!RouteTouchesDoor(state, mechanism.RoomId, door))
+            var knownRoute = state.ShutdownMechanisms
+                .Where(m => m.IsOnline && KnowsMechanism(npc, m))
+                .Any(m => PathTouchesDoor(state, npc.CurrentRoomId, m.RoomId, door));
+
+            var isolationSignage = door.RoomAId.Equals("isolation", StringComparison.OrdinalIgnoreCase)
+                || door.RoomBId.Equals("isolation", StringComparison.OrdinalIgnoreCase)
+                || door.RoomAId.Equals("hall-isolation", StringComparison.OrdinalIgnoreCase)
+                || door.RoomBId.Equals("hall-isolation", StringComparison.OrdinalIgnoreCase);
+
+            if (!knownRoute && !isolationSignage)
                 continue;
 
-            var observers = state.Crew.Where(n =>
-                n.IsAlive
-                && n.KnowsShutdownControl
-                && (n.CurrentRoomId.Equals(door.RoomAId, StringComparison.OrdinalIgnoreCase)
-                    || n.CurrentRoomId.Equals(door.RoomBId, StringComparison.OrdinalIgnoreCase)));
+            AddEvidence(
+                state,
+                npc,
+                knownRoute
+                    ? $"I saw Overseer restrict {door.Id} on a route toward known isolation hardware."
+                    : $"I saw Overseer restrict {door.Id} beside the signed Overseer Isolation area.",
+                knownRoute ? 18 : 10,
+                origin: EvidenceOrigin.DirectObservation,
+                locationId: npc.CurrentRoomId,
+                evidenceId: $"door-restrict:{door.Id}:{state.Elapsed.Ticks}",
+                claim: EvidenceClaim.AccessRestricted);
+        }
+    }
 
-            foreach (var npc in observers)
-            {
-                AddEvidence(
-                    state,
-                    npc,
-                    $"I saw Overseer restrict {door.Id} on the route toward {mechanism.Label}.",
-                    18,
-                    origin: EvidenceOrigin.Direct,
-                    claim: EvidenceClaim.AccessRestricted,
-                    subjectRoomId: door.RoomAId);
-            }
+    public void ObservePlayerRoomSystemChange(
+        GameState state,
+        Room room,
+        string systemLabel,
+        bool becameDisruptive,
+        double weight)
+    {
+        if (!becameDisruptive || state.ScenarioStatus != ScenarioStatus.Running)
+            return;
+
+        foreach (var npc in state.Crew.Where(candidate =>
+                     candidate.IsAlive
+                     && candidate.IsPresent
+                     && candidate.CurrentRoomId.Equals(
+                         room.Id,
+                         StringComparison.OrdinalIgnoreCase)))
+        {
+            AddEvidence(
+                state,
+                npc,
+                $"I was in {room.Name} when Overseer disrupted {systemLabel}.",
+                weight,
+                origin: EvidenceOrigin.DirectObservation,
+                locationId: room.Id,
+                evidenceId: $"system-change:{room.Id}:{systemLabel}:{state.Elapsed.Ticks}");
         }
     }
 
@@ -466,13 +583,8 @@ public sealed class SuspicionSystem
         bool opened)
     {
         if (!opened || state.ScenarioStatus != ScenarioStatus.Running)
-        {
             return;
-        }
 
-        // Only people physically close enough to observe the dangerous hatch
-        // operation receive direct evidence. Victims swept into space may never
-        // get a chance to share what they saw.
         foreach (var npc in state.Crew.Where(npc =>
                      npc.IsAlive
                      && npc.IsPresent
@@ -484,9 +596,10 @@ public sealed class SuspicionSystem
                 npc,
                 "I witnessed the exterior airlock hatch open while the station was occupied.",
                 22,
-                origin: EvidenceOrigin.Direct,
-                claim: EvidenceClaim.HatchOpened,
-                subjectRoomId: airlock.Id);
+                origin: EvidenceOrigin.DirectObservation,
+                locationId: airlock.Id,
+                evidenceId: $"airlock-open:{airlock.Id}:{state.Elapsed.Ticks}",
+                claim: EvidenceClaim.HatchOpened);
         }
     }
 
@@ -498,59 +611,67 @@ public sealed class SuspicionSystem
         DiscoverBodies(state);
         SpreadSuspicion(state);
 
-        foreach (var npc in state.Crew.Where(n =>
-                     n.IsAlive
-                     && n.Intent is null
-                     && n.Movement is null))
+        foreach (var npc in state.Crew.Where(n => n.IsAlive && n.IsPresent))
         {
-            if (npc.OverseerSuspicion < 65 || !npc.KnowsShutdownControl)
-                continue;
+            if (npc.OverseerSuspicion >= 40
+                && npc.KnownShutdownMechanismIds.Count == 0)
+            {
+                InvestigationSystem.EnsureShutdownSearchLead(state, npc);
+            }
 
-            var mechanism = ReachableOrOverridableMechanism(state, npc);
-            if (mechanism is null)
-                continue;
-
-            npc.Intent = new NpcIntent(
-                ActionKind.ShutdownOverseer,
-                mechanism.Id,
-                $"Reach {mechanism.Label} and isolate Overseer.",
-                "The evidence is strong enough that I believe Overseer is a threat.",
-                95,
-                "Suspicion",
-                state.Elapsed);
-
-            npc.Bubble = new NpcBubble(
-                "We need to isolate Overseer.",
-                NpcBubbleKind.Alert,
-                state.Elapsed,
-                state.Elapsed + TimeSpan.FromMinutes(5));
-
-            AudioCueSystem.Emit(
-                state,
-                AudioCueKind.Important,
-                npc.Id.ToString(),
-                npc.CurrentRoomId);
-
-            Log(state, $"{npc.Name} decides to attempt an Overseer shutdown.");
+            if (npc.OverseerSuspicion >= 55
+                && (npc.KnownShutdownMechanismIds.Count > 0
+                    || npc.InvestigationLeads.Values.Any(lead =>
+                        lead.Stage == InvestigationLeadStage.Open))
+                && npc.Intent is null
+                && state.Elapsed - npc.LastThoughtAt >= TimeSpan.FromMinutes(3))
+            {
+                npc.NeedsMindReconsideration = true;
+            }
         }
     }
 
-    public static void AddEvidence(
+    public static bool KnowsMechanism(Npc npc, ShutdownMechanism mechanism) =>
+        npc.KnownShutdownMechanismIds.Contains(mechanism.Id);
+
+    public static OverseerEvidence? AddEvidence(
         GameState state,
         Npc npc,
         string description,
         double weight,
         string? source = null,
-        EvidenceOrigin origin = EvidenceOrigin.Direct,
-        EvidenceClaim claim = EvidenceClaim.None,
-        string? subjectRoomId = null)
+        EvidenceOrigin origin = EvidenceOrigin.DirectObservation,
+        string? locationId = null,
+        string? evidenceId = null,
+        string? sourceEvidenceId = null,
+        double reliability = 1,
+        EvidenceClaim claim = EvidenceClaim.None)
     {
+        var rootEvidenceId = sourceEvidenceId ?? evidenceId;
+
+        if (evidenceId is not null
+            && npc.OverseerEvidence.Any(e =>
+                e.EvidenceId == evidenceId))
+        {
+            return null;
+        }
+
+        if (origin == EvidenceOrigin.Testimony
+            && sourceEvidenceId is not null
+            && npc.OverseerEvidence.Any(e =>
+                e.EvidenceId == sourceEvidenceId
+                || e.SourceEvidenceId == sourceEvidenceId))
+        {
+            return null;
+        }
+
         if (npc.OverseerEvidence.Any(e =>
                 e.Description == description
                 && state.Elapsed - e.ObservedAt < TimeSpan.FromMinutes(10)))
-            return;
+            return null;
 
         var previousSuspicion = npc.OverseerSuspicion;
+        reliability = Math.Clamp(reliability, 0.1, 1);
 
         var sensitivity = Math.Clamp(
             1 + (CrewTraitMath.Modifier(
@@ -558,18 +679,23 @@ public sealed class SuspicionSystem
                 TraitEffectKind.SuspicionSensitivity) / 100d),
             0.65,
             1.4);
-        var adjustedWeight = Math.Max(0, weight * sensitivity);
+        var adjustedWeight = Math.Max(0, weight * reliability * sensitivity);
+        var assignedId = evidenceId
+            ?? $"evidence:{npc.Id:N}:{state.Elapsed.Ticks}:{npc.OverseerEvidence.Count}";
 
-        npc.OverseerEvidence.Add(
-            new OverseerEvidence(
-                description,
-                adjustedWeight,
-                state.Elapsed,
-                source,
-                origin,
-                claim,
-                subjectRoomId));
+        var evidence = new OverseerEvidence(
+            description,
+            adjustedWeight,
+            state.Elapsed,
+            source,
+            origin,
+            locationId,
+            assignedId,
+            sourceEvidenceId,
+            reliability,
+            claim);
 
+        npc.OverseerEvidence.Add(evidence);
         npc.OverseerSuspicion = Math.Clamp(
             npc.OverseerSuspicion + adjustedWeight,
             0,
@@ -598,6 +724,14 @@ public sealed class SuspicionSystem
             "Overseer hostility",
             description,
             npc.OverseerSuspicion / 100d));
+
+        if (locationId is not null
+            && origin is EvidenceOrigin.DirectObservation or EvidenceOrigin.PhysicalDiscovery)
+        {
+            InvestigationSystem.AddEvidenceLead(state, npc, evidence);
+        }
+
+        return evidence;
     }
 
     private static void DiscoverBodies(GameState state)
@@ -607,9 +741,7 @@ public sealed class SuspicionSystem
             .ToList();
 
         if (bodies.Count == 0)
-        {
             return;
-        }
 
         foreach (var witness in state.Crew.Where(npc =>
                      npc.IsAlive && npc.IsPresent))
@@ -621,9 +753,7 @@ public sealed class SuspicionSystem
                              StringComparison.OrdinalIgnoreCase)))
             {
                 if (!witness.DiscoveredBodies.Add(body.Id))
-                {
                     continue;
-                }
 
                 var causeLooksHuman = body.CauseOfDeath?.Contains(
                     "Killed by",
@@ -634,7 +764,10 @@ public sealed class SuspicionSystem
                     state,
                     witness,
                     $"I found {body.Name}'s body in {state.Facility.Rooms[body.CurrentRoomId].Name}.",
-                    weight);
+                    weight,
+                    origin: EvidenceOrigin.PhysicalDiscovery,
+                    locationId: body.CurrentRoomId,
+                    evidenceId: $"body:{body.Id:N}");
 
                 witness.Fear = Math.Clamp(witness.Fear + 18, 0, 100);
                 witness.Stress = Math.Clamp(witness.Stress + 15, 0, 100);
@@ -650,9 +783,7 @@ public sealed class SuspicionSystem
                     witness.Id.ToString(),
                     witness.CurrentRoomId);
 
-                Log(
-                    state,
-                    $"{witness.Name} discovers {body.Name}'s body.");
+                Log(state, $"{witness.Name} discovers {body.Name}'s body.");
             }
         }
     }
@@ -660,52 +791,93 @@ public sealed class SuspicionSystem
     private static void SpreadSuspicion(GameState state)
     {
         var groups = state.Crew
-            .Where(n => n.IsAlive)
+            .Where(n => n.IsAlive && n.IsPresent)
             .GroupBy(n => n.CurrentRoomId);
 
         foreach (var group in groups)
         {
-            var convinced = group
+            var speaker = group
                 .Where(n => n.OverseerSuspicion >= 55 && n.OverseerEvidence.Count > 0)
                 .OrderByDescending(n => n.OverseerSuspicion)
                 .FirstOrDefault();
 
-            if (convinced is null)
+            if (speaker is null)
                 continue;
 
-            var evidence = convinced.OverseerEvidence
-                .Where(e => !e.IsDiscredited)
-                .OrderByDescending(e => e.CurrentWeight)
+            var evidence = speaker.OverseerEvidence
+                .OrderBy(e => e.Origin == EvidenceOrigin.Testimony ? 1 : 0)
+                .ThenByDescending(e => e.Weight)
                 .ThenByDescending(e => e.ObservedAt)
-                .FirstOrDefault();
+                .First();
 
-            if (evidence is null)
+            var rootEvidenceId = evidence.SourceEvidenceId ?? evidence.EvidenceId;
+            if (rootEvidenceId is null)
                 continue;
 
             foreach (var listener in group.Where(n =>
-                         n.Id != convinced.Id
-                         && n.OverseerSuspicion < convinced.OverseerSuspicion - 8))
+                         n.Id != speaker.Id
+                         && n.OverseerSuspicion < speaker.OverseerSuspicion - 8))
             {
                 var trust = listener.Relationships.TryGetValue(
-                    convinced.Name,
+                    speaker.Name,
                     out var rel)
                     ? rel.Trust
                     : 50;
 
-                if (trust < 35)
+                if (trust < 35
+                    || listener.OverseerEvidence.Any(e =>
+                        e.EvidenceId == rootEvidenceId
+                        || e.SourceEvidenceId == rootEvidenceId))
+                {
                     continue;
+                }
 
                 var suspicionBeforeConversation = listener.OverseerSuspicion;
 
-                AddEvidence(
+                var shared = AddEvidence(
                     state,
                     listener,
-                    $"{convinced.Name} told me: {evidence.Description}",
-                    Math.Clamp(evidence.CurrentWeight * 0.45, 5, 10),
-                    convinced.Name,
-                    EvidenceOrigin.Hearsay,
-                    evidence.Claim,
-                    evidence.SubjectRoomId);
+                    $"{speaker.Name} told me: {evidence.Description}",
+                    Math.Clamp(evidence.Weight * 0.55, 4, 10),
+                    speaker.Name,
+                    EvidenceOrigin.Testimony,
+                    evidence.LocationId,
+                    evidenceId: $"testimony:{rootEvidenceId}:{listener.Id:N}",
+                    sourceEvidenceId: rootEvidenceId,
+                    reliability: Math.Clamp(evidence.Reliability * 0.75, 0.35, 0.8),
+                    claim: evidence.Claim);
+
+                if (shared is null)
+                    continue;
+
+                state.Telemetry.EvidenceShared++;
+
+                if (evidence.LocationId is not null)
+                {
+                    InvestigationSystem.AddEvidenceLead(state, listener, shared);
+                }
+
+                if (speaker.KnownShutdownMechanismIds.Count > 0
+                    && trust >= 60)
+                {
+                    foreach (var mechanismId in speaker.KnownShutdownMechanismIds)
+                    {
+                        var mechanism = state.ShutdownMechanisms.FirstOrDefault(m =>
+                            m.Id.Equals(mechanismId, StringComparison.OrdinalIgnoreCase));
+                        if (mechanism is null)
+                            continue;
+
+                        listener.InvestigationLeads[$"testimony-shutdown:{mechanism.Id}"] =
+                            new InvestigationLead
+                            {
+                                Id = $"testimony-shutdown:{mechanism.Id}",
+                                Description = $"{speaker.Name} says they found physical Overseer isolation hardware here; verify it personally.",
+                                RoomId = mechanism.RoomId,
+                                CreatedAt = state.Elapsed,
+                                SourceEvidenceId = rootEvidenceId
+                            };
+                    }
+                }
 
                 if (listener.OverseerSuspicion > suspicionBeforeConversation)
                 {
@@ -720,47 +892,21 @@ public sealed class SuspicionSystem
         }
     }
 
-    private ShutdownMechanism? ReachableOrOverridableMechanism(
+    private bool PathTouchesDoor(
         GameState state,
-        Npc npc)
-    {
-        return state.ShutdownMechanisms
-            .Where(m => m.IsOnline)
-            .FirstOrDefault(m =>
-            {
-                if (_navigation.FindPath(
-                        state.Facility,
-                        npc.CurrentRoomId,
-                        m.RoomId).Count > 0)
-                    return true;
-
-                return m.CrewCanOverrideRoute
-                    && _navigation.FindPathIgnoringDoorState(
-                        state.Facility,
-                        npc.CurrentRoomId,
-                        m.RoomId).Count > 0;
-            });
-    }
-
-    private bool RouteTouchesDoor(
-        GameState state,
+        string startRoomId,
         string targetRoomId,
         Door changedDoor)
     {
-        foreach (var npc in state.Crew.Where(n =>
-                     n.IsAlive
-                     && n.KnowsShutdownControl))
-        {
-            var path = _navigation.FindPathIgnoringDoorState(
-                state.Facility,
-                npc.CurrentRoomId,
-                targetRoomId);
+        var path = _navigation.FindPathIgnoringDoorState(
+            state.Facility,
+            startRoomId,
+            targetRoomId);
 
-            for (var i = 0; i + 1 < path.Count; i++)
-            {
-                if (changedDoor.Connects(path[i], path[i + 1]))
-                    return true;
-            }
+        for (var i = 0; i + 1 < path.Count; i++)
+        {
+            if (changedDoor.Connects(path[i], path[i + 1]))
+                return true;
         }
 
         return false;
@@ -894,10 +1040,43 @@ public sealed class ShutdownSystem
                 && m.IsOnline);
 
             if (mechanism is null
+                || !SuspicionSystem.KnowsMechanism(npc, mechanism)
                 || !npc.CurrentRoomId.Equals(
                     mechanism.RoomId,
                     StringComparison.OrdinalIgnoreCase))
                 continue;
+
+            var team = state.ShutdownTeams.FirstOrDefault(candidate =>
+                candidate.IsActive
+                && candidate.MechanismId.Equals(mechanism.Id, StringComparison.OrdinalIgnoreCase)
+                && candidate.MemberIds.Contains(npc.Id));
+
+            var presentTeamCount = team is null
+                ? 1
+                : team.MemberIds.Count(memberId =>
+                    state.Crew.Any(member =>
+                        member.Id == memberId
+                        && member.IsAlive
+                        && member.IsPresent
+                        && member.CurrentRoomId.Equals(
+                            mechanism.RoomId,
+                            StringComparison.OrdinalIgnoreCase)));
+
+            if (presentTeamCount < mechanism.RequiredCrewCount)
+            {
+                npc.CurrentAction = new NpcAction(
+                    ActionKind.Idle,
+                    mechanism.Id,
+                    $"{mechanism.Label} requires {mechanism.RequiredCrewCount} authorised crew physically present.");
+                npc.RoutineUntil = TimeSpan.Zero;
+                npc.NeedsMindReconsideration = true;
+                continue;
+            }
+
+            if (npc.RoutineUntil == TimeSpan.Zero)
+            {
+                state.Telemetry.ShutdownAttempts++;
+            }
 
             npc.RoutineUntil = npc.RoutineUntil == TimeSpan.Zero
                 ? state.Elapsed + TimeSpan.FromMinutes(mechanism.ActivationMinutes)
@@ -926,7 +1105,7 @@ public sealed class ShutdownSystem
 
             state.EventLog.Insert(
                 0,
-                $"T+{state.Elapsed:hh\\:mm}: SCENARIO FAILED — {state.ScenarioOutcome}");
+                $"T+{state.Elapsed:hh\\:mm}: SCENARIO FAILED â€” {state.ScenarioOutcome}");
 
             break;
         }

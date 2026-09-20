@@ -14,6 +14,15 @@ public class CorporateDirectiveSystemTests
         state.DirectiveProgress.Clear();
         state.Directives.AddRange(directives);
         state.ScenarioStatus = ScenarioStatus.Running;
+
+        // These exercise the corporate layer on its own. The station's own
+        // objectives are graded by ScenarioProgressSystem and gate the outcome
+        // too, so drop them to keep the subject of the test isolated.
+        state.Scenario = state.Scenario is { } scenario
+            ? scenario with { Objectives = [] }
+            : null;
+        state.ObjectiveProgress.Clear();
+
         return state;
     }
 

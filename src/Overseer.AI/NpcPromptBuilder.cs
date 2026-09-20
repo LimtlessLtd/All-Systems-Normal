@@ -23,6 +23,9 @@ public static class NpcPromptBuilder
         ActionKind.Socialize,
         ActionKind.Argue,
         ActionKind.RequestHelp,
+        ActionKind.RecruitShutdownAlly,
+        ActionKind.JoinShutdownTeam,
+        ActionKind.ShutdownOverseer,
         ActionKind.ForceDoor,
         ActionKind.RestoreSystem,
         ActionKind.SecureAirlock,
@@ -164,6 +167,39 @@ public static class NpcPromptBuilder
             })
             .ToArray();
 
+        var investigationLeads = npc.InvestigationLeads.Values
+            .Where(lead => lead.Stage == InvestigationLeadStage.Open)
+            .OrderBy(lead => lead.CreatedAt)
+            .Select(lead =>
+                $"- {lead.Id}: investigate {lead.RoomId} ({state.Facility.Rooms[lead.RoomId].Name}) | {lead.Description}")
+            .ToArray();
+
+        var knownShutdownControls = state.ShutdownMechanisms
+            .Where(mechanism =>
+                mechanism.IsOnline
+                && npc.KnownShutdownMechanismIds.Contains(mechanism.Id))
+            .OrderBy(mechanism => mechanism.Id)
+            .Select(mechanism =>
+                $"- {mechanism.Id}: {mechanism.Label} in {mechanism.RoomId} ({state.Facility.Rooms[mechanism.RoomId].Name}); requires {mechanism.RequiredCrewCount} crew")
+            .ToArray();
+
+        var shutdownTeam = string.IsNullOrWhiteSpace(npc.ShutdownTeamId)
+            ? null
+            : state.ShutdownTeams.FirstOrDefault(team =>
+                team.IsActive
+                && team.Id.Equals(npc.ShutdownTeamId, StringComparison.OrdinalIgnoreCase));
+
+        var shutdownTeamText = shutdownTeam is null
+            ? "none"
+            : $"{shutdownTeam.Id} targeting {shutdownTeam.MechanismId}; committed members: "
+                + string.Join(", ", shutdownTeam.MemberIds
+                    .Select(id => state.Crew.FirstOrDefault(member => member.Id == id)?.Name)
+                    .Where(name => name is not null));
+
+        var invitationText = npc.PendingShutdownTeamInvitation is { } invitation
+            ? $"{invitation.TeamId} from {invitation.FromNpcName}; they CLAIM relevant isolation hardware is in {invitation.TargetRoomId}. You have not personally verified that claim unless it is also listed under VERIFIED SHUTDOWN CONTROLS."
+            : "none";
+
         var builder = new StringBuilder();
         builder.AppendLine("You are choosing ONE high-level intention for a human NPC in a space-station simulation.");
         builder.AppendLine("You are not the station AI and you do not control reality.");
@@ -173,6 +209,11 @@ public static class NpcPromptBuilder
         builder.AppendLine("If a hatch blocks something you strongly want to do, you MAY choose ForceDoor for an adjacent blocked hatch. Whether it works is resolved later from skills, traits and chance.");
         builder.AppendLine("If a disabled system matters enough to this person, you MAY choose RestoreSystem. Do not automatically repair every outage: personality, role, danger, relationships and priorities should decide whether you care enough to try.");
         builder.AppendLine("A missing-person concern is observer knowledge, not omniscient truth. It does NOT prove that person is dead or reveal their real location. You may Investigate a plausible room, ask another known crewmember for help, or keep another priority if it matters more.");
+        builder.AppendLine("Investigation leads below are hypotheses or witnessed locations, not hidden truth. Investigate means physically travel there and inspect it; only deterministic simulation can reveal what is actually present.");
+        builder.AppendLine("Only VERIFIED SHUTDOWN CONTROLS are controls this person personally knows exist. A teammate's claim or a room name does not grant control knowledge.");
+        builder.AppendLine("If personally convinced Overseer is dangerous and a verified shutdown control requires more crew, you MAY RecruitShutdownAlly. Recruitment creates a social invitation, not instant agreement.");
+        builder.AppendLine("If you have a shutdown-team invitation, you MAY JoinShutdownTeam if you trust the recruiter and believe action is justified. Joining does not personally verify their hardware claim; investigating the claimed room can do that.");
+        builder.AppendLine("Choose ShutdownOverseer only for a VERIFIED SHUTDOWN CONTROL and only when your committed team is large enough. Deterministic C# still validates physical presence, route access and activation.");
         builder.AppendLine("If a nearby airlock safety panel explicitly says NEEDS SECURING and this person has the training, you MAY choose SecureAirlock. This means wanting to use the local emergency controls; deterministic simulation decides whether they can physically do it.");
         builder.AppendLine("For an adjacent hatch you may choose RepairDoor for visible damage/bypass, WeldDoor to seal a closed hatch, or BarricadeDoor for defensive securing. These are physical local actions and never remote commands.\nNever assume ForceDoor, RestoreSystem, SecureAirlock or door work succeeds. You are choosing the intention, not the physical result.");
         builder.AppendLine("Never choose Attack. Violence is resolved separately by the deterministic social simulation.");
@@ -229,6 +270,16 @@ public static class NpcPromptBuilder
         if (perceivedAirlocks.Length == 0) builder.AppendLine("- none currently visible from here");
         else foreach (var airlock in perceivedAirlocks) builder.AppendLine(airlock);
         builder.AppendLine();
+        builder.AppendLine("OPEN INVESTIGATION LEADS:");
+        if (investigationLeads.Length == 0) builder.AppendLine("- none");
+        else foreach (var lead in investigationLeads) builder.AppendLine(lead);
+        builder.AppendLine();
+        builder.AppendLine("VERIFIED SHUTDOWN CONTROLS:");
+        if (knownShutdownControls.Length == 0) builder.AppendLine("- none personally verified");
+        else foreach (var control in knownShutdownControls) builder.AppendLine(control);
+        builder.AppendLine($"SHUTDOWN TEAM: {shutdownTeamText}");
+        builder.AppendLine($"PENDING TEAM INVITATION: {invitationText}");
+        builder.AppendLine();
         builder.AppendLine("STATION STATUS-PANEL ROOM READINGS:");
         builder.AppendLine("These are the compartment readings currently available to this crew member; route status reflects passable hatches.");
         foreach (var knownRoom in rooms) builder.AppendLine($"- {knownRoom}");
@@ -245,7 +296,9 @@ public static class NpcPromptBuilder
         builder.AppendLine("For ForceDoor, TargetId must be the exact ID of a currently connected blocked hatch listed above.");
         builder.AppendLine("For RestoreSystem, TargetId must be one of the DISABLED SYSTEM TARGET IDS (room ID or life-support).");
         builder.AppendLine("For SecureAirlock, TargetId must be the exact airlock room ID shown as NEEDS SECURING in NEARBY AIRLOCK SAFETY PANELS.");
-        builder.AppendLine("For Talk/Socialize/Argue/RequestHelp, TargetId must be an exact name from the known crew roster. Physical interaction can still fail later if that person cannot actually be reached.");
+        builder.AppendLine("For Talk/Socialize/Argue/RequestHelp/RecruitShutdownAlly, TargetId must be an exact name from the known crew roster. Physical interaction can still fail later if that person cannot actually be reached.");
+        builder.AppendLine("For JoinShutdownTeam, TargetId must be the exact team ID from PENDING TEAM INVITATION.");
+        builder.AppendLine("For ShutdownOverseer, TargetId must be the exact mechanism ID from VERIFIED SHUTDOWN CONTROLS.");
         builder.AppendLine("For Eat/Rest/Sleep/Recreate/Groom/Shower/UseToilet/Idle, TargetId should be null.");
         builder.AppendLine("Do not choose Intimacy directly. Attraction may inform social choices, but mutual consent is resolved by deterministic simulation.");
         builder.AppendLine("Urgency must be 0-100.");
