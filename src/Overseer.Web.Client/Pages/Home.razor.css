@@ -3233,3 +3233,9 @@ button.sound-toggle.sound-on {
         transition: none;
     }
 }
+
+/* V0.6J: physical hatch state must be readable independently of open/lock state. */
+.map-door.damaged { outline: 2px dashed #ffb15a; filter: saturate(1.35); }
+.map-door.bypassed { box-shadow: 0 0 0 2px #6fd8ff, 0 0 10px #6fd8ff; }
+.map-door.welded { outline: 3px double #ff765f; box-shadow: inset 0 0 0 2px #ff765f; }
+.map-door.barricaded { outline: 3px ridge #e6c46f; box-shadow: 0 0 0 3px rgba(230,196,111,.35); }

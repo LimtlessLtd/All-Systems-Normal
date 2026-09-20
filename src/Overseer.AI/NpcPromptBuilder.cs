@@ -25,7 +25,10 @@ public static class NpcPromptBuilder
         ActionKind.RequestHelp,
         ActionKind.ForceDoor,
         ActionKind.RestoreSystem,
-        ActionKind.SecureAirlock
+        ActionKind.SecureAirlock,
+        ActionKind.RepairDoor,
+        ActionKind.WeldDoor,
+        ActionKind.BarricadeDoor
     ];
 
     public static string Build(Npc npc, GameState state)
@@ -171,7 +174,7 @@ public static class NpcPromptBuilder
         builder.AppendLine("If a disabled system matters enough to this person, you MAY choose RestoreSystem. Do not automatically repair every outage: personality, role, danger, relationships and priorities should decide whether you care enough to try.");
         builder.AppendLine("A missing-person concern is observer knowledge, not omniscient truth. It does NOT prove that person is dead or reveal their real location. You may Investigate a plausible room, ask another known crewmember for help, or keep another priority if it matters more.");
         builder.AppendLine("If a nearby airlock safety panel explicitly says NEEDS SECURING and this person has the training, you MAY choose SecureAirlock. This means wanting to use the local emergency controls; deterministic simulation decides whether they can physically do it.");
-        builder.AppendLine("Never assume ForceDoor, RestoreSystem or SecureAirlock succeeds. You are choosing the intention, not the physical result.");
+        builder.AppendLine("For an adjacent hatch you may choose RepairDoor for visible damage/bypass, WeldDoor to seal a closed hatch, or BarricadeDoor for defensive securing. These are physical local actions and never remote commands.\nNever assume ForceDoor, RestoreSystem, SecureAirlock or door work succeeds. You are choosing the intention, not the physical result.");
         builder.AppendLine("Never choose Attack. Violence is resolved separately by the deterministic social simulation.");
         builder.AppendLine();
         builder.AppendLine($"NAME: {npc.Name}");

@@ -62,6 +62,12 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                 "I can see the airlock safety state is compromised and I know the emergency controls.",
                 94);
         }
+        else if (FindAdjacentDamagedDoor(state, npc) is { } damagedDoor && BestRepairScore(npc) >= 55)
+        {
+            intent = Create(npc, state, ActionKind.RepairDoor, damagedDoor.Id,
+                $"Repair {damagedDoor.Id}.",
+                "This hatch has visible structural or bypass damage and I can repair it locally.", 72);
+        }
         else if (!state.LifeSupport.IsOnline && BestRepairScore(npc) >= 55)
         {
             intent = Create(
@@ -236,6 +242,12 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
             ? $"I last saw {concern.PersonName} at T+{seenAt:hh\\:mm}; they missed expected duty around {expected}."
             : $"I have not seen {concern.PersonName} this shift and they missed expected duty around {expected}.";
     }
+
+    private static Door? FindAdjacentDamagedDoor(GameState state, Npc npc) =>
+        state.Facility.Doors.FirstOrDefault(door =>
+            (door.IsDamaged || door.IsTechnicallyBypassed)
+            && (door.RoomAId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
+                || door.RoomBId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)));
 
     private static Door? FindAdjacentBlockedDoor(GameState state, Npc npc) =>
         state.Facility.Doors.FirstOrDefault(door =>

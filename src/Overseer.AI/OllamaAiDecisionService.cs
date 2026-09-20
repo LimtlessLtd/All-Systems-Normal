@@ -31,7 +31,10 @@ public sealed class OllamaAiDecisionService(
         ActionKind.RequestHelp,
         ActionKind.ForceDoor,
         ActionKind.RestoreSystem,
-        ActionKind.SecureAirlock
+        ActionKind.SecureAirlock,
+        ActionKind.RepairDoor,
+        ActionKind.WeldDoor,
+        ActionKind.BarricadeDoor
     ];
 
     public async Task<NpcIntent> DecideAsync(
@@ -130,6 +133,22 @@ public sealed class OllamaAiDecisionService(
                 && (candidate.RoomAId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
                     || candidate.RoomBId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)));
 
+            if (door is null)
+            {
+                action = ActionKind.Idle;
+                target = null;
+            }
+            else
+            {
+                target = door.Id;
+            }
+        }
+        else if (action is ActionKind.RepairDoor or ActionKind.WeldDoor or ActionKind.BarricadeDoor)
+        {
+            var door = state.Facility.Doors.FirstOrDefault(candidate =>
+                candidate.Id.Equals(target, StringComparison.OrdinalIgnoreCase)
+                && (candidate.RoomAId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
+                    || candidate.RoomBId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)));
             if (door is null)
             {
                 action = ActionKind.Idle;

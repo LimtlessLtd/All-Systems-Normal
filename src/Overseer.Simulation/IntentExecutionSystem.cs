@@ -74,6 +74,12 @@ public sealed class IntentExecutionSystem
                     ExecuteSecureAirlockIntent(state, npc, intent);
                     break;
 
+                case ActionKind.RepairDoor:
+                case ActionKind.WeldDoor:
+                case ActionKind.BarricadeDoor:
+                    ExecuteDoorWorkIntent(state, npc, intent);
+                    break;
+
                 case ActionKind.Idle:
                     npc.CurrentAction = new NpcAction(
                         ActionKind.Idle,
@@ -100,6 +106,28 @@ public sealed class IntentExecutionSystem
                     break;
             }
         }
+    }
+
+    private void ExecuteDoorWorkIntent(GameState state, Npc npc, NpcIntent intent)
+    {
+        var door = state.Facility.Doors.FirstOrDefault(candidate =>
+            candidate.Id.Equals(intent.TargetId, StringComparison.OrdinalIgnoreCase));
+        if (door is null)
+        {
+            FailIntent(npc, "I cannot identify that hatch.");
+            return;
+        }
+
+        var adjacent = npc.CurrentRoomId.Equals(door.RoomAId, StringComparison.OrdinalIgnoreCase)
+            || npc.CurrentRoomId.Equals(door.RoomBId, StringComparison.OrdinalIgnoreCase);
+        if (!adjacent)
+        {
+            FailIntent(npc, "I need to be beside that hatch before working on it.");
+            return;
+        }
+
+        _actions.TryApply(state, npc.Id,
+            new NpcAction(intent.Action, door.Id, intent.Reason), out _);
     }
 
     private void ExecuteForceDoorIntent(
