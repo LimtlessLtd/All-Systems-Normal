@@ -2870,3 +2870,195 @@ Continue to favour emergence over scripting and preserve the core rule:
 
 > **The LLM decides what an NPC WANTS to do. Deterministic C# decides what the NPC CAN do.**
 
+# V0.6H — GROUNDED MISSING-PERSON REASONING — COMPLETED
+
+This milestone closes the major V0.6E gap where a crew member ejected through the exterior airlock could disappear without anyone ever reasoning about their absence.
+
+The implementation deliberately does **not** turn `IsPresent == false` or remote death state into magical crew knowledge.
+
+Observer-specific knowledge:
+
+* each NPC now keeps their own last-seen records for crew they have physically shared a compartment with
+* a sighting records the person, compartment and simulated time
+* the shared role-duty rotation is now represented by `CrewDutySchedule`, used both by ordinary routines and by human expectations
+* expected duty is only a rough social expectation; it is not treated as authoritative knowledge of where somebody really is
+* each observer owns their own `MissingPersonConcern` state and checked-room history
+
+How someone becomes "missing":
+
+* merely setting another NPC to dead/ejected/not-present does not create concern
+* an observer can become concerned after personally reaching a compartment where somebody was reasonably expected and not finding them after a believable delay
+* Command/Security and close trusted relationships can also notice a sufficiently overdue expected check-in
+* concern begins with uncertainty, not a conclusion that the person is dead
+* the system records what the observer actually knows: expected location, last personal sighting if any, checked rooms and who told them
+
+Physical searching:
+
+* a concerned NPC's browser/fallback mind can choose an `Investigate` intention toward a plausible unchecked compartment
+* likely search order uses expected duty location, last-known location and ordinary shared crew spaces
+* normal A* navigation and deterministic movement still decide whether the person can physically reach that room
+* arriving and failing to find the person advances the concern from Concerned → Searching → Escalated
+* a prolonged unsuccessful search can also escalate concern after at least one real physical check
+* finding the missing person alive in the same compartment clears the concern and creates a direct reunion memory
+* discovering their body clears the missing-person uncertainty through the existing body-discovery path instead
+
+Communication / social propagation:
+
+* missing-person concern spreads only between crew who are physically co-located
+* the listener must have sufficient trust in the speaker
+* the listener receives a claim sourced to that crew member rather than omniscient truth
+* dialogue is paced through the existing conversation presentation system
+* independently separated crew do not learn about the concern magically
+
+AI integration:
+
+* the Ollama prompt now exposes only that NPC's grounded missing-person concerns
+* it explicitly tells the model that a concern does not prove death or reveal the person's real location
+* the model may choose to investigate, ask another crew member for help, or prioritise something else
+* the known crew roster deliberately does not remove a remotely vanished person merely because authoritative state knows they died; doing so would itself leak hidden truth
+* the deterministic browser/fallback mind mirrors sensible physical-search behaviour
+* a new event-driven reconsideration hook lets a meaningful missing-person development prompt an earlier LLM decision instead of waiting for the ordinary sparse cognition cadence
+* environmental emergencies still take priority over missing-person searches
+
+Suspicion:
+
+* somebody simply being overdue does **not** automatically blame Overseer
+* an escalated disappearance only becomes additional Overseer evidence when that same observer already has relevant direct evidence, currently including recently witnessing the exterior airlock opened unsafely
+* this means an unwitnessed airlock ejection can remain mysterious, while a witnessed suspicious hatch event plus a later disappearance can form a stronger causal belief
+
+UI / visibility:
+
+* the selected-crew inspector in both the deterministic Pages build and full Ollama/server build now shows that NPC's current missing-crew concerns
+* it exposes stage, expected compartment, last-seen time when known and number of places checked
+* this is intentionally individual knowledge rather than a global omniscient "missing crew" list
+
+Regression coverage includes:
+
+* remote `IsPresent`/death state alone does not create omniscient concern
+* missed expected duty can create uncertainty without leaking ejection/death truth
+* physical searches escalate only after real room checks
+* concern propagation requires co-location and trusted communication
+* finding a living person resolves the concern
+* witnessed unsafe-airlock evidence can combine with a later escalated disappearance
+* LLM prompts expose concern while hiding authoritative ejection/death cause
+* fallback/browser cognition can choose a grounded investigation
+
+Preserved invariants:
+
+* `CurrentRoomId` remains authoritative containment
+* no teleportation or remote knowledge was introduced
+* A* and deterministic action validation remain physically authoritative
+* the LLM decides what an NPC wants; deterministic C# decides what they can do
+* V0.6G splitters, map zoom and audio remain presentation-only
+* V0.6E vacuum/ejection and body-discovery semantics remain intact
+* both Pages and Ollama/server sessions use the same missing-person simulation state
+
+# FORWARD IMPLEMENTATION ROADMAP
+
+Unless playtest feedback reveals a regression that should take priority, implement and merge these milestones in this order. Each milestone follows the mandatory feature-branch → PR → green CI → merge-to-`main` → Pages verification workflow.
+
+## V0.6I — Airlock Safety & Pressure Cycling
+
+Implement next:
+
+* explicit airlock pressure-cycle state rather than instant ordinary hatch operation
+* pressurise / depressurise controls and readable chamber status
+* sensible inner/outer hatch interlocks
+* emergency/manual override behaviour where scenario rules allow it
+* warnings/alarms for unsafe combinations
+* crew recognition of an unsafe/open exterior hatch
+* nearby capable crew may autonomously try to close or secure it
+* preserve the player's ability to deliberately create dangerous decompression when they defeat/bypass the safety logic
+* make sabotage/counterplay visible and deterministic
+
+## V0.6J — Damaged-Door Counterplay
+
+After airlock safety:
+
+* damaged hatch state becomes mechanically meaningful rather than a mostly one-way consequence of brute force
+* repairable hatch damage
+* welding / sealing options where tools and skills permit
+* barricading / propping open where appropriate
+* clear distinction between powered lock failure, technical bypass and structural damage
+* crew and Overseer counterplay around damaged doors
+* visible hatch damage/state in the map and inspector
+
+## V0.6C — Investigation, Discovery & Scenario Success
+
+Then resume the larger deferred V0.6C slice:
+
+* structured evidence provenance and stronger perception rules
+* crew investigation of suspicious station behaviour
+* discovery of shutdown hardware rather than primarily seeded knowledge
+* redundant shutdown controls reasoned about as known/reachable physical targets
+* richer recruitment and coordinated shutdown teams
+* scenario success conditions in addition to current failure state
+* optional objectives
+* experiment telemetry / scoring
+* player-facing objective progress without exposing private crew knowledge
+
+## Local Movement & Readability Polish
+
+Then improve moment-to-moment physical readability:
+
+* selected-NPC intended route overlays
+* local collision / occupancy avoidance
+* cleaner two-way corridor steering
+* more precise fixture interaction anchors
+* visible sitting, sleeping, console-use, eating, showering and other furniture poses
+* better facing and conversation positioning
+
+## Food / Consumable Resources
+
+Then make survival resources physically meaningful:
+
+* finite meal/food stores
+* food preparation / consumption
+* stockpile visibility
+* rationing and denial opportunities
+* crew response to shortages
+* later extension toward water/emergency supplies
+
+## Private Messaging, Claims & Social Manipulation
+
+Then build the central information-manipulation layer:
+
+* private Overseer → NPC messages
+* room intercom
+* station announcements
+* structured claims with source/provenance/confidence
+* rumours and contradictions
+* NPC verification / comparison of messages
+* relationship consequences based on belief rather than direct score manipulation
+* eventual forged or selectively disclosed information
+
+## Robots, Security & Human Countermeasures
+
+Then expand physical counterplay:
+
+* autonomous maintenance/security robots
+* Friendly / Neutral / Hostile policy modes
+* deterministic robot navigation/actions
+* manual crew shutdown / isolation / reprogramming counterplay
+* scenario-appropriate automated turrets/security devices
+* human avoidance, sabotage and power-denial tactics
+* Overseer suspicion generated by unexplained hostile automation
+
+## Corporate Experiment Campaign Layer
+
+Once the core emergent systems are strong enough to support it:
+
+* scenario cohorts and experiment directives
+* corporate sponsor / research directorate
+* hidden experiment telemetry
+* increasingly questionable assignments
+* redacted lore / prior incident records
+* black-box fictional cyber payload mechanics
+* optional fictional medical-experiment mechanics at a high simulation level
+* gradual reveal that the human crew are experimental subjects
+* branching long-term directions such as obeying, exposing or turning against the corporation
+
+The sequencing principle is:
+
+> **First make the humans perceive, survive, investigate and fight back credibly. Then give the player deeper tools to manipulate what those humans believe. Finally wrap those emergent systems in the campaign/experiment layer.**
+
