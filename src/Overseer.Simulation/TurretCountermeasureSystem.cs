@@ -289,5 +289,5 @@ public sealed class TurretCountermeasureSystem
     }
 
     private static void Log(GameState state, string message) =>
-        state.EventLog.Insert(0, $"T+{state.Elapsed:hh\:mm}: {message}");
+        state.EventLog.Insert(0, $"T+{state.Elapsed:hh\\:mm}: {message}");
 }
