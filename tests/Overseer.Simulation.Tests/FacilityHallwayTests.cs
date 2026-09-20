@@ -1,3 +1,4 @@
+using Overseer.Domain;
 using Overseer.Simulation;
 
 namespace Overseer.Simulation.Tests;
@@ -5,56 +6,65 @@ namespace Overseer.Simulation.Tests;
 public sealed class FacilityHallwayTests
 {
     [Fact]
-    public void EveryFunctionalRoomHasAHallwayWithADoorAtBothEnds()
+    public void EveryFunctionalRoomHasARealTwoDoorAccessPassage()
     {
-        var state = FacilitySeeder.CreateDefault();
-        var facility = state.Facility;
-
-        var functionalRooms = facility.Rooms.Values
-            .Where(room =>
-                room.Id != "corridor"
-                && !room.Id.StartsWith("hall-", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        foreach (var room in functionalRooms)
+        foreach (var seed in Enumerable.Range(1, 24))
         {
-            var hallwayId = $"hall-{room.Id}";
+            var facility = FacilitySeeder.CreateDefault(stationSeed: seed).Facility;
+            var functionalRooms = facility.Rooms.Values
+                .Where(room => room.Type != RoomType.Corridor)
+                .ToList();
 
-            Assert.True(
-                facility.Rooms.ContainsKey(hallwayId),
-                $"Missing connector hallway for {room.Id}.");
+            foreach (var room in functionalRooms)
+            {
+                var hallwayId = $"hall-{room.Id}";
+                Assert.True(
+                    facility.Rooms.TryGetValue(hallwayId, out var hallway),
+                    $"Seed {seed}: missing connector hallway for {room.Id}.");
 
-            Assert.NotNull(
-                facility.FindDoorBetween(room.Id, hallwayId));
+                var doors = facility.Doors.Where(door =>
+                        door.RoomAId.Equals(hallwayId, StringComparison.OrdinalIgnoreCase)
+                        || door.RoomBId.Equals(hallwayId, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
 
-            Assert.NotNull(
-                facility.FindDoorBetween(hallwayId, "corridor"));
+                Assert.Equal(2, doors.Count);
+                Assert.NotNull(facility.FindDoorBetween(room.Id, hallwayId));
 
-            Assert.Null(
-                facility.FindDoorBetween(room.Id, "corridor"));
+                var networkDoor = doors.Single(door => !door.Connects(room.Id, hallwayId));
+                var networkRoomId = networkDoor.RoomAId.Equals(hallwayId, StringComparison.OrdinalIgnoreCase)
+                    ? networkDoor.RoomBId
+                    : networkDoor.RoomAId;
+
+                Assert.Equal(RoomType.Corridor, facility.Rooms[networkRoomId].Type);
+                Assert.False(networkRoomId.StartsWith("hall-", StringComparison.OrdinalIgnoreCase));
+                Assert.Null(facility.FindDoorBetween(room.Id, networkRoomId));
+            }
         }
     }
 
     [Fact]
-    public void HallwayCanBeSealedIndependentlyAtEitherEnd()
+    public void AccessPassageCanBeSealedIndependentlyAtEitherEnd()
     {
-        var state = FacilitySeeder.CreateDefault();
-        var facility = state.Facility;
-        var roomDoor = facility.FindDoorBetween("engineering", "hall-engineering")!;
-        var corridorDoor = facility.FindDoorBetween("hall-engineering", "corridor")!;
+        var facility = FacilitySeeder.CreateDefault(stationSeed: 74021).Facility;
+        var hallwayId = "hall-engineering";
+        var roomDoor = facility.FindDoorBetween("engineering", hallwayId)!;
+        var networkDoor = facility.Doors.Single(door =>
+            (door.RoomAId.Equals(hallwayId, StringComparison.OrdinalIgnoreCase)
+             || door.RoomBId.Equals(hallwayId, StringComparison.OrdinalIgnoreCase))
+            && !door.Connects("engineering", hallwayId));
 
         roomDoor.IsOpen = false;
         roomDoor.IsLocked = true;
 
         Assert.False(roomDoor.IsPassable);
-        Assert.True(corridorDoor.IsPassable);
+        Assert.True(networkDoor.IsPassable);
 
         roomDoor.IsLocked = false;
         roomDoor.IsOpen = true;
-        corridorDoor.IsOpen = false;
-        corridorDoor.IsLocked = true;
+        networkDoor.IsOpen = false;
+        networkDoor.IsLocked = true;
 
         Assert.True(roomDoor.IsPassable);
-        Assert.False(corridorDoor.IsPassable);
+        Assert.False(networkDoor.IsPassable);
     }
 }

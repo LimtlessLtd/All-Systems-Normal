@@ -122,6 +122,19 @@ public sealed class GameSession
         State = FacilitySeeder.CreateDefault();
     }
 
+    public void RegenerateStation(int? seed = null)
+    {
+        _clock.Pause();
+
+        var scenario = State.Scenario ?? ScenarioCatalog.SecureContinuity;
+        State = FacilitySeeder.CreateDefault(
+            stationSeed: seed,
+            stationConstraints: scenario.StationConstraints);
+        ScenarioCatalog.Apply(State, scenario);
+        CampaignProgressionSystem.ApplyCarryOver(Campaign, State);
+        Campaign.CurrentScenarioId = scenario.Id;
+    }
+
     public void CaptureCampaignProgress() =>
         CampaignProgressionSystem.CaptureCompletedMission(Campaign, State);
 
@@ -136,14 +149,17 @@ public sealed class GameSession
         Campaign = campaign;
 
         var continuingCrew = CampaignProgressionSystem.CreateContinuingCrew(Campaign);
-        State = continuingCrew is null
-            ? FacilitySeeder.CreateDefault()
-            : FacilitySeeder.CreateDefault(continuingCrew);
 
         var next = CampaignProgressionSystem.NextScenario(Campaign);
         var last = Campaign.MissionHistory.LastOrDefault();
         var scenario = next
             ?? (last is null ? null : ScenarioCatalog.Find(last.ScenarioId));
+
+        State = continuingCrew is null
+            ? FacilitySeeder.CreateDefault(stationConstraints: scenario?.StationConstraints)
+            : FacilitySeeder.CreateDefault(
+                continuingCrew,
+                stationConstraints: scenario?.StationConstraints);
 
         if (scenario is not null)
         {
@@ -185,8 +201,10 @@ public sealed class GameSession
 
         var continuingCrew = CampaignProgressionSystem.CreateContinuingCrew(Campaign);
         State = continuingCrew is null
-            ? FacilitySeeder.CreateDefault()
-            : FacilitySeeder.CreateDefault(continuingCrew);
+            ? FacilitySeeder.CreateDefault(stationConstraints: scenario.StationConstraints)
+            : FacilitySeeder.CreateDefault(
+                continuingCrew,
+                stationConstraints: scenario.StationConstraints);
 
         ScenarioCatalog.Apply(State, scenario);
         CampaignProgressionSystem.ApplyCarryOver(Campaign, State);

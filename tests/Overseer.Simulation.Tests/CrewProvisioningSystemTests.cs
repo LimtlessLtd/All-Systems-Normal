@@ -114,14 +114,46 @@ public sealed class CrewProvisioningSystemTests
         var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
         var bed = state.CropBeds[0];
         bed.Growth = 100;
+        bed.Water = 100;
+        bed.Nutrients = 100;
+
+        var growBeds = state.Devices.Values.Single(device =>
+            device.Kind == StationSystemKind.GrowBeds
+            && device.RoomId == "hydroponics");
+        growBeds.Condition = 100;
 
         var worker = state.Crew.Single(npc => npc.Name == "Emma Voss");
         worker.CurrentRoomId = "hydroponics";
+        worker.Hunger = 0;
+        worker.Intent = null;
+        worker.CurrentAction = new NpcAction(ActionKind.Idle, null, "Ready for crop duty.");
 
+        foreach (var other in state.Crew.Where(npc => npc.Id != worker.Id))
+        {
+            other.Intent = new NpcIntent(
+                ActionKind.Rest,
+                null,
+                "Protected test activity.",
+                "Keep harvest ownership deterministic.",
+                100,
+                "Test",
+                state.Elapsed);
+        }
+
+        var system = new CrewProvisioningSystem();
         var before = state.Stores.Produce;
-        new Station().Run(state, 60);
 
-        Assert.True(state.Stores.Produce > before || state.Stores.Meals > 10);
+        system.Tick(state, Minute);
+        Assert.Equal(ActionKind.Harvest, worker.ProvisioningJob);
+
+        system.Tick(state, Minute);
+        Assert.NotNull(worker.ProvisioningCompletesAt);
+
+        state.Elapsed = worker.ProvisioningCompletesAt!.Value;
+        system.Tick(state, Minute);
+
+        Assert.True(state.Stores.Produce > before);
+        Assert.Equal(0, bed.Growth);
     }
 
     [Fact]

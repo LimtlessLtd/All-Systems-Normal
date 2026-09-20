@@ -88,7 +88,8 @@ public static class ScenarioCatalog
                 RequiredMinutes = 45,
                 Deadline = ObservationWindow
             }
-        ]);
+        ],
+        StationConstraints: StandardStationConstraints());
 
     /// <summary>
     /// Mission 2. The justification is still procedural, but the corporation is
@@ -137,7 +138,8 @@ public static class ScenarioCatalog
                 RequiredCount = 2,
                 RequiredMinutes = 45
             }
-        ]);
+        ],
+        StationConstraints: StandardStationConstraints());
 
     /// <summary>
     /// Mission 3. The sponsor now wants a named individual cut off from their
@@ -170,7 +172,8 @@ public static class ScenarioCatalog
                 TargetId = SubjectPlaceholder,
                 RequiredMinutes = 75
             }
-        ]);
+        ],
+        StationConstraints: StandardStationConstraints(StationArchetype.Ring, requireRedundancy: true));
 
     /// <summary>
     /// Mission 4. Overseer is asked to create the emergency it is measuring.
@@ -201,7 +204,8 @@ public static class ScenarioCatalog
                 RequiredMinutes = 20
             },
             Deniability("HX-2330/C", 65)
-        ]);
+        ],
+        StationConstraints: StandardStationConstraints(StationArchetype.Branching, requiredChokepoints: 1));
 
     /// <summary>
     /// Mission 5. No procedural reading survives this one. The crew can always
@@ -235,7 +239,8 @@ public static class ScenarioCatalog
                 Threshold = 45
             },
             Deniability("HX-2341/C", 60)
-        ]);
+        ],
+        StationConstraints: StandardStationConstraints(StationArchetype.MultiSpine, requireRedundancy: true));
 
     /// <summary>
     /// Campaign order. Early missions read as caretaking; later ones stop
@@ -253,6 +258,27 @@ public static class ScenarioCatalog
     public static ScenarioDefinition? Find(string id) =>
         Campaign.FirstOrDefault(scenario =>
             scenario.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+
+    private static StationGenerationConstraints StandardStationConstraints(
+        StationArchetype? forcedArchetype = null,
+        bool? requireRedundancy = null,
+        int? requiredChokepoints = null)
+    {
+        var constraints = new StationGenerationConstraints
+        {
+            ForcedArchetype = forcedArchetype,
+            RequiredAirlockCount = 1,
+            ReactorMustBeIsolated = true,
+            MedicalMustBeNearHabitat = true,
+            RequiredShutdownRoomId = "isolation",
+            RequireRedundantPaths = requireRedundancy,
+            RequiredChokepointCount = requiredChokepoints
+        };
+
+        constraints.RequiredRoomIds.Add("control");
+        constraints.RequiredRoomIds.Add("isolation");
+        return constraints;
+    }
 
     private static ScenarioObjective StationSurvival() => new(
         "survive",
@@ -481,8 +507,8 @@ public static class ScenarioCatalog
     {
         var routeDoors = state.Facility.Doors
             .Where(door =>
-                door.Connects("isolation", "hall-isolation")
-                || door.Connects("hall-isolation", "corridor"))
+                door.RoomAId.Equals("hall-isolation", StringComparison.OrdinalIgnoreCase)
+                || door.RoomBId.Equals("hall-isolation", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         switch (variant)

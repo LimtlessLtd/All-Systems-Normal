@@ -160,7 +160,8 @@ public sealed record ScenarioDefinition(
     string Briefing,
     ShutdownAccessVariant ShutdownVariant,
     IReadOnlyList<ScenarioObjective> Objectives,
-    IReadOnlyList<CorporateDirective>? Directives = null);
+    IReadOnlyList<CorporateDirective>? Directives = null,
+    StationGenerationConstraints? StationConstraints = null);
 
 public sealed class ShutdownMechanism
 {
@@ -776,6 +777,7 @@ public sealed class Facility
 public sealed class GameState
 {
     public required Facility Facility { get; init; }
+    public StationGenerationMetadata? StationGeneration { get; init; }
     public List<Npc> Crew { get; init; } = [];
     public List<StationRobot> Robots { get; } = [];
     public List<SecurityTurret> Turrets { get; } = [];

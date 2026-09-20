@@ -4508,3 +4508,84 @@ button.sound-toggle.sound-on {
         transform: rotate(var(--robot-facing, 0deg));
     }
 }
+
+
+/* Seeded procedural station presentation. Geometry now comes entirely from
+   authoritative rooms/corridors; the old fixed central hull rail was decorative
+   and would lie about branching/ring/multi-spine facilities. */
+.station-map::before,
+.station-map::after {
+    display: none;
+}
+
+.room-node.hallway .room-titlebar,
+.room-node.hallway .room-data {
+    display: none;
+}
+
+.generation-debug {
+    position: relative;
+    z-index: 30;
+    margin-left: auto;
+}
+
+.generation-debug > summary {
+    cursor: pointer;
+    list-style: none;
+    padding: .3rem .55rem;
+    border: 1px solid rgba(104, 157, 173, .28);
+    border-radius: 5px;
+    background: rgba(7, 20, 27, .88);
+    color: #a9c8d0;
+    font: 700 .62rem/1.1 "Cascadia Code", Consolas, monospace;
+    letter-spacing: .06em;
+    user-select: none;
+}
+
+.generation-debug > summary::-webkit-details-marker {
+    display: none;
+}
+
+.generation-debug[open] > summary {
+    border-color: rgba(105, 221, 211, .5);
+    color: #8fe8df;
+}
+
+.generation-debug-popover {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 7px);
+    width: min(330px, 72vw);
+    padding: .7rem;
+    border: 1px solid rgba(105, 170, 184, .38);
+    border-radius: 7px;
+    background: rgba(5, 15, 21, .985);
+    box-shadow: 0 14px 35px rgba(0, 0, 0, .55);
+    text-align: left;
+}
+
+.generation-debug-popover strong,
+.generation-debug-popover small {
+    display: block;
+}
+
+.generation-debug-popover small {
+    margin-top: .25rem;
+    color: #7898a1;
+}
+
+.generation-debug-actions {
+    display: flex;
+    gap: .35rem;
+    margin-top: .55rem;
+}
+
+.generation-debug-popover ul {
+    max-height: 120px;
+    overflow: auto;
+    margin: .55rem 0 0;
+    padding: .45rem 0 0 1.1rem;
+    border-top: 1px solid rgba(104, 157, 173, .18);
+    color: #7898a1;
+    font: 500 .57rem/1.45 "Cascadia Code", Consolas, monospace;
+}
