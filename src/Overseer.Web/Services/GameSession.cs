@@ -12,6 +12,7 @@ public sealed class GameSession(
     private readonly IAiCrewGenerator _crewGenerator = crewGenerator;
     private readonly SimulationEngine _simulation = new();
     private readonly EnvironmentSystem _environment = new();
+    private readonly AirlockSafetySystem _airlockSafety = new();
     private readonly VacuumConsequenceSystem _vacuum = new();
     private readonly MissingPersonSystem _missingPeople = new();
     private readonly CrewCounterplaySystem _counterplay = new();
@@ -54,7 +55,10 @@ public sealed class GameSession(
             room.CarbonDioxidePercent > 1.0
             || room.PressureKpa < 90)
         + State.Facility.Rooms.Values.Count(room =>
-            room.HasExteriorHatch && room.ExteriorHatchOpen);
+            room.HasExteriorHatch
+            && (room.ExteriorHatchOpen
+                || room.AirlockAlarmActive
+                || !room.AirlockSafetyInterlocksEnabled));
 
     public async Task InitializeAsync(
         CancellationToken cancellationToken = default)
@@ -142,7 +146,23 @@ public sealed class GameSession(
             return;
         }
 
-        door.IsOpen = !door.IsOpen;
+        var opening = !door.IsOpen;
+
+        if (!_airlockSafety.CanToggleInnerHatch(
+                State,
+                door,
+                opening,
+                out var airlockSafetyMessage))
+        {
+            Log(airlockSafetyMessage);
+            AudioCueSystem.Emit(
+                State,
+                AudioCueKind.Warning,
+                roomId: door.RoomAId);
+            return;
+        }
+
+        door.IsOpen = opening;
         _suspicion.ObservePlayerDoorChange(State, door, becameRestrictive: !door.IsOpen);
         AudioCueSystem.Emit(State, AudioCueKind.System, roomId: door.RoomAId);
         Log($"{door.Id} is now {(door.IsOpen ? "OPEN" : "CLOSED")}.");
@@ -309,33 +329,70 @@ public sealed class GameSession(
     {
         var room = State.Facility.Rooms[roomId];
 
-        if (!room.HasExteriorHatch || !room.IsExteriorHatchAiControllable)
+        if (!_airlockSafety.TryToggleExteriorHatch(
+                State,
+                roomId,
+                out var opened,
+                out var message))
         {
-            Log($"{room.Name} has no Overseer-controlled exterior hatch.");
+            Log(message);
+            AudioCueSystem.Emit(
+                State,
+                AudioCueKind.Warning,
+                roomId: room.Id);
             return;
         }
 
-        if (!room.IsPowered)
-        {
-            Log($"{room.Name} exterior hatch command refused: NO POWER.");
-            return;
-        }
-
-        room.ExteriorHatchOpen = !room.ExteriorHatchOpen;
         _suspicion.ObserveExteriorHatchChange(
             State,
             room,
-            room.ExteriorHatchOpen);
+            opened);
 
         AudioCueSystem.Emit(
             State,
-            room.ExteriorHatchOpen
-                ? AudioCueKind.Critical
-                : AudioCueKind.System,
+            opened ? AudioCueKind.Critical : AudioCueKind.System,
             roomId: room.Id);
 
-        Log(
-            $"{room.Name} OUTER HATCH {(room.ExteriorHatchOpen ? "OPEN TO SPACE" : "SEALED")}.");
+        Log(message);
+    }
+
+    public void SetAirlockCycle(
+        string roomId,
+        AirlockCycleMode mode)
+    {
+        if (_airlockSafety.TryStartCycle(
+                State,
+                roomId,
+                mode,
+                out var message))
+        {
+            Log(message);
+            return;
+        }
+
+        Log(message);
+        AudioCueSystem.Emit(
+            State,
+            AudioCueKind.Warning,
+            roomId: roomId);
+    }
+
+    public void ToggleAirlockSafetyInterlocks(string roomId)
+    {
+        if (_airlockSafety.TryToggleSafetyInterlocks(
+                State,
+                roomId,
+                out var message))
+        {
+            Log(message);
+            return;
+        }
+
+        Log(message);
+        AudioCueSystem.Emit(
+            State,
+            AudioCueKind.Warning,
+            roomId: roomId);
     }
 
     public void ToggleLifeSupport()
@@ -359,6 +416,7 @@ public sealed class GameSession(
         if (State.ScenarioStatus != ScenarioStatus.Running) return;
         var turn = TimeSpan.FromMinutes(1);
         _environment.Tick(State, turn);
+        _airlockSafety.Tick(State, turn);
         _vacuum.Tick(State);
         _simulation.Tick(State, turn);
         _missingPeople.Tick(State);
