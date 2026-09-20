@@ -116,4 +116,55 @@ public sealed class CrewCounterplaySystemTests
                 effect.Kind == TraitEffectKind.Technical
                 && effect.Modifier > 0));
     }
+    [Fact]
+    public void ForcedDamagePersistsUntilSkilledCrewRepairIt()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+        var door = state.Facility.FindDoorBetween("engineering", "hall-engineering")!;
+        sarah.CurrentRoomId = "engineering";
+        door.IsDamaged = true;
+        door.IsTechnicallyBypassed = true;
+        door.IsManuallyOverridden = true;
+        door.StructuralIntegrityPercent = 35;
+        door.IsAiControllable = false;
+
+        Assert.True(new ActionResolver().TryApply(state, sarah.Id,
+            new NpcAction(ActionKind.RepairDoor, door.Id, "Repair hatch."), out _));
+        var system = new CrewCounterplaySystem();
+        system.Tick(state);
+        state.Elapsed += TimeSpan.FromMinutes(10);
+        system.Tick(state);
+
+        Assert.False(door.IsDamaged);
+        Assert.False(door.IsTechnicallyBypassed);
+        Assert.False(door.IsManuallyOverridden);
+        Assert.Equal(100, door.StructuralIntegrityPercent);
+        Assert.True(door.IsAiControllable);
+    }
+
+    [Fact]
+    public void WeldedAndBarricadedDoorsArePhysicallyImpassableAndNotAiControllable()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+        var door = state.Facility.FindDoorBetween("engineering", "hall-engineering")!;
+        sarah.CurrentRoomId = "engineering";
+        sarah.Skills["Engineering"] = 100;
+        door.IsOpen = false;
+        door.IsLocked = true;
+
+        Assert.True(new ActionResolver().TryApply(state, sarah.Id,
+            new NpcAction(ActionKind.WeldDoor, door.Id, "Seal hatch."), out _));
+        var system = new CrewCounterplaySystem();
+        system.Tick(state);
+        state.Elapsed += TimeSpan.FromMinutes(10);
+        system.Tick(state);
+
+        Assert.True(door.IsWelded);
+        Assert.False(door.IsPassable);
+        Assert.False(door.IsAiControllable);
+        Assert.Equal(sarah.Name, door.SecuredByNpcName);
+    }
+
 }
