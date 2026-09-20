@@ -3,7 +3,7 @@
 Repository: https://github.com/LimtlessLtd/All-Systems-Normal
 Playable Pages build: https://limtlessltd.github.io/All-Systems-Normal/
 
-**Current state:** V0.10 — Seeded Procedural Stations
+**Current state:** V0.10A — Seeded Procedural Stations + Station Presentation Pass
 **Next recommended milestone:** V0.11 — Contained Security-Network Malware & Crew Recovery
 
 This file is the authoritative technical handoff. Keep it concise and update sections in place; do not append milestone diaries.
@@ -138,6 +138,20 @@ Use AuthoredRooms for set pieces whose location may be packed procedurally. Use 
 If a new simulation system needs a room role, either preserve an existing canonical ID or introduce an explicit semantic constraint/model contract; do not infer meaning from screen position.
 
 Both UIs expose a compact GEN // seed inspector with same-seed/new-seed regeneration and generation diagnostics. Keep developer information behind this disclosure rather than adding permanent player clutter.
+
+### Station presentation architecture
+
+Primary presentation helper: `src/Overseer.Simulation/StationPresentationSystem.cs`.
+
+- Both UIs derive the same station purpose/budget/age/maintenance/expansion CSS classes and bounds-based fit transform from authoritative `Facility` + `StationGenerationMetadata`.
+- `.station-world` transforms rooms, corridors, doors, fixtures, crew, robots and turrets together. Auto-fit must never move presentation objects independently of simulation geometry.
+- Hull mass is drawn only from real room/corridor footprints. Do not reintroduce decorative rails/links that imply nonexistent navigation.
+- `FacilitySeeder.ApplyIdentityDrivenDetails` adds deterministic room-aware presentation fixtures. Generated fixtures stay inside their owning room and use collision-aware placement for solid furniture/machinery.
+- Purpose changes art direction; budget/age/maintenance/expansion change finish, wear and exposed services. Preserve the clean colourful cutaway style; do not apply a global brown/grime filter.
+- Room labels reduce information at wide zoom and regain detail when close. Small-room label density is presentation-only.
+- Browser and server `Home.razor` / `Home.razor.css` station rendering must remain visually mirrored. New room/fixture/purpose presentation rules should be added to both UIs unless moved into a future shared component/stylesheet.
+
+Visual invariants: never invent hull/corridor/door geometry, never offset one physical entity separately for aesthetics, and never let decorative fixtures become simulation-authoritative unless the domain contract is explicitly extended.
 
 ---
 

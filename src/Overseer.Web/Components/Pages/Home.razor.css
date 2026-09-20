@@ -4589,3 +4589,729 @@ button.sound-toggle.sound-on {
     color: #7898a1;
     font: 500 .57rem/1.45 "Cascadia Code", Consolas, monospace;
 }
+
+
+/* V0.10A — procedural station graphics & presentation.
+   Presentation follows authoritative geometry; none of these rules create fake
+   rooms, corridors, doors or entity positions. */
+.station-character-chip {
+    flex: 0 1 auto;
+    max-width: 34ch;
+    overflow: hidden;
+    padding: .3rem .55rem;
+    border: 1px solid rgba(118, 171, 184, .24);
+    border-radius: 999px;
+    background: rgba(7, 18, 25, .72);
+    color: #9fbcc3;
+    font-size: .55rem;
+    font-weight: 700;
+    letter-spacing: .055em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.station-map {
+    --station-primary: #64d8d0;
+    --station-secondary: #79a9c5;
+    --hull-outer: #1c3945;
+    --hull-edge: #4c7380;
+    --deck-surface: #10232c;
+    --deck-raised: #17323b;
+    --fixture-metal: #78929a;
+    --wear-opacity: .08;
+}
+
+.station-world {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    transform-origin: 50% 50%;
+    transition: transform .34s cubic-bezier(.2,.8,.2,1);
+}
+
+/* Purpose drives art direction without tinting the whole map muddy/brown. */
+.station-map.purpose-research {
+    --station-primary: #62e9e0;
+    --station-secondary: #a7a8ff;
+    --hull-outer: #173b48;
+    --hull-edge: #70a9b8;
+    --deck-surface: #0e2630;
+    --deck-raised: #173843;
+}
+
+.station-map.purpose-mining {
+    --station-primary: #7fd5cf;
+    --station-secondary: #f2c45f;
+    --hull-outer: #273943;
+    --hull-edge: #68808a;
+    --deck-surface: #12242b;
+    --deck-raised: #1a3037;
+}
+
+.station-map.purpose-industrial {
+    --station-primary: #70d7ca;
+    --station-secondary: #ffbd59;
+    --hull-outer: #243c44;
+    --hull-edge: #6b8790;
+    --deck-surface: #10272e;
+    --deck-raised: #19363d;
+}
+
+.station-map.purpose-habitat {
+    --station-primary: #78ded6;
+    --station-secondary: #8fbcff;
+    --hull-outer: #1e3a49;
+    --hull-edge: #62879a;
+    --deck-surface: #112731;
+    --deck-raised: #1a3540;
+}
+
+.station-map.purpose-logistics {
+    --station-primary: #69d5df;
+    --station-secondary: #ff9f68;
+    --hull-outer: #1c3947;
+    --hull-edge: #587f91;
+    --deck-surface: #0e2530;
+    --deck-raised: #18333e;
+}
+
+.station-map.purpose-security {
+    --station-primary: #79dcd4;
+    --station-secondary: #ff737d;
+    --hull-outer: #243541;
+    --hull-edge: #718592;
+    --deck-surface: #101f29;
+    --deck-raised: #182d38;
+}
+
+.station-map.purpose-mixed {
+    --station-primary: #68d9d1;
+    --station-secondary: #8aabd0;
+}
+
+/* Budget, age and expansion history change finish quality rather than geometry. */
+.station-map.budget-premium {
+    --hull-edge: color-mix(in srgb, var(--station-primary) 35%, #79919a);
+    --fixture-metal: #9db4ba;
+    --wear-opacity: .025;
+}
+
+.station-map.budget-frugal {
+    --fixture-metal: #637e87;
+    --wear-opacity: .15;
+}
+
+.station-map.age-legacy {
+    --wear-opacity: .14;
+}
+
+.station-map.maintenance-battered {
+    --wear-opacity: .22;
+}
+
+.station-map.maintenance-worn {
+    --wear-opacity: .13;
+}
+
+/* Connected structural mass: every authoritative module contributes its real
+   footprint to the hull. Matching corridor rims visually fuse touching pieces. */
+.station-world > .room-node {
+    outline: 0;
+}
+
+.station-world > .room-node:not(.hallway):not(.main-corridor) {
+    border-color: color-mix(in srgb, var(--room-accent) 34%, var(--hull-edge));
+    background:
+        linear-gradient(135deg,
+            rgba(255,255,255,.035) 0 8%,
+            transparent 8% 84%,
+            rgba(0,0,0,.10) 84%),
+        linear-gradient(90deg, var(--room-accent-soft), transparent 31%),
+        linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+        linear-gradient(180deg, var(--deck-raised), var(--deck-surface));
+    background-size: auto, auto, 14px 14px, 14px 14px, auto;
+    box-shadow:
+        0 0 0 4px var(--hull-outer),
+        0 0 0 5px color-mix(in srgb, var(--hull-edge) 60%, #071219),
+        0 8px 20px rgba(0,0,0,.52),
+        inset 0 0 0 3px rgba(4,12,17,.72),
+        inset 0 25px 42px color-mix(in srgb, var(--room-accent) 7%, transparent);
+}
+
+.station-world > .room-node.main-corridor,
+.station-world > .room-node.hallway {
+    border-color: color-mix(in srgb, var(--station-primary) 28%, var(--hull-edge));
+    background-color: var(--deck-surface);
+    box-shadow:
+        0 0 0 4px var(--hull-outer),
+        0 0 0 5px color-mix(in srgb, var(--hull-edge) 45%, #071219),
+        inset 0 0 0 2px rgba(4,14,19,.62),
+        0 4px 12px rgba(0,0,0,.42);
+}
+
+.station-world > .room-node.main-corridor {
+    background:
+        linear-gradient(
+            0deg,
+            transparent 0 25%,
+            color-mix(in srgb, var(--station-primary) 11%, transparent) 26% 29%,
+            transparent 30% 70%,
+            color-mix(in srgb, var(--station-primary) 11%, transparent) 71% 74%,
+            transparent 75%),
+        repeating-linear-gradient(
+            90deg,
+            rgba(255,255,255,.03) 0 18px,
+            rgba(0,0,0,.03) 18px 36px),
+        var(--deck-surface);
+}
+
+.station-world > .room-node.hallway-vertical {
+    background:
+        linear-gradient(
+            90deg,
+            transparent 0 25%,
+            color-mix(in srgb, var(--station-primary) 12%, transparent) 26% 30%,
+            transparent 31% 69%,
+            color-mix(in srgb, var(--station-primary) 12%, transparent) 70% 74%,
+            transparent 75%),
+        repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 13px, rgba(0,0,0,.025) 13px 26px),
+        var(--deck-surface);
+}
+
+.station-world > .room-node.hallway-horizontal {
+    background:
+        linear-gradient(
+            0deg,
+            transparent 0 25%,
+            color-mix(in srgb, var(--station-primary) 12%, transparent) 26% 30%,
+            transparent 31% 69%,
+            color-mix(in srgb, var(--station-primary) 12%, transparent) 70% 74%,
+            transparent 75%),
+        repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0 13px, rgba(0,0,0,.025) 13px 26px),
+        var(--deck-surface);
+}
+
+/* Hull finish variants are seeded, subtle and geometry-neutral. */
+.station-map.hull-variant-0 .room-node:not(.hallway):not(.main-corridor)::before {
+    border-style: solid;
+}
+
+.station-map.hull-variant-1 .room-node:not(.hallway):not(.main-corridor)::before {
+    background: repeating-linear-gradient(
+        90deg,
+        transparent 0 20px,
+        color-mix(in srgb, var(--hull-edge) 18%, transparent) 20px 21px);
+}
+
+.station-map.hull-variant-2 .room-node:not(.hallway):not(.main-corridor)::before {
+    background:
+        linear-gradient(135deg,
+            transparent 0 46%,
+            color-mix(in srgb, var(--station-secondary) 13%, transparent) 47% 53%,
+            transparent 54%);
+}
+
+.station-map.hull-variant-3 .room-node:not(.hallway):not(.main-corridor)::before {
+    border-style: double;
+}
+
+/* Retrofit/wear overlays use cool steel corrosion/scuff tones; no brown filter. */
+.station-map.expansion-heavily-retrofitted .room-node:not(.hallway):not(.main-corridor) {
+    background-image:
+        linear-gradient(125deg,
+            transparent 0 34%,
+            rgba(128,173,181,var(--wear-opacity)) 35% 37%,
+            transparent 38% 66%,
+            rgba(94,139,149,var(--wear-opacity)) 67% 69%,
+            transparent 70%),
+        linear-gradient(90deg, var(--room-accent-soft), transparent 31%),
+        linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+        linear-gradient(180deg, var(--deck-raised), var(--deck-surface));
+}
+
+.station-map.budget-premium .room-node:not(.hallway):not(.main-corridor) {
+    box-shadow:
+        0 0 0 4px color-mix(in srgb, var(--hull-outer) 84%, #284b56),
+        0 0 0 5px color-mix(in srgb, var(--station-primary) 24%, var(--hull-edge)),
+        0 10px 24px rgba(0,0,0,.47),
+        inset 0 0 0 3px rgba(7,20,26,.60),
+        inset 0 24px 46px color-mix(in srgb, var(--station-primary) 6%, transparent);
+}
+
+.station-map.budget-frugal .room-node:not(.hallway):not(.main-corridor)::before,
+.station-map.maintenance-battered .room-node:not(.hallway):not(.main-corridor)::before {
+    border-style: dashed;
+    opacity: .72;
+}
+
+/* Room proportions remain physical, but information density adapts to available area. */
+.room-node.room-small .room-data {
+    display: none;
+}
+
+.room-node.room-small .room-titlebar {
+    min-height: 18px;
+    padding: 2px 3px;
+}
+
+.room-node.room-small .room-name {
+    font-size: clamp(.42rem, .56vw, .57rem);
+    letter-spacing: .015em;
+}
+
+.room-node.room-large .room-name {
+    font-size: clamp(.58rem, .77vw, .76rem);
+}
+
+.station-map.zoom-wide .room-data {
+    display: none;
+}
+
+.station-map.zoom-wide .room-titlebar {
+    background: rgba(5,16,22,.91);
+}
+
+.station-map.zoom-close .room-data {
+    gap: .42rem;
+}
+
+.station-map.zoom-close .room-name {
+    letter-spacing: .055em;
+}
+
+/* Exterior modules and airlocks read as pressure-rated hull interfaces. */
+.room-node.exterior-module {
+    border-color: color-mix(in srgb, #d9edf1 45%, var(--hull-edge));
+    box-shadow:
+        0 0 0 5px #1c3039,
+        0 0 0 7px color-mix(in srgb, var(--station-secondary) 34%, #3f5963),
+        0 10px 22px rgba(0,0,0,.55),
+        inset 0 0 0 3px rgba(4,12,17,.72);
+}
+
+.room-type-airlock .room-titlebar {
+    border-color: rgba(209,231,236,.22);
+    background:
+        repeating-linear-gradient(135deg,
+            rgba(215,235,239,.08) 0 6px,
+            transparent 6px 12px),
+        rgba(7,20,27,.92);
+}
+
+.fixture-airlockdoor {
+    border: 3px double rgba(202,228,233,.66);
+    background:
+        linear-gradient(90deg,
+            transparent 0 43%,
+            rgba(219,238,241,.34) 44% 48%,
+            #08151b 49% 51%,
+            rgba(219,238,241,.34) 52% 56%,
+            transparent 57%),
+        repeating-linear-gradient(135deg,
+            rgba(255,255,255,.07) 0 7px,
+            rgba(0,0,0,.06) 7px 14px),
+        #233740;
+    box-shadow:
+        inset 0 0 0 3px #0a171d,
+        0 3px 8px rgba(0,0,0,.45);
+}
+
+/* Richer fixture language. */
+.fixture {
+    background-color: color-mix(in srgb, var(--fixture-metal) 17%, #102027);
+}
+
+.fixture-generated {
+    opacity: .90;
+}
+
+.fixture-security {
+    border-color: color-mix(in srgb, var(--station-secondary) 66%, #cfedf0);
+    box-shadow:
+        0 0 8px color-mix(in srgb, var(--station-secondary) 18%, transparent),
+        inset 0 0 0 1px rgba(255,255,255,.08);
+}
+
+.fixture-crate {
+    border-radius: 2px;
+    background:
+        linear-gradient(45deg, transparent 43%, rgba(190,216,221,.12) 44% 56%, transparent 57%),
+        linear-gradient(-45deg, transparent 43%, rgba(190,216,221,.10) 44% 56%, transparent 57%),
+        #273940;
+}
+
+.fixture-crate::after {
+    content: "";
+    position: absolute;
+    inset: 18%;
+    border: 1px solid rgba(211,230,233,.13);
+}
+
+.fixture-storagerack {
+    background:
+        repeating-linear-gradient(0deg,
+            rgba(151,180,187,.22) 0 15%,
+            #13242b 15% 20%);
+    box-shadow:
+        inset 4px 0 0 rgba(100,128,136,.18),
+        inset -4px 0 0 rgba(100,128,136,.18),
+        0 2px 5px rgba(0,0,0,.34);
+}
+
+.fixture-toolcabinet,
+.fixture-cabinet,
+.fixture-locker,
+.fixture-suitlocker {
+    background:
+        linear-gradient(90deg,
+            rgba(255,255,255,.05) 0 48%,
+            rgba(0,0,0,.22) 49% 51%,
+            rgba(255,255,255,.03) 52%),
+        #263940;
+}
+
+.fixture-suitlocker {
+    border-color: rgba(173,215,224,.42);
+}
+
+.fixture-suitlocker::after {
+    content: "◯";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%,-50%);
+    color: rgba(205,235,239,.35);
+    font: 700 10px/1 sans-serif;
+}
+
+.fixture-screen {
+    border-color: color-mix(in srgb, var(--station-primary) 42%, #91b6be);
+    background:
+        repeating-linear-gradient(0deg,
+            color-mix(in srgb, var(--station-primary) 13%, transparent) 0 2px,
+            rgba(3,14,19,.86) 2px 5px);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--station-primary) 14%, transparent);
+}
+
+.fixture-screen::after {
+    content: "";
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    bottom: 13%;
+    height: 2px;
+    background: color-mix(in srgb, var(--station-primary) 60%, transparent);
+}
+
+.fixture-utilitypanel {
+    background:
+        radial-gradient(circle at 24% 28%, #6ee8d8 0 3%, transparent 4%),
+        radial-gradient(circle at 42% 28%, #f1c35e 0 3%, transparent 4%),
+        radial-gradient(circle at 60% 28%, #ef747b 0 3%, transparent 4%),
+        repeating-linear-gradient(0deg, rgba(180,207,213,.08) 0 2px, transparent 2px 5px),
+        #24363d;
+}
+
+.fixture-pipe {
+    border-radius: 999px;
+    border-color: rgba(121,162,171,.40);
+    background:
+        linear-gradient(180deg,
+            rgba(220,238,241,.14),
+            rgba(71,104,113,.30) 45% 58%,
+            rgba(216,236,239,.08));
+    box-shadow:
+        inset 0 2px 0 rgba(255,255,255,.10),
+        0 2px 4px rgba(0,0,0,.35);
+}
+
+.fixture-vent {
+    background:
+        repeating-linear-gradient(90deg,
+            rgba(167,196,202,.20) 0 5%,
+            rgba(5,16,22,.70) 5% 12%);
+}
+
+.fixture-workbench {
+    background:
+        linear-gradient(180deg, rgba(191,213,217,.13) 0 18%, transparent 19%),
+        repeating-linear-gradient(90deg,
+            rgba(116,151,159,.15) 0 18%,
+            rgba(10,27,34,.24) 18% 24%),
+        #22343b;
+}
+
+.fixture-kitchencounter {
+    border-color: rgba(179,211,217,.34);
+    background:
+        radial-gradient(circle at 18% 50%, rgba(104,160,174,.30) 0 8%, transparent 9%),
+        radial-gradient(circle at 34% 50%, rgba(104,160,174,.24) 0 8%, transparent 9%),
+        repeating-linear-gradient(90deg, rgba(195,216,219,.16) 0 13%, rgba(108,131,137,.12) 13% 16%),
+        #22343a;
+}
+
+.fixture-growbed {
+    background:
+        radial-gradient(ellipse at 20% 48%, rgba(78,222,127,.52) 0 10%, transparent 11%),
+        radial-gradient(ellipse at 50% 52%, rgba(96,234,143,.50) 0 11%, transparent 12%),
+        radial-gradient(ellipse at 80% 46%, rgba(72,205,115,.50) 0 10%, transparent 11%),
+        repeating-linear-gradient(90deg, rgba(79,187,112,.20) 0 18%, rgba(15,54,36,.40) 18% 31%);
+    box-shadow:
+        inset 0 0 0 2px rgba(14,56,36,.48),
+        0 2px 5px rgba(0,0,0,.32);
+}
+
+.fixture-irrigationtank {
+    border-radius: 45%;
+    border-color: rgba(84,190,202,.35);
+    background:
+        linear-gradient(90deg,
+            rgba(148,221,229,.11),
+            rgba(36,112,125,.30) 48% 52%,
+            rgba(148,221,229,.09)),
+        #173139;
+}
+
+.fixture-treatmentunit,
+.fixture-medicalbed {
+    border-color: rgba(158,211,255,.44);
+    box-shadow:
+        0 0 8px rgba(123,190,241,.08),
+        inset 0 1px 0 rgba(255,255,255,.09);
+}
+
+.fixture-sofa,
+.fixture-chair,
+.fixture-bench {
+    border-radius: 4px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,.06), transparent 25%),
+        color-mix(in srgb, var(--room-accent) 14%, #24363d);
+}
+
+.fixture-generator {
+    background:
+        radial-gradient(circle,
+            rgba(255,208,92,.42) 0 9%,
+            transparent 10% 20%,
+            rgba(240,182,91,.14) 21% 36%,
+            transparent 37% 45%),
+        repeating-conic-gradient(from 0deg,
+            rgba(242,190,93,.17) 0 10deg,
+            transparent 10deg 25deg),
+        #15252c;
+}
+
+.fixture-reactorcore {
+    background:
+        radial-gradient(circle,
+            #bffdf3 0 4%,
+            rgba(83,237,219,.65) 5% 11%,
+            rgba(72,178,181,.20) 12% 27%,
+            transparent 28% 39%,
+            rgba(92,225,210,.17) 40% 48%,
+            transparent 49%),
+        conic-gradient(from 0deg,
+            rgba(92,225,210,.08),
+            transparent 20%,
+            rgba(255,126,104,.08) 38%,
+            transparent 60%,
+            rgba(92,225,210,.08)),
+        #102027;
+    box-shadow:
+        0 0 20px rgba(92,225,210,.20),
+        inset 0 0 0 3px rgba(4,15,20,.62);
+}
+
+/* Hatch leaves stay exactly on authoritative shared portals but read as bulkheads. */
+.map-door {
+    overflow: visible;
+    background-clip: padding-box;
+}
+
+.map-door::before {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    z-index: -1;
+    border: 1px solid rgba(166,204,211,.25);
+    border-radius: 4px;
+    background: #162931;
+}
+
+.map-door.door-horizontal::after {
+    content: "";
+    position: absolute;
+    left: 15%;
+    right: 15%;
+    top: 45%;
+    border-top: 1px solid rgba(2,9,13,.60);
+}
+
+.map-door.door-vertical::after {
+    content: "";
+    position: absolute;
+    top: 15%;
+    bottom: 15%;
+    left: 45%;
+    border-left: 1px solid rgba(2,9,13,.60);
+}
+
+.map-door.open {
+    background:
+        linear-gradient(90deg, rgba(255,255,255,.18), transparent 24% 76%, rgba(255,255,255,.14)),
+        color-mix(in srgb, var(--station-primary) 72%, #2b827a);
+}
+
+.map-door.closed {
+    background:
+        repeating-linear-gradient(135deg,
+            rgba(255,255,255,.12) 0 3px,
+            transparent 3px 7px),
+        #c99145;
+}
+
+.map-door.locked {
+    background:
+        repeating-linear-gradient(135deg,
+            rgba(255,255,255,.12) 0 3px,
+            transparent 3px 7px),
+        #c8515c;
+}
+
+.map-door.damaged {
+    filter: saturate(.78);
+    box-shadow:
+        0 0 0 1px rgba(235,164,105,.40),
+        0 3px 8px rgba(0,0,0,.50);
+}
+
+.map-door.welded {
+    box-shadow:
+        0 0 0 2px rgba(124,193,208,.38),
+        0 0 11px rgba(100,198,216,.12);
+}
+
+/* Crew/security silhouettes stay readable over dense machinery. */
+.crew-token {
+    filter: drop-shadow(0 4px 3px rgba(0,0,0,.50));
+}
+
+.crew-token .crew-nameplate {
+    border-color: color-mix(in srgb, var(--station-primary) 24%, #2c4b57);
+    backdrop-filter: blur(2px);
+}
+
+.robot-token {
+    filter: drop-shadow(0 4px 3px rgba(0,0,0,.55));
+}
+
+.robot-token .robot-icon {
+    border-color: #071219;
+    box-shadow:
+        0 0 0 1px rgba(181,218,224,.22),
+        inset 0 1px 0 rgba(255,255,255,.11);
+}
+
+.robot-token:not(.turret-token) .robot-icon {
+    clip-path: polygon(22% 0, 78% 0, 100% 24%, 100% 76%, 78% 100%, 22% 100%, 0 76%, 0 24%);
+}
+
+.turret-token .robot-icon {
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 50% 50%, #08141a 0 18%, transparent 19%),
+        conic-gradient(from var(--turret-facing, 0deg),
+            currentColor 0 8deg,
+            transparent 8deg 352deg,
+            currentColor 352deg),
+        #50646b;
+}
+
+.turret-token.tracking .robot-icon {
+    box-shadow:
+        0 0 0 1px rgba(255,112,122,.30),
+        0 0 12px rgba(255,91,104,.22),
+        inset 0 1px 0 rgba(255,255,255,.10);
+}
+
+/* Room-specific atmosphere from real room semantics. */
+.room-type-engineering .fixture-layer,
+.room-type-generator .fixture-layer,
+.room-type-reactor .fixture-layer {
+    background:
+        linear-gradient(90deg,
+            transparent 0 7%,
+            color-mix(in srgb, var(--station-secondary) 6%, transparent) 7% 8%,
+            transparent 8% 92%,
+            color-mix(in srgb, var(--station-secondary) 6%, transparent) 92% 93%,
+            transparent 93%);
+}
+
+.room-type-hydroponics .fixture-layer {
+    background:
+        radial-gradient(circle at 50% 50%, rgba(79,213,125,.055), transparent 62%);
+}
+
+.room-type-medical .fixture-layer {
+    background:
+        linear-gradient(90deg, transparent 48%, rgba(159,216,255,.045) 49% 51%, transparent 52%),
+        linear-gradient(0deg, transparent 48%, rgba(159,216,255,.045) 49% 51%, transparent 52%);
+}
+
+.room-type-storage .fixture-layer {
+    background:
+        repeating-linear-gradient(90deg,
+            transparent 0 23%,
+            rgba(168,194,199,.035) 23% 25%);
+}
+
+/* Premium stations are crisp; frugal/retrofit stations expose more services. */
+.station-map.budget-premium .fixture-generated {
+    opacity: .78;
+}
+
+.station-map.budget-frugal .fixture-pipe,
+.station-map.expansion-heavily-retrofitted .fixture-pipe {
+    border-color: color-mix(in srgb, var(--station-secondary) 32%, #68848c);
+}
+
+.station-map.expansion-heavily-retrofitted .fixture-generated {
+    opacity: .96;
+}
+
+/* Keep animation informative rather than noisy. */
+.fixture-generator,
+.fixture-reactorcore {
+    animation-duration: 3.2s;
+}
+
+.robot-token.is-moving .robot-icon,
+.crew-token.is-walking .person-icon {
+    transition-timing-function: linear;
+}
+
+@media (max-width: 760px) {
+    .station-character-chip {
+        display: none;
+    }
+
+    .room-node.room-small .room-glyph {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .station-world,
+    .fixture-generator,
+    .fixture-reactorcore,
+    .map-door,
+    .robot-token,
+    .crew-token {
+        animation: none !important;
+        transition: none !important;
+    }
+}

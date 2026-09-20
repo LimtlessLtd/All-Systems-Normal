@@ -383,6 +383,9 @@
                 <small>Scroll while zoomed · drag the visible splitters to resize · layout is saved locally.</small>
                 @if (Session.State.StationGeneration is { } generation)
                 {
+                    <span class="station-character-chip">
+                        @generation.Identity.Purpose · @generation.Identity.Budget · @generation.Identity.ExpansionHistory
+                    </span>
                     <details class="generation-debug">
                         <summary>GEN // @generation.Seed</summary>
                         <div class="generation-debug-popover">
@@ -411,7 +414,8 @@
             </div>
 
             <div class="station-map-viewport">
-                <div class="station-map" style="@StationMapStyle">
+                <div class="@StationMapClass" style="@StationMapStyle">
+                <div class="station-world" style="@StationWorldStyle">
                 @foreach (var room in Session.State.Facility.Rooms.Values)
                 {
                     <button @key="room.Id"
@@ -524,6 +528,7 @@
                         }
                     </button>
                 }
+                </div>
                 </div>
             </div>
 
@@ -1373,9 +1378,26 @@
 
     private int MapZoomPercent => (int)Math.Round(_mapZoom * 100);
 
+    private StationPresentationProfile StationPresentation =>
+        StationPresentationSystem.Build(Session.State);
+
+    private string StationMapClass =>
+        $"station-map {StationPresentation.CssClasses} " +
+        (_mapZoom < .9 ? "zoom-wide" : _mapZoom > 1.3 ? "zoom-close" : "zoom-normal");
+
     private string StationMapStyle =>
         FormattableString.Invariant(
             $"--crew-step-duration:{(_delayMs >= 2200 ? 2.35 : _delayMs >= 1200 ? 1.25 : 0.62)}s;zoom:{_mapZoom:0.00};");
+
+    private string StationWorldStyle
+    {
+        get
+        {
+            var profile = StationPresentation;
+            return FormattableString.Invariant(
+                $"transform:translate({profile.FitOffsetX:0.###}%,{profile.FitOffsetY:0.###}%) scale({profile.FitScale:0.###});");
+        }
+    }
 
     private void SelectRoom(string roomId)
     {
@@ -1718,8 +1740,24 @@
         return (Math.Atan2(dy, dx) * 180 / Math.PI) + 90;
     }
 
-    private static string FixtureClass(RoomFixture fixture) =>
-        $"fixture fixture-{fixture.Type.ToString().ToLowerInvariant()} fixture-use-{fixture.UsePose.ToString().ToLowerInvariant()}";
+    private static string FixtureClass(RoomFixture fixture)
+    {
+        var classes = new List<string>
+        {
+            "fixture",
+            $"fixture-{fixture.Type.ToString().ToLowerInvariant()}",
+            $"fixture-use-{fixture.UsePose.ToString().ToLowerInvariant()}"
+        };
+
+        if (fixture.Label.StartsWith("Generated ", StringComparison.Ordinal))
+            classes.Add("fixture-generated");
+
+        if (fixture.Label.Contains("Security", StringComparison.OrdinalIgnoreCase)
+            || fixture.Label.Contains("Hardline", StringComparison.OrdinalIgnoreCase))
+            classes.Add("fixture-security");
+
+        return string.Join(' ', classes);
+    }
 
     private static string FixtureStyle(RoomFixture fixture) =>
         FormattableString.Invariant(
@@ -1765,8 +1803,12 @@
         var classes = new List<string>
         {
             "room-node",
-            $"room-type-{room.Type.ToString().ToLowerInvariant()}"
+            $"room-type-{room.Type.ToString().ToLowerInvariant()}",
+            StationPresentationSystem.RoomScaleClass(room)
         };
+
+        if (room.HasExteriorHatch)
+            classes.Add("exterior-module");
 
         if (room.Type == RoomType.Corridor)
         {
