@@ -251,6 +251,88 @@ public sealed class AiDecisionServiceTests
         Assert.Contains(marcus.Name, intent.Goal);
     }
 
+    [Fact]
+    public void Prompt_ExposesOnlyNearbyAirlockSafetyState()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        var airlock = state.Facility.Rooms["airlock"];
+
+        airlock.AirlockSafetyInterlocksEnabled = false;
+        david.CurrentRoomId = "hall-airlock";
+
+        var nearbyPrompt = NpcPromptBuilder.Build(david, state);
+
+        Assert.Contains("NEARBY AIRLOCK SAFETY PANELS", nearbyPrompt);
+        Assert.Contains("NEEDS SECURING", nearbyPrompt);
+        Assert.Contains("SecureAirlock", nearbyPrompt);
+        Assert.Contains("BYPASSED", nearbyPrompt);
+
+        david.CurrentRoomId = "control";
+        var distantPrompt = NpcPromptBuilder.Build(david, state);
+
+        Assert.Contains(
+            "- none currently visible from here",
+            distantPrompt);
+        Assert.DoesNotContain(
+            "airlock = Airlock | pressure",
+            distantPrompt,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ModelCanChooseSecureAirlockOnlyFromGroundedNearbyPanel()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        var airlock = state.Facility.Rooms["airlock"];
+
+        airlock.AirlockSafetyInterlocksEnabled = false;
+        david.CurrentRoomId = "hall-airlock";
+
+        using var nearbyClient = new StubChatClient(
+            """
+            {
+              "Action": "SecureAirlock",
+              "TargetId": "airlock",
+              "Goal": "Secure the compromised airlock.",
+              "Reason": "The safety interlocks are bypassed and I am at the emergency controls.",
+              "Urgency": 96
+            }
+            """);
+
+        var nearbyService = new OllamaAiDecisionService(
+            nearbyClient,
+            new RuleBasedAiDecisionService());
+
+        var nearbyIntent = await nearbyService.DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.SecureAirlock, nearbyIntent.Action);
+        Assert.Equal("airlock", nearbyIntent.TargetId);
+
+        david.CurrentRoomId = "control";
+
+        using var distantClient = new StubChatClient(
+            """
+            {
+              "Action": "SecureAirlock",
+              "TargetId": "airlock",
+              "Goal": "Secure the compromised airlock remotely.",
+              "Reason": "I somehow know it is unsafe.",
+              "Urgency": 96
+            }
+            """);
+
+        var distantService = new OllamaAiDecisionService(
+            distantClient,
+            new RuleBasedAiDecisionService());
+
+        var distantIntent = await distantService.DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.Idle, distantIntent.Action);
+        Assert.Null(distantIntent.TargetId);
+    }
+
     private sealed class StubChatClient : IChatClient
     {
         private readonly string? _json;
