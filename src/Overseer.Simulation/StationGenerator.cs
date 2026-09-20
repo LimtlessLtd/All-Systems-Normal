@@ -1024,9 +1024,9 @@ public static class StationGenerator
             scale *= 0.9 + (identity.IndustrialIntensity / 500d);
         }
 
-        var shrink = attempt < 280
+        var shrink = attempt < 240
             ? 1d
-            : Math.Clamp(1d - ((attempt - 280) / 1200d), 0.75, 1d);
+            : Math.Clamp(1d - ((attempt - 240) / 800d), 0.68, 1d);
 
         var width = random.NextDouble(profile.MinWidth, profile.MaxWidth) * scale * shrink;
         var height = random.NextDouble(profile.MinHeight, profile.MaxHeight) * scale * shrink;
