@@ -5,14 +5,21 @@ namespace Overseer.Simulation;
 public static class FacilitySeeder
 {
     /// <summary>
-    /// Builds a station. <paramref name="upkeepSeed"/> fixes the wear and tear
-    /// the crew inherit, so a particular run can be reproduced; omitting it
-    /// gives every new station its own maintenance history.
+    /// Builds one deterministic physical station. The station seed controls
+    /// identity/topology/spatial packing; upkeep defaults to a stable derivative
+    /// so the same station seed reproduces the same maintenance/provision state.
     /// </summary>
-    public static GameState CreateDefault(int? upkeepSeed = null) =>
-        CreateDefaultInternal(null, upkeepSeed);
+    public static GameState CreateDefault(
+        int? upkeepSeed = null,
+        int? stationSeed = null,
+        StationGenerationConstraints? stationConstraints = null) =>
+        CreateDefaultInternal(null, upkeepSeed, stationSeed, stationConstraints);
 
-    public static GameState CreateDefault(IReadOnlyList<Npc> crew, int? upkeepSeed = null)
+    public static GameState CreateDefault(
+        IReadOnlyList<Npc> crew,
+        int? upkeepSeed = null,
+        int? stationSeed = null,
+        StationGenerationConstraints? stationConstraints = null)
     {
         ArgumentNullException.ThrowIfNull(crew);
 
@@ -21,87 +28,44 @@ public static class FacilitySeeder
             throw new ArgumentException("A station needs at least one crew member.", nameof(crew));
         }
 
-        return CreateDefaultInternal(crew, upkeepSeed);
+        return CreateDefaultInternal(crew, upkeepSeed, stationSeed, stationConstraints);
     }
 
     private static GameState CreateDefaultInternal(
         IReadOnlyList<Npc>? suppliedCrew,
-        int? upkeepSeed = null)
+        int? upkeepSeed,
+        int? stationSeed,
+        StationGenerationConstraints? stationConstraints)
     {
-        var facility = new Facility();
-
-        // Deck A is a room-dominant modular station rather than a uniform grid.
-        // Large functional modules flank a broad central transit spine; deliberately
-        // varied footprints make habitat, command and industrial sections read as
-        // distinct pieces of a real station while keeping every physical connector
-        // and hatch authoritative for movement.
-        AddRoom(facility, "quarters", "Crew Quarters", RoomType.CrewQuarters, 9.5, 21.5, 15, 40);
-        AddRoom(facility, "kitchen", "Kitchen", RoomType.Kitchen, 24, 23, 13, 36);
-        AddRoom(facility, "lounge", "Recreation Lounge", RoomType.Recreation, 38.5, 21.5, 15.5, 40);
-        AddRoom(facility, "hydroponics", "Hydroponics Bay", RoomType.Hydroponics, 54.5, 22.5, 15.5, 38);
-        AddRoom(facility, "medical", "Medical", RoomType.Medical, 69.75, 23, 14, 36);
-        AddRoom(facility, "control", "Control Room", RoomType.ControlRoom, 87.5, 21.5, 20, 40);
-
-        // The spine is intentionally continuous and wide enough for two-way traffic.
-        // Airlock and Overseer Isolation form compact end caps rather than competing
-        // visually with the primary occupied/industrial modules.
-        AddRoom(facility, "airlock", "Airlock", RoomType.Airlock, 4, 50, 6, 12);
-        AddRoom(facility, "corridor", "Central Corridor", RoomType.Corridor, 50, 50, 82, 9);
-        AddRoom(facility, "isolation", "Overseer Isolation", RoomType.ControlRoom, 96, 50, 6, 12);
-
-        AddRoom(facility, "washroom", "Washroom", RoomType.Washroom, 9.5, 78.5, 15, 36);
-        AddRoom(facility, "storage", "Storage", RoomType.Storage, 24.5, 79.5, 14, 39);
-        AddRoom(facility, "engineering", "Engineering", RoomType.Engineering, 40.5, 79, 18, 40);
-        AddRoom(facility, "generator", "Generator", RoomType.Generator, 59, 79.5, 18, 37);
-        AddRoom(facility, "reactor", "Reactor", RoomType.Reactor, 83.5, 79, 28, 40);
-
-        foreach (var roomId in new[]
-        {
-            "quarters", "kitchen", "lounge", "hydroponics", "medical", "control",
-            "airlock", "washroom", "storage", "engineering", "generator", "reactor", "isolation"
-        })
-        {
-            AddHallwayToCorridor(facility, roomId, "corridor");
-        }
+        stationConstraints ??= ScenarioCatalog.SecureContinuity.StationConstraints;
+        var chosenStationSeed = stationSeed ?? Random.Shared.Next();
+        var generation = StationGenerator.Generate(chosenStationSeed, stationConstraints);
+        var facility = generation.Facility;
 
         AddFixtures(facility);
         ConfigureEnvironmentControls(facility);
+        StationGenerator.ApplyEnvironmentOverrides(facility, stationConstraints);
 
-        var innerAirlockDoor = facility.FindDoorBetween("airlock", "hall-airlock");
-        if (innerAirlockDoor is not null)
+        foreach (var airlock in facility.Rooms.Values.Where(room => room.Type == RoomType.Airlock))
         {
-            // A real airlock starts sealed from the station side. The player can
-            // deliberately open both hatches, but that becomes a decompression event.
-            innerAirlockDoor.IsOpen = false;
+            var innerDoor = facility.FindDoorBetween(airlock.Id, $"hall-{airlock.Id}");
+            if (innerDoor is not null)
+            {
+                innerDoor.IsOpen = false;
+            }
         }
+
+        var crew = suppliedCrew?.ToList() ?? CreateDemoCrew();
+        EnsureValidCrewContainment(facility, crew);
 
         var state = new GameState
         {
             Facility = facility,
-            Crew = suppliedCrew?.ToList() ?? CreateDemoCrew()
+            Crew = crew,
+            StationGeneration = generation.Metadata
         };
 
-        state.Robots.Add(new StationRobot
-        {
-            Id = "mr-1",
-            Name = "MR-1",
-            CurrentRoomId = "engineering",
-            PositionX = 62,
-            PositionY = 70,
-            Policy = RobotPolicy.Friendly
-        });
-
-        state.Turrets.Add(new SecurityTurret
-        {
-            Id = "st-1",
-            Name = "ST-1",
-            RoomId = "corridor",
-            PositionX = 50,
-            PositionY = 50,
-            Policy = TurretPolicy.Safe,
-            IsArmed = false,
-            Ammunition = 12
-        });
+        SeedRobotsAndTurrets(state, stationConstraints);
 
         foreach (var npc in state.Crew)
         {
@@ -129,127 +93,111 @@ public static class FacilitySeeder
             ApplyDemoTraits(state);
         }
 
-        // Shutdown-control knowledge is no longer seeded from role. V0.6C
-        // requires crew to physically investigate and verify hardware.
+        // The default boot still starts in the opening assignment. Campaign
+        // sessions may immediately re-apply their selected scenario after seeding.
         ScenarioCatalog.Apply(state, ScenarioCatalog.SecureContinuity);
 
-        // Equipment is registered after the scenario so the isolation hardware
-        // it installs is maintainable too. A station is never delivered new:
-        // the seed decides how much of a maintenance backlog the crew inherit.
-        var seed = upkeepSeed ?? Random.Shared.Next();
+        var seed = upkeepSeed ?? StableDerivedSeed(chosenStationSeed);
         StationUpkeepSystem.Register(state, seed);
         CrewProvisioningSystem.Plant(state, seed);
-        state.EventLog.Add("T+00:00: DIRECTIVE — SECURE CONTINUITY. Prevent crew activation of Emergency Overseer Isolation.");
-        state.EventLog.Add("T+00:00: MR-1 maintenance/security platform online under crew-assist policy.");
-        state.EventLog.Add("T+00:00: ST-1 fixed security turret online in Central Corridor; SAFE / DISARMED.");
-        state.EventLog.Add($"T+00:00: ALL SYSTEMS NORMAL. {state.Crew.Count} crew members online.");
 
+        var identity = generation.Metadata.Identity;
+        state.EventLog.Add(
+            $"T+00:00: STATION {generation.Metadata.Archetype.ToString().ToUpperInvariant()} // " +
+            $"{identity.Purpose.ToString().ToUpperInvariant()} // SEED {chosenStationSeed}.");
+        state.EventLog.Add("T+00:00: DIRECTIVE — SECURE CONTINUITY. Prevent crew activation of Emergency Overseer Isolation.");
+
+        if (state.Robots.Count > 0)
+        {
+            state.EventLog.Add($"T+00:00: {state.Robots.Count} maintenance/security platform(s) online.");
+        }
+
+        if (state.Turrets.Count > 0)
+        {
+            state.EventLog.Add($"T+00:00: {state.Turrets.Count} fixed security turret(s) online; SAFE / DISARMED.");
+        }
+
+        state.EventLog.Add($"T+00:00: ALL SYSTEMS NORMAL. {state.Crew.Count} crew members online.");
         return state;
     }
 
-    private static void AddRoom(
-        Facility facility,
-        string id,
-        string name,
-        RoomType type,
-        double mapX,
-        double mapY,
-        double mapWidth,
-        double mapHeight)
+    private static void EnsureValidCrewContainment(Facility facility, IEnumerable<Npc> crew)
     {
-        facility.Rooms.Add(id, new Room
+        var fallback = facility.Rooms.ContainsKey("corridor")
+            ? "corridor"
+            : facility.Rooms.Keys.First();
+
+        foreach (var npc in crew)
         {
-            Id = id,
-            Name = name,
-            Type = type,
-            MapX = mapX,
-            MapY = mapY,
-            MapWidth = mapWidth,
-            MapHeight = mapHeight
-        });
+            if (!facility.Rooms.ContainsKey(npc.CurrentRoomId))
+            {
+                npc.CurrentRoomId = fallback;
+                npc.PositionX = 50;
+                npc.PositionY = 50;
+                npc.Movement = null;
+            }
+        }
     }
 
-    private static void AddHallwayToCorridor(
-        Facility facility,
-        string roomId,
-        string corridorId)
+    private static void SeedRobotsAndTurrets(
+        GameState state,
+        StationGenerationConstraints constraints)
     {
-        const double hallwayThickness = 4.6;
-        const double tolerance = 0.001;
+        var robotCount = Math.Max(0, constraints.RequiredRobotCount ?? 1);
+        var robotRoom = state.Facility.Rooms.ContainsKey("engineering")
+            ? "engineering"
+            : state.Facility.Rooms.ContainsKey("corridor")
+                ? "corridor"
+                : state.Facility.Rooms.Keys.First();
 
-        var room = facility.Rooms[roomId];
-        var corridor = facility.Rooms[corridorId];
-        var hallwayId = $"hall-{roomId}";
-        var roomBounds = StationGeometry.Bounds(room);
-        var corridorBounds = StationGeometry.Bounds(corridor);
-
-        var verticallySeparated =
-            roomBounds.Bottom <= corridorBounds.Top + tolerance
-            || roomBounds.Top >= corridorBounds.Bottom - tolerance;
-
-        if (verticallySeparated)
+        for (var index = 0; index < robotCount; index++)
         {
-            var roomAbove = room.MapY < corridor.MapY;
-            var roomEdge = roomAbove ? roomBounds.Bottom : roomBounds.Top;
-            var corridorEdge = roomAbove ? corridorBounds.Top : corridorBounds.Bottom;
-            var top = Math.Min(roomEdge, corridorEdge);
-            var bottom = Math.Max(roomEdge, corridorEdge);
-            var length = bottom - top;
-
-            if (length <= tolerance)
+            state.Robots.Add(new StationRobot
             {
-                throw new InvalidOperationException(
-                    $"Room '{room.Id}' requires a positive physical corridor gap.");
-            }
-
-            AddRoom(
-                facility,
-                hallwayId,
-                $"{room.Name} Hallway",
-                RoomType.Corridor,
-                room.MapX,
-                (top + bottom) / 2,
-                hallwayThickness,
-                length);
-        }
-        else
-        {
-            var roomLeft = room.MapX < corridor.MapX;
-            var roomEdge = roomLeft ? roomBounds.Right : roomBounds.Left;
-            var corridorEdge = roomLeft ? corridorBounds.Left : corridorBounds.Right;
-            var left = Math.Min(roomEdge, corridorEdge);
-            var right = Math.Max(roomEdge, corridorEdge);
-            var length = right - left;
-
-            if (length <= tolerance)
-            {
-                throw new InvalidOperationException(
-                    $"Room '{room.Id}' requires a positive physical corridor gap.");
-            }
-
-            AddRoom(
-                facility,
-                hallwayId,
-                $"{room.Name} Hallway",
-                RoomType.Corridor,
-                (left + right) / 2,
-                room.MapY,
-                length,
-                hallwayThickness);
+                Id = $"mr-{index + 1}",
+                Name = $"MR-{index + 1}",
+                CurrentRoomId = robotRoom,
+                PositionX = 50 + ((index % 3) * 8),
+                PositionY = 50 + ((index / 3) * 8),
+                Policy = RobotPolicy.Friendly
+            });
         }
 
-        Connect(facility, roomId, hallwayId);
-        Connect(facility, hallwayId, corridorId);
+        var turretCount = Math.Max(0, constraints.RequiredTurretCount ?? 1);
+        var turretRooms = state.Facility.Rooms.Values
+            .Where(room => room.Type == RoomType.Corridor
+                && !room.Id.StartsWith("hall-", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(room => room.Id.Equals("corridor", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenBy(room => room.Id)
+            .ToList();
+
+        for (var index = 0; index < turretCount && turretRooms.Count > 0; index++)
+        {
+            var room = turretRooms[index % turretRooms.Count];
+            state.Turrets.Add(new SecurityTurret
+            {
+                Id = $"st-{index + 1}",
+                Name = $"ST-{index + 1}",
+                RoomId = room.Id,
+                PositionX = 50,
+                PositionY = 50,
+                Policy = TurretPolicy.Safe,
+                IsArmed = false,
+                Ammunition = 12
+            });
+        }
     }
 
-    private static void Connect(Facility facility, string roomAId, string roomBId)
+    private static int StableDerivedSeed(int stationSeed)
     {
-        facility.Doors.Add(new Door
+        unchecked
         {
-            Id = $"door-{roomAId}-{roomBId}",
-            RoomAId = roomAId,
-            RoomBId = roomBId
-        });
+            var value = (uint)stationSeed;
+            value ^= 0x5F3759DFu;
+            value *= 16777619u;
+            value ^= value >> 13;
+            return (int)value;
+        }
     }
 
     private static List<Npc> CreateDemoCrew() =>
@@ -542,8 +490,6 @@ public static class FacilitySeeder
             room.TemperatureSetpointC = room.TemperatureC;
         }
 
-        // Corridors share a passive station air loop. Overseer can observe them,
-        // but there is no individual thermostat or ventilation damper to abuse.
         foreach (var room in facility.Rooms.Values.Where(room => room.Type == RoomType.Corridor))
         {
             room.HasTemperatureControl = false;
@@ -552,27 +498,29 @@ public static class FacilitySeeder
             room.IsVentilationAiControllable = false;
         }
 
-        var airlock = facility.Rooms["airlock"];
-        airlock.HasTemperatureControl = false;
-        airlock.IsTemperatureAiControllable = false;
-        airlock.HasVentilationControl = false;
-        airlock.IsVentilationAiControllable = false;
-        airlock.HasExteriorHatch = true;
-        airlock.IsExteriorHatchAiControllable = true;
-        airlock.ExteriorHatchOpen = false;
+        foreach (var airlock in facility.Rooms.Values.Where(room => room.Type == RoomType.Airlock))
+        {
+            airlock.HasTemperatureControl = false;
+            airlock.IsTemperatureAiControllable = false;
+            airlock.HasVentilationControl = false;
+            airlock.IsVentilationAiControllable = false;
+            airlock.HasExteriorHatch = true;
+            airlock.IsExteriorHatchAiControllable = true;
+            airlock.ExteriorHatchOpen = false;
+        }
 
-        // Hydroponics runs its own horticultural climate controller. The player
-        // can monitor it but cannot directly alter its temperature or damper.
-        var hydroponics = facility.Rooms["hydroponics"];
-        hydroponics.TemperatureC = 24;
-        hydroponics.TemperatureSetpointC = 24;
-        hydroponics.IsTemperatureAiControllable = false;
-        hydroponics.IsVentilationAiControllable = false;
+        if (facility.Rooms.TryGetValue("hydroponics", out var hydroponics))
+        {
+            hydroponics.TemperatureC = 24;
+            hydroponics.TemperatureSetpointC = 24;
+            hydroponics.IsTemperatureAiControllable = false;
+            hydroponics.IsVentilationAiControllable = false;
+        }
 
-        // Reactor room climate is tied to a safety cooling loop rather than the
-        // ordinary habitation thermostat.
-        var reactor = facility.Rooms["reactor"];
-        reactor.IsTemperatureAiControllable = false;
+        if (facility.Rooms.TryGetValue("reactor", out var reactor))
+        {
+            reactor.IsTemperatureAiControllable = false;
+        }
     }
 
     private static void AddFixture(
@@ -589,7 +537,12 @@ public static class FacilitySeeder
         FixtureUsePose usePose = FixtureUsePose.Stand,
         double facingDegrees = 0)
     {
-        facility.Rooms[roomId].Fixtures.Add(
+        if (!facility.Rooms.TryGetValue(roomId, out var room))
+        {
+            return;
+        }
+
+        room.Fixtures.Add(
             new RoomFixture(
                 type,
                 label,
