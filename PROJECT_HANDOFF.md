@@ -3191,3 +3191,32 @@ The larger roadmap remains:
 
 **V0.6J Damaged-Door Counterplay → V0.6C Investigation/Discovery/Scenario Success → Local Movement & Readability Polish → Food/Consumable Resources → Private Messaging/Claims/Social Manipulation → Robots/Security/Human Countermeasures → Corporate Experiment Campaign Layer.**
 
+
+
+# V0.6J — DAMAGED-DOOR COUNTERPLAY — COMPLETED
+
+V0.6J turns hatch counterplay into persistent physical state rather than a one-shot lock toggle.
+
+Implemented:
+* brute-force opening now leaves persistent structural damage and reduced integrity
+* technical bypass is distinct from structural damage and remains locally controlled
+* skilled crew can perform timed local repairs that restore integrity and Overseer control
+* crew can weld closed hatches or barricade them as deterministic local defensive actions
+* welded/barricaded hatches are physically impassable and cannot be remotely reversed by Overseer commands
+* door state now distinguishes powered/locked, manual override, technical bypass, structural damage, welding and barricading
+* fallback and Ollama cognition can choose grounded door repair/securing intentions; deterministic C# validates adjacency, skill and time
+* Pages and Ollama/server maps expose damaged, bypassed, welded and barricaded states with distinct visual treatment/tooltips
+* regression tests cover persistent damage, repair restoration and physically secured hatch consequences
+
+Preserved invariants:
+* the LLM decides what an NPC WANTS; deterministic C# decides what the NPC CAN do
+* CurrentRoomId remains authoritative containment
+* navigation continues to consume deterministic Door.IsPassable
+* stable Blazor @key identity is unchanged
+* V0.6H missing-person reasoning and V0.6I airlock safety remain perception-limited
+
+# NEXT IMMEDIATE MILESTONE — V0.6C INVESTIGATION, DISCOVERY & SCENARIO SUCCESS
+
+The next agent should implement the scenario-facing investigation loop: grounded evidence discovery, escalating crew investigation, explicit objective/success/failure evaluation, and readable player feedback without giving NPCs omniscient knowledge.
+
+Workflow rule: work on a feature branch, open a PR, require green CI, merge completed work into main, then verify the GitHub Pages deployment before handoff.
