@@ -57,6 +57,7 @@ public sealed class ActionResolver
             ActionKind.OverrideDoor => TryOverrideDoor(state, npc, action, out message),
             ActionKind.ForceDoor => TryForceDoor(state, npc, action, out message),
             ActionKind.RestoreSystem => TryRestoreSystem(state, npc, action, out message),
+            ActionKind.SecureAirlock => TrySecureAirlock(state, npc, action, out message),
             ActionKind.Idle => SetAction(state, npc, action, "waits", out message),
             _ => Fail("Unsupported action.", out message)
         };
@@ -372,6 +373,55 @@ public sealed class ActionResolver
             npc,
             action,
             $"starts restoring {action.TargetId}",
+            out message);
+    }
+
+    private static bool TrySecureAirlock(
+        GameState state,
+        Npc npc,
+        NpcAction action,
+        out string message)
+    {
+        if (string.IsNullOrWhiteSpace(action.TargetId)
+            || !state.Facility.Rooms.TryGetValue(action.TargetId, out var airlock)
+            || airlock.Type != RoomType.Airlock
+            || !airlock.HasExteriorHatch)
+        {
+            message = "Secure-airlock target does not exist.";
+            return false;
+        }
+
+        if (!AirlockSafetySystem.NeedsCrewSecuring(state, airlock))
+        {
+            message = $"{airlock.Name} no longer needs emergency securing.";
+            return false;
+        }
+
+        if (!AirlockSafetySystem.CanCrewSecure(npc))
+        {
+            message = $"{npc.Name} lacks the training to use the emergency airlock controls.";
+            return false;
+        }
+
+        if (!AirlockSafetySystem.IsAtCrewControls(state, npc, airlock))
+        {
+            message = $"{npc.Name} must physically reach the airlock emergency controls.";
+            return false;
+        }
+
+        if (npc.CurrentAction.Kind == ActionKind.SecureAirlock
+            && npc.CurrentAction.TargetId == airlock.Id)
+        {
+            message = $"{npc.Name} continues securing {airlock.Name}.";
+            return true;
+        }
+
+        npc.RoutineUntil = TimeSpan.Zero;
+        return SetAction(
+            state,
+            npc,
+            action,
+            $"starts operating the emergency controls for {airlock.Name}",
             out message);
     }
 
