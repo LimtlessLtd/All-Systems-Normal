@@ -643,17 +643,17 @@ public static class StationGenerator
     {
         var baseWidth = identity.Budget switch
         {
-            StationBudgetClass.Frugal => 4.0,
-            StationBudgetClass.Premium => 6.2,
-            _ => 5.1
+            StationBudgetClass.Frugal => 3.8,
+            StationBudgetClass.Premium => 5.1,
+            _ => 4.4
         };
 
         if (identity.Size == StationSizeClass.Compact)
         {
-            baseWidth -= 0.5;
+            baseWidth -= 0.2;
         }
 
-        return Math.Clamp(baseWidth + random.NextDouble(-0.4, 0.7), 3.6, 7.2);
+        return Math.Clamp(baseWidth + random.NextDouble(-0.25, 0.45), 3.5, 5.6);
     }
 
     private static void BuildTopology(
@@ -998,9 +998,9 @@ public static class StationGenerator
     {
         var scale = identity.Size switch
         {
-            StationSizeClass.Compact => 0.84,
-            StationSizeClass.Large => 1.08,
-            _ => 0.96
+            StationSizeClass.Compact => 0.95,
+            StationSizeClass.Large => 1.25,
+            _ => 1.12
         };
 
         if (profile.Id.Equals("quarters", StringComparison.OrdinalIgnoreCase))
@@ -1013,9 +1013,9 @@ public static class StationGenerator
             scale *= 0.9 + (identity.IndustrialIntensity / 500d);
         }
 
-        var shrink = attempt < 240
+        var shrink = attempt < 360
             ? 1d
-            : Math.Clamp(1d - ((attempt - 240) / 650d), 0.68, 1d);
+            : Math.Clamp(1d - ((attempt - 360) / 1800d), 0.86, 1d);
 
         var width = random.NextDouble(profile.MinWidth, profile.MaxWidth) * scale * shrink;
         var height = random.NextDouble(profile.MinHeight, profile.MaxHeight) * scale * shrink;
@@ -1026,14 +1026,14 @@ public static class StationGenerator
             (width, height) = (height, width);
         }
 
-        width = Math.Clamp(width, 7.5, 24);
-        height = Math.Clamp(height, 8.5, 27);
+        width = Math.Clamp(width, 8.5, 28);
+        height = Math.Clamp(height, 9.5, 30);
 
         var passageWidth = identity.Budget switch
         {
-            StationBudgetClass.Frugal => random.NextDouble(3.4, 4.2),
-            StationBudgetClass.Premium => random.NextDouble(4.8, 5.8),
-            _ => random.NextDouble(4.1, 5.0)
+            StationBudgetClass.Frugal => random.NextDouble(3.4, 4.0),
+            StationBudgetClass.Premium => random.NextDouble(4.2, 5.0),
+            _ => random.NextDouble(3.7, 4.5)
         };
 
         var retrofitFactor = identity.ExpansionHistory switch
