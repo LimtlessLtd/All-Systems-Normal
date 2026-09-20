@@ -278,11 +278,25 @@ public sealed class MissingPersonSystem
         if (!witnessedUnsafeAirlock)
             return;
 
+        var sourceEvidence = observer.OverseerEvidence
+            .Where(evidence =>
+                state.Elapsed - evidence.ObservedAt <= TimeSpan.FromMinutes(45)
+                && evidence.Description.Contains(
+                    "exterior airlock hatch open",
+                    StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(evidence => evidence.ObservedAt)
+            .FirstOrDefault();
+
         SuspicionSystem.AddEvidence(
             state,
             observer,
             $"{concern.PersonName} is missing after I witnessed the exterior airlock hatch open.",
-            9);
+            9,
+            origin: EvidenceOrigin.Inference,
+            locationId: concern.LastKnownRoomId,
+            evidenceId: $"missing-airlock-inference:{concern.PersonId:N}:{observer.Id:N}",
+            sourceEvidenceId: sourceEvidence?.EvidenceId,
+            reliability: .8);
     }
 
     private static void ShareConcerns(GameState state)

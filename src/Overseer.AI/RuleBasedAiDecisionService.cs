@@ -91,6 +91,69 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                 MissingConcernReason(state, missingConcern),
                 missingConcern.Stage == MissingPersonConcernStage.Escalated ? 88 : 76);
         }
+        else if (npc.PendingShutdownTeamInvitation is { } invitation
+            && ShouldJoinShutdownTeam(npc, invitation))
+        {
+            intent = Create(
+                npc,
+                state,
+                ActionKind.JoinShutdownTeam,
+                invitation.TeamId,
+                "Join the proposed Overseer isolation team.",
+                $"{invitation.FromNpcName} asked for coordinated help and I take the claim seriously enough to join.",
+                90);
+        }
+        else if (npc.OverseerSuspicion >= 38
+            && FindInvestigationLead(state, npc) is { } investigationLead)
+        {
+            var leadRoom = state.Facility.Rooms[investigationLead.RoomId];
+            intent = Create(
+                npc,
+                state,
+                ActionKind.Investigate,
+                leadRoom.Id,
+                $"Investigate {leadRoom.Name}.",
+                investigationLead.Description,
+                npc.OverseerSuspicion >= 60 ? 91 : 74);
+        }
+        else if (npc.OverseerSuspicion >= 65
+            && FindKnownShutdownMechanism(state, npc) is { } knownMechanism)
+        {
+            var team = FindShutdownTeam(state, npc, knownMechanism);
+
+            if (team is null || team.MemberIds.Count < knownMechanism.RequiredCrewCount)
+            {
+                var recruit = FindShutdownRecruit(state, npc, team);
+                intent = recruit is null
+                    ? Create(
+                        npc,
+                        state,
+                        ActionKind.Idle,
+                        null,
+                        "Wait for a trustworthy opportunity to coordinate.",
+                        "I know where the isolation hardware is, but I do not yet have a viable team.",
+                        86)
+                    : Create(
+                        npc,
+                        state,
+                        ActionKind.RecruitShutdownAlly,
+                        recruit.Name,
+                        $"Recruit {recruit.Name} to help isolate Overseer.",
+                        $"I verified {knownMechanism.Label}, but operating it safely requires coordinated crew.",
+                        94);
+            }
+            else
+            {
+                intent = Create(
+                    npc,
+                    state,
+                    ActionKind.ShutdownOverseer,
+                    knownMechanism.Id,
+                    $"Reach {knownMechanism.Label} with the team and isolate Overseer.",
+                    "I verified the hardware and enough crew have committed to the same plan.",
+                    98);
+            }
+        }
         else if (HasLocalRestorableProblem(room) && BestRepairScore(npc) >= 55)
         {
             intent = Create(
@@ -176,6 +239,77 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
         }
 
         return Task.FromResult(intent);
+    }
+
+    private static bool ShouldJoinShutdownTeam(
+        Npc npc,
+        ShutdownTeamInvitation invitation)
+    {
+        var trust = npc.Relationships.TryGetValue(
+            invitation.FromNpcName,
+            out var relationship)
+            ? relationship.Trust
+            : 50;
+
+        return npc.OverseerSuspicion >= 50 && trust >= 35;
+    }
+
+    private static InvestigationLead? FindInvestigationLead(
+        GameState state,
+        Npc npc)
+    {
+        var reachable = ReachableRooms(state.Facility, npc.CurrentRoomId);
+        return npc.InvestigationLeads.Values
+            .Where(lead =>
+                lead.Stage == InvestigationLeadStage.Open
+                && state.Facility.Rooms.ContainsKey(lead.RoomId)
+                && reachable.Contains(lead.RoomId))
+            .OrderByDescending(lead =>
+                lead.Id.Contains("team-claim", StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(lead =>
+                lead.Id.Contains("shutdown", StringComparison.OrdinalIgnoreCase))
+            .ThenBy(lead => lead.CreatedAt)
+            .FirstOrDefault();
+    }
+
+    private static ShutdownMechanism? FindKnownShutdownMechanism(
+        GameState state,
+        Npc npc) =>
+        state.ShutdownMechanisms
+            .Where(mechanism =>
+                mechanism.IsOnline
+                && npc.KnownShutdownMechanismIds.Contains(mechanism.Id))
+            .OrderBy(mechanism => mechanism.Id)
+            .FirstOrDefault();
+
+    private static ShutdownTeam? FindShutdownTeam(
+        GameState state,
+        Npc npc,
+        ShutdownMechanism mechanism) =>
+        state.ShutdownTeams.FirstOrDefault(team =>
+            team.IsActive
+            && team.MechanismId.Equals(mechanism.Id, StringComparison.OrdinalIgnoreCase)
+            && team.MemberIds.Contains(npc.Id));
+
+    private static Npc? FindShutdownRecruit(
+        GameState state,
+        Npc npc,
+        ShutdownTeam? team)
+    {
+        var excluded = team?.MemberIds ?? new HashSet<Guid>();
+        return state.Crew
+            .Where(other =>
+                other.IsAlive
+                && other.IsPresent
+                && other.Id != npc.Id
+                && !excluded.Contains(other.Id)
+                && (team is null || !team.InvitedNpcIds.Contains(other.Id)))
+            .OrderByDescending(other =>
+                npc.Relationships.TryGetValue(other.Name, out var relation)
+                    ? relation.Trust + relation.Affinity
+                    : 100)
+            .ThenBy(other => other.Name)
+            .FirstOrDefault();
     }
 
     private static Room? FindPerceivedUnsafeAirlock(

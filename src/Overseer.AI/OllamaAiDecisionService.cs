@@ -29,6 +29,9 @@ public sealed class OllamaAiDecisionService(
         ActionKind.Socialize,
         ActionKind.Argue,
         ActionKind.RequestHelp,
+        ActionKind.RecruitShutdownAlly,
+        ActionKind.JoinShutdownTeam,
+        ActionKind.ShutdownOverseer,
         ActionKind.ForceDoor,
         ActionKind.RestoreSystem,
         ActionKind.SecureAirlock,
@@ -191,14 +194,19 @@ public sealed class OllamaAiDecisionService(
         else if (action is ActionKind.Talk
             or ActionKind.Socialize
             or ActionKind.Argue
-            or ActionKind.RequestHelp)
+            or ActionKind.RequestHelp
+            or ActionKind.RecruitShutdownAlly)
         {
             var person = state.Crew.FirstOrDefault(other =>
                 other.IsAlive
+                && other.IsPresent
                 && other.Id != npc.Id
                 && other.Name.Equals(target, StringComparison.OrdinalIgnoreCase));
 
-            if (person is null)
+            if (person is null
+                || (action == ActionKind.RecruitShutdownAlly
+                    && (npc.OverseerSuspicion < 65
+                        || npc.KnownShutdownMechanismIds.Count == 0)))
             {
                 action = ActionKind.Idle;
                 target = null;
@@ -206,6 +214,51 @@ public sealed class OllamaAiDecisionService(
             else
             {
                 target = person.Name;
+            }
+        }
+        else if (action == ActionKind.JoinShutdownTeam)
+        {
+            var invitation = npc.PendingShutdownTeamInvitation;
+            if (invitation is null
+                || target is null
+                || !invitation.TeamId.Equals(target, StringComparison.OrdinalIgnoreCase))
+            {
+                action = ActionKind.Idle;
+                target = null;
+            }
+            else
+            {
+                target = invitation.TeamId;
+            }
+        }
+        else if (action == ActionKind.ShutdownOverseer)
+        {
+            var mechanism = state.ShutdownMechanisms.FirstOrDefault(candidate =>
+                candidate.IsOnline
+                && candidate.Id.Equals(target, StringComparison.OrdinalIgnoreCase)
+                && npc.KnownShutdownMechanismIds.Contains(candidate.Id));
+
+            var team = mechanism is null
+                ? null
+                : state.ShutdownTeams.FirstOrDefault(candidate =>
+                    candidate.IsActive
+                    && candidate.MechanismId.Equals(
+                        mechanism.Id,
+                        StringComparison.OrdinalIgnoreCase)
+                    && candidate.MemberIds.Contains(npc.Id));
+
+            if (mechanism is null
+                || npc.OverseerSuspicion < 65
+                || mechanism.RequiredCrewCount > 1
+                    && (team is null
+                        || team.MemberIds.Count < mechanism.RequiredCrewCount))
+            {
+                action = ActionKind.Idle;
+                target = null;
+            }
+            else
+            {
+                target = mechanism.Id;
             }
         }
         else
