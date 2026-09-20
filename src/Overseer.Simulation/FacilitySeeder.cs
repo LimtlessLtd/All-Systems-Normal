@@ -143,15 +143,29 @@ public static class FacilitySeeder
         GameState state,
         StationGenerationConstraints constraints)
     {
-        var robotCount = Math.Max(0, constraints.RequiredRobotCount ?? 1);
-        var robotRoom = state.Facility.Rooms.ContainsKey("engineering")
+        var fallbackRobotRoom = state.Facility.Rooms.ContainsKey("engineering")
             ? "engineering"
             : state.Facility.Rooms.ContainsKey("corridor")
                 ? "corridor"
                 : state.Facility.Rooms.Keys.First();
 
+        var requestedRobotRooms = constraints.RequiredRobotRoomIds.Count > 0
+            ? constraints.RequiredRobotRoomIds
+            : [fallbackRobotRoom];
+        var robotCount = Math.Max(
+            constraints.RequiredRobotCount ?? 1,
+            constraints.RequiredRobotRoomIds.Count);
+
         for (var index = 0; index < robotCount; index++)
         {
+            var robotRoom = requestedRobotRooms[index % requestedRobotRooms.Count];
+            if (!state.Facility.Rooms.ContainsKey(robotRoom))
+            {
+                throw new StationGenerationException(
+                    $"Required robot room '{robotRoom}' is missing.",
+                    [$"Robot placement failed: room '{robotRoom}' does not exist."]);
+            }
+
             state.Robots.Add(new StationRobot
             {
                 Id = $"mr-{index + 1}",
@@ -163,13 +177,24 @@ public static class FacilitySeeder
             });
         }
 
-        var turretCount = Math.Max(0, constraints.RequiredTurretCount ?? 1);
-        var turretRooms = state.Facility.Rooms.Values
-            .Where(room => room.Type == RoomType.Corridor
-                && !room.Id.StartsWith("hall-", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(room => room.Id.Equals("corridor", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
-            .ThenBy(room => room.Id)
-            .ToList();
+        var turretRooms = constraints.RequiredTurretRoomIds.Count > 0
+            ? constraints.RequiredTurretRoomIds
+                .Select(roomId => state.Facility.Rooms.TryGetValue(roomId, out var room)
+                    ? room
+                    : throw new StationGenerationException(
+                        $"Required turret room '{roomId}' is missing.",
+                        [$"Turret placement failed: room '{roomId}' does not exist."]))
+                .ToList()
+            : state.Facility.Rooms.Values
+                .Where(room => room.Type == RoomType.Corridor
+                    && !room.Id.StartsWith("hall-", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(room => room.Id.Equals("corridor", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                .ThenBy(room => room.Id)
+                .ToList();
+
+        var turretCount = Math.Max(
+            constraints.RequiredTurretCount ?? 1,
+            constraints.RequiredTurretRoomIds.Count);
 
         for (var index = 0; index < turretCount && turretRooms.Count > 0; index++)
         {
