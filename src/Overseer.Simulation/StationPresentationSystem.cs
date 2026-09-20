@@ -20,13 +20,16 @@ public sealed record StationPresentationProfile(
 {
     public string CssClasses =>
         string.Join(
-            ' ',
-            PurposeClass,
-            BudgetClass,
-            ExpansionClass,
-            AgeClass,
-            MaintenanceClass,
-            HullClass);
+            " ",
+            new[]
+            {
+                PurposeClass,
+                BudgetClass,
+                ExpansionClass,
+                AgeClass,
+                MaintenanceClass,
+                HullClass
+            });
 }
 
 public static class StationPresentationSystem
@@ -96,7 +99,7 @@ public static class StationPresentationSystem
                 : identity.MaintenanceCondition < 70
                     ? "maintenance-worn"
                     : "maintenance-maintained",
-            $"hull-variant-{Math.Abs(metadata?.Seed ?? 0) % 4}",
+            $"hull-variant-{unchecked((uint)(metadata?.Seed ?? 0)) % 4}",
             fitScale,
             offsetX,
             offsetY);
