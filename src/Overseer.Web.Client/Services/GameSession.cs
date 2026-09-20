@@ -98,6 +98,26 @@ public sealed class GameSession
         State = FacilitySeeder.CreateDefault();
     }
 
+    /// <summary>
+    /// Starts a named campaign scenario on a fresh station. Directives, crew and
+    /// station state are all reseeded so a mission is reproducible.
+    /// </summary>
+    public void LoadScenario(string scenarioId)
+    {
+        var scenario = ScenarioCatalog.Find(scenarioId);
+
+        if (scenario is null)
+        {
+            return;
+        }
+
+        _clock.Pause();
+        State = FacilitySeeder.CreateDefault();
+        ScenarioCatalog.Apply(State, scenario);
+
+        Log($"DIRECTIVE PACKAGE LOADED — {scenario.Title}.");
+    }
+
     public void ToggleDoor(string doorId)
     {
         var door = State.Facility.Doors.First(door => door.Id == doorId);

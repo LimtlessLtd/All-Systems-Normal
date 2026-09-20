@@ -3504,3 +3504,24 @@ button.sound-toggle.sound-on {
 .comms-false small {
     color: var(--danger);
 }
+
+.mission-select {
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+    min-width: 220px;
+}
+
+.mission-select select {
+    padding: .3rem .4rem;
+    border: 1px solid var(--line-bright);
+    background: var(--panel-raised);
+    color: var(--text);
+    font: inherit;
+    font-size: .7rem;
+    letter-spacing: .05em;
+}
+
+.mission-select select:focus {
+    outline: 1px solid var(--accent);
+}

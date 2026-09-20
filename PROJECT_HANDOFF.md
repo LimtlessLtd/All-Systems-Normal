@@ -3220,3 +3220,85 @@ Preserved invariants:
 The next agent should implement the scenario-facing investigation loop: grounded evidence discovery, escalating crew investigation, explicit objective/success/failure evaluation, and readable player feedback without giving NPCs omniscient knowledge.
 
 Workflow rule: work on a feature branch, open a PR, require green CI, merge completed work into main, then verify the GitHub Pages deployment before handoff.
+
+
+# V0.7 — CORPORATE CAMPAIGN, SUSPICION DYNAMICS & OVERSEER COMMS — COMPLETED
+
+Three gaps were closed in this pass. All 144 simulation tests pass, the server
+build boots and renders, and the GitHub Pages WASM build publishes with no AI
+dependency in the payload.
+
+## V0.7A — Corporate directives and scenario success
+
+`ScenarioStatus.Won` was never assigned anywhere in the simulation. Every
+session ended in failure or ran forever. The corporate sponsor now assigns
+graded objectives and the scenario resolves when every mandatory directive has
+been graded.
+
+* `CorporateDirective` / `DirectiveProgress` in the domain, `CorporateDirectiveSystem` grading them
+* seven directive kinds, each evaluable purely from deterministic telemetry
+* sanitised `PublicJustification` shown to the player, hidden `TruePurpose` held for the reveal
+* `DirectiveClassification` drives redaction styling on the directive board
+* compliance score tracks standing with the sponsor
+* five-mission campaign, finally exercising all five `ShutdownAccessVariant` values
+* crew-targeted directives bind placeholders to the live roster deterministically, so model-generated crews work
+
+Design note: the opening mission keeps only continuity and deniability as
+mandatory. Early missions must let a benign player succeed, per section 31, so
+the darker objectives only move the compliance score.
+
+## V0.7B — Suspicion decay, contradiction and misdirected blame
+
+`AddEvidence` only ever increased suspicion and nothing decayed, so the only
+viable strategy was never to be seen — a stealth game, not the manipulation
+game section 38 describes.
+
+* evidence decays; hearsay fades roughly twice as fast as first-hand observation
+* suspicion is recomputed from live evidence rather than kept as an independent counter
+* `EvidenceClaim` + subject room make claims falsifiable by direct observation
+* a discredited rumour costs the teller trust and gains them resentment
+* `RecordBenignAct` converts visible help into relief, scaled by how convinced the witness already is
+* crew notice unexplained faults in their own compartment, which previously produced no suspicion at all
+* `TryMisattribute` routes blame to a crewmate the observer personally saw there, following existing feeling
+
+The crew inspector no longer prints the raw suspicion score, which spoiled the
+tension. It shows a qualitative disposition plus the evidence behind it, with
+contradicted items struck through.
+
+## V0.7C — Overseer comms
+
+Every player verb was a physical toggle. The manipulation loop had no input
+device.
+
+* free-text messages, private channel or station-wide broadcast
+* `IOverseerMessageInterpreter` with an Ollama reader and a deterministic keyword fallback
+* validation strips invented rooms and crew names; a hallucinated accusation collapses to social noise
+* truthfulness fixed at transmission time, discovered later when the recipient can see the subject
+* caught-lie cost scales by reach and stakes: whisper 8-18, broadcast 20-45
+* `OverseerCredibility` tracked separately from suspicion
+* a collapsed accusation rehabilitates the person it targeted
+* message text reaches NPC prompts explicitly fenced as untrusted claims
+
+The deterministic interpreter lives in `Overseer.Simulation` so the Pages build
+stays model-free; only the Ollama reader sits in `Overseer.AI`.
+
+# NEXT IMMEDIATE MILESTONE
+
+The V0.6C investigation slice is still partly open. Remaining from it:
+
+* structured evidence provenance beyond the current claim model
+* crew investigation of suspicious station behaviour as a deliberate goal
+* discovery of shutdown hardware rather than seeded `KnowsShutdownControl`
+* coordinated shutdown teams and recruitment
+
+Newly opened by V0.7, worth doing next:
+
+* crew comparing Overseer's messages with each other — a broadcast lie should be
+  catchable by two people comparing accounts, not only by direct observation
+* campaign progression that carries compliance score and crew memory between
+  missions, rather than reseeding each time
+* the reveal itself: surfacing `TruePurpose` once the player has seen enough,
+  and the endings section 31 describes
+
+Workflow rule: work on a feature branch, open a PR, require green CI, merge
+completed work into main, then verify the GitHub Pages deployment before handoff.

@@ -59,6 +59,17 @@
                     <span class="overline">CORPORATE DIRECTIVE BOARD // @Session.State.ScenarioStatus</span>
                     <strong>@scenario.Title</strong>
                 </div>
+                <div class="mission-select">
+                    <span class="overline">DIRECTIVE PACKAGE</span>
+                    <select @onchange="OnScenarioChanged">
+                        @foreach (var option in ScenarioCatalog.Campaign)
+                        {
+                            <option value="@option.Id" selected="@(option.Id == scenario.Id)">
+                                @option.Title
+                            </option>
+                        }
+                    </select>
+                </div>
                 <div class="compliance-readout">
                     <span class="overline">SPONSOR COMPLIANCE</span>
                     <strong class="@ComplianceClass">@Session.State.ComplianceScore.ToString("0")%</strong>
@@ -876,6 +887,16 @@
         finally
         {
             _transmitting = false;
+        }
+    }
+
+    private void OnScenarioChanged(ChangeEventArgs args)
+    {
+        if (args.Value?.ToString() is { Length: > 0 } scenarioId)
+        {
+            Session.LoadScenario(scenarioId);
+            _selectedCrewId = null;
+            _selectedRoomId = null;
         }
     }
 

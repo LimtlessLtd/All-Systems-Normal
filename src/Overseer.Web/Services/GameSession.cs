@@ -129,6 +129,31 @@ public sealed class GameSession(
         _initialized = true;
     }
 
+    /// <summary>
+    /// Starts a named campaign scenario on a fresh station. Directives, crew and
+    /// station state are all reseeded so a mission is reproducible.
+    /// </summary>
+    public async Task LoadScenarioAsync(
+        string scenarioId,
+        CancellationToken cancellationToken = default)
+    {
+        var scenario = ScenarioCatalog.Find(scenarioId);
+
+        if (scenario is null)
+        {
+            return;
+        }
+
+        _clock.Pause();
+        _mindCursor = 0;
+        var crew = await _crewGenerator.GenerateAsync(cancellationToken);
+        State = FacilitySeeder.CreateDefault(crew);
+        ScenarioCatalog.Apply(State, scenario);
+        _initialized = true;
+
+        Log($"DIRECTIVE PACKAGE LOADED — {scenario.Title}.");
+    }
+
     public void ToggleDoor(string doorId)
     {
         var door = State.Facility.Doors.First(door => door.Id == doorId);
