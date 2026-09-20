@@ -2799,3 +2799,74 @@ Continue to favour emergence over scripting and preserve the core rule:
 
 > **The LLM decides what an NPC WANTS to do. Deterministic C# decides what the NPC CAN do.**
 
+# V0.6G — VISIBLE IDE-STYLE SPLITTERS — COMPLETED
+
+This pass replaces the subtle native CSS resize grips from V0.6F with explicit IDE-style workspace splitters in both the deterministic GitHub Pages client and the full Ollama/server UI.
+
+Completed layout features:
+
+* a visible draggable vertical splitter between **Systems** and **Station Overview**
+* a visible draggable vertical splitter between **Station Overview** and **Inspector**
+* a visible draggable horizontal splitter above the **Event Stream**
+* a visible draggable horizontal splitter below the station map so map viewport height remains adjustable without relying on the browser's native resize grip
+* clear hover/focus/active styling and correct row/column resize cursors
+* bounded side-panel widths so Systems/Inspector cannot crush the Station Overview below its usable desktop width
+* bounded Event Stream and map heights relative to the current viewport
+* pointer dragging changes layout CSS variables only; authoritative room/NPC coordinates, navigation, portals and simulation state are untouched
+* side/map/event sizing is persisted in browser `localStorage`
+* a **RESET LAYOUT** control restores the default workspace dimensions
+* double-clicking an individual splitter resets only that region
+* keyboard-accessible separators support Arrow keys, Shift+Arrow for larger steps, Home/End for bounds and Enter to reset the focused splitter
+* desktop splitters disable cleanly below the wide-desktop breakpoint and the existing responsive/tablet/mobile stack remains authoritative
+* native `resize` grips are removed from the side panels, Event Stream and map viewport so there is one consistent resize interaction
+* the existing 100%–220% map zoom controls, map scrolling, SFX and ambient music controls remain intact
+* existing stable Blazor `@key` identities remain intact
+* the same splitter implementation and styling are used by `Overseer.Web.Client` and `Overseer.Web`
+
+Preserved invariants:
+
+* `CurrentRoomId` remains authoritative containment
+* deterministic C# still decides what NPCs can physically do and what actually happens
+* LLMs still choose only high-level NPC wants / intentions
+* shared hatch portal geometry remains authoritative
+* V0.6E vacuum/ejection, body discovery, generated crew traits and human counterplay are unchanged
+* no station geometry, A* navigation, local movement or environment rules were altered for layout purposes
+
+## Mandatory development workflow rule
+
+All future feature work must follow this sequence:
+
+```text
+main
+  ↓
+new feature branch
+  ↓
+implementation
+  ↓
+commit changes on the feature branch
+  ↓
+open PR against main
+  ↓
+full CI/build/tests/publish checks green
+  ↓
+human review + playtest
+  ↓
+merge later
+```
+
+**Never commit feature work directly to `main`. Never bypass the PR/review step. Leave feature PRs open for later review/playtesting unless the user explicitly asks to merge them.**
+
+## Next recommended work
+
+After the splitter UX is reviewed/playtested, continue in this order unless new feedback takes priority:
+
+1. **Missing-person reasoning** — crew notice unexplained absence through expected duties, schedules, witnessed absence and communication rather than omniscient knowledge.
+2. **Richer airlock safety logic** — pressure cycling, emergency interlocks, alarms and crew attempts to close an unsafe exterior hatch.
+3. **Damaged-door counterplay** — repairable/weldable/barricadable hatch damage and explicit consequences for brute-force entry.
+4. **V0.6C Investigation, Discovery & Scenario Success** — stronger evidence provenance, discovery of shutdown hardware, coordinated shutdown teams, scenario success conditions, optional objectives and experiment scoring.
+5. **Visible route / local movement polish** — selected-NPC routes, collision avoidance, steering and more precise furniture/fixture interaction.
+
+Continue to favour emergence over scripting and preserve the core rule:
+
+> **The LLM decides what an NPC WANTS to do. Deterministic C# decides what the NPC CAN do.**
+
