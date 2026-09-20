@@ -13,6 +13,8 @@ public sealed class GameSession
     private readonly CrewCounterplaySystem _counterplay = new();
     private readonly RobotCountermeasureSystem _robotCountermeasures = new();
     private readonly RobotSystem _robots = new();
+    private readonly TurretCountermeasureSystem _turretCountermeasures = new();
+    private readonly TurretSystem _turrets = new();
     private readonly CrewRoutineSystem _crewRoutines = new();
     private readonly SocialSimulationSystem _social = new();
     private readonly BrowserMindSystem _browserMind = new();
@@ -71,7 +73,12 @@ public sealed class GameSession
             robot.IsDestroyed
             || robot.Policy == RobotPolicy.Hostile
             || robot.IsNetworkIsolated
-            || !robot.ChargingEnabled);
+            || !robot.ChargingEnabled)
+        + State.Turrets.Count(turret =>
+            turret.IsDestroyed
+            || (turret.IsArmed && turret.Policy != TurretPolicy.Safe)
+            || turret.IsNetworkIsolated
+            || !turret.PowerFeedEnabled);
 
     public (bool Started, long Generation) StartClock() =>
         _clock.Start();
@@ -668,6 +675,30 @@ public sealed class GameSession
         return false;
     }
 
+    public bool SetTurretPolicy(string turretId, TurretPolicy policy)
+    {
+        if (_turrets.TrySetPolicy(State, turretId, policy, out var message))
+        {
+            return true;
+        }
+
+        Log(message);
+        AudioCueSystem.Emit(State, AudioCueKind.Warning);
+        return false;
+    }
+
+    public bool SetTurretArmed(string turretId, bool armed)
+    {
+        if (_turrets.TrySetArmed(State, turretId, armed, out var message))
+        {
+            return true;
+        }
+
+        Log(message);
+        AudioCueSystem.Emit(State, AudioCueKind.Warning);
+        return false;
+    }
+
     private void AdvanceCore()
     {
         if (State.ScenarioStatus != ScenarioStatus.Running) return;
@@ -683,6 +714,7 @@ public sealed class GameSession
         _investigations.Tick(State);
         _counterplay.Tick(State);
         _robotCountermeasures.Tick(State);
+        _turretCountermeasures.Tick(State);
         _manualOverrides.Tick(State);
         _shutdownCoordination.Tick(State);
         _social.Tick(State);
@@ -690,6 +722,7 @@ public sealed class GameSession
         _conversationPacing.Tick(State);
         _crewRoutines.Tick(State);
         _robots.Tick(State, turn);
+        _turrets.Tick(State, turn);
         _movement.Tick(State, TimeSpan.FromMinutes(1));
         _shutdown.Tick(State);
         _provisioning.Tick(State, turn);

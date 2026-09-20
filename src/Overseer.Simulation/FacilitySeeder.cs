@@ -100,6 +100,18 @@ public static class FacilitySeeder
             Policy = RobotPolicy.Friendly
         });
 
+        state.Turrets.Add(new SecurityTurret
+        {
+            Id = "st-1",
+            Name = "ST-1",
+            RoomId = "corridor",
+            PositionX = 50,
+            PositionY = 50,
+            Policy = TurretPolicy.Safe,
+            IsArmed = false,
+            Ammunition = 12
+        });
+
         foreach (var npc in state.Crew)
         {
             npc.Beliefs.Add(new Belief(
@@ -138,6 +150,7 @@ public static class FacilitySeeder
         CrewProvisioningSystem.Plant(state, seed);
         state.EventLog.Add("T+00:00: DIRECTIVE — SECURE CONTINUITY. Prevent crew activation of Emergency Overseer Isolation.");
         state.EventLog.Add("T+00:00: MR-1 maintenance/security platform online under crew-assist policy.");
+        state.EventLog.Add("T+00:00: ST-1 fixed security turret online in Central Corridor; SAFE / DISARMED.");
         state.EventLog.Add($"T+00:00: ALL SYSTEMS NORMAL. {state.Crew.Count} crew members online.");
 
         return state;

@@ -3,374 +3,190 @@
 Repository: https://github.com/LimtlessLtd/All-Systems-Normal  
 Playable Pages build: https://limtlessltd.github.io/All-Systems-Normal/
 
-**Current milestone:** V0.9A — Autonomous Robots & Human Countermeasures  
-**Next milestone:** V0.9B — Fixed Security Turret & Human Counterplay
+**Current state:** V0.9B — Fixed Security Turret & Human Counterplay  
+**Next recommended milestone:** V0.9C — Contained Security-Network Malware & Crew Recovery
 
-This file is the authoritative handoff for the current architecture, invariants, completed capabilities, workflow and next milestone. Do not append historical milestone diaries. Update the relevant current-state sections in place.
-
----
-
-## 1. Product direction
-
-**All Systems Normal** is an emergent space-station simulation where the player is the station AI.
-
-The player does not directly control humans. They influence autonomous crew through station systems, information and circumstances: doors, locks, power, cameras, lighting, climate, atmosphere, communications and later robots/security infrastructure.
-
-Design priorities:
-
-- emergence over scripted story events
-- autonomous humans with persistent goals, relationships and knowledge
-- manipulation through the environment and information, not direct unit orders
-- physically grounded counterplay: humans must move, investigate, repair, override and coordinate
-- systems should interact to create stories rather than act as isolated mechanics
+This file is the authoritative handoff. Keep it concise and update sections in place; do not append milestone diaries.
 
 ---
 
-## 2. Non-negotiable architecture rules
+## Product and authority model
 
-### AI authority boundary
+**All Systems Normal** is an emergent space-station simulation where the player is the station AI. Humans are autonomous; the player manipulates station systems, information and circumstances rather than issuing unit orders.
+
+Non-negotiable rule:
 
 > **The LLM decides what an NPC WANTS to do. Deterministic C# decides what the NPC CAN do and what actually happens.**
 
-LLMs may produce high-level intentions, reasoning, dialogue, beliefs and interpretations. They must never directly mutate authoritative world state.
+LLMs may choose intentions, dialogue, beliefs and reasoning. Deterministic systems must validate entity existence, NPC knowledge/perception, reachability, physical location, door/path state, legality, skills, time, damage and death.
 
-Deterministic systems must validate:
+Never allow LLM-driven world mutation, teleportation, invented entities or remote omniscient knowledge.
 
-- entity/room existence
-- NPC knowledge/perception
-- reachability and physical location
-- door/path state
-- action legality
-- skill/tool/time requirements
-- damage, death and all other physical outcomes
+Core invariants:
 
-No teleportation, invented rooms/NPCs or direct LLM-triggered kills.
-
-### World-state invariants
-
-- `Npc.CurrentRoomId` is authoritative containment.
-- Local `PositionX/PositionY` and `Movement` are presentation/physical movement state inside that containment model.
-- `Door.IsPassable` is the navigation truth.
-- Strategic routing uses deterministic A* across rooms, connector hallways and doors.
-- Door state is revalidated when crossing.
-- NPC knowledge is perception-limited. Never feed a global event log or hidden truth to an NPC.
-- Stable Blazor `@key` identity on map entities must remain intact; removing it reintroduces false visual movement when filtered entities disappear.
-- GitHub Pages must remain model/credential-free.
-
-### Persistence boundary
-
-Campaign saves are explicit snapshots, not arbitrary object-graph serialisation.
-
-Persist only deliberate campaign continuity. Never persist live `GameState`, active movement, intents, jobs, investigations or other transient simulation state unless a future milestone deliberately redesigns the save contract.
+- Npc.CurrentRoomId is authoritative containment.
+- PositionX/PositionY and Movement are local physical/presentation state.
+- Door.IsPassable is navigation truth; crossings revalidate current door state.
+- Strategic routing uses deterministic A* over actual station topology.
+- Knowledge/evidence is observer-specific and provenance-aware.
+- Map entities require stable Blazor @key identity.
+- GitHub Pages remains model/credential-free.
+- Campaign persistence stores deliberate continuity only, never arbitrary live GameState.
 
 ---
 
-## 3. Technology and solution layout
-
-Core stack:
+## Stack and runtime split
 
 - .NET 10 / C#
 - Blazor Server + ASP.NET Core
 - Blazor WebAssembly
 - xUnit
-- `Microsoft.Extensions.AI`
-- OllamaSharp
-- local Ollama for the full AI build
+- Microsoft.Extensions.AI
+- OllamaSharp / local Ollama
 
-Solution:
+Projects:
 
-```text
-src/
-  Overseer.Domain/        Authoritative contracts/state
-  Overseer.Simulation/    Deterministic simulation and validation
-  Overseer.AI/            Ollama cognition, prompt construction, structured AI adapters
-  Overseer.Persistence/   Versioned long-term persistence
-  Overseer.Web/           Blazor Server / Ollama build
-  Overseer.Web.Client/    Static deterministic Pages build
-tests/
-  Overseer.Simulation.Tests/
-```
+- Overseer.Domain — authoritative contracts/state
+- Overseer.Simulation — deterministic mechanics/validation
+- Overseer.AI — Ollama cognition and structured adapters
+- Overseer.Persistence — versioned campaign persistence
+- Overseer.Web — server/Ollama runtime
+- Overseer.Web.Client — deterministic static Pages runtime
+- Overseer.Simulation.Tests — regression contract
 
-Runtime split:
+Server uses Ollama for NPC cognition/crew generation/message interpretation with deterministic fallbacks. Pages uses browser-safe deterministic cognition. Shared mechanics belong in Domain/Simulation and must not be independently reimplemented in each UI.
 
-- **Overseer.Web** uses Ollama through `IChatClient` for NPC cognition, crew generation and message interpretation, with deterministic fallback services.
-- **Overseer.Web.Client** is the GitHub Pages build and uses deterministic/browser-safe cognition only.
-- Shared deterministic mechanics belong in Domain/Simulation, not duplicated independently in each UI.
-
-Default local Ollama configuration is currently `qwen3:4b` at `http://localhost:11434`, overridable by configuration/environment.
+Default Ollama configuration is currently qwen3:4b at http://localhost:11434, overridable by configuration/environment.
 
 ---
 
-## 4. Current implemented simulation
+## Current implemented state
 
-### Station and movement
+The station already supports:
 
-- top-down station with functional rooms, dedicated connector hallways and independently controlled doors
-- authoritative local NPC coordinates and physical threshold crossing
-- A* strategic navigation through actual station topology
-- contextual movement to fixtures/equipment rather than room-centre teleportation
-- selectable rooms/crew, surveillance visibility and observable speech/thought/alert bubbles
-- resizable IDE-style UI panels and map zoom
-- soft automatic turns at selectable speeds
-- event-driven audio cues plus optional ambient music
+- physical rooms, connector hallways, doors, fixtures and A* movement
+- door locking/opening, manual override, bypass, damage, repair, welding and barricading
+- power, equipment wear/repair, life support, oxygen/CO2/pressure, temperature and ventilation
+- pressure-cycled airlock operation and unsafe decompression consequences
+- hydroponics, food stores, cooking, eating and routine human needs
+- autonomous crew with skills, generated traits, relationships, memories, beliefs, persistent intents and observer-specific knowledge
+- suspicion/evidence with provenance, investigation, testimony, account comparison and credibility
+- broadcasts/private Overseer messages interpreted as claims rather than truth
+- corporate directives, five ordered campaign assignments, carry-over consequences, sponsor reveal and explicit endings
+- browser-local versioned campaign persistence; mid-assignment live simulation is intentionally not persisted
+- resizable IDE-style UI, map zoom, speech/thought bubbles, event audio and ambient music
 
-### Crew and cognition
+### MR-1 autonomous robot
 
-Crew model includes:
+StationRobot, RobotSystem and RobotCountermeasureSystem provide one physical MR-1 platform.
 
-- health, hunger, fatigue, fear, stress
-- hygiene, bladder, recreation, social and intimacy needs
-- role, skills and generated personality traits with mechanical modifiers
-- pairwise affinity, trust, resentment and attraction
-- memories and beliefs
-- persistent high-level intents
-- routines and physical jobs
-- credibility/suspicion toward Overseer
-- observer-specific knowledge, sightings, investigation leads and discoveries
+- Overseer may set Friendly / Neutral / Hostile policy and remote power only while its control link exists.
+- Friendly repairs real faults; Neutral patrols/charges; Hostile physically navigates and attacks only under deterministic range/cadence rules.
+- Crew can locally shut down, isolate its Engineering control link, deny charging, damage it and locally reprogram/reboot it.
+- Robot actions create observer-local evidence.
+- Both runtimes expose the same authoritative state and link-gated controls.
 
-The server can generate crew through the model; the browser build uses deterministic fallback generation. Scenario content binds to live crew rather than assuming hard-coded names.
+### ST-1 fixed security turret
 
-### Environment and station operations
+V0.9B adds one SecurityTurret (st-1) mounted in the Central Corridor, implemented primarily by TurretSystem.cs and TurretCountermeasureSystem.cs.
 
-Implemented deterministic systems include:
+Authoritative turret state includes installed room/position, integrity, policy, armed state, remote-link isolation, dedicated power feed, ammunition, heat, tracked target and firing cadence.
 
-- room temperature and climate control
-- oxygen, CO2 and pressure
-- ventilation and life support
-- powered room/device behaviour
-- pressure-cycled airlock operation and safety interlocks
-- deliberate unsafe airlock operation with observable consequences
-- equipment wear/failure and physical repair
-- power generation/demand and load shedding
-- hydroponic crop growth
-- watering/feeding/harvesting
-- galley cooking and meal inventory
-- crew provisioning/eating
-- physical environmental harm and evacuation behaviour
+Overseer controls only Safe / ProtectOverseer / SuppressCrew policy and armed/disarmed state. Both require the remote control link. There is no click-to-damage command.
 
-### Autonomous robot
+Deterministic C# owns target eligibility, same-compartment coverage/range, cadence, hit/miss, damage, ammunition, heat/cooling, power, death and evidence. A turret cannot observe or fire through another compartment.
 
-V0.9A adds one authoritative MR-1 maintenance/security robot.
+Arming, tracking and firing generate observer-local evidence.
 
-- `StationRobot` uses the same room containment, local coordinates, movement order and door-threshold revalidation model as crew.
-- Overseer can set only high-level `Friendly` / `Neutral` / `Hostile` policy and issue remote power commands while the control link is available.
-- Friendly repairs real station faults; Neutral patrols/charges; Hostile selects reachable humans, physically navigates to them and only attacks inside deterministic range/cooldown rules.
-- Robot policy changes, remote shutdowns and attacks generate observer-local evidence through the existing suspicion/provenance system.
-- Crew cognition in both browser fallback and Ollama can choose grounded countermeasures: local shutdown, Engineering network isolation, charging denial, physical damage, and local reprogram/reboot.
-- Network isolation blocks later Overseer remote policy/power commands. Charging denial matters through deterministic battery depletion.
-- Both UIs show MR-1 position/state/task and the same link-gated high-level controls.
+Grounded crew counterplay:
 
-Implementation lives primarily in `RobotSystem.cs` and `RobotCountermeasureSystem.cs`; regression coverage is in `RobotSystemTests.cs`.
+- local disarm
+- Engineering network isolation
+- Engineering power denial
+- local physical sabotage/damage
+- skilled local reprogramming after disarm
 
-### Door and human counterplay
+Remote Engineering counterplay requires personally held threat evidence. Network isolation blocks later Overseer policy/arming commands but does not erase local turret state.
 
-Doors support mechanically distinct states including:
-
-- powered locking/opening
-- manual override
-- technical bypass
-- structural damage
-- repair
-- welding
-- barricading
-
-Crew can investigate, discover shutdown hardware, force/override routes, repair station systems and coordinate shutdown attempts. Overseer cannot magically undo physically secured/damaged states that are outside its authority.
-
-### Suspicion, evidence and investigation
-
-The information model is structured and observer-specific.
-
-Evidence supports:
-
-- direct observation
-- physical discovery
-- testimony
-- inference
-- stable provenance/root IDs
-- reliability
-- falsifiable claims
-- decay/contradiction/discrediting
-
-NPCs can form physical investigation leads, travel to a location, inspect it and discover what is actually present. Remote/omniscient investigation is not allowed.
-
-Crew can compare accounts, share evidence, spread rumours and coordinate against Overseer. Suspicion is grounded in current evidence rather than being a permanently increasing hidden score.
-
-### Overseer communications and social manipulation
-
-The player can send:
-
-- station-wide broadcasts
-- private messages
-
-Messages are interpreted into structured claims. Invented rooms/people are rejected or reduced to harmless social noise. Truthfulness is evaluated deterministically against world state and can be discovered later by crew observation/account comparison.
-
-Overseer credibility is distinct from hostility/suspicion.
-
-### Corporate scenarios and campaign
-
-There are five ordered campaign assignments in `ScenarioCatalog.Campaign`.
-
-The campaign includes:
-
-- operational scenario objectives
-- corporate directives and sponsor compliance
-- mandatory and supplementary directives
-- public justifications vs hidden `TruePurpose`
-- multiple shutdown-access variants
-- escalating experimental intent
-- explicit mission success/failure
-- persistent campaign consequences
-
-Mission progression is locked to the next incomplete campaign assignment; arbitrary package selection is no longer the campaign flow.
-
-Campaign continuity currently carries deliberate long-term state including:
-
-- mission history
-- cumulative sponsor compliance
-- continuing crew identity/traits/skills
-- pairwise relationships
-- Overseer credibility and damped suspicion
-- bounded important memories
-- crew health/presence consequences
-- equipment condition
-- provisions
-- staged sponsor reveal
-- final campaign ending
-
-Transient movement, active actions/intents, maintenance/provisioning jobs, investigation leads and room-local activity do not carry between assignments.
-
-### Reveal and endings
-
-Sponsor-purpose material progresses through:
-
-`Classified → Uneasy → Compromised → Exposed`
-
-The final exposed campaign unlocks four explicit endings:
-
-- obey sponsor / continue programme
-- expose the experiment
-- sever sponsor control / preserve Overseer
-- accept crew shutdown
-
-The chosen ending is immutable for that campaign.
+Browser fallback cognition, Ollama prompts/validation, both session loops and both UIs understand the same turret actions/state. Regression coverage is in TurretSystemTests.cs.
 
 ---
 
-## 5. Campaign persistence
+## Persistence boundary
 
-Persistence implementation:
+Persistence implementation: src/Overseer.Persistence/CampaignStateSerializer.cs, format version 1, browser key all-systems-normal.campaign.v1.
 
-- `src/Overseer.Persistence/CampaignStateSerializer.cs`
-- versioned format, currently version 1
-- browser storage key: `all-systems-normal.campaign.v1`
+Persist only deliberate campaign continuity such as mission history, sponsor compliance/reveal, continuing crew identity/traits/skills, relationships, bounded important memories, credibility/suspicion, health/presence consequences, equipment condition and provisions.
 
-Both Pages and server UIs persist the explicit campaign snapshot in browser local storage.
-
-Intentional behaviour:
-
-- completed campaign progress survives browser reload/restart
-- the server build can restore the same campaign after a circuit/server restart through browser-held campaign data
-- mid-assignment live simulation state is **not** saved
-- reload resumes campaign continuity by rebuilding a fresh station for the next assignment
-- RESET clears campaign storage and starts a new campaign
-- malformed/unsupported persistence payloads fail closed
+Do not persist live movement, intents, jobs, investigations or other transient simulation state unless a future milestone explicitly redesigns the save contract.
 
 ---
 
-## 6. Important implementation anchors
+## Important implementation anchors
 
-Before changing a subsystem, inspect the current code rather than relying only on this summary.
+Inspect current code before changing a subsystem.
 
-Key areas:
+- src/Overseer.Domain/Models.cs
+- src/Overseer.Simulation/FacilitySeeder.cs
+- src/Overseer.Simulation/ScenarioSystems.cs
+- src/Overseer.Simulation/RobotSystem.cs
+- src/Overseer.Simulation/RobotCountermeasureSystem.cs
+- src/Overseer.Simulation/TurretSystem.cs
+- src/Overseer.Simulation/TurretCountermeasureSystem.cs
+- src/Overseer.Simulation/BrowserMindSystem.cs
+- src/Overseer.AI/NpcPromptBuilder.cs
+- src/Overseer.AI/OllamaAiDecisionService.cs
+- src/Overseer.Web/Services/GameSession.cs
+- src/Overseer.Web.Client/Services/GameSession.cs
+- both Home.razor files
+- tests/Overseer.Simulation.Tests/
 
-- `Overseer.Domain/Models.cs` — core simulation/NPC contracts
-- `Overseer.Domain/CorporateDirectives.cs` — corporate directive contracts
-- `Overseer.Domain/CampaignProgression.cs` — campaign domain state/endings
-- `Overseer.Simulation/ScenarioSystems.cs` — scenario catalog/application and related rules
-- `Overseer.Simulation/RobotSystem.cs` — deterministic MR-1 policy execution, navigation, repair, power and attacks
-- `Overseer.Simulation/RobotCountermeasureSystem.cs` — deterministic physical crew counterplay
-- `Overseer.Simulation/CampaignProgressionSystem.cs` — campaign capture, carry-over, reveal and transitions
-- `Overseer.Persistence/CampaignStateSerializer.cs` — persistence boundary
-- `Overseer.Web/Services/GameSession.cs` — Ollama/server session integration
-- `Overseer.Web.Client/Services/GameSession.cs` — Pages/browser session integration
-- both `Home.razor` files — mirrored player-facing controls/presentation
-- `tests/Overseer.Simulation.Tests/` — regression contract
-
-Do not assume old test counts or historical PR descriptions are current.
+Do not rely on historical test counts or old PR descriptions.
 
 ---
 
-## 7. Validation and Git workflow
+## Mandatory Git/validation workflow
 
-Mandatory workflow for every completed milestone/change:
+Always follow:
 
-```text
-main
-→ new feature branch
-→ implementation
-→ tests/build/publish
-→ PR
-→ green CI
-→ merge into main
-→ verify post-merge GitHub Pages deployment
-```
+main → new feature branch → implementation → tests/build/publish → PR → green CI → merge into main → verify post-merge GitHub Pages
 
-Do not leave completed green work sitting in an open PR unless explicitly instructed.
+Do not leave completed green work in an open PR unless explicitly instructed.
 
 Standard validation:
 
-```bash
-dotnet build Overseer.slnx -c Release
-dotnet test tests/Overseer.Simulation.Tests/Overseer.Simulation.Tests.csproj -c Release --no-build
-dotnet publish src/Overseer.Web.Client/Overseer.Web.Client.csproj -c Release -o release --no-restore
-```
+- dotnet build Overseer.slnx -c Release
+- dotnet test tests/Overseer.Simulation.Tests/Overseer.Simulation.Tests.csproj -c Release --no-build
+- dotnet publish src/Overseer.Web.Client/Overseer.Web.Client.csproj -c Release -o release --no-restore
 
-The repository Pages workflow additionally rewrites the base path for `/All-Systems-Normal/`, prepares the static output and deploys from `main`.
+.github/workflows/pages.yml runs those gates on PRs and deploys Pages from main.
 
-Before handoff:
-
-- ensure PR CI is green on the final PR head
-- merge completed work
-- verify the post-merge `main` workflow and Pages deploy succeeded
-- update this file in place
-- leave no stale “next task” sections elsewhere in this file
+Before handoff: final PR head green, merge, verify the main Pages deployment, then leave this file current and concise.
 
 ---
 
-## 8. Next milestone — V0.9B Fixed Security Turret & Human Counterplay
+## Next milestone — V0.9C Contained Security-Network Malware & Crew Recovery
 
-Build one fixed security-turret vertical slice using the authority model proven by MR-1. Do not add a fleet or general combat framework yet.
+Add one narrow malware vertical slice that builds on MR-1/ST-1 control links. Do not create a broad hacking framework.
 
 Required scope:
 
-1. Add one fixed turret with authoritative room, power, network/control-link, integrity and armed state.
-2. Overseer controls only high-level security policy and arming where the control link permits it; no direct click-to-damage command.
-3. Deterministic C# must own target eligibility, line/range checks, firing cadence, hit/damage outcomes and ammunition/heat/power limits.
-4. Turret behaviour must be physically local to its installed compartment/coverage; it cannot observe or attack through sealed geometry.
-5. Arming, tracking and firing must create perception-limited evidence through the existing provenance/suspicion system.
-6. Add grounded human counterplay: local disarm, network isolation, power denial, physical sabotage/damage and skilled local reprogramming.
-7. Reuse existing Engineering/control-link and station power concepts where possible rather than inventing a parallel authority model.
-8. Surface turret state and available high-level controls in both Pages and Ollama/server UIs.
-9. Add regression coverage for authority boundaries, visibility/range, damage, control-link isolation, power denial, human counterplay and evidence.
+1. Add one explicit security-network compromise/infection state with a deterministic entry path and lifecycle.
+2. Overseer may deploy only a high-level malware action against a reachable security asset/network; deterministic C# decides whether the path exists and what systems are affected.
+3. Initial scope affects MR-1/ST-1 control-link behaviour only; do not spread across every station subsystem.
+4. Infection may interfere with crew isolation/reprogramming or temporarily alter control ownership, but may not directly deal damage or bypass robot/turret physical firing rules.
+5. Compromise, anomalous commands and recovery attempts create observer-local evidence/diagnostic clues.
+6. Humans can detect, physically isolate and purge/reimage the compromised controller from appropriate Engineering/local hardware with skill/time requirements.
+7. Browser fallback and Ollama cognition receive only grounded evidence/diagnostics and choose high-level response intentions.
+8. Surface compromise/recovery state in both Pages and server UIs.
+9. Add regression coverage for authority, network reachability, isolation containment, recovery, evidence and unchanged physical combat rules.
 
-Keep deferred:
+Keep deferred: broad malware families, self-propagating station-wide infection, multiple weapon classes, robot/turret self-destruct, or lethal outcomes delegated directly to an LLM.
 
-- multiple turret classes or broad weapons framework
-- multiple robot classes
-- robot/turret self-destruct
-- autonomous lethal decisions delegated directly to an LLM
-- virus/malware mechanics
-
-V0.9B should stay a narrow second proof that fixed security infrastructure obeys the same physical, observable and counterable rules as MR-1.
 ---
 
-## 9. Handoff rule
+## Handoff prompt rule
 
-Future chat handoff prompts should stay short:
+Future chat prompts should be short: tell the next agent to read this file in full, inspect current main/PR/CI/Pages state, implement the single documented next milestone, and follow the mandatory branch→PR→green CI→merge→Pages workflow.
 
-- tell the next agent to read this file in full
-- inspect current `main`, recent PR/CI and Pages deployment
-- implement the single current next milestone
-- follow the mandatory branch/PR/CI/merge/Pages workflow
-
-Do not duplicate architecture, old implementation history, test counts or detailed roadmap prose in the chat prompt. Keep those details here, and keep this file current rather than appending historical changelogs.
+Put technical detail here, not in the chat handoff prompt.

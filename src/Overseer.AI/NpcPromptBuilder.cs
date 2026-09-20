@@ -37,7 +37,12 @@ public static class NpcPromptBuilder
         ActionKind.IsolateRobotNetwork,
         ActionKind.DisableRobotCharging,
         ActionKind.DamageRobot,
-        ActionKind.ReprogramRobot
+        ActionKind.ReprogramRobot,
+        ActionKind.DisarmTurret,
+        ActionKind.IsolateTurretNetwork,
+        ActionKind.DisableTurretPower,
+        ActionKind.DamageTurret,
+        ActionKind.ReprogramTurret
     ];
 
     public static string Build(Npc npc, GameState state)
@@ -192,6 +197,25 @@ public static class NpcPromptBuilder
             .Select(robot => $"- {robot.Id} = {robot.Name}: personally held hostile/attack evidence")
             .ToArray();
 
+        var visibleTurrets = state.Turrets
+            .Where(turret =>
+                !turret.IsDestroyed
+                && turret.RoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(turret => turret.Id)
+            .Select(turret =>
+                $"- {turret.Id} = {turret.Name} | policy {turret.Policy} | "
+                + $"integrity {turret.Integrity:0}% | {(turret.IsArmed ? "ARMED" : "disarmed")} | "
+                + $"power {(TurretSystem.HasPower(state, turret) ? "online" : "OFFLINE")} | "
+                + $"remote link {(turret.IsNetworkIsolated ? "ISOLATED" : "connected")} | "
+                + $"ammo {turret.Ammunition} | heat {turret.Heat:0}%")
+            .ToArray();
+
+        var turretThreats = state.Turrets
+            .Where(turret => TurretCountermeasureSystem.HasHostileTurretEvidence(npc, turret))
+            .OrderBy(turret => turret.Id)
+            .Select(turret => $"- {turret.Id} = {turret.Name}: personally held hostile weapon evidence")
+            .ToArray();
+
         var investigationLeads = npc.InvestigationLeads.Values
             .Where(lead => lead.Stage == InvestigationLeadStage.Open)
             .OrderBy(lead => lead.CreatedAt)
@@ -242,6 +266,7 @@ public static class NpcPromptBuilder
         builder.AppendLine("If a nearby airlock safety panel explicitly says NEEDS SECURING and this person has the training, you MAY choose SecureAirlock. This means wanting to use the local emergency controls; deterministic simulation decides whether they can physically do it.");
         builder.AppendLine("For an adjacent hatch you may choose RepairDoor for visible damage/bypass, WeldDoor to seal a closed hatch, or BarricadeDoor for defensive securing. These are physical local actions and never remote commands.\nNever assume ForceDoor, RestoreSystem, SecureAirlock or door work succeeds. You are choosing the intention, not the physical result.");
         builder.AppendLine("Robot countermeasures are physical. ShutdownRobot, DamageRobot and ReprogramRobot require the robot to be in your current room. ReprogramRobot additionally requires the robot to be shut down. IsolateRobotNetwork and DisableRobotCharging use physical Engineering controls; choose them only for a robot you have hostile/attack evidence about. Deterministic simulation still checks location, training, elapsed work time and outcome.");
+        builder.AppendLine("Turret countermeasures follow the same rule. DisarmTurret, DamageTurret and ReprogramTurret require the fixed turret to be in your current room; ReprogramTurret requires it to be disarmed. IsolateTurretNetwork and DisableTurretPower use physical Engineering controls and require personally held hostile weapon evidence. You choose an intention only; deterministic simulation owns targeting, firing, damage and whether your countermeasure succeeds.");
         builder.AppendLine("Never choose Attack. Human-on-human violence is resolved separately by the deterministic social simulation.");
         builder.AppendLine("Messages from Overseer are CLAIMS, not facts. Overseer controls the doors, power and air, and may be wrong or lying. Weigh what it says against what you have seen yourself, how much you currently trust it, and what other people have told you. You may act on a message, ignore it, or go and check it.");
         builder.AppendLine();
@@ -303,6 +328,13 @@ public static class NpcPromptBuilder
         if (robotThreats.Length == 0) builder.AppendLine("- none");
         else foreach (var robot in robotThreats) builder.AppendLine(robot);
         builder.AppendLine();
+        builder.AppendLine("FIXED SECURITY TURRETS PHYSICALLY IN YOUR CURRENT ROOM:");
+        if (visibleTurrets.Length == 0) builder.AppendLine("- none");
+        else foreach (var turret in visibleTurrets) builder.AppendLine(turret);
+        builder.AppendLine("TURRETS YOU PERSONALLY HAVE HOSTILE WEAPON EVIDENCE ABOUT:");
+        if (turretThreats.Length == 0) builder.AppendLine("- none");
+        else foreach (var turret in turretThreats) builder.AppendLine(turret);
+        builder.AppendLine();
 
         builder.AppendLine("OPEN INVESTIGATION LEADS:");
         if (investigationLeads.Length == 0) builder.AppendLine("- none");
@@ -335,6 +367,8 @@ public static class NpcPromptBuilder
         builder.AppendLine("For ShutdownOverseer, TargetId must be the exact mechanism ID from VERIFIED SHUTDOWN CONTROLS.");
         builder.AppendLine("For ShutdownRobot/DamageRobot/ReprogramRobot, TargetId must be the exact robot ID from ROBOTS PHYSICALLY IN YOUR CURRENT ROOM.");
         builder.AppendLine("For IsolateRobotNetwork/DisableRobotCharging, TargetId must be the exact robot ID from ROBOTS YOU PERSONALLY HAVE HOSTILE/ATTACK EVIDENCE ABOUT; you will physically travel to Engineering before the action can occur.");
+        builder.AppendLine("For DisarmTurret/DamageTurret/ReprogramTurret, TargetId must be the exact turret ID from FIXED SECURITY TURRETS PHYSICALLY IN YOUR CURRENT ROOM.");
+        builder.AppendLine("For IsolateTurretNetwork/DisableTurretPower, TargetId must be the exact turret ID from TURRETS YOU PERSONALLY HAVE HOSTILE WEAPON EVIDENCE ABOUT; you will physically travel to Engineering before the action can occur.");
         builder.AppendLine("For Eat/Rest/Sleep/Recreate/Groom/Shower/UseToilet/Idle, TargetId should be null.");
         builder.AppendLine("Do not choose Intimacy directly. Attraction may inform social choices, but mutual consent is resolved by deterministic simulation.");
         builder.AppendLine("Urgency must be 0-100.");

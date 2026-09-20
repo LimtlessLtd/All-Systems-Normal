@@ -100,6 +100,14 @@ public sealed class IntentExecutionSystem
                     ExecuteRobotCountermeasureIntent(state, npc, intent);
                     break;
 
+                case ActionKind.DisarmTurret:
+                case ActionKind.IsolateTurretNetwork:
+                case ActionKind.DisableTurretPower:
+                case ActionKind.DamageTurret:
+                case ActionKind.ReprogramTurret:
+                    ExecuteTurretCountermeasureIntent(state, npc, intent);
+                    break;
+
                 case ActionKind.Idle:
                     npc.CurrentAction = new NpcAction(
                         ActionKind.Idle,
@@ -165,6 +173,49 @@ public sealed class IntentExecutionSystem
                 state,
                 npc.Id,
                 new NpcAction(intent.Action, robot.Id, intent.Reason),
+                out _))
+        {
+            npc.Intent = null;
+        }
+    }
+
+    private void ExecuteTurretCountermeasureIntent(
+        GameState state,
+        Npc npc,
+        NpcIntent intent)
+    {
+        var turret = TurretCountermeasureSystem.FindTurret(state, intent.TargetId);
+        if (turret is null || turret.IsDestroyed)
+        {
+            FailIntent(npc, "That security turret is no longer an actionable target.");
+            return;
+        }
+
+        if (intent.Action is ActionKind.IsolateTurretNetwork
+            or ActionKind.DisableTurretPower)
+        {
+            if (!npc.CurrentRoomId.Equals(
+                    TurretCountermeasureSystem.ControlRoomId,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                MoveTowardRoom(
+                    state,
+                    npc,
+                    intent,
+                    TurretCountermeasureSystem.ControlRoomId);
+                return;
+            }
+        }
+        else if (!TurretCountermeasureSystem.IsCoLocated(npc, turret))
+        {
+            MoveTowardRoom(state, npc, intent, turret.RoomId);
+            return;
+        }
+
+        if (_actions.TryApply(
+                state,
+                npc.Id,
+                new NpcAction(intent.Action, turret.Id, intent.Reason),
                 out _))
         {
             npc.Intent = null;
