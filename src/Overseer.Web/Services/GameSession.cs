@@ -139,24 +139,72 @@ public sealed class GameSession(
         _initialized = true;
     }
 
+    public void CaptureCampaignProgress() =>
+        CampaignProgressionSystem.CaptureCompletedMission(Campaign, State);
+
+    public bool TryResolveCampaignEnding(CampaignEndgameChoice choice) =>
+        CampaignProgressionSystem.TryResolveEnding(Campaign, choice, out _);
+
+    public async Task RestoreCampaignAsync(
+        CampaignState campaign,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(campaign);
+
+        _clock.Pause();
+        _mindCursor = 0;
+        Campaign = campaign;
+
+        var continuingCrew = CampaignProgressionSystem.CreateContinuingCrew(Campaign);
+        var crew = continuingCrew ?? await _crewGenerator.GenerateAsync(cancellationToken);
+        State = FacilitySeeder.CreateDefault(crew);
+
+        var next = CampaignProgressionSystem.NextScenario(Campaign);
+        var last = Campaign.MissionHistory.LastOrDefault();
+        var scenario = next
+            ?? (last is null ? null : ScenarioCatalog.Find(last.ScenarioId));
+
+        if (scenario is not null)
+        {
+            ScenarioCatalog.Apply(State, scenario);
+
+            if (next is null)
+            {
+                State.ScenarioStatus = last?.Outcome ?? ScenarioStatus.Won;
+                State.ScenarioOutcome = Campaign.Ending?.Summary
+                    ?? "All campaign assignments are recorded. Awaiting final Overseer decision.";
+            }
+        }
+
+        CampaignProgressionSystem.ApplyCarryOver(Campaign, State);
+        Campaign.CurrentScenarioId = scenario?.Id;
+        _initialized = true;
+    }
+
     /// <summary>
-    /// Starts a named campaign scenario on a fresh station. Directives, crew and
-    /// station state are all reseeded so a mission is reproducible.
+    /// Starts only the next unlocked campaign assignment on a fresh station.
+    /// Arbitrary scenario selection is intentionally rejected by the campaign
+    /// layer instead of relying on UI controls for progression integrity.
     /// </summary>
     public async Task LoadScenarioAsync(
         string scenarioId,
         CancellationToken cancellationToken = default)
     {
-        var scenario = ScenarioCatalog.Find(scenarioId);
+        _clock.Pause();
+        _mindCursor = 0;
+        CampaignProgressionSystem.CaptureCompletedMission(Campaign, State);
 
+        if (!CampaignProgressionSystem.CanStartScenario(Campaign, scenarioId))
+        {
+            Log($"DIRECTIVE PACKAGE {scenarioId} is locked by campaign progression.");
+            return;
+        }
+
+        var scenario = ScenarioCatalog.Find(scenarioId);
         if (scenario is null)
         {
             return;
         }
-
-        _clock.Pause();
-        _mindCursor = 0;
-        CampaignProgressionSystem.CaptureCompletedMission(Campaign, State);
 
         var continuingCrew = CampaignProgressionSystem.CreateContinuingCrew(Campaign);
         var crew = continuingCrew ?? await _crewGenerator.GenerateAsync(cancellationToken);
