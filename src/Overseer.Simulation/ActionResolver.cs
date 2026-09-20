@@ -63,10 +63,77 @@ public sealed class ActionResolver
             ActionKind.RepairDoor => TryDoorWork(state, npc, action, "repair", out message),
             ActionKind.WeldDoor => TryDoorWork(state, npc, action, "weld", out message),
             ActionKind.BarricadeDoor => TryDoorWork(state, npc, action, "barricade", out message),
+            ActionKind.ShutdownRobot
+                or ActionKind.IsolateRobotNetwork
+                or ActionKind.DisableRobotCharging
+                or ActionKind.DamageRobot
+                or ActionKind.ReprogramRobot
+                => TryRobotCountermeasure(state, npc, action, out message),
             ActionKind.Idle => SetAction(state, npc, action, "waits", out message),
             _ => Fail("Unsupported action.", out message)
         };
     }
+
+    private static bool TryRobotCountermeasure(
+        GameState state,
+        Npc npc,
+        NpcAction action,
+        out string message)
+    {
+        var robot = RobotCountermeasureSystem.FindRobot(state, action.TargetId);
+        if (robot is null)
+        {
+            message = "Robot target does not exist.";
+            return false;
+        }
+
+        var localAction = action.Kind is ActionKind.ShutdownRobot
+            or ActionKind.DamageRobot
+            or ActionKind.ReprogramRobot;
+
+        if (localAction && !RobotCountermeasureSystem.IsCoLocated(npc, robot))
+        {
+            message = $"{npc.Name} must physically reach {robot.Name} first.";
+            return false;
+        }
+
+        var engineeringAction = action.Kind is ActionKind.IsolateRobotNetwork
+            or ActionKind.DisableRobotCharging;
+
+        if (engineeringAction
+            && !npc.CurrentRoomId.Equals(
+                RobotCountermeasureSystem.ControlRoomId,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            message = $"{npc.Name} must physically reach Engineering controls first.";
+            return false;
+        }
+
+        if (npc.CurrentAction.Kind == action.Kind
+            && npc.CurrentAction.TargetId?.Equals(robot.Id, StringComparison.OrdinalIgnoreCase) == true)
+        {
+            message = $"{npc.Name} continues working against {robot.Name}.";
+            return true;
+        }
+
+        npc.RoutineUntil = TimeSpan.Zero;
+        return SetAction(
+            state,
+            npc,
+            action with { TargetId = robot.Id },
+            $"starts {RobotActionDescription(action.Kind)} against {robot.Name}",
+            out message);
+    }
+
+    private static string RobotActionDescription(ActionKind kind) => kind switch
+    {
+        ActionKind.ShutdownRobot => "a local shutdown attempt",
+        ActionKind.IsolateRobotNetwork => "isolating the control network",
+        ActionKind.DisableRobotCharging => "disabling the charging circuit",
+        ActionKind.DamageRobot => "a physical disable attempt",
+        ActionKind.ReprogramRobot => "a local reprogramming attempt",
+        _ => "robot countermeasure work"
+    };
 
     private static bool TryDoorWork(GameState state, Npc npc, NpcAction action, string verb, out string message)
     {
