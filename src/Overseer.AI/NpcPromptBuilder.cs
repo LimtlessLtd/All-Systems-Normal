@@ -24,7 +24,8 @@ public static class NpcPromptBuilder
         ActionKind.Argue,
         ActionKind.RequestHelp,
         ActionKind.ForceDoor,
-        ActionKind.RestoreSystem
+        ActionKind.RestoreSystem,
+        ActionKind.SecureAirlock
     ];
 
     public static string Build(Npc npc, GameState state)
@@ -133,6 +134,33 @@ public static class NpcPromptBuilder
             })
             .ToArray();
 
+        var perceivedAirlocks = state.Facility.Rooms.Values
+            .Where(candidate =>
+                candidate.Type == RoomType.Airlock
+                && candidate.HasExteriorHatch
+                && AirlockSafetyRules.CanPerceiveSafetyState(
+                    state,
+                    npc,
+                    candidate))
+            .OrderBy(candidate => candidate.Id)
+            .Select(candidate =>
+            {
+                var innerDoor = AirlockSafetyRules.FindInnerDoor(
+                    state,
+                    candidate);
+                var innerState = innerDoor is null
+                    ? "unknown"
+                    : innerDoor.IsPassable ? "open/passable" : "sealed";
+
+                return $"- {candidate.Id} = {candidate.Name} | pressure {candidate.PressureKpa:0.0} kPa | "
+                    + $"inner {innerState} | outer {(candidate.ExteriorHatchOpen ? "OPEN" : "sealed")} | "
+                    + $"cycle {candidate.AirlockCycleMode} | interlocks "
+                    + $"{(candidate.AirlockSafetyInterlocksEnabled ? "active" : "BYPASSED")} | "
+                    + $"alarm {(candidate.AirlockAlarmActive ? "ACTIVE" : "clear")} | "
+                    + $"{(AirlockSafetyRules.NeedsCrewSecuring(state, candidate) ? "NEEDS SECURING" : "stable")}";
+            })
+            .ToArray();
+
         var builder = new StringBuilder();
         builder.AppendLine("You are choosing ONE high-level intention for a human NPC in a space-station simulation.");
         builder.AppendLine("You are not the station AI and you do not control reality.");
@@ -142,7 +170,8 @@ public static class NpcPromptBuilder
         builder.AppendLine("If a hatch blocks something you strongly want to do, you MAY choose ForceDoor for an adjacent blocked hatch. Whether it works is resolved later from skills, traits and chance.");
         builder.AppendLine("If a disabled system matters enough to this person, you MAY choose RestoreSystem. Do not automatically repair every outage: personality, role, danger, relationships and priorities should decide whether you care enough to try.");
         builder.AppendLine("A missing-person concern is observer knowledge, not omniscient truth. It does NOT prove that person is dead or reveal their real location. You may Investigate a plausible room, ask another known crewmember for help, or keep another priority if it matters more.");
-        builder.AppendLine("Never assume ForceDoor or RestoreSystem succeeds. You are choosing the intention, not the physical result.");
+        builder.AppendLine("If a nearby airlock safety panel explicitly says NEEDS SECURING and this person has the training, you MAY choose SecureAirlock. This means wanting to use the local emergency controls; deterministic simulation decides whether they can physically do it.");
+        builder.AppendLine("Never assume ForceDoor, RestoreSystem or SecureAirlock succeeds. You are choosing the intention, not the physical result.");
         builder.AppendLine("Never choose Attack. Violence is resolved separately by the deterministic social simulation.");
         builder.AppendLine();
         builder.AppendLine($"NAME: {npc.Name}");
@@ -175,6 +204,10 @@ public static class NpcPromptBuilder
         if (missingConcerns.Length == 0) builder.AppendLine("- none");
         else foreach (var concern in missingConcerns) builder.AppendLine(concern);
         builder.AppendLine();
+        builder.AppendLine("NEARBY AIRLOCK SAFETY PANELS:");
+        if (perceivedAirlocks.Length == 0) builder.AppendLine("- none currently visible from here");
+        else foreach (var airlock in perceivedAirlocks) builder.AppendLine(airlock);
+        builder.AppendLine();
         builder.AppendLine("STATION STATUS-PANEL ROOM READINGS:");
         builder.AppendLine("These are the compartment readings currently available to this crew member; route status reflects passable hatches.");
         foreach (var knownRoom in rooms) builder.AppendLine($"- {knownRoom}");
@@ -190,6 +223,7 @@ public static class NpcPromptBuilder
         builder.AppendLine("For Move/Investigate/Repair/Work, TargetId must be a valid room ID.");
         builder.AppendLine("For ForceDoor, TargetId must be the exact ID of a currently connected blocked hatch listed above.");
         builder.AppendLine("For RestoreSystem, TargetId must be one of the DISABLED SYSTEM TARGET IDS (room ID or life-support).");
+        builder.AppendLine("For SecureAirlock, TargetId must be the exact airlock room ID shown as NEEDS SECURING in NEARBY AIRLOCK SAFETY PANELS.");
         builder.AppendLine("For Talk/Socialize/Argue/RequestHelp, TargetId must be an exact name from the known crew roster. Physical interaction can still fail later if that person cannot actually be reached.");
         builder.AppendLine("For Eat/Rest/Sleep/Recreate/Groom/Shower/UseToilet/Idle, TargetId should be null.");
         builder.AppendLine("Do not choose Intimacy directly. Attraction may inform social choices, but mutual consent is resolved by deterministic simulation.");

@@ -117,6 +117,13 @@ public sealed record OverseerEvidence(
     TimeSpan ObservedAt,
     string? SourceNpcName = null);
 
+public enum AirlockCycleMode
+{
+    Idle,
+    Pressurizing,
+    Depressurizing
+}
+
 public enum ActionKind
 {
     Idle,
@@ -140,7 +147,8 @@ public enum ActionKind
     ShutdownOverseer,
     OverrideDoor,
     ForceDoor,
-    RestoreSystem
+    RestoreSystem,
+    SecureAirlock
 }
 
 public sealed record Memory(
@@ -355,6 +363,8 @@ public sealed class Npc
     // death/ejection directly from global IsAlive/IsPresent state.
     public Dictionary<Guid, CrewSighting> LastSeenCrew { get; } = [];
     public Dictionary<Guid, MissingPersonConcern> MissingPersonConcerns { get; } = [];
+    public HashSet<string> ObservedUnsafeAirlocks { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
     public bool NeedsMindReconsideration { get; set; }
 
     public NpcAction CurrentAction { get; set; } =
@@ -412,6 +422,10 @@ public sealed class Room
     public bool HasExteriorHatch { get; set; }
     public bool ExteriorHatchOpen { get; set; }
     public bool IsExteriorHatchAiControllable { get; set; }
+    public AirlockCycleMode AirlockCycleMode { get; set; }
+    public bool AirlockSafetyInterlocksEnabled { get; set; } = true;
+    public bool IsAirlockSafetyAiControllable { get; set; } = true;
+    public bool AirlockAlarmActive { get; set; }
 
     public List<RoomFixture> Fixtures { get; } = [];
 

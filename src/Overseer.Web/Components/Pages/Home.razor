@@ -482,11 +482,75 @@
 
                 @if (selectedRoom.HasExteriorHatch)
                 {
+                    var innerAirlockDoor = AirlockSafetySystem.FindInnerDoor(
+                        Session.State,
+                        selectedRoom);
+
                     <div class="environment-control-card">
-                        <span class="subheading">EXTERIOR AIRLOCK</span>
+                        <span class="subheading">AIRLOCK SAFETY / PRESSURE CYCLE</span>
+
+                        <div class="environment-grid" style="margin:.6rem 0;">
+                            <div>
+                                <span>CHAMBER</span>
+                                <strong>@selectedRoom.PressureKpa.ToString("0.0") kPa</strong>
+                            </div>
+                            <div>
+                                <span>CYCLE</span>
+                                <strong>@selectedRoom.AirlockCycleMode.ToString().ToUpperInvariant()</strong>
+                            </div>
+                            <div>
+                                <span>INNER HATCH</span>
+                                <strong>@(innerAirlockDoor is { IsPassable: true } ? "OPEN" : "SEALED")</strong>
+                            </div>
+                            <div>
+                                <span>OUTER HATCH</span>
+                                <strong class="@(selectedRoom.ExteriorHatchOpen ? "danger-text" : "")">
+                                    @(selectedRoom.ExteriorHatchOpen ? "OPEN" : "SEALED")
+                                </strong>
+                            </div>
+                            <div>
+                                <span>INTERLOCKS</span>
+                                <strong class="@(!selectedRoom.AirlockSafetyInterlocksEnabled ? "danger-text" : "")">
+                                    @(selectedRoom.AirlockSafetyInterlocksEnabled ? "ACTIVE" : "BYPASSED")
+                                </strong>
+                            </div>
+                            <div>
+                                <span>ALARM</span>
+                                <strong class="@(selectedRoom.AirlockAlarmActive ? "danger-text" : "")">
+                                    @(selectedRoom.AirlockAlarmActive ? "ACTIVE" : "CLEAR")
+                                </strong>
+                            </div>
+                        </div>
+
+                        <div class="control-stack" style="margin:.6rem 0;">
+                            <button class="wide secondary"
+                                    disabled="@(!selectedRoom.IsPowered
+                                               || !selectedRoom.IsAirlockSafetyAiControllable
+                                               || selectedRoom.ExteriorHatchOpen
+                                               || innerAirlockDoor is { IsPassable: true })"
+                                    @onclick="() => Session.SetAirlockCycle(selectedRoom.Id, AirlockCycleMode.Pressurizing)">
+                                PRESSURIZE CHAMBER
+                            </button>
+                            <button class="wide secondary"
+                                    disabled="@(!selectedRoom.IsPowered
+                                               || !selectedRoom.IsAirlockSafetyAiControllable
+                                               || selectedRoom.ExteriorHatchOpen
+                                               || innerAirlockDoor is { IsPassable: true })"
+                                    @onclick="() => Session.SetAirlockCycle(selectedRoom.Id, AirlockCycleMode.Depressurizing)">
+                                DEPRESSURIZE CHAMBER
+                            </button>
+                            @if (selectedRoom.AirlockCycleMode != AirlockCycleMode.Idle)
+                            {
+                                <button class="wide secondary"
+                                        @onclick="() => Session.SetAirlockCycle(selectedRoom.Id, AirlockCycleMode.Idle)">
+                                    STOP PRESSURE CYCLE
+                                </button>
+                            }
+                        </div>
+
                         <div class="ventilation-row">
                             <strong class="@(selectedRoom.ExteriorHatchOpen ? "danger-text" : "")">
-                                @(selectedRoom.ExteriorHatchOpen ? "OPEN TO VACUUM" : "SEALED")
+                                @(selectedRoom.ExteriorHatchOpen ? "OPEN TO VACUUM" : "OUTER HATCH SEALED")
                             </strong>
                             <button class="mini @(selectedRoom.ExteriorHatchOpen ? "secondary" : "danger")"
                                     disabled="@(!selectedRoom.IsPowered || !selectedRoom.IsExteriorHatchAiControllable)"
@@ -494,8 +558,19 @@
                                 @(selectedRoom.ExteriorHatchOpen ? "CLOSE OUTER HATCH" : "OPEN OUTER HATCH")
                             </button>
                         </div>
-                        <small>
-                            Opening the exterior hatch vents this compartment. Any open internal hatch can propagate decompression inward.
+
+                        <button class="wide @(!selectedRoom.AirlockSafetyInterlocksEnabled ? "secondary" : "danger")"
+                                style="margin-top:.55rem"
+                                disabled="@(!selectedRoom.IsPowered || !selectedRoom.IsAirlockSafetyAiControllable)"
+                                @onclick="() => Session.ToggleAirlockSafetyInterlocks(selectedRoom.Id)">
+                            @(selectedRoom.AirlockSafetyInterlocksEnabled
+                                ? "BYPASS SAFETY INTERLOCKS"
+                                : "RESTORE SAFETY INTERLOCKS")
+                        </button>
+
+                        <small style="display:block; margin-top:.6rem;">
+                            Normal cycle: seal both hatches → depressurize below @AirlockSafetySystem.ExteriorOpenPressureKpa.ToString("0") kPa → open outer hatch.
+                            To return: seal outer hatch → pressurize → open inner hatch. Bypassing interlocks permits deliberately unsafe operation and can be witnessed by nearby crew.
                         </small>
                     </div>
                 }

@@ -26,6 +26,10 @@ public sealed class CrewCounterplaySystem
                 case ActionKind.RestoreSystem:
                     TickRestoreSystem(state, npc);
                     break;
+
+                case ActionKind.SecureAirlock:
+                    TickSecureAirlock(state, npc);
+                    break;
             }
         }
     }
@@ -198,6 +202,78 @@ public sealed class CrewCounterplaySystem
         Log(
             state,
             $"{npc.Name} {(useTechnical ? "bypasses" : "physically forces")} {door.Id} open.");
+    }
+
+    private static void TickSecureAirlock(GameState state, Npc npc)
+    {
+        var targetId = npc.CurrentAction.TargetId;
+
+        if (string.IsNullOrWhiteSpace(targetId)
+            || !state.Facility.Rooms.TryGetValue(targetId, out var airlock)
+            || airlock.Type != RoomType.Airlock
+            || !airlock.HasExteriorHatch
+            || !AirlockSafetySystem.NeedsCrewSecuring(state, airlock)
+            || !AirlockSafetySystem.IsAtCrewControls(state, npc, airlock))
+        {
+            EndAction(npc, "The airlock emergency no longer needs action from here.");
+            return;
+        }
+
+        if (npc.RoutineUntil == TimeSpan.Zero)
+        {
+            var technical = BestTechnicalSkill(npc);
+            var duration = technical >= 70 ? 1 : 2;
+            npc.RoutineUntil =
+                state.Elapsed + TimeSpan.FromMinutes(duration);
+            npc.Bubble = new NpcBubble(
+                "I'm securing the airlock!",
+                NpcBubbleKind.Alert,
+                state.Elapsed,
+                state.Elapsed + TimeSpan.FromMinutes(3));
+
+            AudioCueSystem.Emit(
+                state,
+                AudioCueKind.Warning,
+                npc.Id.ToString(),
+                npc.CurrentRoomId);
+
+            Log(
+                state,
+                $"{npc.Name} begins emergency airlock securing.");
+            return;
+        }
+
+        if (state.Elapsed < npc.RoutineUntil)
+        {
+            return;
+        }
+
+        if (!AirlockSafetySystem.TryCrewSecureNow(
+                state,
+                npc,
+                airlock,
+                out var message))
+        {
+            EndAction(npc, message);
+            return;
+        }
+
+        EndAction(npc, message);
+        npc.Bubble = new NpcBubble(
+            airlock.AirlockCycleMode == AirlockCycleMode.Pressurizing
+                ? "Outer hatch sealed. Repressurizing."
+                : "Outer hatch sealed.",
+            NpcBubbleKind.Alert,
+            state.Elapsed,
+            state.Elapsed + TimeSpan.FromMinutes(4));
+
+        AudioCueSystem.Emit(
+            state,
+            AudioCueKind.Important,
+            npc.Id.ToString(),
+            npc.CurrentRoomId);
+
+        Log(state, message);
     }
 
     private static void TickRestoreSystem(GameState state, Npc npc)

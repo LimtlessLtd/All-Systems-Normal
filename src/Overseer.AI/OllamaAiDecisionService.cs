@@ -30,7 +30,8 @@ public sealed class OllamaAiDecisionService(
         ActionKind.Argue,
         ActionKind.RequestHelp,
         ActionKind.ForceDoor,
-        ActionKind.RestoreSystem
+        ActionKind.RestoreSystem,
+        ActionKind.SecureAirlock
     ];
 
     public async Task<NpcIntent> DecideAsync(
@@ -145,6 +146,27 @@ public sealed class OllamaAiDecisionService(
             {
                 action = ActionKind.Idle;
                 target = null;
+            }
+        }
+        else if (action == ActionKind.SecureAirlock)
+        {
+            if (target is null
+                || !state.Facility.Rooms.TryGetValue(target, out var airlock)
+                || airlock.Type != RoomType.Airlock
+                || !airlock.HasExteriorHatch
+                || !AirlockSafetyRules.NeedsCrewSecuring(state, airlock)
+                || !AirlockSafetyRules.CanCrewSecure(npc)
+                || !AirlockSafetyRules.CanPerceiveSafetyState(
+                    state,
+                    npc,
+                    airlock))
+            {
+                action = ActionKind.Idle;
+                target = null;
+            }
+            else
+            {
+                target = airlock.Id;
             }
         }
         else if (action is ActionKind.Talk

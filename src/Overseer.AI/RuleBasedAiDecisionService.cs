@@ -51,6 +51,17 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                     98);
             }
         }
+        else if (FindPerceivedUnsafeAirlock(state, npc) is { } unsafeAirlock)
+        {
+            intent = Create(
+                npc,
+                state,
+                ActionKind.SecureAirlock,
+                unsafeAirlock.Id,
+                $"Secure {unsafeAirlock.Name}.",
+                "I can see the airlock safety state is compromised and I know the emergency controls.",
+                94);
+        }
         else if (!state.LifeSupport.IsOnline && BestRepairScore(npc) >= 55)
         {
             intent = Create(
@@ -160,6 +171,19 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
 
         return Task.FromResult(intent);
     }
+
+    private static Room? FindPerceivedUnsafeAirlock(
+        GameState state,
+        Npc npc) =>
+        state.Facility.Rooms.Values
+            .Where(room =>
+                room.Type == RoomType.Airlock
+                && room.HasExteriorHatch
+                && AirlockSafetyRules.NeedsCrewSecuring(state, room)
+                && AirlockSafetyRules.CanCrewSecure(npc)
+                && AirlockSafetyRules.CanPerceiveSafetyState(state, npc, room))
+            .OrderBy(room => room.Id)
+            .FirstOrDefault();
 
     private static MissingPersonConcern? MostPressingMissingConcern(Npc npc) =>
         npc.MissingPersonConcerns.Values

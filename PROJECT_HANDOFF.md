@@ -3062,3 +3062,132 @@ The sequencing principle is:
 
 > **First make the humans perceive, survive, investigate and fight back credibly. Then give the player deeper tools to manipulate what those humans believe. Finally wrap those emergent systems in the campaign/experiment layer.**
 
+# V0.6I — AIRLOCK SAFETY & PRESSURE CYCLING — COMPLETED
+
+This milestone turns the Airlock from a powered exterior-hatch toggle into a deterministic pressure-cycle and safety system while deliberately preserving the player's ability to create unsafe decompression through an explicit safety bypass.
+
+Core airlock state:
+
+* exterior airlocks now track `AirlockCycleMode`: Idle, Pressurizing or Depressurizing
+* each airlock tracks whether safety interlocks are active, whether the safety system remains Overseer-controllable, and whether its emergency alarm is active
+* the seeded Airlock still uses the existing real inner hatch and exterior hatch; no decorative or duplicate topology was introduced
+* existing vacuum propagation and ejection remain authoritative once a physical path to space exists
+
+Normal safe operation:
+
+* the outer hatch cannot normally open while the chamber is pressurized
+* the outer hatch cannot normally open while the inner hatch is open/passable
+* the outer hatch cannot open while a pressure cycle is still active
+* the inner hatch cannot normally open while the outer hatch is open
+* the inner hatch cannot normally open during an active pressure cycle
+* the inner hatch cannot normally open across a large chamber/station pressure differential
+* normal outbound operation is:
+  * seal both hatches
+  * depressurize the chamber
+  * wait until pressure-safe
+  * open the outer hatch
+* normal inbound operation is:
+  * seal the outer hatch
+  * pressurize the chamber
+  * wait for station-compatible pressure
+  * open the inner hatch
+
+Pressure-cycle simulation:
+
+* depressurization and pressurization advance through deterministic simulated time rather than instant UI state changes
+* depressurization removes chamber pressure and atmosphere in a controlled cycle before exterior opening
+* pressurization requires working primary life support and restores chamber pressure / breathable atmosphere
+* central ventilation no longer fights an intentional depressurization cycle
+* pressure cycles stop if a chamber boundary becomes open
+* completion creates semantic audio and event-log feedback
+
+Hostile-Overseer gameplay is preserved:
+
+* Overseer has an explicit **BYPASS SAFETY INTERLOCKS** control
+* bypassing interlocks allows physically unsafe outer/inner hatch operation
+* unsafe opening still feeds the existing real decompression topology, environmental pressure loss, injury and vacuum-ejection systems
+* this means the safety milestone adds friction, evidence and human counterplay without removing the player's ability to weaponize the station
+* restoring interlocks returns the chamber to normal safety logic
+
+Human awareness and counterplay:
+
+* unsafe airlock state is observer-limited rather than station-wide omniscient knowledge
+* crew can perceive it only when physically at the airlock or its station-side emergency controls
+* a nearby observer receives a direct memory / alert and event-driven cognition trigger
+* distant crew do not magically know the airlock is compromised
+* witnessing Overseer deliberately bypass the interlocks creates direct suspicion evidence for nearby observers
+* Commander / Security or sufficiently technical crew can decide they want to secure the airlock
+* `SecureAirlock` is a high-level NPC intention in both browser/fallback and Ollama cognition
+* deterministic navigation/action code still decides whether the NPC can physically reach the controls
+* the emergency securing action takes simulated time
+* successful human intervention closes the exterior hatch, restores safety interlocks, closes the inner hatch where possible and begins repressurization when required
+* manually overridden/damaged physical hatches continue to obey the existing deterministic door authority rather than being magically repaired by the airlock safety system
+
+LLM grounding:
+
+* the Ollama prompt exposes airlock safety information only through a **NEARBY AIRLOCK SAFETY PANELS** section
+* this includes chamber pressure, inner/outer hatch state, cycle state, interlock state and alarm status only when that NPC is physically able to perceive the controls
+* the model may choose `SecureAirlock` only for a grounded nearby airlock explicitly shown as needing securing
+* validation rejects remote/hallucinated `SecureAirlock` targets
+* the LLM still chooses only the desired high-level response; deterministic C# performs all physical validation and resolution
+
+Player UI:
+
+* the Airlock inspector now shows:
+  * chamber pressure
+  * pressure-cycle mode
+  * inner hatch state
+  * outer hatch state
+  * safety-interlock state
+  * alarm state
+* controls now include:
+  * PRESSURIZE CHAMBER
+  * DEPRESSURIZE CHAMBER
+  * STOP PRESSURE CYCLE
+  * OPEN / CLOSE OUTER HATCH
+  * BYPASS / RESTORE SAFETY INTERLOCKS
+* the UI explains the safe operating sequence and warns that bypassing safety can be witnessed by nearby crew
+* the Pages and full Ollama/server UIs use the same deterministic airlock rules
+
+Regression coverage includes:
+
+* pressurized outer-hatch opening is rejected under normal interlocks
+* a sealed chamber can depressurize and then safely open to space
+* a depressurized chamber rejects inner-hatch opening until repressurized
+* safety bypass still supports lethal vacuum/ejection gameplay
+* distant crew do not gain unsafe-airlock knowledge
+* nearby capable crew detect the emergency and choose `SecureAirlock`
+* the physical emergency action restores safety and begins repressurization
+* fallback cognition only reacts when the hazard is actually perceived
+* LLM prompts expose only nearby safety state
+* Ollama validation rejects remote/hallucinated airlock intervention
+
+Preserved invariants:
+
+* `CurrentRoomId` remains authoritative containment
+* shared hatch/portal geometry is unchanged
+* existing A* and local movement remain physically authoritative
+* vacuum propagation/ejection is still driven by open physical topology
+* body discovery and V0.6H missing-person reasoning remain perception-limited
+* stable Blazor `@key` identity remains intact
+* the LLM decides what an NPC WANTS; deterministic C# decides what the NPC CAN do
+
+# NEXT IMMEDIATE MILESTONE — V0.6J DAMAGED-DOOR COUNTERPLAY
+
+After V0.6I is merged and deployed, implement damaged-door state as a richer two-sided physical system:
+
+1. make brute-force hatch damage mechanically persistent and clearly visible
+2. allow appropriately skilled crew to repair damaged doors over simulated time
+3. add welding/sealing actions where tools/skills/scenario rules permit them
+4. add barricading / wedging / propping behaviour for human defensive counterplay
+5. distinguish powered lock failure, technical bypass, manual override and structural damage in both mechanics and UI
+6. ensure Overseer cannot magically reverse a physically damaged or locally secured hatch
+7. let NPC high-level cognition decide whether repairing, welding or barricading is worth doing while deterministic C# validates tools, skill, location and time
+8. add map/inspector visuals for damaged, bypassed, welded and barricaded hatch states
+9. add regression coverage for physical state transitions and navigation consequences
+10. update this handoff, open a PR, require green CI, merge to `main`, and verify Pages deployment before moving on to V0.6C
+
+The larger roadmap remains:
+
+**V0.6J Damaged-Door Counterplay → V0.6C Investigation/Discovery/Scenario Success → Local Movement & Readability Polish → Food/Consumable Resources → Private Messaging/Claims/Social Manipulation → Robots/Security/Human Countermeasures → Corporate Experiment Campaign Layer.**
+
