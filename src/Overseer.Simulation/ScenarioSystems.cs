@@ -507,8 +507,8 @@ public static class ScenarioCatalog
     {
         var routeDoors = state.Facility.Doors
             .Where(door =>
-                door.Connects("isolation", "hall-isolation")
-                || door.Connects("hall-isolation", "corridor"))
+                door.RoomAId.Equals("hall-isolation", StringComparison.OrdinalIgnoreCase)
+                || door.RoomBId.Equals("hall-isolation", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         switch (variant)
