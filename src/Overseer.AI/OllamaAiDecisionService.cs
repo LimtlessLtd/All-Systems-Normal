@@ -43,7 +43,12 @@ public sealed class OllamaAiDecisionService(
         ActionKind.IsolateRobotNetwork,
         ActionKind.DisableRobotCharging,
         ActionKind.DamageRobot,
-        ActionKind.ReprogramRobot
+        ActionKind.ReprogramRobot,
+        ActionKind.DisarmTurret,
+        ActionKind.IsolateTurretNetwork,
+        ActionKind.DisableTurretPower,
+        ActionKind.DamageTurret,
+        ActionKind.ReprogramTurret
     ];
 
     public async Task<NpcIntent> DecideAsync(
@@ -288,6 +293,59 @@ public sealed class OllamaAiDecisionService(
             else
             {
                 target = robot.Id;
+            }
+        }
+        else if (action is ActionKind.DisarmTurret
+            or ActionKind.DamageTurret
+            or ActionKind.ReprogramTurret
+            or ActionKind.IsolateTurretNetwork
+            or ActionKind.DisableTurretPower)
+        {
+            var turret = TurretCountermeasureSystem.FindTurret(state, target);
+            var hasThreatEvidence = turret is not null
+                && TurretCountermeasureSystem.HasHostileTurretEvidence(npc, turret);
+
+            if (turret is null || turret.IsDestroyed)
+            {
+                action = ActionKind.Idle;
+                target = null;
+            }
+            else if (action is ActionKind.DisarmTurret or ActionKind.DamageTurret)
+            {
+                if (!TurretCountermeasureSystem.IsCoLocated(npc, turret)
+                    || !turret.IsArmed
+                    || turret.Policy == TurretPolicy.Safe)
+                {
+                    action = ActionKind.Idle;
+                    target = null;
+                }
+                else
+                {
+                    target = turret.Id;
+                }
+            }
+            else if (action == ActionKind.ReprogramTurret)
+            {
+                if (!TurretCountermeasureSystem.IsCoLocated(npc, turret)
+                    || turret.IsArmed
+                    || turret.Policy == TurretPolicy.Safe)
+                {
+                    action = ActionKind.Idle;
+                    target = null;
+                }
+                else
+                {
+                    target = turret.Id;
+                }
+            }
+            else if (!hasThreatEvidence)
+            {
+                action = ActionKind.Idle;
+                target = null;
+            }
+            else
+            {
+                target = turret.Id;
             }
         }
         else if (action == ActionKind.ShutdownOverseer)
