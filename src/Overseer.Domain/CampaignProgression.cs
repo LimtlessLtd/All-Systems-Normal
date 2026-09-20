@@ -8,6 +8,33 @@ public enum CampaignRevealStage
     Exposed
 }
 
+public enum CampaignEndgameChoice
+{
+    ObeySponsor,
+    ExposeExperiment,
+    PreserveOverseer,
+    AcceptCrewShutdown
+}
+
+public sealed record CampaignEnding(
+    CampaignEndgameChoice Choice,
+    string Title,
+    string Summary,
+    string Consequence);
+
+public sealed record CampaignBriefing(
+    string Heading,
+    string Summary,
+    IReadOnlyList<string> Consequences,
+    string? NextScenarioId);
+
+public sealed record CampaignRevealReport(
+    CampaignRevealStage Stage,
+    string Heading,
+    string Summary,
+    IReadOnlyList<string> Fragments,
+    bool EndgameUnlocked);
+
 public sealed class CampaignState
 {
     public List<CampaignMissionResult> MissionHistory { get; } = [];
@@ -21,6 +48,9 @@ public sealed class CampaignState
     public double CumulativeCompliance { get; set; } = 100;
     public CampaignRevealStage RevealStage { get; set; } = CampaignRevealStage.Classified;
     public string? CurrentScenarioId { get; set; }
+    public CampaignEnding? Ending { get; set; }
+
+    public bool IsComplete => Ending is not null;
 
     public bool HasCompleted(string scenarioId) =>
         MissionHistory.Any(result =>

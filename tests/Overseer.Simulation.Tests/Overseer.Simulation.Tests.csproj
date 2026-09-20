@@ -18,6 +18,7 @@
     <ProjectReference Include="../../src/Overseer.AI/Overseer.AI.csproj" />
     <ProjectReference Include="../../src/Overseer.Domain/Overseer.Domain.csproj" />
     <ProjectReference Include="../../src/Overseer.Simulation/Overseer.Simulation.csproj" />
+    <ProjectReference Include="../../src/Overseer.Persistence/Overseer.Persistence.csproj" />
   </ItemGroup>
 
   <ItemGroup>

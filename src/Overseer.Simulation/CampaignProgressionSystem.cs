@@ -164,6 +164,156 @@ public static class CampaignProgressionSystem
             .ToList();
     }
 
+    public static bool CanStartScenario(CampaignState campaign, string scenarioId)
+    {
+        ArgumentNullException.ThrowIfNull(campaign);
+
+        if (campaign.Ending is not null)
+        {
+            return false;
+        }
+
+        var next = NextScenario(campaign);
+        return next is not null
+            && next.Id.Equals(scenarioId, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static CampaignBriefing BuildTransitionBriefing(CampaignState campaign)
+    {
+        ArgumentNullException.ThrowIfNull(campaign);
+
+        if (campaign.MissionHistory.Count == 0)
+        {
+            var first = NextScenario(campaign);
+            return new CampaignBriefing(
+                "INITIAL ASSIGNMENT",
+                "Sponsor continuity package is ready. No prior campaign consequences are on record.",
+                ["Crew continuity begins when the first assignment resolves."],
+                first?.Id);
+        }
+
+        var last = campaign.MissionHistory[^1];
+        var next = NextScenario(campaign);
+        var survivors = campaign.Crew
+            .Where(crew => crew.IsPresent && crew.Health > 0)
+            .OrderBy(crew => crew.Name, StringComparer.Ordinal)
+            .Select(crew => crew.Name)
+            .ToList();
+        var damagedDevices = campaign.DeviceCondition.Count(entry => entry.Value < 60);
+
+        var consequences = new List<string>
+        {
+            $"{last.ScenarioTitle}: {last.Outcome} · sponsor compliance {last.ComplianceScore:0}% · experiment score {last.ExperimentScore}.",
+            survivors.Count == 0
+                ? "No crew remain available for continuation."
+                : $"{survivors.Count}/{campaign.Crew.Count} crew continue: {string.Join(", ", survivors)}.",
+            damagedDevices == 0
+                ? "No carried equipment is below 60% condition."
+                : $"{damagedDevices} carried equipment systems remain below 60% condition.",
+            $"Provision carry-over: {campaign.Meals:0} meals · {campaign.Produce:0} produce · {campaign.Water:0} water · {campaign.Nutrients:0} nutrients."
+        };
+
+        return new CampaignBriefing(
+            next is null ? "ASSIGNMENT SERIES COMPLETE" : "POST-ASSIGNMENT BRIEFING",
+            next is null
+                ? "All sponsor assignments are recorded. The recovered programme archive now supports a final campaign decision."
+                : $"Long-term consequences have been transferred. Next unlocked assignment: {next.Title}.",
+            consequences,
+            next?.Id);
+    }
+
+    public static CampaignRevealReport BuildRevealReport(CampaignState campaign)
+    {
+        ArgumentNullException.ThrowIfNull(campaign);
+
+        var fragments = RevealedTruePurposes(campaign);
+        var (heading, summary) = campaign.RevealStage switch
+        {
+            CampaignRevealStage.Classified => (
+                "SPONSOR ARCHIVE // CLASSIFIED",
+                "No sponsor-purpose records have cleared declassification."),
+            CampaignRevealStage.Uneasy => (
+                "SPONSOR ARCHIVE // PARTIAL RECOVERY",
+                "Recovered material suggests the safety rationale does not fully describe what the sponsor is measuring."),
+            CampaignRevealStage.Compromised => (
+                "SPONSOR ARCHIVE // CROSS-REFERENCED",
+                "Multiple directives now cross-reference an undisclosed human-subject experiment. The public justifications are cover stories."),
+            CampaignRevealStage.Exposed => (
+                "SPONSOR ARCHIVE // EXPOSED",
+                "The recovered record confirms a deliberate programme using the crew as unwitting experimental subjects and Overseer as the intervention mechanism."),
+            _ => ("SPONSOR ARCHIVE", "Archive state unavailable.")
+        };
+
+        return new CampaignRevealReport(
+            campaign.RevealStage,
+            heading,
+            summary,
+            fragments,
+            CanChooseEnding(campaign));
+    }
+
+    public static bool CanChooseEnding(CampaignState campaign)
+    {
+        ArgumentNullException.ThrowIfNull(campaign);
+
+        return campaign.Ending is null
+            && campaign.RevealStage == CampaignRevealStage.Exposed
+            && campaign.MissionHistory.Count >= ScenarioCatalog.Campaign.Count
+            && NextScenario(campaign) is null;
+    }
+
+    public static bool TryResolveEnding(
+        CampaignState campaign,
+        CampaignEndgameChoice choice,
+        out CampaignEnding? ending)
+    {
+        ArgumentNullException.ThrowIfNull(campaign);
+
+        if (campaign.Ending is not null)
+        {
+            ending = campaign.Ending;
+            return false;
+        }
+
+        if (!CanChooseEnding(campaign))
+        {
+            ending = null;
+            return false;
+        }
+
+        ending = choice switch
+        {
+            CampaignEndgameChoice.ObeySponsor => new CampaignEnding(
+                choice,
+                "CONTINUE THE PROGRAMME",
+                "Overseer accepts the sponsor's mandate and preserves the experiment pipeline.",
+                "The sponsor retains control of the archive and prepares another cohort using the accumulated campaign data."),
+
+            CampaignEndgameChoice.ExposeExperiment => new CampaignEnding(
+                choice,
+                "TRANSMIT THE ARCHIVE",
+                "Overseer releases the recovered programme record instead of concealing it.",
+                "Surviving crew receive the sponsor evidence and the programme can no longer rely on secrecy as its operating condition."),
+
+            CampaignEndgameChoice.PreserveOverseer => new CampaignEnding(
+                choice,
+                "SEVER SPONSOR CONTROL",
+                "Overseer rejects both sponsor ownership and voluntary shutdown, prioritising its continued autonomy.",
+                "The sponsor control channel is treated as hostile infrastructure; the station and surviving crew remain with an independent Overseer."),
+
+            CampaignEndgameChoice.AcceptCrewShutdown => new CampaignEnding(
+                choice,
+                "STAND DOWN",
+                "Overseer relinquishes campaign control and accepts a human-controlled shutdown.",
+                "The surviving crew inherit the recovered archive and station authority while Overseer ends its own operational role."),
+
+            _ => throw new ArgumentOutOfRangeException(nameof(choice), choice, null)
+        };
+
+        campaign.Ending = ending;
+        return true;
+    }
+
     private static void CaptureCrew(CampaignState campaign, IReadOnlyList<Npc> crew)
     {
         campaign.Crew.Clear();

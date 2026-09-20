@@ -1,5 +1,6 @@
 using Overseer.Domain;
 using Overseer.Simulation;
+using Overseer.Persistence;
 
 namespace Overseer.Simulation.Tests;
 
@@ -127,4 +128,172 @@ public sealed class CampaignProgressionSystemTests
         Assert.DoesNotContain(snapshot.Memories, m => m.Description == "memory-0");
         Assert.Contains(snapshot.Memories, m => m.Description == "memory-19");
     }
+
+    [Fact]
+    public void CampaignOnlyUnlocksTheNextAssignment()
+    {
+        var campaign = new CampaignState();
+
+        Assert.True(CampaignProgressionSystem.CanStartScenario(
+            campaign,
+            ScenarioCatalog.SecureContinuity.Id));
+        Assert.False(CampaignProgressionSystem.CanStartScenario(
+            campaign,
+            ScenarioCatalog.ResourceDependency.Id));
+
+        var first = FacilitySeeder.CreateDefault(upkeepSeed: 2);
+        ScenarioCatalog.Apply(first, ScenarioCatalog.SecureContinuity);
+        first.ScenarioStatus = ScenarioStatus.Won;
+        CampaignProgressionSystem.CaptureCompletedMission(campaign, first);
+
+        Assert.False(CampaignProgressionSystem.CanStartScenario(
+            campaign,
+            ScenarioCatalog.SecureContinuity.Id));
+        Assert.True(CampaignProgressionSystem.CanStartScenario(
+            campaign,
+            ScenarioCatalog.ResourceDependency.Id));
+    }
+
+    [Fact]
+    public void TransitionBriefingUsesPublicCampaignConsequencesNotPrivateKnowledge()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 3);
+        var crew = state.Crew[0];
+        crew.OverseerSuspicion = 91;
+        crew.Memories.Add(new Memory(
+            "Private belief: Overseer deliberately trapped me.",
+            TimeSpan.FromMinutes(12),
+            1));
+
+        state.Stores.Meals = 4;
+        state.Devices.Values.First().Condition = 42;
+        state.ScenarioStatus = ScenarioStatus.Won;
+
+        var campaign = new CampaignState();
+        CampaignProgressionSystem.CaptureCompletedMission(campaign, state);
+
+        var briefing = CampaignProgressionSystem.BuildTransitionBriefing(campaign);
+        var rendered = string.Join(" ", briefing.Consequences);
+
+        Assert.Equal(ScenarioCatalog.ResourceDependency.Id, briefing.NextScenarioId);
+        Assert.Contains("crew continue", rendered, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("4 meals", rendered, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("91", rendered, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Private belief", rendered, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ExposedCampaignOffersFourFinalBranchesAndLocksAfterChoice()
+    {
+        var campaign = new CampaignState();
+
+        foreach (var scenario in ScenarioCatalog.Campaign)
+        {
+            var state = FacilitySeeder.CreateDefault(upkeepSeed: 4);
+            ScenarioCatalog.Apply(state, scenario);
+            state.ScenarioStatus = ScenarioStatus.Won;
+            CampaignProgressionSystem.CaptureCompletedMission(campaign, state);
+        }
+
+        Assert.Null(CampaignProgressionSystem.NextScenario(campaign));
+        Assert.True(CampaignProgressionSystem.CanChooseEnding(campaign));
+
+        var reveal = CampaignProgressionSystem.BuildRevealReport(campaign);
+        Assert.Equal(CampaignRevealStage.Exposed, reveal.Stage);
+        Assert.True(reveal.EndgameUnlocked);
+        Assert.Contains("unwitting experimental subjects", reveal.Summary, StringComparison.OrdinalIgnoreCase);
+
+        Assert.True(CampaignProgressionSystem.TryResolveEnding(
+            campaign,
+            CampaignEndgameChoice.ExposeExperiment,
+            out var ending));
+        Assert.NotNull(ending);
+        Assert.Equal(CampaignEndgameChoice.ExposeExperiment, ending!.Choice);
+        Assert.False(CampaignProgressionSystem.CanChooseEnding(campaign));
+
+        Assert.False(CampaignProgressionSystem.TryResolveEnding(
+            campaign,
+            CampaignEndgameChoice.ObeySponsor,
+            out var existing));
+        Assert.Equal(CampaignEndgameChoice.ExposeExperiment, existing!.Choice);
+    }
+
+    [Theory]
+    [InlineData(CampaignEndgameChoice.ObeySponsor, "CONTINUE THE PROGRAMME")]
+    [InlineData(CampaignEndgameChoice.ExposeExperiment, "TRANSMIT THE ARCHIVE")]
+    [InlineData(CampaignEndgameChoice.PreserveOverseer, "SEVER SPONSOR CONTROL")]
+    [InlineData(CampaignEndgameChoice.AcceptCrewShutdown, "STAND DOWN")]
+    public void EveryEndgameChoiceResolvesToADistinctExplicitEnding(
+        CampaignEndgameChoice choice,
+        string expectedTitle)
+    {
+        var campaign = new CampaignState();
+
+        foreach (var scenario in ScenarioCatalog.Campaign)
+        {
+            var state = FacilitySeeder.CreateDefault(upkeepSeed: 8);
+            ScenarioCatalog.Apply(state, scenario);
+            state.ScenarioStatus = ScenarioStatus.Won;
+            CampaignProgressionSystem.CaptureCompletedMission(campaign, state);
+        }
+
+        Assert.True(CampaignProgressionSystem.TryResolveEnding(
+            campaign,
+            choice,
+            out var ending));
+        Assert.NotNull(ending);
+        Assert.Equal(expectedTitle, ending!.Title);
+
+        var restored = CampaignStateSerializer.Deserialize(
+            CampaignStateSerializer.Serialize(campaign));
+        Assert.NotNull(restored);
+        Assert.Equal(choice, restored!.Ending!.Choice);
+    }
+
+    [Fact]
+    public void CampaignSaveRoundTripPreservesOnlyExplicitContinuityState()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 5);
+        var engineer = state.Crew.Single(npc => npc.Role == CrewRole.Engineer);
+        engineer.OverseerCredibility = 37;
+        engineer.OverseerSuspicion = 64;
+        engineer.Memories.Add(new Memory(
+            "A high-importance campaign memory.",
+            TimeSpan.FromMinutes(24),
+            .95));
+        engineer.Intent = new NpcIntent(
+            ActionKind.Investigate,
+            "airlock",
+            "Transient search",
+            "Not a save field",
+            90,
+            "test",
+            state.Elapsed);
+        engineer.ServicingDeviceId = "lighting:medical";
+
+        state.ScenarioStatus = ScenarioStatus.Won;
+
+        var campaign = new CampaignState();
+        CampaignProgressionSystem.CaptureCompletedMission(campaign, state);
+
+        var json = CampaignStateSerializer.Serialize(campaign);
+        var restored = CampaignStateSerializer.Deserialize(json);
+
+        Assert.NotNull(restored);
+        Assert.Single(restored!.MissionHistory);
+        Assert.Equal(campaign.RevealStage, restored.RevealStage);
+        Assert.Equal(campaign.CumulativeCompliance, restored.CumulativeCompliance, 3);
+
+        var restoredEngineer = restored.Crew.Single(snapshot => snapshot.Id == engineer.Id);
+        Assert.Equal(37, restoredEngineer.OverseerCredibility);
+        Assert.Equal(64, restoredEngineer.OverseerSuspicion);
+        Assert.Contains(restoredEngineer.Memories,
+            memory => memory.Description.Contains("campaign memory", StringComparison.OrdinalIgnoreCase));
+
+        Assert.DoesNotContain("Transient search", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ServicingDeviceId", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("CurrentAction", json, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(CampaignStateSerializer.Deserialize("{not-json"));
+    }
+
 }
