@@ -402,6 +402,18 @@ public sealed class Npc
     public List<OverseerEvidence> OverseerEvidence { get; } = [];
     public bool KnowsShutdownControl { get; set; }
 
+    /// <summary>
+    /// How far this person takes Overseer at its word, 0..100. Being caught in
+    /// a lie spends this; it is not the same thing as suspecting hostility.
+    /// </summary>
+    public double OverseerCredibility { get; set; } = 70;
+
+    /// <summary>Claims Overseer has made to this person that are not yet settled.</summary>
+    public List<OverseerClaimRecord> PendingOverseerClaims { get; } = [];
+
+    /// <summary>Messages this person has received, newest first, for prompt context.</summary>
+    public List<OverseerMessage> ReceivedMessages { get; } = [];
+
     public string? CauseOfDeath { get; set; }
     public bool IsPresent { get; set; } = true;
     public bool IsAlive => Health > 0;
@@ -553,6 +565,10 @@ public sealed class GameState
     public List<ShutdownMechanism> ShutdownMechanisms { get; } = [];
     public List<AudioCue> AudioCues { get; } = [];
     public long NextAudioCueSequence { get; set; } = 1;
+
+    // Overseer's own voice. Messages are the player's only non-physical verb.
+    public List<OverseerMessage> OverseerMessages { get; } = [];
+    public long NextMessageSequence { get; set; } = 1;
 
     // Corporate campaign layer. Directives are the assigned objectives; progress
     // is graded deterministically by CorporateDirectiveSystem.

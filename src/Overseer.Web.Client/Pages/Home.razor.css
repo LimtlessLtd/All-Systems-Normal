@@ -3412,3 +3412,95 @@ button.sound-toggle.sound-on {
     text-decoration: none;
     color: var(--warning);
 }
+
+/* ---- Overseer comms -------------------------------------------------- */
+
+.comms-panel {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    margin-top: 12px;
+    padding: 12px 14px 14px;
+}
+
+.comms-scope {
+    display: flex;
+    gap: .35rem;
+}
+
+.comms-scope button {
+    flex: 1;
+}
+
+.comms-target,
+.comms-input {
+    width: 100%;
+    padding: .45rem .55rem;
+    border: 1px solid var(--line);
+    background: var(--panel-raised);
+    color: var(--text);
+    font: inherit;
+    font-size: .76rem;
+}
+
+.comms-input {
+    resize: vertical;
+    line-height: 1.45;
+}
+
+.comms-input::placeholder {
+    color: var(--muted);
+    opacity: .8;
+}
+
+.comms-input:focus,
+.comms-target:focus {
+    outline: 1px solid var(--accent);
+}
+
+.comms-credibility {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+}
+
+.comms-log {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    max-height: 190px;
+    overflow-y: auto;
+}
+
+.comms-empty {
+    margin: 0;
+    color: var(--muted);
+    font-size: .72rem;
+}
+
+.comms-entry {
+    padding: .35rem .45rem;
+    border-left: 2px solid var(--line-bright);
+    background: rgba(255, 255, 255, .03);
+}
+
+.comms-entry small {
+    display: block;
+    color: var(--muted);
+    font-size: .58rem;
+    letter-spacing: .08em;
+}
+
+.comms-entry p {
+    margin: .15rem 0 0;
+    font-size: .74rem;
+    line-height: 1.4;
+}
+
+.comms-false {
+    border-left-color: var(--danger);
+}
+
+.comms-false small {
+    color: var(--danger);
+}

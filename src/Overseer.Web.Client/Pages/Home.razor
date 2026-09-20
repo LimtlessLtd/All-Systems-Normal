@@ -687,6 +687,83 @@
                 </div>
             }
         </aside>
+            <section class="panel comms-panel">
+                <div class="panel-heading">
+                    <div>
+                        <span class="overline">OVERSEER COMMS</span>
+                        <h2>TRANSMIT</h2>
+                    </div>
+                </div>
+
+                <div class="comms-scope">
+                    <button class="secondary @(_messageScope == OverseerMessageScope.Broadcast ? "selected-speed" : "")"
+                            @onclick="() => _messageScope = OverseerMessageScope.Broadcast">
+                        STATION-WIDE
+                    </button>
+                    <button class="secondary @(_messageScope == OverseerMessageScope.Direct ? "selected-speed" : "")"
+                            @onclick="() => _messageScope = OverseerMessageScope.Direct">
+                        PRIVATE
+                    </button>
+                </div>
+
+                @if (_messageScope == OverseerMessageScope.Direct)
+                {
+                    <select class="comms-target" @bind="_messageTarget">
+                        <option value="">— select recipient —</option>
+                        @foreach (var npc in Session.State.Crew.Where(n => n.IsAlive && n.IsPresent))
+                        {
+                            <option value="@npc.Name">@npc.Name · @npc.Role</option>
+                        }
+                    </select>
+                }
+
+                <textarea class="comms-input"
+                          rows="3"
+                          maxlength="240"
+                          placeholder="@CommsPlaceholder"
+                          @bind="_messageText"
+                          @bind:event="oninput"></textarea>
+
+                <button class="wide"
+                        disabled="@(!CanTransmit)"
+                        @onclick="TransmitAsync">
+                    @(_transmitting ? "TRANSMITTING…" : "TRANSMIT")
+                </button>
+
+                @if (_messageScope == OverseerMessageScope.Direct
+                     && Session.State.Crew.FirstOrDefault(n => n.Name == _messageTarget) is { } recipient)
+                {
+                    <div class="comms-credibility">
+                        <span class="overline">@recipient.Name.ToUpperInvariant() TAKES YOUR WORD</span>
+                        <div class="directive-meter">
+                            <span style="width:@((int)Math.Round(recipient.OverseerCredibility))%"></span>
+                        </div>
+                    </div>
+                }
+
+                <div class="comms-log">
+                    <span class="overline">TRANSMISSION LOG</span>
+                    @if (Session.State.OverseerMessages.Count == 0)
+                    {
+                        <p class="comms-empty">No transmissions sent.</p>
+                    }
+                    else
+                    {
+                        @foreach (var sent in Session.State.OverseerMessages.Take(6))
+                        {
+                            <div class="comms-entry @(sent.WasFalseWhenSent ? "comms-false" : null)">
+                                <small>
+                                    T+@sent.SentAt.ToString(@"hh\:mm")
+                                    · @(sent.Scope == OverseerMessageScope.Broadcast ? "ALL" : sent.TargetNpcName)
+                                    · @sent.Claim.ToString().ToUpperInvariant()
+                                    @(sent.WasFalseWhenSent ? " · UNTRUE WHEN SENT" : "")
+                                </small>
+                                <p>@sent.Text</p>
+                            </div>
+                        }
+                    }
+                </div>
+            </section>
     </div>
 
     <div class="layout-splitter layout-splitter-horizontal event-splitter"
@@ -758,6 +835,49 @@
         >= 20 => "uneasy",
         _ => "calm"
     };
+
+    private OverseerMessageScope _messageScope = OverseerMessageScope.Broadcast;
+    private string _messageTarget = string.Empty;
+    private string _messageText = string.Empty;
+    private bool _transmitting;
+
+    private bool CanTransmit =>
+        !_transmitting
+        && !string.IsNullOrWhiteSpace(_messageText)
+        && Session.State.ScenarioStatus == ScenarioStatus.Running
+        && (_messageScope == OverseerMessageScope.Broadcast
+            || !string.IsNullOrWhiteSpace(_messageTarget));
+
+    private string CommsPlaceholder => _messageScope == OverseerMessageScope.Broadcast
+        ? "Address the whole station. Everyone will be able to compare notes."
+        : "Say something only this person hears.";
+
+    private async Task TransmitAsync()
+    {
+        if (!CanTransmit)
+        {
+            return;
+        }
+
+        _transmitting = true;
+
+        try
+        {
+            var sent = await Session.SendMessageAsync(
+                _messageScope,
+                _messageScope == OverseerMessageScope.Direct ? _messageTarget : null,
+                _messageText);
+
+            if (sent)
+            {
+                _messageText = string.Empty;
+            }
+        }
+        finally
+        {
+            _transmitting = false;
+        }
+    }
 
     private string ComplianceClass => Session.State.ComplianceScore switch
     {

@@ -20,6 +20,9 @@ public sealed class GameSession
     private readonly ShutdownSystem _shutdown = new();
     private readonly CorporateDirectiveSystem _directives = new();
     private readonly SuspicionDynamicsSystem _suspicionDynamics = new();
+    private readonly OverseerCommsSystem _comms = new();
+    private readonly IOverseerMessageInterpreter _messageInterpreter =
+        new RuleBasedOverseerMessageInterpreter();
     private readonly ManualOverrideSystem _manualOverrides = new();
     private readonly ConversationPacingSystem _conversationPacing = new();
     private readonly SimulationClock _clock = new();
@@ -420,6 +423,53 @@ public sealed class GameSession
             roomId: roomId);
     }
 
+    /// <summary>
+    /// Overseer's voice. The player writes whatever they like; an interpreter
+    /// reads it into a structured claim, and the simulation decides what that
+    /// claim does to the people who hear it. Nothing here edits a belief
+    /// directly, and a false claim is recorded as false the moment it is sent.
+    /// </summary>
+    public async Task<bool> SendMessageAsync(
+        OverseerMessageScope scope,
+        string? targetNpcName,
+        string text,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(text) || State.ScenarioStatus != ScenarioStatus.Running)
+        {
+            return false;
+        }
+
+        if (scope == OverseerMessageScope.Direct
+            && !State.Crew.Any(npc =>
+                npc.IsAlive
+                && npc.IsPresent
+                && npc.Name.Equals(targetNpcName, StringComparison.OrdinalIgnoreCase)))
+        {
+            Log($"CHANNEL FAILED: {targetNpcName ?? "unknown recipient"} is not reachable.");
+            return false;
+        }
+
+        var intent = await _messageInterpreter.InterpretAsync(
+            text,
+            scope,
+            targetNpcName,
+            State,
+            cancellationToken);
+
+        OverseerCommsSystem.Send(
+            State,
+            scope,
+            targetNpcName,
+            text,
+            intent.Claim,
+            intent.SubjectNpcName,
+            intent.SubjectRoomId,
+            intent.Source);
+
+        return true;
+    }
+
     public void ToggleLifeSupport()
     {
         if (!State.LifeSupport.IsAiControllable)
@@ -474,6 +524,7 @@ public sealed class GameSession
         _crewRoutines.Tick(State);
         _movement.Tick(State, TimeSpan.FromMinutes(1));
         _shutdown.Tick(State);
+        _comms.Tick(State);
         _suspicionDynamics.Tick(State, turn);
         _directives.Tick(State, turn);
     }
