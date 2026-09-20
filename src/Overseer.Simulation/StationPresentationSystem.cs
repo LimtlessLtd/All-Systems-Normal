@@ -45,15 +45,15 @@ public static class StationPresentationSystem
 
         var identity = metadata?.Identity
             ?? new StationIdentity(
-                StationPurpose.Mixed,
+                Purpose: StationPurpose.Mixed,
                 AgeYears: 35,
-                StationBudgetClass.Standard,
-                StationSizeClass.Standard,
+                Budget: StationBudgetClass.Standard,
+                Size: StationSizeClass.Standard,
                 CrewCapacity: 12,
                 IndustrialIntensity: 50,
                 SecurityLevel: 50,
                 MaintenanceCondition: 70,
-                StationExpansionHistory.LightlyExpanded);
+                ExpansionHistory: StationExpansionHistory.LightlyExpanded);
 
         var rooms = facility.Rooms.Values.ToList();
         var minX = rooms.Count == 0
