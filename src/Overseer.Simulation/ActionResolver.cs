@@ -69,6 +69,12 @@ public sealed class ActionResolver
                 or ActionKind.DamageRobot
                 or ActionKind.ReprogramRobot
                 => TryRobotCountermeasure(state, npc, action, out message),
+            ActionKind.DisarmTurret
+                or ActionKind.IsolateTurretNetwork
+                or ActionKind.DisableTurretPower
+                or ActionKind.DamageTurret
+                or ActionKind.ReprogramTurret
+                => TryTurretCountermeasure(state, npc, action, out message),
             ActionKind.Idle => SetAction(state, npc, action, "waits", out message),
             _ => Fail("Unsupported action.", out message)
         };
@@ -133,6 +139,67 @@ public sealed class ActionResolver
         ActionKind.DamageRobot => "a physical disable attempt",
         ActionKind.ReprogramRobot => "a local reprogramming attempt",
         _ => "robot countermeasure work"
+    };
+
+    private static bool TryTurretCountermeasure(
+        GameState state,
+        Npc npc,
+        NpcAction action,
+        out string message)
+    {
+        var turret = TurretCountermeasureSystem.FindTurret(state, action.TargetId);
+        if (turret is null)
+        {
+            message = "Security turret target does not exist.";
+            return false;
+        }
+
+        var localAction = action.Kind is ActionKind.DisarmTurret
+            or ActionKind.DamageTurret
+            or ActionKind.ReprogramTurret;
+
+        if (localAction && !TurretCountermeasureSystem.IsCoLocated(npc, turret))
+        {
+            message = $"{npc.Name} must physically reach {turret.Name} first.";
+            return false;
+        }
+
+        var engineeringAction = action.Kind is ActionKind.IsolateTurretNetwork
+            or ActionKind.DisableTurretPower;
+
+        if (engineeringAction
+            && !npc.CurrentRoomId.Equals(
+                TurretCountermeasureSystem.ControlRoomId,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            message = $"{npc.Name} must physically reach Engineering security controls first.";
+            return false;
+        }
+
+        if (npc.CurrentAction.Kind == action.Kind
+            && npc.CurrentAction.TargetId?.Equals(turret.Id, StringComparison.OrdinalIgnoreCase) == true)
+        {
+            message = $"{npc.Name} continues working against {turret.Name}.";
+            return true;
+        }
+
+        npc.RoutineUntil = TimeSpan.Zero;
+        return SetAction(
+            state,
+            npc,
+            action with { TargetId = turret.Id },
+            $"starts {TurretActionDescription(action.Kind)} against {turret.Name}",
+            out message);
+    }
+
+    private static string TurretActionDescription(ActionKind kind) => kind switch
+    {
+        ActionKind.DisarmTurret => "a local disarm attempt",
+        ActionKind.IsolateTurretNetwork => "isolating the security control network",
+        ActionKind.DisableTurretPower => "disabling the dedicated power feed",
+        ActionKind.DamageTurret => "a physical sabotage attempt",
+        ActionKind.ReprogramTurret => "a local targeting reprogramming attempt",
+        _ => "turret countermeasure work"
     };
 
     private static bool TryDoorWork(GameState state, Npc npc, NpcAction action, string verb, out string message)
