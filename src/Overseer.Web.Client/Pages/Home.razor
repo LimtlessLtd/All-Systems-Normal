@@ -53,10 +53,39 @@
 
     @if (Session.State.Scenario is { } scenario)
     {
-        <section class="panel" style="margin-bottom: 12px; padding: 12px 16px;">
-            <span class="overline">DIRECTIVE // @Session.State.ScenarioStatus</span>
-            <strong style="display:block">@scenario.Title</strong>
-            <span>@(Session.State.ScenarioOutcome ?? scenario.Briefing)</span>
+        <section class="panel scenario-panel">
+            <div class="scenario-heading">
+                <div>
+                    <span class="overline">DIRECTIVE // @Session.State.ScenarioStatus</span>
+                    <strong>@scenario.Title</strong>
+                    <span>@(Session.State.ScenarioOutcome ?? scenario.Briefing)</span>
+                </div>
+                <div class="scenario-score">
+                    <span>EXPERIMENT SCORE</span>
+                    <strong>@Session.State.Telemetry.Score</strong>
+                </div>
+            </div>
+
+            <div class="scenario-objectives">
+                @foreach (var objective in scenario.Objectives)
+                {
+                    <div class="scenario-objective">
+                        <span>@(objective.IsOptional ? "OPTIONAL" : "PRIMARY")</span>
+                        <strong>@objective.Title</strong>
+                        @if (Session.State.ObjectiveProgress.TryGetValue(objective.Id, out var progress))
+                        {
+                            <small>
+                                @(progress.IsComplete ? "COMPLETE" : progress.IsFailed ? "FAILED" : "ACTIVE")
+                                · @(string.IsNullOrWhiteSpace(progress.StatusText) ? objective.Description : progress.StatusText)
+                            </small>
+                        }
+                        else
+                        {
+                            <small>@objective.Description</small>
+                        }
+                    </div>
+                }
+            </div>
         </section>
     }
 
@@ -336,7 +365,16 @@
                             .OrderByDescending(e => e.ObservedAt)
                             .Take(4))
                         {
-                            <p><strong>+@evidence.Weight.ToString("0")</strong> @evidence.Description</p>
+                            <p>
+                                <strong>+@evidence.Weight.ToString("0")</strong> @evidence.Description
+                                <small style="display:block">
+                                    @evidence.Origin
+                                    @if (!string.IsNullOrWhiteSpace(evidence.SourceNpcName))
+                                    {
+                                        <text> · via @evidence.SourceNpcName</text>
+                                    }
+                                </small>
+                            </p>
                         }
                     }
                 </div>
@@ -362,6 +400,50 @@
                                 </small>
                             </p>
                         }
+                    }
+                </div>
+
+                <div class="belief-card">
+                    <span>INVESTIGATION / DISCOVERY</span>
+                    @if (selectedCrew.InvestigationLeads.Values.All(lead => lead.Stage != InvestigationLeadStage.Open)
+                         && selectedCrew.Discoveries.Count == 0)
+                    {
+                        <p>No active investigation leads or verified discoveries.</p>
+                    }
+                    else
+                    {
+                        @foreach (var lead in selectedCrew.InvestigationLeads.Values
+                            .Where(lead => lead.Stage == InvestigationLeadStage.Open)
+                            .OrderBy(lead => lead.CreatedAt)
+                            .Take(4))
+                        {
+                            <p>
+                                <strong>LEAD · @Session.State.Facility.Rooms[lead.RoomId].Name</strong>
+                                <small style="display:block">@lead.Description</small>
+                            </p>
+                        }
+
+                        @foreach (var discovery in selectedCrew.Discoveries
+                            .OrderByDescending(discovery => discovery.DiscoveredAt)
+                            .Take(3))
+                        {
+                            <p>
+                                <strong>VERIFIED · @Session.State.Facility.Rooms[discovery.RoomId].Name</strong>
+                                <small style="display:block">@discovery.Description</small>
+                            </p>
+                        }
+                    }
+
+                    @if (selectedCrew.PendingShutdownTeamInvitation is { } invitation)
+                    {
+                        <p>
+                            <strong>TEAM INVITATION · @invitation.FromNpcName</strong>
+                            <small style="display:block">Claimed target: @Session.State.Facility.Rooms[invitation.TargetRoomId].Name</small>
+                        </p>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(selectedCrew.ShutdownTeamId))
+                    {
+                        <p><strong>COORDINATED COUNTERMEASURE TEAM ACTIVE</strong></p>
                     }
                 </div>
 
