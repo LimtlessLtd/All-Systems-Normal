@@ -8,7 +8,7 @@ Playable GitHub Pages build:
 
 https://limtlessltd.github.io/All-Systems-Normal/
 
-The project is currently at **V0.6D — Station Architecture & Interior Pass**. V0.6A established suspicion/scenario/shutdown stakes; V0.6B added human counterplay; the environment/audio/orthogonal-layout passes followed; and V0.6D now makes the rendered deck geometry match deterministic station topology while substantially enriching room interiors.
+The project is currently at **V0.6E — Airlock, AI-Generated Crew & Human Counterplay**. V0.6D established the room-dominant station architecture and survival behaviour; V0.6E adds real exterior-airlock decompression, body discovery, generated crew traits and LLM-selected human door/repair counterplay.
 
 The current `main` branch therefore contains substantially more functionality than the older V0.4 notes below. Treat the "Implemented Versions" and "Immediate Task" sections in this document as the authoritative roadmap summary, but still inspect the repository before changing code.
 
@@ -2732,3 +2732,19 @@ Recommended next work after playtesting this pass:
 3. explicit repairable door damage / welding / barricades
 4. V0.6C investigation, discovery and scenario-success work
 5. selected-NPC visible route and local collision/steering
+
+
+# V0.6F — MAP INSPECTION, RESIZABLE UI & AMBIENT MUSIC
+
+This focused presentation pass follows V0.6E.
+
+* Station Overview now has explicit 100%–220% zoom controls in 20% steps.
+* Zoomed maps live inside a scrollable inspection viewport rather than forcing the whole page to expand.
+* The map viewport can be resized vertically on desktop.
+* The left Systems and right Inspector panels can be resized horizontally on wide desktop layouts, allowing the player to prioritise map space or telemetry.
+* The Event Stream can be resized vertically.
+* Responsive/tablet/mobile layouts disable desktop resize handles where they would make the layout unstable.
+* Existing simulation coordinates, navigation portals, hatch geometry and stable Blazor keys remain authoritative and unchanged.
+* Sound effects and music are independently controllable.
+* Ambient music is generated locally with Web Audio as a quiet, slow pad progression; there are no external music assets, network requests or licensing dependencies.
+* Both the static GitHub Pages client and the full server/Ollama UI receive the same presentation behaviour.
