@@ -1034,7 +1034,13 @@
             : "door-horizontal";
         var state = door.IsLocked ? "locked" : door.IsOpen ? "open" : "closed";
 
-        return $"map-door {orientation} {state}";
+        var physical = door.IsWelded ? "welded"
+            : door.IsBarricaded ? "barricaded"
+            : door.IsDamaged ? "damaged"
+            : door.IsTechnicallyBypassed ? "bypassed"
+            : "intact";
+
+        return $"map-door {orientation} {state} {physical}";
     }
 
     private string DoorTitle(Door door)
@@ -1042,7 +1048,12 @@
         var a = Session.State.Facility.Rooms[door.RoomAId];
         var b = Session.State.Facility.Rooms[door.RoomBId];
         var state = door.IsLocked ? "locked" : door.IsOpen ? "open" : "closed";
-        return $"{a.Name} ↔ {b.Name}: {state}. Click to toggle open/closed.";
+        var physical = door.IsWelded ? "welded shut"
+            : door.IsBarricaded ? "barricaded"
+            : door.IsDamaged ? $"damaged ({door.StructuralIntegrityPercent}% integrity)"
+            : door.IsTechnicallyBypassed ? "technical bypass active"
+            : "intact";
+        return $"{a.Name} ↔ {b.Name}: {state}, {physical}. Click to toggle when Overseer control is available.";
     }
 
     private IEnumerable<Door> ConnectedDoors(Room room) =>
