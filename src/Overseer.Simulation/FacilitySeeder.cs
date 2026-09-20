@@ -142,46 +142,44 @@ public static class FacilitySeeder
         }
 
         var random = new Random(StableDerivedSeed(metadata.Seed ^ 0x26A5B31));
-        var extraDetailBase = identity.ExpansionHistory switch
-        {
-            StationExpansionHistory.HeavilyRetrofitted => 2,
-            StationExpansionHistory.LightlyExpanded => 1,
-            _ => 0
-        };
-
-        if (identity.MaintenanceCondition < 45)
-        {
-            extraDetailBase++;
-        }
+        var stationDetail = 1
+            + (identity.ExpansionHistory switch
+            {
+                StationExpansionHistory.HeavilyRetrofitted => 2,
+                StationExpansionHistory.LightlyExpanded => 1,
+                _ => 0
+            })
+            + (identity.Purpose is StationPurpose.Mining
+                or StationPurpose.Industrial
+                or StationPurpose.Logistics ? 1 : 0)
+            + (identity.MaintenanceCondition < 45 ? 1 : 0);
 
         foreach (var room in facility.Rooms.Values
                      .Where(room => room.Type != RoomType.Corridor)
                      .OrderBy(room => room.Id, StringComparer.OrdinalIgnoreCase))
         {
-            var detailCount = extraDetailBase + random.Next(0, 2);
+            var roomArea = room.MapWidth * room.MapHeight;
+            var roomDetail = room.Type is RoomType.Engineering
+                or RoomType.Generator
+                or RoomType.Reactor
+                or RoomType.Hydroponics
+                or RoomType.Storage
+                    ? 1
+                    : 0;
+            var sizeDetail = roomArea >= 230 ? 1 : 0;
+            var detailCount = Math.Clamp(
+                stationDetail + roomDetail + sizeDetail + random.Next(0, 2),
+                1,
+                6);
+
             for (var index = 0; index < detailCount; index++)
             {
                 var type = ChooseIdentityFixture(identity, room.Type, random);
-                var width = type is FixtureType.Pipe or FixtureType.Window
-                    ? 16 + (random.NextDouble() * 18)
-                    : 8 + (random.NextDouble() * 9);
-                var height = type == FixtureType.Pipe
-                    ? 6 + (random.NextDouble() * 5)
-                    : 7 + (random.NextDouble() * 8);
-                var xMargin = (width / 2) + 3;
-                var yMargin = (height / 2) + 3;
-                var x = xMargin + (random.NextDouble() * (100 - (2 * xMargin)));
-                var y = yMargin + (random.NextDouble() * (100 - (2 * yMargin)));
-
-                AddFixture(
-                    facility,
-                    room.Id,
+                TryAddIdentityFixture(
+                    room,
                     type,
                     $"Generated {type} {index + 1}",
-                    x,
-                    y,
-                    width,
-                    height);
+                    random);
             }
 
             if (identity.SecurityLevel >= 75
@@ -205,32 +203,159 @@ public static class FacilitySeeder
         RoomType roomType,
         Random random)
     {
-        FixtureType[] choices = identity.Purpose switch
+        FixtureType[] choices = roomType switch
         {
-            StationPurpose.Research =>
-                [FixtureType.Screen, FixtureType.Console, FixtureType.Cabinet, FixtureType.UtilityPanel],
-            StationPurpose.Mining or StationPurpose.Industrial =>
-                [FixtureType.Pipe, FixtureType.Crate, FixtureType.ToolCabinet, FixtureType.UtilityPanel],
-            StationPurpose.Habitat =>
-                [FixtureType.Cabinet, FixtureType.Window, FixtureType.Table, FixtureType.Locker],
-            StationPurpose.Security =>
-                [FixtureType.UtilityPanel, FixtureType.Screen, FixtureType.Cabinet, FixtureType.Crate],
-            StationPurpose.Logistics =>
-                [FixtureType.Crate, FixtureType.StorageRack, FixtureType.Cabinet, FixtureType.UtilityPanel],
-            _ =>
-                [FixtureType.Cabinet, FixtureType.Pipe, FixtureType.Window, FixtureType.UtilityPanel]
+            RoomType.Reactor =>
+                [FixtureType.Pipe, FixtureType.UtilityPanel, FixtureType.Console, FixtureType.Vent],
+            RoomType.Generator =>
+                [FixtureType.Pipe, FixtureType.UtilityPanel, FixtureType.Console, FixtureType.ToolCabinet],
+            RoomType.Engineering =>
+                [FixtureType.Workbench, FixtureType.ToolCabinet, FixtureType.Pipe, FixtureType.UtilityPanel, FixtureType.Crate],
+            RoomType.Hydroponics =>
+                [FixtureType.GrowBed, FixtureType.IrrigationTank, FixtureType.Pipe, FixtureType.UtilityPanel],
+            RoomType.Storage =>
+                [FixtureType.StorageRack, FixtureType.Crate, FixtureType.Locker, FixtureType.ToolCabinet],
+            RoomType.Airlock =>
+                [FixtureType.SuitLocker, FixtureType.UtilityPanel, FixtureType.Vent, FixtureType.Locker],
+            RoomType.ControlRoom =>
+                [FixtureType.Screen, FixtureType.Console, FixtureType.UtilityPanel, FixtureType.Cabinet],
+            RoomType.Medical =>
+                [FixtureType.Cabinet, FixtureType.TreatmentUnit, FixtureType.Screen, FixtureType.UtilityPanel],
+            RoomType.CrewQuarters =>
+                [FixtureType.Locker, FixtureType.Cabinet, FixtureType.Table, FixtureType.Chair],
+            RoomType.Kitchen =>
+                [FixtureType.Cabinet, FixtureType.KitchenCounter, FixtureType.Crate, FixtureType.Sink],
+            RoomType.Recreation =>
+                [FixtureType.Sofa, FixtureType.Table, FixtureType.Screen, FixtureType.RecreationConsole],
+            RoomType.Washroom =>
+                [FixtureType.Cabinet, FixtureType.Locker, FixtureType.Sink, FixtureType.UtilityPanel],
+            _ => identity.Purpose switch
+            {
+                StationPurpose.Research =>
+                    [FixtureType.Screen, FixtureType.Console, FixtureType.Cabinet, FixtureType.UtilityPanel],
+                StationPurpose.Mining or StationPurpose.Industrial =>
+                    [FixtureType.Pipe, FixtureType.Crate, FixtureType.ToolCabinet, FixtureType.UtilityPanel],
+                StationPurpose.Habitat =>
+                    [FixtureType.Cabinet, FixtureType.Window, FixtureType.Table, FixtureType.Locker],
+                StationPurpose.Security =>
+                    [FixtureType.UtilityPanel, FixtureType.Screen, FixtureType.Cabinet, FixtureType.Crate],
+                StationPurpose.Logistics =>
+                    [FixtureType.Crate, FixtureType.StorageRack, FixtureType.Cabinet, FixtureType.UtilityPanel],
+                _ =>
+                    [FixtureType.Cabinet, FixtureType.Pipe, FixtureType.Window, FixtureType.UtilityPanel]
+            }
         };
 
-        if (roomType == RoomType.Reactor)
+        return choices[random.Next(choices.Length)];
+    }
+
+    private static bool TryAddIdentityFixture(
+        Room room,
+        FixtureType type,
+        string label,
+        Random random)
+    {
+        var (minimumWidth, maximumWidth, minimumHeight, maximumHeight) =
+            GeneratedFixtureSize(type);
+
+        for (var attempt = 0; attempt < 14; attempt++)
         {
-            choices = [FixtureType.Pipe, FixtureType.UtilityPanel, FixtureType.Console];
-        }
-        else if (roomType == RoomType.Airlock)
-        {
-            choices = [FixtureType.SuitLocker, FixtureType.UtilityPanel, FixtureType.Cabinet];
+            var width = minimumWidth + (random.NextDouble() * (maximumWidth - minimumWidth));
+            var height = minimumHeight + (random.NextDouble() * (maximumHeight - minimumHeight));
+            var xMargin = (width / 2) + 3;
+            var yMargin = (height / 2) + 3;
+
+            if (xMargin >= 49 || yMargin >= 49)
+            {
+                continue;
+            }
+
+            var x = xMargin + (random.NextDouble() * (100 - (2 * xMargin)));
+            var y = yMargin + (random.NextDouble() * (100 - (2 * yMargin)));
+
+            var wallMounted = type is FixtureType.Pipe
+                or FixtureType.Window
+                or FixtureType.Vent
+                or FixtureType.Screen
+                or FixtureType.UtilityPanel;
+
+            if (!wallMounted
+                && room.Fixtures.Any(existing =>
+                    existing.Type is not FixtureType.Camera
+                        and not FixtureType.Window
+                        and not FixtureType.Pipe
+                        and not FixtureType.Vent
+                    && FixtureRectanglesOverlap(
+                        x,
+                        y,
+                        width,
+                        height,
+                        existing.X,
+                        existing.Y,
+                        existing.Width,
+                        existing.Height,
+                        padding: 2.5)))
+            {
+                continue;
+            }
+
+            room.Fixtures.Add(new RoomFixture(type, label, x, y, width, height));
+            return true;
         }
 
-        return choices[random.Next(choices.Length)];
+        return false;
+    }
+
+    private static (double MinWidth, double MaxWidth, double MinHeight, double MaxHeight)
+        GeneratedFixtureSize(FixtureType type) =>
+        type switch
+        {
+            FixtureType.Pipe => (18, 34, 5, 9),
+            FixtureType.Window => (18, 30, 6, 10),
+            FixtureType.Vent => (10, 20, 5, 9),
+            FixtureType.Screen => (14, 26, 7, 11),
+            FixtureType.Console or FixtureType.RecreationConsole => (14, 24, 8, 13),
+            FixtureType.UtilityPanel => (9, 15, 9, 15),
+            FixtureType.Workbench => (18, 29, 12, 18),
+            FixtureType.StorageRack => (12, 19, 22, 35),
+            FixtureType.GrowBed => (13, 20, 24, 38),
+            FixtureType.IrrigationTank => (12, 18, 12, 19),
+            FixtureType.Table => (16, 25, 12, 19),
+            FixtureType.Sofa => (18, 28, 12, 20),
+            FixtureType.KitchenCounter => (18, 30, 10, 16),
+            FixtureType.SuitLocker or FixtureType.Locker or FixtureType.ToolCabinet
+                or FixtureType.Cabinet => (9, 15, 12, 24),
+            FixtureType.TreatmentUnit => (16, 25, 10, 16),
+            FixtureType.Crate => (9, 16, 8, 14),
+            FixtureType.Chair or FixtureType.Sink => (8, 12, 8, 12),
+            _ => (8, 17, 7, 15)
+        };
+
+    private static bool FixtureRectanglesOverlap(
+        double firstX,
+        double firstY,
+        double firstWidth,
+        double firstHeight,
+        double secondX,
+        double secondY,
+        double secondWidth,
+        double secondHeight,
+        double padding)
+    {
+        var firstLeft = firstX - (firstWidth / 2) - padding;
+        var firstRight = firstX + (firstWidth / 2) + padding;
+        var firstTop = firstY - (firstHeight / 2) - padding;
+        var firstBottom = firstY + (firstHeight / 2) + padding;
+
+        var secondLeft = secondX - (secondWidth / 2);
+        var secondRight = secondX + (secondWidth / 2);
+        var secondTop = secondY - (secondHeight / 2);
+        var secondBottom = secondY + (secondHeight / 2);
+
+        return firstLeft < secondRight
+            && firstRight > secondLeft
+            && firstTop < secondBottom
+            && firstBottom > secondTop;
     }
 
     private static void EnsureValidCrewContainment(Facility facility, IEnumerable<Npc> crew)
