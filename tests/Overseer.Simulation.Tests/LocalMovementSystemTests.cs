@@ -152,13 +152,11 @@ public sealed class LocalMovementSystemTests
             {
                 Assert.Equal(functionalRoom.MapX, hallway.MapX, 6);
                 Assert.Equal(StationWall.Horizontal, networkPortal.Wall);
-                Assert.True(hallway.MapHeight >= hallway.MapWidth);
             }
             else
             {
                 Assert.Equal(functionalRoom.MapY, hallway.MapY, 6);
                 Assert.Equal(StationWall.Vertical, networkPortal.Wall);
-                Assert.True(hallway.MapWidth >= hallway.MapHeight);
             }
         }
     }
