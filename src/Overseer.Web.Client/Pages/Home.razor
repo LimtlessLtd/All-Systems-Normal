@@ -380,6 +380,29 @@
                     <button class="secondary mini" disabled="@(_mapZoom >= MaxMapZoom)" @onclick="ZoomIn" aria-label="Zoom map in">+</button>
                 </div>
                 <small>Scroll while zoomed · drag the visible splitters to resize · layout is saved locally.</small>
+                @if (Session.State.StationGeneration is { } generation)
+                {
+                    <details class="generation-debug">
+                        <summary>GEN // @generation.Seed</summary>
+                        <div class="generation-debug-popover">
+                            <strong>@generation.Archetype · @generation.Identity.Purpose</strong>
+                            <small>
+                                @generation.Identity.Size · @generation.Identity.Budget ·
+                                AGE @generation.Identity.AgeYears y · CREW @generation.Identity.CrewCapacity
+                            </small>
+                            <div class="generation-debug-actions">
+                                <button type="button" class="secondary mini" @onclick="RegenerateSameSeed">SAME SEED</button>
+                                <button type="button" class="secondary mini" @onclick="RegenerateNewSeed">NEW SEED</button>
+                            </div>
+                            <ul>
+                                @foreach (var diagnostic in generation.Diagnostics)
+                                {
+                                    <li>@diagnostic</li>
+                                }
+                            </ul>
+                        </div>
+                    </details>
+                }
                 <button type="button"
                         class="secondary mini layout-reset"
                         data-layout-reset
@@ -1365,6 +1388,22 @@
         _selectedRoomId = null;
     }
 
+    private void RegenerateSameSeed() =>
+        RegenerateStation(Session.State.StationGeneration?.Seed);
+
+    private void RegenerateNewSeed() =>
+        RegenerateStation(null);
+
+    private void RegenerateStation(int? seed)
+    {
+        StopClock();
+        Session.RegenerateStation(seed);
+        _selectedCrewId = null;
+        _selectedRoomId = "control";
+        _lastAudioSequence = 0;
+        StartAutoClock();
+    }
+
     private async Task ResetGame()
     {
         StopClock();
@@ -1721,16 +1760,20 @@
             $"room-type-{room.Type.ToString().ToLowerInvariant()}"
         };
 
-        if (IsConnectorHallway(room))
+        if (room.Type == RoomType.Corridor)
         {
-            classes.Add("hallway");
-            classes.Add(IsVerticalHallway(room)
-                ? "hallway-vertical"
-                : "hallway-horizontal");
-        }
-        else if (room.Id.Equals("corridor", StringComparison.OrdinalIgnoreCase))
-        {
-            classes.Add("main-corridor");
+            if (room.Id.Equals("corridor", StringComparison.OrdinalIgnoreCase))
+            {
+                classes.Add("main-corridor");
+            }
+            else
+            {
+                classes.Add("hallway");
+                var vertical = IsConnectorHallway(room)
+                    ? IsVerticalHallway(room)
+                    : room.MapHeight > room.MapWidth;
+                classes.Add(vertical ? "hallway-vertical" : "hallway-horizontal");
+            }
         }
 
         if (SelectedRoom?.Id == room.Id)
