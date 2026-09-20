@@ -197,6 +197,60 @@ public sealed class AiDecisionServiceTests
         Assert.Equal("control", intent.TargetId);
     }
 
+    [Fact]
+    public void Prompt_MissingCrewConcernDoesNotLeakDeathOrEjectionTruth()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+
+        marcus.Health = 0;
+        marcus.IsPresent = false;
+        marcus.CauseOfDeath = "Lost to space; no body remains aboard.";
+
+        sarah.MissingPersonConcerns[marcus.Id] = new MissingPersonConcern
+        {
+            PersonId = marcus.Id,
+            PersonName = marcus.Name,
+            ExpectedRoomId = "quarters",
+            FirstConcernAt = TimeSpan.FromMinutes(30),
+            LastUpdatedAt = TimeSpan.FromMinutes(30),
+            Stage = MissingPersonConcernStage.Concerned
+        };
+
+        var prompt = NpcPromptBuilder.Build(sarah, state);
+
+        Assert.Contains("MISSING-PERSON CONCERNS", prompt);
+        Assert.Contains(marcus.Name, prompt);
+        Assert.Contains("KNOWN CREW ROSTER", prompt);
+        Assert.DoesNotContain("Lost to space", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("no body remains aboard", prompt, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task FallbackMind_InvestigatesAKnownMissingPersonConcern()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+
+        sarah.MissingPersonConcerns[marcus.Id] = new MissingPersonConcern
+        {
+            PersonId = marcus.Id,
+            PersonName = marcus.Name,
+            ExpectedRoomId = "quarters",
+            FirstConcernAt = TimeSpan.FromMinutes(30),
+            LastUpdatedAt = TimeSpan.FromMinutes(30),
+            Stage = MissingPersonConcernStage.Searching
+        };
+
+        var intent = await new RuleBasedAiDecisionService().DecideAsync(sarah, state);
+
+        Assert.Equal(ActionKind.Investigate, intent.Action);
+        Assert.Equal("quarters", intent.TargetId);
+        Assert.Contains(marcus.Name, intent.Goal);
+    }
+
     private sealed class StubChatClient : IChatClient
     {
         private readonly string? _json;
