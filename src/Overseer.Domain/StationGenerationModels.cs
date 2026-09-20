@@ -124,6 +124,13 @@ public sealed class StationGenerationConstraints
     public List<StationAdjacencyConstraint> RequiredAdjacency { get; } = [];
     public List<StationSeparationConstraint> RequiredSeparation { get; } = [];
 
+    public StationArchetype? ForcedArchetype { get; init; }
+    public StationPurpose? ForcedPurpose { get; init; }
+    public StationBudgetClass? ForcedBudget { get; init; }
+    public StationSizeClass? ForcedSize { get; init; }
+    public StationExpansionHistory? ForcedExpansionHistory { get; init; }
+    public int? ForcedSecurityLevel { get; init; }
+
     public int? MinimumFunctionalRoomCount { get; init; }
     public int? MaximumFunctionalRoomCount { get; init; }
     public int? RequiredAirlockCount { get; init; }
