@@ -4484,3 +4484,27 @@ button.sound-toggle.sound-on {
         animation: none !important;
     }
 }
+
+
+/* Animation conflict cleanup for the visual pass. */
+.room-glyph { font-style: normal; }
+
+.robot-token.hostile:not(.turret-token) .robot-icon {
+    animation: robot-threat-pulse .8s ease-in-out infinite alternate;
+}
+
+.turret-token .robot-icon {
+    animation: none;
+}
+
+@keyframes robot-threat-pulse {
+    from { transform: rotate(var(--robot-facing, 0deg)) scale(1); }
+    to { transform: rotate(var(--robot-facing, 0deg)) scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .robot-token.hostile:not(.turret-token) .robot-icon {
+        animation: none;
+        transform: rotate(var(--robot-facing, 0deg));
+    }
+}
