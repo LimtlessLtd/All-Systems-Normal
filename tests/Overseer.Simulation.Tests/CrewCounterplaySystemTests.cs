@@ -45,9 +45,14 @@ public sealed class CrewCounterplaySystemTests
     {
         var state = FacilitySeeder.CreateDefault();
         var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
-        var door = state.Facility.FindDoorBetween("corridor", "hall-storage")!;
+        var door = state.Facility.Doors.Single(candidate =>
+            (candidate.RoomAId == "hall-storage" || candidate.RoomBId == "hall-storage")
+            && !candidate.Connects("storage", "hall-storage"));
+        var networkRoomId = door.RoomAId == "hall-storage"
+            ? door.RoomBId
+            : door.RoomAId;
 
-        marcus.CurrentRoomId = "corridor";
+        marcus.CurrentRoomId = networkRoomId;
         marcus.Skills["Security"] = 100;
         marcus.Skills["Athletics"] = 100;
         door.IsOpen = false;
