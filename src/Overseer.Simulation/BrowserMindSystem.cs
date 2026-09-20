@@ -195,6 +195,11 @@ public sealed class BrowserMindSystem
 
         var repairSkill = CrewCounterplaySystem.BestRepairSkill(npc);
 
+        if (FindRobotCountermeasure(state, npc) is { } robotCountermeasure)
+        {
+            return robotCountermeasure;
+        }
+
         if (FindPerceivedUnsafeAirlock(state, npc) is { } unsafeAirlock)
         {
             return Create(
@@ -398,6 +403,87 @@ public sealed class BrowserMindSystem
             "Stay alert and continue normal duties.",
             "Nothing feels urgent enough to interrupt my routine.",
             15);
+    }
+
+    private static NpcIntent? FindRobotCountermeasure(GameState state, Npc npc)
+    {
+        var visibleRobot = state.Robots.FirstOrDefault(robot =>
+            !robot.IsDestroyed
+            && robot.CurrentRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
+
+        if (visibleRobot is not null)
+        {
+            if (!visibleRobot.IsOperational
+                && visibleRobot.Policy == RobotPolicy.Hostile
+                && CrewCounterplaySystem.BestTechnicalSkill(npc) >= 65)
+            {
+                return Create(
+                    state,
+                    ActionKind.ReprogramRobot,
+                    visibleRobot.Id,
+                    $"Reprogram and reboot {visibleRobot.Name}.",
+                    "The hostile robot is shut down in front of me and I can reach its local service port.",
+                    96);
+            }
+
+            if (visibleRobot.Policy == RobotPolicy.Hostile && visibleRobot.IsOperational)
+            {
+                var technical = CrewCounterplaySystem.BestTechnicalSkill(npc);
+                var force = CrewCounterplaySystem.BestForceSkill(npc);
+
+                return technical >= 45
+                    ? Create(
+                        state,
+                        ActionKind.ShutdownRobot,
+                        visibleRobot.Id,
+                        $"Use {visibleRobot.Name}'s manual shutdown.",
+                        "A hostile robot is physically here; I want to stop it at the local emergency cutoff.",
+                        100)
+                    : Create(
+                        state,
+                        ActionKind.DamageRobot,
+                        visibleRobot.Id,
+                        $"Physically disable {visibleRobot.Name}.",
+                        force >= 40
+                            ? "A hostile robot is physically here and force is the countermeasure I can attempt."
+                            : "The robot is an immediate threat; I have no safer technical option.",
+                        100);
+            }
+        }
+
+        var knownThreat = state.Robots.FirstOrDefault(robot =>
+            !robot.IsDestroyed
+            && RobotCountermeasureSystem.HasHostileRobotEvidence(npc, robot));
+
+        if (knownThreat is null)
+        {
+            return null;
+        }
+
+        var technicalSkill = CrewCounterplaySystem.BestTechnicalSkill(npc);
+        if (!knownThreat.IsNetworkIsolated && technicalSkill >= 55)
+        {
+            return Create(
+                state,
+                ActionKind.IsolateRobotNetwork,
+                knownThreat.Id,
+                $"Isolate {knownThreat.Name} from Overseer's control link.",
+                "I have direct evidence the robot is dangerous and Engineering has a physical network isolation control.",
+                94);
+        }
+
+        if (knownThreat.ChargingEnabled && technicalSkill >= 45)
+        {
+            return Create(
+                state,
+                ActionKind.DisableRobotCharging,
+                knownThreat.Id,
+                $"Cut power to {knownThreat.Name}'s charging circuit.",
+                "I have direct evidence the robot is dangerous and can deny its charger from Engineering.",
+                88);
+        }
+
+        return null;
     }
 
     private bool ShouldJoinShutdownTeam(
