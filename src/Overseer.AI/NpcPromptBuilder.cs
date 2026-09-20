@@ -138,14 +138,14 @@ public static class NpcPromptBuilder
             .Where(candidate =>
                 candidate.Type == RoomType.Airlock
                 && candidate.HasExteriorHatch
-                && AirlockSafetySystem.CanPerceiveSafetyState(
+                && AirlockSafetyRules.CanPerceiveSafetyState(
                     state,
                     npc,
                     candidate))
             .OrderBy(candidate => candidate.Id)
             .Select(candidate =>
             {
-                var innerDoor = AirlockSafetySystem.FindInnerDoor(
+                var innerDoor = AirlockSafetyRules.FindInnerDoor(
                     state,
                     candidate);
                 var innerState = innerDoor is null
@@ -157,7 +157,7 @@ public static class NpcPromptBuilder
                     + $"cycle {candidate.AirlockCycleMode} | interlocks "
                     + $"{(candidate.AirlockSafetyInterlocksEnabled ? "active" : "BYPASSED")} | "
                     + $"alarm {(candidate.AirlockAlarmActive ? "ACTIVE" : "clear")} | "
-                    + $"{(AirlockSafetySystem.NeedsCrewSecuring(state, candidate) ? "NEEDS SECURING" : "stable")}";
+                    + $"{(AirlockSafetyRules.NeedsCrewSecuring(state, candidate) ? "NEEDS SECURING" : "stable")}";
             })
             .ToArray();
 
