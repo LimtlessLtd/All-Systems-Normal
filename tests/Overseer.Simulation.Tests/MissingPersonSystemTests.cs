@@ -62,7 +62,9 @@ public sealed class MissingPersonSystemTests
 
         nadia.CurrentRoomId = "storage";
         marcus.CurrentRoomId = "storage";
-        state.Elapsed = TimeSpan.FromMinutes(1);
+        // Record the last direct sighting at the start of the shift so the
+        // 30-minute missed-duty threshold is reached exactly at T+00:30.
+        state.Elapsed = TimeSpan.Zero;
         system.Tick(state);
 
         marcus.Health = 0;
