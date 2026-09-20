@@ -1421,6 +1421,20 @@ public static class StationGenerator
             .Where(room => room.Type != RoomType.Corridor)
             .ToList();
 
+        if (!constraints.FullyAuthoredGeometry)
+        {
+            var functionalArea = functionalRooms.Sum(room => room.MapWidth * room.MapHeight);
+            var circulationArea = facility.Rooms.Values
+                .Where(room => room.Type == RoomType.Corridor)
+                .Sum(room => room.MapWidth * room.MapHeight);
+
+            if (functionalArea <= circulationArea)
+            {
+                errors.Add(
+                    $"Functional room area {functionalArea:0} must dominate circulation area {circulationArea:0}.");
+            }
+        }
+
         if (constraints.MinimumFunctionalRoomCount is { } minimum
             && functionalRooms.Count < minimum)
         {
