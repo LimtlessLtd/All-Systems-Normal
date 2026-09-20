@@ -19,6 +19,9 @@ public sealed class GameSession(
     private readonly CrewRoutineSystem _crewRoutines = new();
     private readonly SocialSimulationSystem _social = new();
     private readonly IntentExecutionSystem _intentExecution = new();
+    private readonly InvestigationSystem _investigations = new();
+    private readonly ShutdownCoordinationSystem _shutdownCoordination = new();
+    private readonly ScenarioProgressSystem _scenarioProgress = new();
     private readonly NavigationSystem _navigation = new();
     private readonly LocalMovementSystem _movement = new();
     private readonly SuspicionSystem _suspicion = new();
