@@ -179,9 +179,9 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
             .Where(room =>
                 room.Type == RoomType.Airlock
                 && room.HasExteriorHatch
-                && AirlockSafetySystem.NeedsCrewSecuring(state, room)
-                && AirlockSafetySystem.CanCrewSecure(npc)
-                && AirlockSafetySystem.CanPerceiveSafetyState(state, npc, room))
+                && AirlockSafetyRules.NeedsCrewSecuring(state, room)
+                && AirlockSafetyRules.CanCrewSecure(npc)
+                && AirlockSafetyRules.CanPerceiveSafetyState(state, npc, room))
             .OrderBy(room => room.Id)
             .FirstOrDefault();
 
