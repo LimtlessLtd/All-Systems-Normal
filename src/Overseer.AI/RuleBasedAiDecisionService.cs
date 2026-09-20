@@ -52,6 +52,10 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                     98);
             }
         }
+        else if (FindTurretCountermeasure(state, npc) is { } turretCountermeasure)
+        {
+            intent = turretCountermeasure;
+        }
         else if (FindRobotCountermeasure(state, npc) is { } robotCountermeasure)
         {
             intent = robotCountermeasure;
@@ -244,6 +248,94 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
         }
 
         return Task.FromResult(intent);
+    }
+
+    private static NpcIntent? FindTurretCountermeasure(GameState state, Npc npc)
+    {
+        var visibleTurret = state.Turrets.FirstOrDefault(turret =>
+            !turret.IsDestroyed
+            && turret.RoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
+
+        if (visibleTurret is not null)
+        {
+            var technical = CrewCounterplaySystem.BestTechnicalSkill(npc);
+            var force = CrewCounterplaySystem.BestForceSkill(npc);
+
+            if (!visibleTurret.IsArmed
+                && visibleTurret.Policy != TurretPolicy.Safe
+                && technical >= 65)
+            {
+                return Create(
+                    npc,
+                    state,
+                    ActionKind.ReprogramTurret,
+                    visibleTurret.Id,
+                    $"Reprogram {visibleTurret.Name} to safe targeting.",
+                    "The security turret is disarmed in front of me and its local service controller is accessible.",
+                    96);
+            }
+
+            if (visibleTurret.IsArmed
+                && visibleTurret.Policy != TurretPolicy.Safe
+                && TurretSystem.HasPower(state, visibleTurret))
+            {
+                return technical >= 45
+                    ? Create(
+                        npc,
+                        state,
+                        ActionKind.DisarmTurret,
+                        visibleTurret.Id,
+                        $"Use {visibleTurret.Name}'s local safing controls.",
+                        "An armed hostile security turret is physically here; I want to safe it locally.",
+                        100)
+                    : force >= 40
+                        ? Create(
+                            npc,
+                            state,
+                            ActionKind.DamageTurret,
+                            visibleTurret.Id,
+                            $"Physically sabotage {visibleTurret.Name}.",
+                            "The armed turret is an immediate local threat and physical sabotage is the countermeasure I can attempt.",
+                            100)
+                        : null;
+            }
+        }
+
+        var knownThreat = state.Turrets.FirstOrDefault(turret =>
+            !turret.IsDestroyed
+            && TurretCountermeasureSystem.HasHostileTurretEvidence(npc, turret));
+
+        if (knownThreat is null)
+        {
+            return null;
+        }
+
+        var technicalSkill = CrewCounterplaySystem.BestTechnicalSkill(npc);
+        if (!knownThreat.IsNetworkIsolated && technicalSkill >= 55)
+        {
+            return Create(
+                npc,
+                state,
+                ActionKind.IsolateTurretNetwork,
+                knownThreat.Id,
+                $"Isolate {knownThreat.Name} from Overseer's security network.",
+                "I have direct evidence the turret is dangerous and Engineering has a physical network isolation control.",
+                95);
+        }
+
+        if (knownThreat.PowerFeedEnabled && technicalSkill >= 45)
+        {
+            return Create(
+                npc,
+                state,
+                ActionKind.DisableTurretPower,
+                knownThreat.Id,
+                $"Cut the dedicated power feed to {knownThreat.Name}.",
+                "I have direct evidence the turret is dangerous and can deny its security power feed from Engineering.",
+                92);
+        }
+
+        return null;
     }
 
     private static NpcIntent? FindRobotCountermeasure(GameState state, Npc npc)
