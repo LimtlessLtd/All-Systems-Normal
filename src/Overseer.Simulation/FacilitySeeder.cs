@@ -149,9 +149,9 @@ public static class FacilitySeeder
                 ? "corridor"
                 : state.Facility.Rooms.Keys.First();
 
-        var requestedRobotRooms = constraints.RequiredRobotRoomIds.Count > 0
+        IReadOnlyList<string> requestedRobotRooms = constraints.RequiredRobotRoomIds.Count > 0
             ? constraints.RequiredRobotRoomIds
-            : [fallbackRobotRoom];
+            : new[] { fallbackRobotRoom };
         var robotCount = Math.Max(
             constraints.RequiredRobotCount ?? 1,
             constraints.RequiredRobotRoomIds.Count);
