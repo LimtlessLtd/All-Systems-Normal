@@ -2910,3 +2910,157 @@ button.sound-toggle.sound-on {
     font-size: 0.72em;
     letter-spacing: 0.08em;
 }
+
+
+/* V0.6F — adjustable control-room layout and map inspection */
+@media (min-width: 1181px) {
+    .operations-grid {
+        grid-template-columns: auto minmax(480px, 1fr) auto;
+    }
+
+    .systems-panel {
+        width: 220px;
+        min-width: 165px;
+        max-width: 360px;
+        resize: horizontal;
+        overflow: auto;
+    }
+
+    .inspector-panel {
+        width: 320px;
+        min-width: 250px;
+        max-width: 470px;
+        resize: horizontal;
+        overflow: auto;
+    }
+
+    .systems-panel,
+    .inspector-panel {
+        max-height: calc(100vh - 190px);
+    }
+}
+
+.map-toolbar {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    min-height: 42px;
+    padding: .45rem .7rem;
+    border-bottom: 1px solid var(--line);
+    background: rgba(6, 17, 24, .82);
+    color: var(--muted);
+    font-size: .58rem;
+    letter-spacing: .08em;
+}
+
+.map-toolbar > span {
+    color: var(--text);
+    font-weight: 800;
+}
+
+.map-toolbar small {
+    margin-left: auto;
+    opacity: .75;
+    letter-spacing: .02em;
+}
+
+.map-zoom-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: .32rem;
+}
+
+.map-zoom-controls button {
+    min-width: 30px;
+    padding: .35rem .5rem;
+}
+
+.map-zoom-controls .zoom-readout {
+    min-width: 62px;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+}
+
+.station-map-viewport {
+    position: relative;
+    width: 100%;
+    height: clamp(460px, 62vh, 820px);
+    min-height: 360px;
+    max-height: 86vh;
+    overflow: auto;
+    resize: vertical;
+    background: #03090d;
+    scrollbar-color: var(--line-bright) #07121a;
+    scrollbar-width: thin;
+}
+
+.station-map-viewport .station-map {
+    min-width: 100%;
+    transform-origin: top left;
+}
+
+.station-map-viewport::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.station-map-viewport::-webkit-scrollbar-track {
+    background: #07121a;
+}
+
+.station-map-viewport::-webkit-scrollbar-thumb {
+    border: 2px solid #07121a;
+    background: var(--line-bright);
+}
+
+.event-panel {
+    min-height: 140px;
+    max-height: 58vh;
+    resize: vertical;
+    overflow: auto;
+}
+
+.event-panel .event-log {
+    max-height: none;
+}
+
+@media (max-width: 1180px) {
+    .systems-panel,
+    .inspector-panel {
+        width: auto;
+        max-width: none;
+        max-height: none;
+        resize: none;
+        overflow: visible;
+    }
+
+    .station-map-viewport {
+        height: clamp(430px, 58vh, 700px);
+    }
+}
+
+@media (max-width: 760px) {
+    .map-toolbar {
+        flex-wrap: wrap;
+    }
+
+    .map-toolbar small {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .station-map-viewport {
+        height: 470px;
+        min-height: 360px;
+        resize: none;
+    }
+
+    .station-map {
+        min-width: 680px;
+    }
+
+    .event-panel {
+        resize: none;
+        max-height: none;
+    }
+}
