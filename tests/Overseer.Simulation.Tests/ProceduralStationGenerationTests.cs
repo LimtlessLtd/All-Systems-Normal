@@ -291,6 +291,131 @@ public sealed class ProceduralStationGenerationTests
         }
     }
 
+    [Fact]
+    public void PresentationProfile_UsesIdentityAndFitsManyProceduralShapes()
+    {
+        foreach (var seed in Enumerable.Range(0, 32).Select(index => 310_000 + index))
+        {
+            var state = FacilitySeeder.CreateDefault(stationSeed: seed);
+            var profile = StationPresentationSystem.Build(state);
+
+            Assert.InRange(profile.FitScale, 0.84, 1.18);
+            Assert.InRange(profile.FitOffsetX, -10, 10);
+            Assert.InRange(profile.FitOffsetY, -10, 10);
+            Assert.Contains("purpose-", profile.CssClasses, StringComparison.Ordinal);
+            Assert.Contains("budget-", profile.CssClasses, StringComparison.Ordinal);
+            Assert.Contains("expansion-", profile.CssClasses, StringComparison.Ordinal);
+            Assert.Contains("hull-variant-", profile.CssClasses, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void StationIdentity_ProducesDistinctPresentationCharacter()
+    {
+        var cleanResearch = new StationGenerationConstraints
+        {
+            ForcedPurpose = StationPurpose.Research,
+            ForcedBudget = StationBudgetClass.Premium,
+            ForcedExpansionHistory = StationExpansionHistory.PurposeBuilt,
+            ForcedSecurityLevel = 35
+        };
+
+        var wornIndustrial = new StationGenerationConstraints
+        {
+            ForcedPurpose = StationPurpose.Industrial,
+            ForcedBudget = StationBudgetClass.Frugal,
+            ForcedExpansionHistory = StationExpansionHistory.HeavilyRetrofitted,
+            ForcedSecurityLevel = 75
+        };
+
+        var clean = FacilitySeeder.CreateDefault(
+            stationSeed: 64021,
+            stationConstraints: cleanResearch);
+        var worn = FacilitySeeder.CreateDefault(
+            stationSeed: 64021,
+            stationConstraints: wornIndustrial);
+
+        var cleanProfile = StationPresentationSystem.Build(clean);
+        var wornProfile = StationPresentationSystem.Build(worn);
+
+        Assert.Equal("purpose-research", cleanProfile.PurposeClass);
+        Assert.Equal("budget-premium", cleanProfile.BudgetClass);
+        Assert.Equal("expansion-purpose-built", cleanProfile.ExpansionClass);
+
+        Assert.Equal("purpose-industrial", wornProfile.PurposeClass);
+        Assert.Equal("budget-frugal", wornProfile.BudgetClass);
+        Assert.Equal("expansion-heavily-retrofitted", wornProfile.ExpansionClass);
+
+        Assert.NotEqual(cleanProfile.CssClasses, wornProfile.CssClasses);
+    }
+
+    [Fact]
+    public void FixtureDetails_RemainInsideOwningRoomAcrossManySeeds()
+    {
+        foreach (var seed in Enumerable.Range(0, 32).Select(index => 720_000 + index))
+        {
+            var state = FacilitySeeder.CreateDefault(stationSeed: seed);
+
+            foreach (var room in state.Facility.Rooms.Values)
+            {
+                foreach (var fixture in room.Fixtures)
+                {
+                    Assert.True(fixture.Width > 0, $"Seed {seed}, {room.Id}: {fixture.Label} has invalid width.");
+                    Assert.True(fixture.Height > 0, $"Seed {seed}, {room.Id}: {fixture.Label} has invalid height.");
+
+                    Assert.InRange(
+                        fixture.X - (fixture.Width / 2),
+                        0,
+                        100);
+                    Assert.InRange(
+                        fixture.X + (fixture.Width / 2),
+                        0,
+                        100);
+                    Assert.InRange(
+                        fixture.Y - (fixture.Height / 2),
+                        0,
+                        100);
+                    Assert.InRange(
+                        fixture.Y + (fixture.Height / 2),
+                        0,
+                        100);
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void PresentationProfile_ReframesOffCentreAuthoritativeGeometry()
+    {
+        var facility = new Facility();
+        facility.Rooms["alpha"] = new Room
+        {
+            Id = "alpha",
+            Name = "Alpha",
+            Type = RoomType.ControlRoom,
+            MapX = 18,
+            MapY = 22,
+            MapWidth = 12,
+            MapHeight = 14
+        };
+        facility.Rooms["beta"] = new Room
+        {
+            Id = "beta",
+            Name = "Beta",
+            Type = RoomType.Engineering,
+            MapX = 34,
+            MapY = 25,
+            MapWidth = 16,
+            MapHeight = 18
+        };
+
+        var profile = StationPresentationSystem.Build(facility, metadata: null);
+
+        Assert.True(profile.FitScale > 1);
+        Assert.True(profile.FitOffsetX > 0);
+        Assert.True(profile.FitOffsetY > 0);
+    }
+
     private static string Signature(StationGenerationResult result)
     {
         var roomSignature = string.Join(
