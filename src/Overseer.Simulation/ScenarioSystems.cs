@@ -230,6 +230,34 @@ public sealed class SuspicionSystem
         }
     }
 
+    public void ObservePlayerRoomSystemChange(
+        GameState state,
+        Room room,
+        string systemLabel,
+        bool becameDisruptive,
+        double weight)
+    {
+        if (!becameDisruptive || state.ScenarioStatus != ScenarioStatus.Running)
+            return;
+
+        foreach (var npc in state.Crew.Where(candidate =>
+                     candidate.IsAlive
+                     && candidate.IsPresent
+                     && candidate.CurrentRoomId.Equals(
+                         room.Id,
+                         StringComparison.OrdinalIgnoreCase)))
+        {
+            AddEvidence(
+                state,
+                npc,
+                $"I was in {room.Name} when Overseer disrupted {systemLabel}.",
+                weight,
+                origin: EvidenceOrigin.DirectObservation,
+                locationId: room.Id,
+                evidenceId: $"system-change:{room.Id}:{systemLabel}:{state.Elapsed.Ticks}");
+        }
+    }
+
     public void ObserveExteriorHatchChange(
         GameState state,
         Room airlock,
