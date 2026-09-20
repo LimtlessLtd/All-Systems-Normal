@@ -298,7 +298,12 @@ public enum ActionKind
     Cook,
     RepairDoor,
     WeldDoor,
-    BarricadeDoor
+    BarricadeDoor,
+    ShutdownRobot,
+    IsolateRobotNetwork,
+    DisableRobotCharging,
+    DamageRobot,
+    ReprogramRobot
 }
 
 public sealed record Memory(
@@ -421,6 +426,52 @@ public sealed record NpcMovement(
     double EntryX,
     double EntryY);
 
+public interface IStationMobileEntity
+{
+    string CurrentRoomId { get; set; }
+    double PositionX { get; set; }
+    double PositionY { get; set; }
+    NpcMovement? Movement { get; set; }
+}
+
+public enum RobotPolicy
+{
+    Friendly,
+    Neutral,
+    Hostile
+}
+
+public sealed class StationRobot : IStationMobileEntity
+{
+    public required string Id { get; init; }
+    public required string Name { get; init; }
+    public required string CurrentRoomId { get; set; }
+    public double PositionX { get; set; } = 50;
+    public double PositionY { get; set; } = 50;
+    public NpcMovement? Movement { get; set; }
+
+    public RobotPolicy Policy { get; set; } = RobotPolicy.Friendly;
+    public double Health { get; set; } = 100;
+    public double BatteryPercent { get; set; } = 100;
+    public bool ChargingEnabled { get; set; } = true;
+    public bool IsNetworkIsolated { get; set; }
+    public bool IsLocallyShutdown { get; set; }
+    public bool IsRemotelyShutdown { get; set; }
+    public string CurrentTask { get; set; } = "Awaiting assignment.";
+    public string? TargetRoomId { get; set; }
+    public Guid? TargetNpcId { get; set; }
+    public TimeSpan? ActionCompletesAt { get; set; }
+    public TimeSpan? NextAttackAt { get; set; }
+
+    public bool IsDestroyed => Health <= 0;
+    public bool HasRemoteControlLink => !IsNetworkIsolated && !IsDestroyed;
+    public bool IsOperational =>
+        !IsDestroyed
+        && BatteryPercent > 0
+        && !IsLocallyShutdown
+        && !IsRemotelyShutdown;
+}
+
 public sealed record CrewSighting(
     Guid PersonId,
     string PersonName,
@@ -461,7 +512,7 @@ public sealed record RoomFixture(
     FixtureUsePose UsePose = FixtureUsePose.Stand,
     double FacingDegrees = 0);
 
-public sealed class Npc
+public sealed class Npc : IStationMobileEntity
 {
     public Guid Id { get; init; } = Guid.NewGuid();
     public required string Name { get; init; }
@@ -691,6 +742,7 @@ public sealed class GameState
 {
     public required Facility Facility { get; init; }
     public List<Npc> Crew { get; init; } = [];
+    public List<StationRobot> Robots { get; } = [];
     public TimeSpan Elapsed { get; set; }
     public List<string> EventLog { get; } = [];
     public ScenarioDefinition? Scenario { get; set; }
