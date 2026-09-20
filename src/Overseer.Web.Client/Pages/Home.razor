@@ -1,5 +1,6 @@
 @page "/"
 @using Overseer.Simulation
+@using Overseer.Persistence
 @implements IAsyncDisposable
 @inject GameSession Session
 @inject IJSRuntime JS
@@ -103,15 +104,9 @@
                     <strong>SPONSOR OBJECTIVES</strong>
                 </div>
                 <div class="mission-select">
-                    <span class="overline">DIRECTIVE PACKAGE</span>
-                    <select @onchange="OnScenarioChanged">
-                        @foreach (var option in ScenarioCatalog.Campaign)
-                        {
-                            <option value="@option.Id" selected="@(option.Id == scenario.Id)">
-                                @option.Title
-                            </option>
-                        }
-                    </select>
+                    <span class="overline">CAMPAIGN ASSIGNMENT</span>
+                    <strong>@CampaignAssignmentLabel(scenario)</strong>
+                    <small>Progression is locked to the next authorised assignment.</small>
                 </div>
                 <div class="compliance-readout">
                     <span class="overline">SPONSOR COMPLIANCE</span>
@@ -161,15 +156,15 @@
 
         @if (Session.Campaign.MissionHistory.Count > 0)
         {
+            var campaignBriefing = CampaignProgressionSystem.BuildTransitionBriefing(Session.Campaign);
+            var revealReport = CampaignProgressionSystem.BuildRevealReport(Session.Campaign);
+
             <section class="panel scenario-panel">
                 <div class="scenario-heading">
                     <div>
                         <span class="overline">CAMPAIGN CONTINUITY // @Session.Campaign.RevealStage</span>
-                        <strong>@Session.Campaign.MissionHistory.Count / @ScenarioCatalog.Campaign.Count ASSIGNMENTS RECORDED</strong>
-                        <span>
-                            Long-term crew relationships, selected memories, sponsor standing,
-                            station wear and provisions carry into the next assignment.
-                        </span>
+                        <strong>@campaignBriefing.Heading</strong>
+                        <span>@campaignBriefing.Summary</span>
                     </div>
                     <div class="scenario-score">
                         <span>CAMPAIGN COMPLIANCE</span>
@@ -177,10 +172,29 @@
                     </div>
                 </div>
 
-                @if (CampaignProgressionSystem.RevealedTruePurposes(Session.Campaign) is { Count: > 0 } revealedPurposes)
+                <div class="scenario-objectives">
+                    @foreach (var consequence in campaignBriefing.Consequences)
+                    {
+                        <div class="scenario-objective">
+                            <span>CONTINUITY RECORD</span>
+                            <strong>CAMPAIGN CONSEQUENCE</strong>
+                            <small>@consequence</small>
+                        </div>
+                    }
+                </div>
+
+                <div class="scenario-heading">
+                    <div>
+                        <span class="overline">@revealReport.Heading</span>
+                        <strong>SPONSOR PURPOSE</strong>
+                        <span>@revealReport.Summary</span>
+                    </div>
+                </div>
+
+                @if (revealReport.Fragments.Count > 0)
                 {
                     <div class="scenario-objectives">
-                        @foreach (var purpose in revealedPurposes)
+                        @foreach (var purpose in revealReport.Fragments)
                         {
                             <div class="scenario-objective">
                                 <span>RECOVERED SPONSOR RECORD</span>
@@ -190,6 +204,39 @@
                         }
                     </div>
                 }
+
+                @if (Session.Campaign.Ending is { } ending)
+                {
+                    <div class="scenario-objectives">
+                        <div class="scenario-objective">
+                            <span>CAMPAIGN RESOLVED</span>
+                            <strong>@ending.Title</strong>
+                            <small>@ending.Summary @ending.Consequence</small>
+                        </div>
+                    </div>
+                }
+                else if (revealReport.EndgameUnlocked)
+                {
+                    <div class="run-end-actions">
+                        <button class="wide" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.ObeySponsor)">OBEY SPONSOR</button>
+                        <button class="wide secondary" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.ExposeExperiment)">EXPOSE EXPERIMENT</button>
+                        <button class="wide secondary" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.PreserveOverseer)">PRESERVE OVERSEER</button>
+                        <button class="wide secondary" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.AcceptCrewShutdown)">ACCEPT CREW SHUTDOWN</button>
+                    </div>
+                }
+                else if (NextCampaignScenario is { } nextAssignment
+                         && Session.State.ScenarioStatus != ScenarioStatus.Running)
+                {
+                    <div class="run-end-actions">
+                        <button class="wide" @onclick="LoadNextScenarioAsync">
+                            START NEXT ASSIGNMENT — @nextAssignment.Title
+                        </button>
+                    </div>
+                }
+
+                <small>
+                    Campaign continuity is saved locally after resolved assignments. Reloading restores the explicit campaign snapshot and restarts the next assignment from its beginning; live runtime GameState is never persisted.
+                </small>
             </section>
         }
     }
@@ -1006,14 +1053,23 @@
                 }
 
                 <div class="run-end-actions">
-                    <button class="wide" @onclick="RestartScenarioAsync">RUN THIS SHIFT AGAIN</button>
-                    <select class="comms-target" @onchange="OnScenarioChanged">
-                        <option value="">— load another directive package —</option>
-                        @foreach (var option in ScenarioCatalog.Campaign)
-                        {
-                            <option value="@option.Id">@option.Title</option>
-                        }
-                    </select>
+                    @if (NextCampaignScenario is { } nextAssignment)
+                    {
+                        <button class="wide" @onclick="LoadNextScenarioAsync">
+                            CONTINUE CAMPAIGN — @nextAssignment.Title
+                        </button>
+                    }
+                    else if (CampaignProgressionSystem.CanChooseEnding(Session.Campaign))
+                    {
+                        <button class="wide" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.ObeySponsor)">OBEY SPONSOR</button>
+                        <button class="wide secondary" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.ExposeExperiment)">EXPOSE EXPERIMENT</button>
+                        <button class="wide secondary" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.PreserveOverseer)">PRESERVE OVERSEER</button>
+                        <button class="wide secondary" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.AcceptCrewShutdown)">ACCEPT CREW SHUTDOWN</button>
+                    }
+                    else if (Session.Campaign.Ending is { } campaignEnding)
+                    {
+                        <strong>@campaignEnding.Title</strong>
+                    }
                 </div>
             </section>
         </div>
@@ -1095,20 +1151,52 @@
         _ => "SHIFT ENDED"
     };
 
-    private Task RestartScenarioAsync()
+    private const string CampaignStorageKey = "all-systems-normal.campaign.v1";
+
+    private ScenarioDefinition? NextCampaignScenario =>
+        CampaignProgressionSystem.NextScenario(Session.Campaign);
+
+    private static string CampaignAssignmentLabel(ScenarioDefinition scenario)
     {
-        if (Session.State.Scenario is { } current)
+        var index = ScenarioCatalog.Campaign
+            .Select((item, position) => (item, position))
+            .FirstOrDefault(entry => entry.item.Id.Equals(
+                scenario.Id,
+                StringComparison.OrdinalIgnoreCase))
+            .position;
+
+        return $"{index + 1}/{ScenarioCatalog.Campaign.Count} · {scenario.Title}";
+    }
+
+    private async Task LoadNextScenarioAsync()
+    {
+        StopClock();
+        Session.CaptureCampaignProgress();
+
+        var next = NextCampaignScenario;
+        if (next is null)
         {
-            Session.LoadScenario(current.Id);
-        }
-        else
-        {
-            Session.Reset();
+            await PersistCampaignAsync();
+            return;
         }
 
+        Session.LoadScenario(next.Id);
         _selectedCrewId = null;
         _selectedRoomId = null;
-        return Task.CompletedTask;
+        _lastAudioSequence = 0;
+        await PersistCampaignAsync();
+        StartAutoClock();
+    }
+
+    private async Task ResolveEndingAsync(CampaignEndgameChoice choice)
+    {
+        StopClock();
+        Session.CaptureCampaignProgress();
+
+        if (Session.TryResolveCampaignEnding(choice))
+        {
+            await PersistCampaignAsync();
+        }
     }
 
     private static string DeviceClass(StationDevice device) =>
@@ -1147,18 +1235,6 @@
         _ => "calm"
     };
 
-    private Task OnScenarioChanged(ChangeEventArgs args)
-    {
-        if (args.Value?.ToString() is { Length: > 0 } scenarioId)
-        {
-            Session.LoadScenario(scenarioId);
-            _selectedCrewId = null;
-            _selectedRoomId = null;
-        }
-
-        return Task.CompletedTask;
-    }
-
     private string SpeedLabel => _delayMs switch
     {
         >= 2200 => "1×",
@@ -1191,10 +1267,11 @@
         _selectedRoomId = null;
     }
 
-    private void ResetGame()
+    private async Task ResetGame()
     {
         StopClock();
         Session.Reset();
+        await JS.InvokeVoidAsync("localStorage.removeItem", CampaignStorageKey);
         _selectedRoomId = "control";
         _selectedCrewId = null;
         _lastAudioSequence = 0;
@@ -1220,10 +1297,44 @@
         if (firstRender)
         {
             await JS.InvokeVoidAsync("overseerLayout.init", "#overseer-workspace");
+            await RestorePersistedCampaignAsync();
             StartAutoClock();
+            StateHasChanged();
         }
 
         await PlayPendingAudioAsync();
+    }
+
+    private async Task PersistCampaignAsync()
+    {
+        if (Session.Campaign.MissionHistory.Count == 0 && Session.Campaign.Ending is null)
+        {
+            await JS.InvokeVoidAsync("localStorage.removeItem", CampaignStorageKey);
+            return;
+        }
+
+        var json = CampaignStateSerializer.Serialize(Session.Campaign);
+        await JS.InvokeVoidAsync("localStorage.setItem", CampaignStorageKey, json);
+    }
+
+    private async Task RestorePersistedCampaignAsync()
+    {
+        var json = await JS.InvokeAsync<string?>(
+            "localStorage.getItem",
+            CampaignStorageKey);
+        var campaign = CampaignStateSerializer.Deserialize(json);
+
+        if (campaign is null
+            || (campaign.MissionHistory.Count == 0 && campaign.Ending is null))
+        {
+            return;
+        }
+
+        StopClock();
+        Session.RestoreCampaign(campaign);
+        _selectedCrewId = null;
+        _selectedRoomId = null;
+        _lastAudioSequence = 0;
     }
 
     private void StartAutoClock()
@@ -1306,8 +1417,14 @@
 
                 var keepRunning = Session.TryAdvanceRunning(generation);
 
+                if (!keepRunning)
+                {
+                    Session.CaptureCampaignProgress();
+                    await PersistCampaignAsync();
+                }
+
                 // Always render the resolved turn, including the terminal turn
-                // that may have just shut Overseer down.
+                // and the campaign consequences captured from it.
                 await InvokeAsync(StateHasChanged);
 
                 if (!keepRunning)
