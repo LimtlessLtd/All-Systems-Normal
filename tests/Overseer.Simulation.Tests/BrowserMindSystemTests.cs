@@ -62,6 +62,34 @@ public sealed class BrowserMindSystemTests
     }
 
     [Fact]
+    public void MissingPersonConcern_TriggersImmediateSearchReconsideration()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+
+        sarah.MissingPersonConcerns[marcus.Id] = new MissingPersonConcern
+        {
+            PersonId = marcus.Id,
+            PersonName = marcus.Name,
+            ExpectedRoomId = "quarters",
+            FirstConcernAt = TimeSpan.FromMinutes(30),
+            LastUpdatedAt = TimeSpan.FromMinutes(30),
+            Stage = MissingPersonConcernStage.Searching
+        };
+        sarah.NeedsMindReconsideration = true;
+        state.Elapsed = TimeSpan.FromMinutes(31);
+
+        new BrowserMindSystem().Tick(state);
+
+        Assert.NotNull(sarah.Intent);
+        Assert.Equal(ActionKind.Investigate, sarah.Intent!.Action);
+        Assert.Equal("quarters", sarah.Intent.TargetId);
+        Assert.False(sarah.NeedsMindReconsideration);
+        Assert.Equal(NpcBubbleKind.Alert, sarah.Bubble!.Kind);
+    }
+
+    [Fact]
     public void EmergencyBlockedByForceableDoor_ChoosesDoorCounterplay()
     {
         var state = FacilitySeeder.CreateDefault();
