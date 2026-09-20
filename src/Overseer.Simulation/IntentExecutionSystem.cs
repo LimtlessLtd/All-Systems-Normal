@@ -70,6 +70,10 @@ public sealed class IntentExecutionSystem
                     ExecuteRestoreSystemIntent(state, npc, intent);
                     break;
 
+                case ActionKind.SecureAirlock:
+                    ExecuteSecureAirlockIntent(state, npc, intent);
+                    break;
+
                 case ActionKind.Idle:
                     npc.CurrentAction = new NpcAction(
                         ActionKind.Idle,
@@ -130,6 +134,57 @@ public sealed class IntentExecutionSystem
             new NpcAction(
                 ActionKind.ForceDoor,
                 door.Id,
+                intent.Reason),
+            out _);
+    }
+
+    private void ExecuteSecureAirlockIntent(
+        GameState state,
+        Npc npc,
+        NpcIntent intent)
+    {
+        if (string.IsNullOrWhiteSpace(intent.TargetId)
+            || !state.Facility.Rooms.TryGetValue(intent.TargetId, out var airlock)
+            || airlock.Type != RoomType.Airlock
+            || !airlock.HasExteriorHatch
+            || !AirlockSafetySystem.NeedsCrewSecuring(state, airlock))
+        {
+            FailIntent(npc, "The airlock no longer needs emergency securing.");
+            return;
+        }
+
+        if (!AirlockSafetySystem.CanCrewSecure(npc))
+        {
+            FailIntent(npc, "I do not know the emergency airlock controls well enough.");
+            return;
+        }
+
+        if (!AirlockSafetySystem.IsAtCrewControls(state, npc, airlock))
+        {
+            var controlRoomId = AirlockSafetySystem.CrewControlRoomId(
+                state,
+                airlock);
+
+            if (controlRoomId is null)
+            {
+                FailIntent(npc, "I cannot identify the airlock emergency controls.");
+                return;
+            }
+
+            MoveTowardRoom(
+                state,
+                npc,
+                intent,
+                controlRoomId);
+            return;
+        }
+
+        _actions.TryApply(
+            state,
+            npc.Id,
+            new NpcAction(
+                ActionKind.SecureAirlock,
+                airlock.Id,
                 intent.Reason),
             out _);
     }
