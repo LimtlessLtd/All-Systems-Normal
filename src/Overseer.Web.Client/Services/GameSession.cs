@@ -24,6 +24,7 @@ public sealed class GameSession
     private readonly CorporateDirectiveSystem _directives = new();
     private readonly SuspicionDynamicsSystem _suspicionDynamics = new();
     private readonly OverseerCommsSystem _comms = new();
+    private readonly CrewAccountComparisonSystem _accountComparison = new();
     private readonly IOverseerMessageInterpreter _messageInterpreter =
         new RuleBasedOverseerMessageInterpreter();
     private readonly ManualOverrideSystem _manualOverrides = new();
@@ -598,10 +599,15 @@ public sealed class GameSession
         _crewRoutines.Tick(State);
         _movement.Tick(State, TimeSpan.FromMinutes(1));
         _shutdown.Tick(State);
-        _scenarioProgress.Tick(State, turn);
         _comms.Tick(State);
+        _accountComparison.Tick(State);
         _suspicionDynamics.Tick(State, turn);
+
+        // Directives are graded before the station layer decides the outcome, so
+        // its win gate reads this tick's directive results rather than the
+        // previous tick's.
         _directives.Tick(State, turn);
+        _scenarioProgress.Tick(State, turn);
     }
 
     private void Log(string message)

@@ -506,6 +506,13 @@ public sealed class Npc
     /// <summary>Messages this person has received, newest first, for prompt context.</summary>
     public List<OverseerMessage> ReceivedMessages { get; } = [];
 
+    /// <summary>
+    /// Accounts already compared with a colleague, so one conversation is not
+    /// replayed on every tick. Keys identify the pair of statements discussed.
+    /// </summary>
+    public HashSet<string> ComparedAccounts { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
     public string? CauseOfDeath { get; set; }
     public bool IsPresent { get; set; } = true;
     public bool IsAlive => Health > 0;

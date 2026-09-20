@@ -120,4 +120,86 @@ public static class OverseerCommsRules
     /// </summary>
     public static double Persuasiveness(double credibility, double suspicion) =>
         Math.Clamp((credibility / 100d) * (1 - (suspicion / 140d)), 0, 1);
+
+    /// <summary>
+    /// What a claim asserts about the safety of its subject compartment. Two
+    /// opposing readings of the same compartment are what crew notice when they
+    /// compare notes.
+    /// </summary>
+    public static int SafetyValence(OverseerClaimKind kind) => kind switch
+    {
+        OverseerClaimKind.Reassurance => 1,
+        OverseerClaimKind.SystemStatus => 1,
+        OverseerClaimKind.Warning => -1,
+        _ => 0
+    };
+
+    /// <summary>
+    /// True when Overseer told two people incompatible things about the same
+    /// subject — opposing safety readings of one compartment, or blame for the
+    /// same compartment pinned on two different people.
+    /// </summary>
+    public static bool Contradict(OverseerClaimRecord first, OverseerClaimRecord second)
+    {
+        ArgumentNullException.ThrowIfNull(first);
+        ArgumentNullException.ThrowIfNull(second);
+
+        if (first.MessageSequence == second.MessageSequence)
+        {
+            return false;
+        }
+
+        if (!string.Equals(
+                first.SubjectRoomId,
+                second.SubjectRoomId,
+                StringComparison.OrdinalIgnoreCase)
+            || first.SubjectRoomId is null)
+        {
+            return false;
+        }
+
+        if (first.Kind == OverseerClaimKind.BlameCrew
+            && second.Kind == OverseerClaimKind.BlameCrew)
+        {
+            return first.SubjectNpcName is not null
+                && second.SubjectNpcName is not null
+                && !first.SubjectNpcName.Equals(
+                    second.SubjectNpcName,
+                    StringComparison.OrdinalIgnoreCase);
+        }
+
+        var firstValence = SafetyValence(first.Kind);
+        var secondValence = SafetyValence(second.Kind);
+
+        return firstValence != 0
+            && secondValence != 0
+            && firstValence != secondValence;
+    }
+
+    /// <summary>
+    /// What it costs when crew catch Overseer contradicting itself.
+    ///
+    /// Being wrong once can be an honest mistake. Telling two people opposite
+    /// things about the same compartment cannot, so this is deliberately harsher
+    /// than a single caught lie — and worst of all when one of the two
+    /// statements was made to the whole station, where anybody can check it
+    /// against what they were told privately.
+    /// </summary>
+    public static double InconsistencyCost(
+        OverseerClaimRecord first,
+        OverseerClaimRecord second)
+    {
+        ArgumentNullException.ThrowIfNull(first);
+        ArgumentNullException.ThrowIfNull(second);
+
+        var magnitude = Math.Max(
+            Math.Max(Magnitude(first.Kind), first.Magnitude),
+            Math.Max(Magnitude(second.Kind), second.Magnitude));
+
+        var reach = Math.Max(
+            ScopeMultiplier(first.Scope),
+            ScopeMultiplier(second.Scope));
+
+        return magnitude * 1.5 * reach;
+    }
 }
