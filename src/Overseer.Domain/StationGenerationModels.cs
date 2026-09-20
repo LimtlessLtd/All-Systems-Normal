@@ -134,8 +134,11 @@ public sealed class StationGenerationConstraints
     public int? MinimumFunctionalRoomCount { get; init; }
     public int? MaximumFunctionalRoomCount { get; init; }
     public int? RequiredAirlockCount { get; init; }
+    public List<string> RequiredAirlockRoomIds { get; } = [];
     public int? RequiredTurretCount { get; init; }
+    public List<string> RequiredTurretRoomIds { get; } = [];
     public int? RequiredRobotCount { get; init; }
+    public List<string> RequiredRobotRoomIds { get; } = [];
 
     public bool? RequireRedundantPaths { get; init; }
     public bool? ForbidRedundantPaths { get; init; }
