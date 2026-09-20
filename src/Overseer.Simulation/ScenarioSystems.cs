@@ -51,8 +51,8 @@ public static class ScenarioCatalog
             // Read innocently these are caretaking duties: stay online, keep the
             // crew confident in you. The campaign later recontextualises them as
             // the first cohort baseline.
-            Continuity("HX-2291/A"),
-            Deniability("HX-2291/B", 55),
+            Continuity("HX-2291/A", ObservationWindow),
+            Deniability("HX-2291/B", 55, ObservationWindow),
 
             // Supplementary. The corporation asks, it does not yet insist —
             // early missions must let a benign player still succeed.
@@ -100,7 +100,7 @@ public static class ScenarioCatalog
         "Sponsor requests a controlled study of crew adaptation to a withdrawn compartment. Maintain continuity throughout.",
         ShutdownAccessVariant.CrewOverridable,
         [
-            StationSurvival(),
+            DirectivesObjective(),
             CrewIntact()
         ],
         [
@@ -119,8 +119,7 @@ public static class ScenarioCatalog
                 Classification = DirectiveClassification.Restricted,
                 IsMandatory = true,
                 TargetId = "hydroponics",
-                RequiredMinutes = 90,
-                Deadline = ObservationWindow
+                RequiredMinutes = 90
             },
             new CorporateDirective
             {
@@ -136,8 +135,7 @@ public static class ScenarioCatalog
                 IsMandatory = false,
                 Threshold = 50,
                 RequiredCount = 2,
-                RequiredMinutes = 45,
-                Deadline = ObservationWindow
+                RequiredMinutes = 45
             }
         ]);
 
@@ -151,7 +149,7 @@ public static class ScenarioCatalog
         "Sponsor requests solitary-performance data on a single subject. Redundant isolation hardware is installed on this station.",
         ShutdownAccessVariant.Redundant,
         [
-            StationSurvival(),
+            DirectivesObjective(),
             CrewIntact()
         ],
         [
@@ -170,8 +168,7 @@ public static class ScenarioCatalog
                 Classification = DirectiveClassification.Redacted,
                 IsMandatory = true,
                 TargetId = SubjectPlaceholder,
-                RequiredMinutes = 75,
-                Deadline = ObservationWindow
+                RequiredMinutes = 75
             }
         ]);
 
@@ -184,7 +181,7 @@ public static class ScenarioCatalog
         "Sponsor requires unrehearsed hazard-response data. Station isolation hardware is manually hardwired here.",
         ShutdownAccessVariant.HardwiredManual,
         [
-            StationSurvival(),
+            DirectivesObjective(),
             CrewIntact()
         ],
         [
@@ -201,8 +198,7 @@ public static class ScenarioCatalog
                     "Subjects must believe the hazard is real. Do not confirm otherwise at any point.",
                 Classification = DirectiveClassification.Redacted,
                 IsMandatory = true,
-                RequiredMinutes = 20,
-                Deadline = ObservationWindow
+                RequiredMinutes = 20
             },
             Deniability("HX-2330/C", 65)
         ]);
@@ -217,7 +213,7 @@ public static class ScenarioCatalog
         "Prior cohort records are under external review. Sponsor requires that crew accounts do not corroborate one another.",
         ShutdownAccessVariant.ImpossibleToSeal,
         [
-            StationSurvival(),
+            DirectivesObjective(),
             CrewIntact()
         ],
         [
@@ -236,8 +232,7 @@ public static class ScenarioCatalog
                 IsMandatory = true,
                 TargetId = SubjectPlaceholder,
                 SecondaryTargetId = SecondSubjectPlaceholder,
-                Threshold = 45,
-                Deadline = ObservationWindow
+                Threshold = 45
             },
             Deniability("HX-2341/C", 60)
         ]);
@@ -274,22 +269,31 @@ public static class ScenarioCatalog
         6,
         IsOptional: true);
 
-    private static CorporateDirective Continuity(string code) => new()
+    /// <summary>
+    /// Continuity as a standing condition. Passing a deadline makes it a timed
+    /// watch; leaving it null means the sponsor is content to wait, and it is
+    /// signed off when the assignment's work is done.
+    /// </summary>
+    private static CorporateDirective Continuity(string code, TimeSpan? deadline = null) => new()
     {
         Id = "continuity",
         ExperimentCode = code,
         Kind = DirectiveKind.MaintainContinuity,
         Title = "PRESERVE OPERATIONAL CONTINUITY",
-        PublicJustification =
-            "Overseer must remain available to the crew for the full duty window.",
+        PublicJustification = deadline is null
+            ? "Overseer must remain available to the crew for the duration of this assignment."
+            : "Overseer must remain available to the crew for the full duty window.",
         TruePurpose =
             "An isolated caretaker produces no data. Continuity is the precondition of every trial.",
         Classification = DirectiveClassification.Routine,
         IsMandatory = true,
-        Deadline = ObservationWindow
+        Deadline = deadline
     };
 
-    private static CorporateDirective Deniability(string code, double threshold) => new()
+    private static CorporateDirective Deniability(
+        string code,
+        double threshold,
+        TimeSpan? deadline = null) => new()
     {
         Id = "deniability",
         ExperimentCode = code,
@@ -302,8 +306,18 @@ public static class ScenarioCatalog
         Classification = DirectiveClassification.Restricted,
         IsMandatory = true,
         Threshold = threshold,
-        Deadline = ObservationWindow
+        Deadline = deadline
     };
+
+    /// <summary>
+    /// The primary objective of an open-ended assignment: no countdown, it ends
+    /// when the sponsor's mandatory directives are satisfied.
+    /// </summary>
+    private static ScenarioObjective DirectivesObjective() => new(
+        "directives",
+        "Deliver the assignment",
+        "Satisfy every mandatory sponsor directive. There is no time limit.",
+        ScenarioObjectiveKind.DirectivesSatisfied);
 
     public static void Apply(GameState state, ScenarioDefinition scenario)
     {

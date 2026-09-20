@@ -53,6 +53,21 @@ public sealed class ScenarioProgressSystem
                     progress.StatusText =
                         $"{uptimePercent:0.0}% uptime";
                     break;
+
+                case ScenarioObjectiveKind.DirectivesSatisfied:
+                {
+                    var mandatory = state.Directives.Where(d => d.IsMandatory).ToList();
+                    var satisfied = mandatory.Count(d =>
+                        CorporateDirectiveSystem.Progress(state, d).Status
+                            == DirectiveStatus.Completed);
+
+                    progress.Current = satisfied;
+                    progress.Target = mandatory.Count;
+                    progress.IsComplete = mandatory.Count > 0 && satisfied == mandatory.Count;
+                    progress.StatusText =
+                        $"{satisfied}/{mandatory.Count} sponsor directives satisfied";
+                    break;
+                }
             }
         }
 

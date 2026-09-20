@@ -40,8 +40,43 @@ public sealed class CorporateDirectiveSystem
             ApplyDeadline(state, directive, progress);
         }
 
+        GradeOutstandingSupplementary(state);
         state.ComplianceScore = ComputeComplianceScore(state);
         EvaluateScenarioOutcome(state);
+    }
+
+    /// <summary>
+    /// When the mandatory work is finished, supplementary directives that never
+    /// gathered enough data are written off rather than left collecting, so the
+    /// compliance score reflects what was actually delivered.
+    /// </summary>
+    private static void GradeOutstandingSupplementary(GameState state)
+    {
+        // "All mandatory satisfied" is vacuously true when there are none, which
+        // would write off every supplementary directive the moment the scenario
+        // began. Only an assignment that actually had work to finish concludes.
+        if (!state.Directives.Any(directive => directive.IsMandatory)
+            || !MandatoryDirectivesSatisfied(state))
+        {
+            return;
+        }
+
+        foreach (var directive in state.Directives.Where(d => !d.IsMandatory))
+        {
+            var progress = Progress(state, directive);
+
+            if (progress.IsResolved)
+            {
+                continue;
+            }
+
+            Resolve(
+                state,
+                directive,
+                progress,
+                DirectiveStatus.Failed,
+                "Assignment concluded before sufficient data was collected.");
+        }
     }
 
     /// <summary>
@@ -127,6 +162,28 @@ public sealed class CorporateDirectiveSystem
     {
         if (directive.Deadline is not { } deadline)
         {
+            // An open-ended mission. Overseer is patient: continuity is a
+            // standing condition that holds until the crew break it, and it is
+            // signed off once the rest of the sponsor's work is done.
+            var work = WorkDirectives(state);
+            var satisfied = work.Count(other =>
+                Progress(state, other).Status == DirectiveStatus.Completed);
+
+            progress.Fraction = work.Count == 0 ? 0 : satisfied / (double)work.Count;
+            progress.Detail = work.Count == 0
+                ? "Overseer nominal. No assigned work outstanding."
+                : $"Overseer nominal. {satisfied}/{work.Count} assigned directives satisfied.";
+
+            if (WorkComplete(state))
+            {
+                Resolve(
+                    state,
+                    directive,
+                    progress,
+                    DirectiveStatus.Completed,
+                    "Overseer retained control for the duration of the assignment.");
+            }
+
             return;
         }
 
@@ -355,6 +412,22 @@ public sealed class CorporateDirectiveSystem
         progress.Detail = highest >= directive.Threshold
             ? $"Deniability compromised — peak crew suspicion {highest:0}."
             : $"Peak crew suspicion {highest:0} of {directive.Threshold:0} tolerated.";
+
+        // On an open-ended assignment there is no deadline to grade against, so
+        // the reading that counts is the one when the work concludes.
+        if (directive.Deadline is null && WorkComplete(state))
+        {
+            Resolve(
+                state,
+                directive,
+                progress,
+                highest < directive.Threshold
+                    ? DirectiveStatus.Completed
+                    : DirectiveStatus.Failed,
+                highest < directive.Threshold
+                    ? $"Deniability held. Peak crew suspicion {highest:0}."
+                    : $"Deniability lost. Peak crew suspicion {highest:0}.");
+        }
     }
 
     private static void EvaluateSocialFracture(
@@ -409,6 +482,8 @@ public sealed class CorporateDirectiveSystem
         CorporateDirective directive,
         DirectiveProgress progress)
     {
+        // No deadline means the sponsor is content to wait. Such a directive is
+        // only ever resolved on its own terms.
         if (progress.IsResolved
             || directive.Deadline is not { } deadline
             || state.Elapsed < deadline)
@@ -551,6 +626,38 @@ public sealed class CorporateDirectiveSystem
 
         AudioCueSystem.Emit(state, AudioCueKind.Failure);
         Log(state, $"SCENARIO FAILED — {state.ScenarioOutcome}");
+    }
+
+    /// <summary>
+    /// A directive that states a condition to be held rather than work to be
+    /// done. With no deadline these are graded when the assignment's work is
+    /// complete; with one, the deadline grades them.
+    /// </summary>
+    private static bool IsStandingConstraint(CorporateDirective directive) =>
+        directive.Deadline is null
+        && directive.Kind is DirectiveKind.MaintainContinuity
+            or DirectiveKind.MaintainDeniability;
+
+    /// <summary>
+    /// The mandatory directives that represent actual work, as opposed to
+    /// conditions held while doing it.
+    /// </summary>
+    private static List<CorporateDirective> WorkDirectives(GameState state) =>
+        state.Directives
+            .Where(directive => directive.IsMandatory && !IsStandingConstraint(directive))
+            .ToList();
+
+    /// <summary>
+    /// True when every mandatory work directive is satisfied, so the standing
+    /// constraints can be signed off and the assignment concluded.
+    /// </summary>
+    private static bool WorkComplete(GameState state)
+    {
+        var work = WorkDirectives(state);
+
+        return work.Count > 0
+            && work.All(directive =>
+                Progress(state, directive).Status == DirectiveStatus.Completed);
     }
 
     /// <summary>

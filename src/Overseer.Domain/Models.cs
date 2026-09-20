@@ -82,9 +82,19 @@ public enum ScenarioStatus
 
 public enum ScenarioObjectiveKind
 {
+    /// <summary>Hold out for a fixed number of simulated minutes.</summary>
     SurviveMinutes,
+
     KeepCrewAlive,
-    LifeSupportUptimePercent
+    LifeSupportUptimePercent,
+
+    /// <summary>
+    /// Complete when the sponsor's mandatory directives are all satisfied,
+    /// however long that takes. This is what an open-ended mission uses in place
+    /// of a countdown: Overseer is patient, and the shift ends when the work is
+    /// done rather than when a clock runs out.
+    /// </summary>
+    DirectivesSatisfied
 }
 
 public enum EvidenceOrigin
