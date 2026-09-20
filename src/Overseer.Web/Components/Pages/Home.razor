@@ -1345,7 +1345,7 @@
 
     private void StartAutoClock()
     {
-        if (Session.IsRunning)
+        if (Session.IsRunning || Session.State.ScenarioStatus != ScenarioStatus.Running)
         {
             return;
         }
