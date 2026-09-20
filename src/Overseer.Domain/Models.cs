@@ -199,8 +199,16 @@ public sealed class ShutdownTeam
     public required Guid LeaderId { get; init; }
     public required TimeSpan FormedAt { get; init; }
     public HashSet<Guid> MemberIds { get; } = [];
+    public HashSet<Guid> InvitedNpcIds { get; } = [];
     public bool IsActive { get; set; } = true;
 }
+
+public sealed record ShutdownTeamInvitation(
+    string TeamId,
+    string MechanismId,
+    string FromNpcName,
+    string TargetRoomId,
+    TimeSpan OfferedAt);
 
 public enum AirlockCycleMode
 {
@@ -230,6 +238,7 @@ public enum ActionKind
     Attack,
     RequestHelp,
     RecruitShutdownAlly,
+    JoinShutdownTeam,
     ShutdownOverseer,
     OverrideDoor,
     ForceDoor,
@@ -444,6 +453,7 @@ public sealed class Npc
         new(StringComparer.OrdinalIgnoreCase);
     public List<KnowledgeDiscovery> Discoveries { get; } = [];
     public string? ShutdownTeamId { get; set; }
+    public ShutdownTeamInvitation? PendingShutdownTeamInvitation { get; set; }
 
     public string? CauseOfDeath { get; set; }
     public bool IsPresent { get; set; } = true;
