@@ -38,7 +38,7 @@ public static class FacilitySeeder
         StationGenerationConstraints? stationConstraints)
     {
         stationConstraints ??= ScenarioCatalog.SecureContinuity.StationConstraints;
-        var chosenStationSeed = stationSeed ?? Random.Shared.Next();
+        var chosenStationSeed = stationSeed ?? upkeepSeed ?? Random.Shared.Next();
         var generation = StationGenerator.Generate(chosenStationSeed, stationConstraints);
         var facility = generation.Facility;
 
