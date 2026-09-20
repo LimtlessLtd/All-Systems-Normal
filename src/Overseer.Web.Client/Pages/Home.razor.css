@@ -4703,7 +4703,7 @@ button.sound-toggle.sound-on {
 }
 
 .station-map.age-legacy {
-    --wear-opacity: max(var(--wear-opacity), .14);
+    --wear-opacity: .14;
 }
 
 .station-map.maintenance-battered {
