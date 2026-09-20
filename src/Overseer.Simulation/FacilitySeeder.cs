@@ -162,14 +162,16 @@ public static class FacilitySeeder
             for (var index = 0; index < detailCount; index++)
             {
                 var type = ChooseIdentityFixture(identity, room.Type, random);
-                var x = 14 + (random.NextDouble() * 72);
-                var y = 18 + (random.NextDouble() * 64);
                 var width = type is FixtureType.Pipe or FixtureType.Window
                     ? 16 + (random.NextDouble() * 18)
                     : 8 + (random.NextDouble() * 9);
                 var height = type == FixtureType.Pipe
                     ? 6 + (random.NextDouble() * 5)
                     : 7 + (random.NextDouble() * 8);
+                var xMargin = (width / 2) + 3;
+                var yMargin = (height / 2) + 3;
+                var x = xMargin + (random.NextDouble() * (100 - (2 * xMargin)));
+                var y = yMargin + (random.NextDouble() * (100 - (2 * yMargin)));
 
                 AddFixture(
                     facility,
