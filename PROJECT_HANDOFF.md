@@ -2849,12 +2849,12 @@ open PR against main
   ↓
 full CI/build/tests/publish checks green
   ↓
-human review + playtest
+merge the PR into main
   ↓
-merge later
+verify main / GitHub Pages deployment
 ```
 
-**Never commit feature work directly to `main`. Never bypass the PR/review step. Leave feature PRs open for later review/playtesting unless the user explicitly asks to merge them.**
+**Never commit feature work directly to `main`. Always work on a feature branch, open a PR, wait for the required CI/build/tests/publish checks to pass, and then merge that PR into `main`. Do not leave completed green feature PRs open for later review/playtesting unless the user explicitly asks you not to merge.**
 
 ## Next recommended work
 
