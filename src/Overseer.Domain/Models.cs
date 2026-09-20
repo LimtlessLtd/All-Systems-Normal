@@ -80,6 +80,28 @@ public enum ScenarioStatus
     Failed
 }
 
+public enum ScenarioObjectiveKind
+{
+    SurviveMinutes,
+    KeepCrewAlive,
+    LifeSupportUptimePercent
+}
+
+public enum EvidenceOrigin
+{
+    DirectObservation,
+    PhysicalDiscovery,
+    Testimony,
+    Inference
+}
+
+public enum InvestigationLeadStage
+{
+    Open,
+    Checked,
+    Resolved
+}
+
 public enum ShutdownAccessVariant
 {
     Absent,
@@ -90,7 +112,37 @@ public enum ShutdownAccessVariant
     ImpossibleToSeal
 }
 
-public sealed record ScenarioObjective(string Id, string Title, string Description);
+public sealed record ScenarioObjective(
+    string Id,
+    string Title,
+    string Description,
+    ScenarioObjectiveKind Kind = ScenarioObjectiveKind.SurviveMinutes,
+    double Target = 0,
+    bool IsOptional = false);
+
+public sealed class ScenarioObjectiveProgress
+{
+    public required string ObjectiveId { get; init; }
+    public double Current { get; set; }
+    public double Target { get; set; }
+    public bool IsComplete { get; set; }
+    public bool IsFailed { get; set; }
+    public string StatusText { get; set; } = "";
+}
+
+public sealed class ExperimentTelemetry
+{
+    public double SimulatedMinutes { get; set; }
+    public double LifeSupportOnlineMinutes { get; set; }
+    public int InvestigationsCompleted { get; set; }
+    public int ShutdownControlsDiscovered { get; set; }
+    public int EvidenceShared { get; set; }
+    public int ShutdownTeamsFormed { get; set; }
+    public int ShutdownAttempts { get; set; }
+    public int RestrictiveDoorCommands { get; set; }
+    public int AirlockSafetyBypasses { get; set; }
+    public int Score { get; set; }
+}
 
 public sealed record ScenarioDefinition(
     string Id,
@@ -109,13 +161,46 @@ public sealed class ShutdownMechanism
     public bool IsAiSealable { get; init; } = true;
     public bool CrewCanOverrideRoute { get; init; }
     public int ActivationMinutes { get; init; } = 2;
+    public int RequiredCrewCount { get; init; } = 1;
 }
 
 public sealed record OverseerEvidence(
     string Description,
     double Weight,
     TimeSpan ObservedAt,
-    string? SourceNpcName = null);
+    string? SourceNpcName = null,
+    EvidenceOrigin Origin = EvidenceOrigin.DirectObservation,
+    string? LocationId = null,
+    string? EvidenceId = null,
+    string? SourceEvidenceId = null,
+    double Reliability = 1);
+
+public sealed class InvestigationLead
+{
+    public required string Id { get; init; }
+    public required string Description { get; init; }
+    public required string RoomId { get; init; }
+    public required TimeSpan CreatedAt { get; init; }
+    public string? SourceEvidenceId { get; init; }
+    public InvestigationLeadStage Stage { get; set; } = InvestigationLeadStage.Open;
+    public TimeSpan? LastInvestigatedAt { get; set; }
+}
+
+public sealed record KnowledgeDiscovery(
+    string Id,
+    string Description,
+    string RoomId,
+    TimeSpan DiscoveredAt);
+
+public sealed class ShutdownTeam
+{
+    public required string Id { get; init; }
+    public required string MechanismId { get; init; }
+    public required Guid LeaderId { get; init; }
+    public required TimeSpan FormedAt { get; init; }
+    public HashSet<Guid> MemberIds { get; } = [];
+    public bool IsActive { get; set; } = true;
+}
 
 public enum AirlockCycleMode
 {
@@ -144,6 +229,7 @@ public enum ActionKind
     Argue,
     Attack,
     RequestHelp,
+    RecruitShutdownAlly,
     ShutdownOverseer,
     OverrideDoor,
     ForceDoor,
@@ -347,7 +433,17 @@ public sealed class Npc
 
     public double OverseerSuspicion { get; set; }
     public List<OverseerEvidence> OverseerEvidence { get; } = [];
+
+    // V0.6C keeps exact observer-specific knowledge of physical shutdown
+    // mechanisms. The bool remains as a compatibility/readability convenience,
+    // but deterministic shutdown validation uses the exact mechanism IDs.
     public bool KnowsShutdownControl { get; set; }
+    public HashSet<string> KnownShutdownMechanismIds { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, InvestigationLead> InvestigationLeads { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+    public List<KnowledgeDiscovery> Discoveries { get; } = [];
+    public string? ShutdownTeamId { get; set; }
 
     public string? CauseOfDeath { get; set; }
     public bool IsPresent { get; set; } = true;
@@ -493,6 +589,10 @@ public sealed class GameState
     public string? ScenarioOutcome { get; set; }
     public LifeSupportState LifeSupport { get; } = new();
     public List<ShutdownMechanism> ShutdownMechanisms { get; } = [];
+    public List<ShutdownTeam> ShutdownTeams { get; } = [];
+    public Dictionary<string, ScenarioObjectiveProgress> ObjectiveProgress { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+    public ExperimentTelemetry Telemetry { get; } = new();
     public List<AudioCue> AudioCues { get; } = [];
     public long NextAudioCueSequence { get; set; } = 1;
 }
