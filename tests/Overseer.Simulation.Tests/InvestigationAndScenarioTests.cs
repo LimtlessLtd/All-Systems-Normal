@@ -122,8 +122,8 @@ public sealed class InvestigationAndScenarioTests
         new SuspicionSystem().Tick(state);
 
         var testimony = Assert.Single(
-            david.OverseerEvidence.Where(evidence =>
-                evidence.Origin == EvidenceOrigin.Testimony));
+            david.OverseerEvidence,
+            evidence => evidence.Origin == EvidenceOrigin.Testimony);
 
         Assert.Equal("Sarah Chen", testimony.SourceNpcName);
         Assert.Equal("root-sealed-route", testimony.SourceEvidenceId);
