@@ -30,6 +30,18 @@ public sealed class CrewCounterplaySystem
                 case ActionKind.SecureAirlock:
                     TickSecureAirlock(state, npc);
                     break;
+
+                case ActionKind.RepairDoor:
+                    TickDoorWork(state, npc, DoorWorkKind.Repair);
+                    break;
+
+                case ActionKind.WeldDoor:
+                    TickDoorWork(state, npc, DoorWorkKind.Weld);
+                    break;
+
+                case ActionKind.BarricadeDoor:
+                    TickDoorWork(state, npc, DoorWorkKind.Barricade);
+                    break;
             }
         }
     }
@@ -179,7 +191,12 @@ public sealed class CrewCounterplaySystem
         door.IsOpen = true;
         door.IsManuallyOverridden = true;
         door.IsAiControllable = false;
+        door.IsTechnicallyBypassed = useTechnical;
         door.IsDamaged = !useTechnical;
+        if (!useTechnical)
+        {
+            door.StructuralIntegrityPercent = Math.Min(door.StructuralIntegrityPercent, 45);
+        }
 
         EndAction(
             npc,
@@ -202,6 +219,83 @@ public sealed class CrewCounterplaySystem
         Log(
             state,
             $"{npc.Name} {(useTechnical ? "bypasses" : "physically forces")} {door.Id} open.");
+    }
+
+    private enum DoorWorkKind { Repair, Weld, Barricade }
+
+    private static void TickDoorWork(GameState state, Npc npc, DoorWorkKind kind)
+    {
+        var door = state.Facility.Doors.FirstOrDefault(candidate =>
+            candidate.Id.Equals(npc.CurrentAction.TargetId, StringComparison.OrdinalIgnoreCase));
+
+        if (door is null || !IsAdjacent(npc, door))
+        {
+            EndAction(npc, "I need to be physically beside that hatch.");
+            return;
+        }
+
+        var technical = BestRepairSkill(npc);
+        var valid = kind switch
+        {
+            DoorWorkKind.Repair => door.IsDamaged || door.IsTechnicallyBypassed,
+            DoorWorkKind.Weld => !door.IsPassable && !door.IsWelded && technical >= 65,
+            DoorWorkKind.Barricade => !door.IsPassable && !door.IsBarricaded && BestForceSkill(npc) >= 55,
+            _ => false
+        };
+
+        if (!valid)
+        {
+            EndAction(npc, "That hatch cannot be secured or repaired that way from here.");
+            return;
+        }
+
+        if (npc.RoutineUntil == TimeSpan.Zero)
+        {
+            var minutes = kind switch
+            {
+                DoorWorkKind.Repair => 4,
+                DoorWorkKind.Weld => 3,
+                _ => 2
+            };
+            npc.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(minutes);
+            npc.Bubble = new NpcBubble(
+                kind == DoorWorkKind.Repair ? "I'm repairing this hatch."
+                    : kind == DoorWorkKind.Weld ? "I'm welding this hatch shut."
+                    : "Help me barricade this hatch!",
+                NpcBubbleKind.Alert, state.Elapsed, state.Elapsed + TimeSpan.FromMinutes(3));
+            Log(state, $"{npc.Name} begins {kind.ToString().ToLowerInvariant()} work on {door.Id}.");
+            return;
+        }
+
+        if (state.Elapsed < npc.RoutineUntil) return;
+
+        switch (kind)
+        {
+            case DoorWorkKind.Repair:
+                door.IsDamaged = false;
+                door.IsTechnicallyBypassed = false;
+                door.IsManuallyOverridden = false;
+                door.StructuralIntegrityPercent = 100;
+                door.IsAiControllable = true;
+                break;
+            case DoorWorkKind.Weld:
+                door.IsOpen = false;
+                door.IsWelded = true;
+                door.IsBarricaded = false;
+                door.SecuredByNpcName = npc.Name;
+                door.IsAiControllable = false;
+                break;
+            case DoorWorkKind.Barricade:
+                door.IsOpen = false;
+                door.IsBarricaded = true;
+                door.IsWelded = false;
+                door.SecuredByNpcName = npc.Name;
+                door.IsAiControllable = false;
+                break;
+        }
+
+        EndAction(npc, $"{door.Id} {kind.ToString().ToLowerInvariant()} work complete.");
+        Log(state, $"{npc.Name} completes {kind.ToString().ToLowerInvariant()} work on {door.Id}.");
     }
 
     private static void TickSecureAirlock(GameState state, Npc npc)
