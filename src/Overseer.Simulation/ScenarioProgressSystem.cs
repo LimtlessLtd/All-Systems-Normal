@@ -119,9 +119,14 @@ public sealed class ScenarioProgressSystem
         int livingCrew,
         double uptimePercent)
     {
-        var primaryProgress = state.Scenario?.Objectives
+        var objectives = state.Scenario?.Objectives ?? [];
+        var primaryObjectives = objectives
             .Where(objective => !objective.IsOptional)
-            .Select(objective =>
+            .ToList();
+
+        var primaryProgress = primaryObjectives.Count == 0
+            ? 0
+            : primaryObjectives.Average(objective =>
             {
                 if (!state.ObjectiveProgress.TryGetValue(objective.Id, out var progress)
                     || objective.Target <= 0)
@@ -130,15 +135,13 @@ public sealed class ScenarioProgressSystem
                 }
 
                 return Math.Clamp(progress.Current / objective.Target, 0, 1);
-            })
-            .DefaultIfEmpty(0)
-            .Average() ?? 0;
+            });
 
-        var completedOptional = state.Scenario?.Objectives
+        var completedOptional = objectives
             .Where(objective => objective.IsOptional)
             .Count(objective =>
                 state.ObjectiveProgress.TryGetValue(objective.Id, out var progress)
-                && progress.IsComplete) ?? 0;
+                && progress.IsComplete);
 
         var deaths = state.Crew.Count(npc => !npc.IsAlive || !npc.IsPresent);
         var score =
