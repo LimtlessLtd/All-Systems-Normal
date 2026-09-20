@@ -53,6 +53,8 @@ public sealed class ActionResolver
             ActionKind.Argue => TrySocialAction(state, npc, action, "argues", out message),
             ActionKind.Attack => SetAction(state, npc, action, "attacks", out message),
             ActionKind.RequestHelp => TrySocialAction(state, npc, action, "requests help", out message),
+            ActionKind.RecruitShutdownAlly => TrySocialAction(state, npc, action, "asks for help with an Overseer isolation plan", out message),
+            ActionKind.JoinShutdownTeam => TryJoinShutdownTeam(state, npc, action, out message),
             ActionKind.ShutdownOverseer => TryShutdown(state, npc, action, out message),
             ActionKind.OverrideDoor => TryOverrideDoor(state, npc, action, out message),
             ActionKind.ForceDoor => TryForceDoor(state, npc, action, out message),
@@ -453,14 +455,50 @@ public sealed class ActionResolver
             out message);
     }
 
+    private static bool TryJoinShutdownTeam(
+        GameState state,
+        Npc npc,
+        NpcAction action,
+        out string message)
+    {
+        var invitation = npc.PendingShutdownTeamInvitation;
+        if (invitation is null
+            || string.IsNullOrWhiteSpace(action.TargetId)
+            || !invitation.TeamId.Equals(action.TargetId, StringComparison.OrdinalIgnoreCase))
+        {
+            message = $"{npc.Name} has no matching shutdown-team invitation.";
+            return false;
+        }
+
+        npc.CurrentAction = action;
+        npc.RoutineUntil = TimeSpan.Zero;
+        message = $"{npc.Name} considers the shutdown-team plan.";
+        Log(state, message);
+        return true;
+    }
+
     private static bool TryShutdown(GameState state, Npc npc, NpcAction action, out string message)
     {
         var mechanism = state.ShutdownMechanisms.FirstOrDefault(m =>
             m.IsOnline && m.Id.Equals(action.TargetId, StringComparison.OrdinalIgnoreCase));
-        if (mechanism is null || !npc.KnowsShutdownControl)
+        if (mechanism is null || !SuspicionSystem.KnowsMechanism(npc, mechanism))
         {
-            message = $"{npc.Name} does not know a usable shutdown mechanism.";
+            message = $"{npc.Name} has not physically verified that shutdown mechanism.";
             return false;
+        }
+
+        if (mechanism.RequiredCrewCount > 1)
+        {
+            var team = state.ShutdownTeams.FirstOrDefault(candidate =>
+                candidate.IsActive
+                && candidate.MechanismId.Equals(mechanism.Id, StringComparison.OrdinalIgnoreCase)
+                && candidate.MemberIds.Contains(npc.Id));
+
+            if (team is null || team.MemberIds.Count < mechanism.RequiredCrewCount)
+            {
+                message = $"{npc.Name} needs a coordinated team before operating {mechanism.Label}.";
+                return false;
+            }
         }
         if (!npc.CurrentRoomId.Equals(mechanism.RoomId, StringComparison.OrdinalIgnoreCase))
         {
