@@ -15,6 +15,11 @@ public sealed class BrowserMindSystem
     {
         HandleEmergencyReconsiderations(state);
 
+        if (HandleEventReconsideration(state))
+        {
+            return;
+        }
+
         var minute = (int)Math.Floor(state.Elapsed.TotalMinutes);
 
         if (minute <= 0 || minute % 6 != 0)
@@ -40,6 +45,43 @@ public sealed class BrowserMindSystem
         }
 
         SetIntent(state, npc, Decide(npc, state), NpcBubbleKind.Thought);
+    }
+
+    private bool HandleEventReconsideration(GameState state)
+    {
+        var npc = state.Crew
+            .Where(candidate =>
+                candidate.IsAlive
+                && candidate.IsPresent
+                && candidate.NeedsMindReconsideration
+                && !CrewEnvironmentSafety.IsDangerous(
+                    state.Facility.Rooms[candidate.CurrentRoomId])
+                && (candidate.Intent is null || candidate.Intent.Urgency < 85))
+            .OrderByDescending(candidate =>
+                candidate.MissingPersonConcerns.Values.Any(concern =>
+                    concern.Stage == MissingPersonConcernStage.Escalated))
+            .ThenBy(candidate => candidate.Name)
+            .FirstOrDefault();
+
+        if (npc is null)
+        {
+            return false;
+        }
+
+        npc.Intent = null;
+        npc.Movement = null;
+        npc.RoutineUntil = TimeSpan.Zero;
+
+        SetIntent(
+            state,
+            npc,
+            Decide(npc, state),
+            npc.MissingPersonConcerns.Count > 0
+                ? NpcBubbleKind.Alert
+                : NpcBubbleKind.Thought);
+
+        npc.NeedsMindReconsideration = false;
+        return true;
     }
 
     private void HandleEmergencyReconsiderations(GameState state)
@@ -163,6 +205,18 @@ public sealed class BrowserMindSystem
                 90);
         }
 
+        if (MostPressingMissingConcern(npc) is { } missingConcern
+            && FindMissingSearchRoom(state, npc, missingConcern) is { } searchRoom)
+        {
+            return Create(
+                state,
+                ActionKind.Investigate,
+                searchRoom.Id,
+                $"Look for {missingConcern.PersonName} in {searchRoom.Name}.",
+                MissingConcernReason(state, missingConcern),
+                missingConcern.Stage == MissingPersonConcernStage.Escalated ? 88 : 76);
+        }
+
         if (CrewCounterplaySystem.HasRestorableProblem(state, currentRoom.Id)
             && repairSkill >= 55)
         {
@@ -271,6 +325,63 @@ public sealed class BrowserMindSystem
             "Stay alert and continue normal duties.",
             "Nothing feels urgent enough to interrupt my routine.",
             15);
+    }
+
+    private static MissingPersonConcern? MostPressingMissingConcern(Npc npc) =>
+        npc.MissingPersonConcerns.Values
+            .OrderByDescending(concern => concern.Stage)
+            .ThenBy(concern => concern.FirstConcernAt)
+            .FirstOrDefault();
+
+    private Room? FindMissingSearchRoom(
+        GameState state,
+        Npc npc,
+        MissingPersonConcern concern)
+    {
+        var candidateIds = new[]
+        {
+            concern.ExpectedRoomId,
+            concern.LastKnownRoomId,
+            "quarters",
+            "kitchen",
+            "lounge",
+            "medical",
+            "control"
+        };
+
+        foreach (var roomId in candidateIds
+                     .Where(roomId => !string.IsNullOrWhiteSpace(roomId))
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (roomId is null
+                || concern.CheckedRoomIds.Contains(roomId)
+                || !state.Facility.Rooms.TryGetValue(roomId, out var room))
+            {
+                continue;
+            }
+
+            if (npc.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)
+                || _navigation.FindPath(
+                    state.Facility,
+                    npc.CurrentRoomId,
+                    room.Id).Count >= 2)
+            {
+                return room;
+            }
+        }
+
+        return null;
+    }
+
+    private static string MissingConcernReason(
+        GameState state,
+        MissingPersonConcern concern)
+    {
+        var expected = state.Facility.Rooms[concern.ExpectedRoomId].Name;
+
+        return concern.LastSeenAt is { } seenAt
+            ? $"I last saw {concern.PersonName} at T+{seenAt:hh\\:mm}; they missed expected duty around {expected}."
+            : $"I have not seen {concern.PersonName} this shift and they missed expected duty around {expected}.";
     }
 
     private bool IsAlreadyEscapingToSaferRoom(
