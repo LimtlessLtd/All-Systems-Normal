@@ -148,7 +148,10 @@ public enum ActionKind
     OverrideDoor,
     ForceDoor,
     RestoreSystem,
-    SecureAirlock
+    SecureAirlock,
+    RepairDoor,
+    WeldDoor,
+    BarricadeDoor
 }
 
 public sealed record Memory(
@@ -450,8 +453,16 @@ public sealed class Door
     public int ForceDifficulty { get; set; } = 68;
     public int TechnicalDifficulty { get; set; } = 62;
     public bool IsDamaged { get; set; }
+    public int StructuralIntegrityPercent { get; set; } = 100;
+    public bool IsTechnicallyBypassed { get; set; }
+    public bool IsWelded { get; set; }
+    public bool IsBarricaded { get; set; }
+    public string? SecuredByNpcName { get; set; }
 
-    public bool IsPassable => IsManuallyOverridden || (IsPowered && IsOpen && !IsLocked);
+    public bool HasPhysicalSecuring => IsWelded || IsBarricaded;
+    public bool IsPassable =>
+        !HasPhysicalSecuring
+        && (IsManuallyOverridden || (IsPowered && IsOpen && !IsLocked));
 
     public bool Connects(string firstRoomId, string secondRoomId) =>
         (RoomAId.Equals(firstRoomId, StringComparison.OrdinalIgnoreCase)
