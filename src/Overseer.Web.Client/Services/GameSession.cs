@@ -15,9 +15,12 @@ public sealed class GameSession
     private readonly SocialSimulationSystem _social = new();
     private readonly BrowserMindSystem _browserMind = new();
     private readonly IntentExecutionSystem _intentExecution = new();
+    private readonly InvestigationSystem _investigations = new();
+    private readonly ShutdownCoordinationSystem _shutdownCoordination = new();
     private readonly LocalMovementSystem _movement = new();
     private readonly SuspicionSystem _suspicion = new();
     private readonly ShutdownSystem _shutdown = new();
+    private readonly ScenarioProgressSystem _scenarioProgress = new();
     private readonly ManualOverrideSystem _manualOverrides = new();
     private readonly ConversationPacingSystem _conversationPacing = new();
     private readonly SimulationClock _clock = new();
@@ -132,6 +135,10 @@ public sealed class GameSession
         }
 
         door.IsOpen = opening;
+        if (!door.IsOpen)
+        {
+            State.Telemetry.RestrictiveDoorCommands++;
+        }
         _suspicion.ObservePlayerDoorChange(State, door, becameRestrictive: !door.IsOpen);
         AudioCueSystem.Emit(State, AudioCueKind.System, roomId: door.RoomAId);
         Log($"{door.Id} is now {(door.IsOpen ? "OPEN" : "CLOSED")}.");
@@ -159,6 +166,10 @@ public sealed class GameSession
         }
 
         door.IsLocked = !door.IsLocked;
+        if (door.IsLocked)
+        {
+            State.Telemetry.RestrictiveDoorCommands++;
+        }
         _suspicion.ObservePlayerDoorChange(State, door, becameRestrictive: door.IsLocked);
         AudioCueSystem.Emit(
             State,
@@ -348,11 +359,21 @@ public sealed class GameSession
 
     public void ToggleAirlockSafetyInterlocks(string roomId)
     {
+        var wasEnabled = State.Facility.Rooms.TryGetValue(roomId, out var room)
+            && room.AirlockSafetyInterlocksEnabled;
+
         if (_airlockSafety.TryToggleSafetyInterlocks(
                 State,
                 roomId,
                 out var message))
         {
+            if (wasEnabled
+                && State.Facility.Rooms.TryGetValue(roomId, out var changedRoom)
+                && !changedRoom.AirlockSafetyInterlocksEnabled)
+            {
+                State.Telemetry.AirlockSafetyBypasses++;
+            }
+
             Log(message);
             return;
         }
@@ -391,14 +412,17 @@ public sealed class GameSession
         _missingPeople.Tick(State);
         _browserMind.Tick(State);
         _intentExecution.Tick(State);
+        _investigations.Tick(State);
         _counterplay.Tick(State);
         _manualOverrides.Tick(State);
+        _shutdownCoordination.Tick(State);
         _social.Tick(State);
         _suspicion.Tick(State);
         _conversationPacing.Tick(State);
         _crewRoutines.Tick(State);
         _movement.Tick(State, TimeSpan.FromMinutes(1));
         _shutdown.Tick(State);
+        _scenarioProgress.Tick(State, turn);
     }
 
     private void Log(string message)
