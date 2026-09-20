@@ -263,6 +263,34 @@ public sealed record NpcMovement(
     double EntryX,
     double EntryY);
 
+public sealed record CrewSighting(
+    Guid PersonId,
+    string PersonName,
+    string RoomId,
+    TimeSpan SeenAt);
+
+public enum MissingPersonConcernStage
+{
+    Concerned,
+    Searching,
+    Escalated
+}
+
+public sealed class MissingPersonConcern
+{
+    public required Guid PersonId { get; init; }
+    public required string PersonName { get; init; }
+    public TimeSpan? LastSeenAt { get; set; }
+    public string? LastKnownRoomId { get; set; }
+    public required string ExpectedRoomId { get; set; }
+    public required TimeSpan FirstConcernAt { get; init; }
+    public TimeSpan LastUpdatedAt { get; set; }
+    public MissingPersonConcernStage Stage { get; set; } = MissingPersonConcernStage.Concerned;
+    public HashSet<string> CheckedRoomIds { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public string? SourceNpcName { get; init; }
+    public TimeSpan? LastSharedAt { get; set; }
+}
+
 public sealed record RoomFixture(
     FixtureType Type,
     string Label,
@@ -322,6 +350,12 @@ public sealed class Npc
 
     public List<Memory> Memories { get; } = [];
     public List<Belief> Beliefs { get; } = [];
+
+    // Observer-specific knowledge. Missing-person logic must never infer remote
+    // death/ejection directly from global IsAlive/IsPresent state.
+    public Dictionary<Guid, CrewSighting> LastSeenCrew { get; } = [];
+    public Dictionary<Guid, MissingPersonConcern> MissingPersonConcerns { get; } = [];
+    public bool NeedsMindReconsideration { get; set; }
 
     public NpcAction CurrentAction { get; set; } =
         new(ActionKind.Idle, null, "Waiting for something to happen.");
