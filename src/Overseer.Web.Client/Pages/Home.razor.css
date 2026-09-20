@@ -3239,3 +3239,78 @@ button.sound-toggle.sound-on {
 .map-door.bypassed { box-shadow: 0 0 0 2px #6fd8ff, 0 0 10px #6fd8ff; }
 .map-door.welded { outline: 3px double #ff765f; box-shadow: inset 0 0 0 2px #ff765f; }
 .map-door.barricaded { outline: 3px ridge #e6c46f; box-shadow: 0 0 0 3px rgba(230,196,111,.35); }
+
+
+.scenario-panel {
+    margin-bottom: 12px;
+    padding: 12px 16px;
+}
+
+.scenario-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.scenario-heading > div:first-child > strong,
+.scenario-heading > div:first-child > span {
+    display: block;
+}
+
+.scenario-heading > div:first-child > strong {
+    margin: .18rem 0 .28rem;
+}
+
+.scenario-score {
+    min-width: 110px;
+    padding-left: 1rem;
+    border-left: 1px solid var(--line);
+    text-align: right;
+}
+
+.scenario-score span,
+.scenario-score strong {
+    display: block;
+}
+
+.scenario-score span,
+.scenario-objective span {
+    color: var(--muted);
+    font-size: .58rem;
+    letter-spacing: .1em;
+}
+
+.scenario-score strong {
+    margin-top: .15rem;
+    color: var(--accent);
+    font-size: 1.2rem;
+}
+
+.scenario-objectives {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: .55rem;
+    margin-top: .75rem;
+}
+
+.scenario-objective {
+    padding: .55rem .65rem;
+    border: 1px solid var(--line);
+    background: rgba(18, 34, 45, .55);
+}
+
+.scenario-objective strong,
+.scenario-objective small {
+    display: block;
+}
+
+.scenario-objective strong {
+    margin: .15rem 0;
+    font-size: .7rem;
+}
+
+.scenario-objective small {
+    color: var(--muted);
+    font-size: .58rem;
+}
