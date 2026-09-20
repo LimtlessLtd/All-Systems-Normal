@@ -77,6 +77,7 @@ public sealed class BrowserMindSystem
             npc,
             Decide(npc, state),
             npc.MissingPersonConcerns.Count > 0
+                || npc.ObservedUnsafeAirlocks.Count > 0
                 ? NpcBubbleKind.Alert
                 : NpcBubbleKind.Thought);
 
@@ -193,6 +194,17 @@ public sealed class BrowserMindSystem
         }
 
         var repairSkill = CrewCounterplaySystem.BestRepairSkill(npc);
+
+        if (FindPerceivedUnsafeAirlock(state, npc) is { } unsafeAirlock)
+        {
+            return Create(
+                state,
+                ActionKind.SecureAirlock,
+                unsafeAirlock.Id,
+                $"Secure {unsafeAirlock.Name}.",
+                "I can see the airlock safety state is compromised and I know the emergency controls.",
+                94);
+        }
 
         if (!state.LifeSupport.IsOnline && repairSkill >= 55)
         {
@@ -326,6 +338,19 @@ public sealed class BrowserMindSystem
             "Nothing feels urgent enough to interrupt my routine.",
             15);
     }
+
+    private static Room? FindPerceivedUnsafeAirlock(
+        GameState state,
+        Npc npc) =>
+        state.Facility.Rooms.Values
+            .Where(room =>
+                room.Type == RoomType.Airlock
+                && room.HasExteriorHatch
+                && AirlockSafetySystem.NeedsCrewSecuring(state, room)
+                && AirlockSafetySystem.CanCrewSecure(npc)
+                && AirlockSafetySystem.CanPerceiveSafetyState(state, npc, room))
+            .OrderBy(room => room.Id)
+            .FirstOrDefault();
 
     private static MissingPersonConcern? MostPressingMissingConcern(Npc npc) =>
         npc.MissingPersonConcerns.Values
