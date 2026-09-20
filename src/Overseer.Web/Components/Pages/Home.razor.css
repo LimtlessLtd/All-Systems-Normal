@@ -3846,3 +3846,641 @@ button.sound-toggle.sound-on {
     from { transform: scale(1); }
     to { transform: scale(1.12); }
 }
+
+
+/* V0.9B.1 station readability / art pass */
+.game-shell {
+    --hull: #172832;
+    --hull-bright: #27414d;
+    --floor: #0a171e;
+    --floor-bright: #10242d;
+}
+
+.command-bar,
+.panel,
+.map-toolbar {
+    border-color: rgba(104, 157, 173, .28);
+    box-shadow:
+        0 12px 30px rgba(0,0,0,.16),
+        inset 0 1px 0 rgba(224,250,255,.025);
+}
+
+.command-bar {
+    border-radius: 10px;
+    background:
+        linear-gradient(180deg, rgba(17,34,44,.98), rgba(8,19,27,.98));
+}
+
+.panel {
+    border-radius: 9px;
+    background:
+        linear-gradient(180deg, rgba(13,27,36,.985), rgba(8,18,25,.985));
+}
+
+.station-panel {
+    background: #050d12;
+}
+
+.map-toolbar {
+    border-bottom-color: rgba(91,145,160,.30);
+    background:
+        linear-gradient(90deg, rgba(8,22,30,.97), rgba(11,31,39,.94), rgba(8,22,30,.97));
+}
+
+.station-map-viewport {
+    background:
+        linear-gradient(180deg, #02070a, #050d12);
+}
+
+.station-map {
+    isolation: isolate;
+    background:
+        radial-gradient(circle at 17% 21%, rgba(130,218,255,.08) 0 1px, transparent 1.6px),
+        radial-gradient(circle at 73% 13%, rgba(255,255,255,.08) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 88% 72%, rgba(119,202,255,.06) 0 1px, transparent 1.6px),
+        radial-gradient(circle at 30% 84%, rgba(255,255,255,.055) 0 1px, transparent 1.5px),
+        linear-gradient(rgba(86,130,143,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(86,130,143,.03) 1px, transparent 1px),
+        #030a0f;
+    background-size:
+        137px 137px,
+        181px 181px,
+        223px 223px,
+        167px 167px,
+        22px 22px,
+        22px 22px,
+        auto;
+    box-shadow:
+        inset 0 0 110px rgba(0,0,0,.88),
+        inset 0 0 0 1px rgba(111,171,188,.13);
+}
+
+/* A structural hull rail makes the room banks read as attached modules. */
+.station-map::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    left: 1.2%;
+    right: 1.2%;
+    top: 43.1%;
+    height: 13.8%;
+    border: 1px solid rgba(101,148,160,.24);
+    border-left-width: 5px;
+    border-right-width: 5px;
+    border-radius: 16px;
+    background:
+        linear-gradient(180deg,
+            rgba(37,63,73,.72) 0 9%,
+            rgba(11,25,32,.95) 10% 43%,
+            rgba(79,129,140,.16) 44% 56%,
+            rgba(11,25,32,.95) 57% 90%,
+            rgba(37,63,73,.72) 91% 100%);
+    box-shadow:
+        0 0 28px rgba(0,0,0,.58),
+        inset 0 0 0 4px rgba(5,13,18,.72);
+    pointer-events: none;
+}
+
+.station-map::after {
+    content: "DECK A  •  HABITAT / OPERATIONS / ENGINEERING";
+    position: absolute;
+    z-index: 1;
+    left: 1.5%;
+    top: 1.5%;
+    color: rgba(124,188,202,.30);
+    font: 700 clamp(.45rem, .58vw, .62rem)/1 "Cascadia Code", Consolas, monospace;
+    letter-spacing: .16em;
+    pointer-events: none;
+}
+
+.room-node {
+    --room-accent: #75cfd7;
+    --room-accent-soft: color-mix(in srgb, var(--room-accent) 16%, transparent);
+}
+
+.room-type-crewquarters { --room-accent: #72b7ff; }
+.room-type-kitchen { --room-accent: #ffb868; }
+.room-type-recreation { --room-accent: #c38aff; }
+.room-type-hydroponics { --room-accent: #63dfa0; }
+.room-type-medical { --room-accent: #9cd9ff; }
+.room-type-controlroom { --room-accent: #60eee0; }
+.room-type-washroom { --room-accent: #71d0ef; }
+.room-type-storage { --room-accent: #a7b8c0; }
+.room-type-engineering { --room-accent: #ffc15f; }
+.room-type-generator { --room-accent: #ffd45c; }
+.room-type-reactor { --room-accent: #ff7e68; }
+.room-type-airlock { --room-accent: #d2e3e8; }
+
+.room-node:not(.hallway):not(.main-corridor) {
+    z-index: 3;
+    padding: .45rem;
+    border: 2px solid color-mix(in srgb, var(--room-accent) 46%, #334954);
+    border-radius: 0;
+    clip-path: polygon(
+        9px 0,
+        calc(100% - 9px) 0,
+        100% 9px,
+        100% calc(100% - 9px),
+        calc(100% - 9px) 100%,
+        9px 100%,
+        0 calc(100% - 9px),
+        0 9px);
+    background:
+        linear-gradient(90deg, var(--room-accent-soft), transparent 28%),
+        linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+        linear-gradient(180deg, #142a34, #0b1a22);
+    background-size: auto, 14px 14px, 14px 14px, auto;
+    box-shadow:
+        0 7px 18px rgba(0,0,0,.46),
+        inset 0 0 0 3px rgba(4,12,17,.72),
+        inset 0 24px 40px color-mix(in srgb, var(--room-accent) 7%, transparent);
+}
+
+.room-node:not(.hallway):not(.main-corridor)::before {
+    inset: 7px;
+    border: 1px solid color-mix(in srgb, var(--room-accent) 18%, rgba(198,232,239,.10));
+    clip-path: inherit;
+}
+
+.room-node:not(.hallway):not(.main-corridor)::after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    left: 7%;
+    right: 7%;
+    bottom: 6%;
+    height: 4px;
+    border-radius: 999px;
+    background:
+        linear-gradient(90deg,
+            transparent,
+            color-mix(in srgb, var(--room-accent) 45%, transparent) 22% 78%,
+            transparent);
+    opacity: .38;
+    pointer-events: none;
+}
+
+.room-node:hover,
+.room-node.selected {
+    border-color: var(--room-accent);
+    background:
+        linear-gradient(90deg, color-mix(in srgb, var(--room-accent) 23%, transparent), transparent 34%),
+        linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px),
+        linear-gradient(180deg, #17313c, #0d2029);
+    box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--room-accent) 55%, transparent),
+        0 8px 24px rgba(0,0,0,.52),
+        0 0 20px color-mix(in srgb, var(--room-accent) 12%, transparent),
+        inset 0 0 0 3px rgba(4,12,17,.70);
+}
+
+.room-titlebar {
+    justify-content: flex-start;
+    gap: 5px;
+    min-height: 22px;
+    padding: 3px 5px;
+    border-color: color-mix(in srgb, var(--room-accent) 20%, rgba(211,238,239,.08));
+    border-radius: 4px;
+    background:
+        linear-gradient(90deg, color-mix(in srgb, var(--room-accent) 11%, rgba(4,13,18,.88)), rgba(4,13,18,.78));
+    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--room-accent) 70%, transparent);
+}
+
+.room-glyph {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 15px;
+    height: 15px;
+    color: var(--room-accent);
+    font: 800 10px/1 ui-sans-serif, system-ui, sans-serif;
+    text-shadow: 0 0 8px color-mix(in srgb, var(--room-accent) 48%, transparent);
+}
+
+.room-name {
+    flex: 1 1 auto;
+    letter-spacing: .055em;
+    text-transform: uppercase;
+}
+
+.room-state-dot {
+    margin-left: auto;
+    width: 6px;
+    height: 6px;
+}
+
+.room-data {
+    display: inline-flex;
+    gap: 3px;
+    margin-top: 4px;
+    padding: 0;
+    background: transparent;
+}
+
+.room-data b {
+    padding: 2px 4px;
+    border: 1px solid rgba(105,150,162,.18);
+    border-radius: 3px;
+    background: rgba(4,13,18,.66);
+    color: #9eb9c0;
+    font-size: clamp(.39rem, .48vw, .5rem);
+    line-height: 1.15;
+}
+
+.room-node.main-corridor {
+    z-index: 2;
+    padding: 0;
+    border: 2px solid #42606b;
+    border-radius: 5px;
+    background:
+        repeating-linear-gradient(
+            90deg,
+            rgba(115,164,174,.10) 0 7%,
+            rgba(4,13,18,.0) 7% 14%),
+        linear-gradient(180deg, #1a313a, #0b1b22 38% 62%, #1a313a);
+    box-shadow:
+        inset 0 0 0 3px #071219,
+        0 4px 13px rgba(0,0,0,.50);
+}
+
+.room-node.main-corridor .room-titlebar,
+.room-node.main-corridor .room-data {
+    display: none;
+}
+
+.room-node.hallway {
+    z-index: 2;
+    padding: 0;
+    border: 2px solid #3a545f;
+    border-radius: 3px;
+    background:
+        linear-gradient(90deg, rgba(120,165,177,.11), transparent 35% 65%, rgba(120,165,177,.11)),
+        #0b1c23;
+    box-shadow:
+        inset 0 0 0 2px #061117,
+        0 3px 8px rgba(0,0,0,.38);
+}
+
+.room-node.hallway::after {
+    inset: 48% 8%;
+    border-top: 1px solid rgba(143,197,207,.24);
+    box-shadow: 0 2px 0 rgba(0,0,0,.34);
+}
+
+.room-node.hallway-vertical::after {
+    inset: 8% 48%;
+    border-top: 0;
+    border-left: 1px solid rgba(143,197,207,.24);
+    box-shadow: 2px 0 0 rgba(0,0,0,.34);
+}
+
+/* Fixtures read as machinery/furniture rather than flat rectangles. */
+.fixture {
+    border-width: 1px;
+    border-color: color-mix(in srgb, var(--room-accent) 32%, rgba(187,215,222,.28));
+    box-shadow:
+        0 2px 4px rgba(0,0,0,.30),
+        inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+.fixture-console,
+.fixture-recreationconsole {
+    box-shadow:
+        0 0 7px color-mix(in srgb, var(--room-accent) 16%, transparent),
+        inset 0 0 0 1px rgba(255,255,255,.05);
+}
+
+.fixture-console::after,
+.fixture-recreationconsole::after {
+    content: "";
+    position: absolute;
+    left: 11%;
+    right: 11%;
+    top: 18%;
+    height: 24%;
+    border-radius: 2px;
+    background:
+        repeating-linear-gradient(
+            90deg,
+            color-mix(in srgb, var(--room-accent) 66%, white) 0 7%,
+            transparent 7% 14%);
+    opacity: .45;
+}
+
+.fixture-generator,
+.fixture-reactorcore {
+    animation: machinery-breathe 2.4s ease-in-out infinite;
+}
+
+.fixture-growbed {
+    border-color: rgba(91,222,139,.44);
+    background:
+        repeating-linear-gradient(90deg, rgba(79,187,112,.30) 0 18%, rgba(15,54,36,.32) 18% 31%);
+}
+
+.fixture-window {
+    border-color: rgba(117,196,221,.27);
+    background:
+        linear-gradient(90deg, rgba(68,128,151,.16), rgba(3,12,18,.82), rgba(68,128,151,.16));
+}
+
+@keyframes machinery-breathe {
+    0%, 100% { filter: brightness(.94); }
+    50% { filter: brightness(1.16); }
+}
+
+/* Doors read as actual hatch leaves on top of the hull. */
+.map-door {
+    z-index: 12;
+    border: 2px solid #02090d;
+    border-radius: 3px;
+    box-shadow:
+        0 0 0 1px rgba(179,220,229,.20),
+        0 3px 7px rgba(0,0,0,.48);
+    transition: transform .16s ease, filter .16s ease, box-shadow .16s ease;
+}
+
+.map-door:hover {
+    transform: translate(-50%, -50%) scale(1.18);
+    filter: brightness(1.25);
+}
+
+.map-door.open {
+    background:
+        linear-gradient(90deg, #2eaa9e 0 18%, #83f4df 18% 82%, #2eaa9e 82%);
+}
+
+.map-door.closed {
+    background:
+        linear-gradient(90deg, #785821 0 18%, #f5c367 18% 82%, #785821 82%);
+}
+
+.map-door.locked {
+    background:
+        repeating-linear-gradient(45deg, #74343c 0 4px, #f17980 4px 8px);
+}
+
+/* Crew sprites: stronger silhouette, grounded shadows and state-driven motion. */
+.crew-token {
+    width: 38px;
+    height: 47px;
+    min-height: 47px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    box-shadow: none;
+}
+
+.crew-token:hover,
+.crew-token.selected {
+    transform: translate(-50%, -50%) scale(1.12);
+}
+
+.crew-shadow {
+    top: 70%;
+    width: 29px;
+    height: 10px;
+    background: rgba(0,0,0,.48);
+    filter: blur(2.4px);
+}
+
+.person-icon {
+    top: 1px;
+    filter:
+        drop-shadow(0 3px 2px rgba(0,0,0,.45))
+        drop-shadow(0 0 4px color-mix(in srgb, var(--suit) 10%, transparent));
+}
+
+.person-head {
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.16);
+}
+
+.crew-nameplate {
+    bottom: -9px;
+    border-color: rgba(76,121,134,.46);
+    background: rgba(3,11,16,.94);
+    backdrop-filter: blur(3px);
+}
+
+.crew-token.is-walking .crew-shadow {
+    animation: crew-shadow-step .34s ease-in-out infinite alternate;
+}
+
+.crew-token.is-walking .person-icon {
+    animation: crew-walk-bob-visual .34s ease-in-out infinite alternate;
+}
+
+.crew-token.is-idle .person-icon {
+    animation: crew-idle-sway 3.2s ease-in-out infinite;
+}
+
+.crew-token.is-busy .person-icon {
+    filter:
+        drop-shadow(0 3px 2px rgba(0,0,0,.42))
+        drop-shadow(0 0 6px rgba(240,182,91,.16));
+}
+
+.crew-token.is-social .person-icon {
+    animation: crew-social-lean .85s ease-in-out infinite alternate;
+}
+
+.crew-token.is-panicked .person-icon {
+    animation-duration: .20s;
+}
+
+.crew-token.is-panicked .crew-motion-dot {
+    background: var(--danger);
+    box-shadow: 0 0 7px var(--danger);
+    animation: alert-blink .55s steps(2, end) infinite;
+}
+
+.crew-token.is-panicked .crew-nameplate {
+    border-color: rgba(236,109,115,.62);
+}
+
+@keyframes crew-walk-bob-visual {
+    from { transform: translateX(-50%) translateY(1px) rotate(var(--crew-facing, 0deg)) scaleY(.985); }
+    to { transform: translateX(-50%) translateY(-2px) rotate(var(--crew-facing, 0deg)) scaleY(1.015); }
+}
+
+@keyframes crew-shadow-step {
+    from { transform: translate(-50%, -50%) scaleX(.92); opacity: .66; }
+    to { transform: translate(-50%, -50%) scaleX(1.08); opacity: .88; }
+}
+
+@keyframes crew-idle-sway {
+    0%, 100% { transform: translateX(-50%) rotate(var(--crew-facing, 0deg)); }
+    50% { transform: translateX(-50%) rotate(calc(var(--crew-facing, 0deg) + 1.5deg)); }
+}
+
+@keyframes crew-social-lean {
+    from { transform: translateX(-50%) rotate(calc(var(--crew-facing, 0deg) - 2deg)); }
+    to { transform: translateX(-50%) rotate(calc(var(--crew-facing, 0deg) + 3deg)); }
+}
+
+@keyframes alert-blink {
+    50% { opacity: .32; }
+}
+
+/* MR-1 becomes a small tracked maintenance bot rather than a text glyph. */
+.robot-token {
+    min-width: 32px;
+    min-height: 32px;
+    transition:
+        left .24s linear,
+        top .24s linear,
+        opacity .2s ease;
+}
+
+.robot-icon {
+    position: relative;
+    width: 30px;
+    height: 24px;
+    border: 2px solid #0a1419;
+    border-radius: 7px 7px 5px 5px;
+    background:
+        linear-gradient(180deg, #78929a 0 18%, #2d444d 19% 72%, #17272e 73%);
+    box-shadow:
+        0 4px 7px rgba(0,0,0,.48),
+        inset 0 0 0 1px rgba(207,237,241,.12);
+    transform: rotate(var(--robot-facing, 0deg));
+    transform-origin: 50% 50%;
+    transition: transform .18s ease;
+}
+
+.robot-token:not(.turret-token) .robot-icon::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 4px;
+    width: 8px;
+    height: 6px;
+    transform: translateX(-50%);
+    border: 1px solid rgba(2,11,15,.74);
+    border-radius: 4px;
+    background: var(--accent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.robot-token:not(.turret-token) .robot-icon::after {
+    content: "";
+    position: absolute;
+    left: 3px;
+    right: 3px;
+    bottom: -5px;
+    height: 6px;
+    border-radius: 2px;
+    background:
+        repeating-linear-gradient(90deg, #0a1115 0 4px, #53666d 4px 7px);
+    box-shadow: 0 2px 3px rgba(0,0,0,.38);
+}
+
+.robot-token.is-moving .robot-icon::after {
+    animation: robot-track-roll .35s linear infinite;
+}
+
+.robot-token.hostile:not(.turret-token) .robot-icon::before {
+    background: var(--danger);
+    box-shadow: 0 0 9px rgba(236,109,115,.78);
+}
+
+.robot-nameplate {
+    top: 30px;
+    border-radius: 4px;
+    background: rgba(3,11,16,.94);
+    box-shadow: 0 2px 5px rgba(0,0,0,.38);
+}
+
+@keyframes robot-track-roll {
+    to { background-position-x: 7px; }
+}
+
+/* ST-1 has a rotating local barrel; tracking angle is presentation-only. */
+.turret-token .robot-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border-color: #17252c;
+    background:
+        radial-gradient(circle, #8da4aa 0 15%, #324950 16% 43%, #18272d 44% 66%, #0d171c 67%);
+    transform: none;
+}
+
+.turret-token .robot-icon::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -8px;
+    width: 5px;
+    height: 19px;
+    transform: translateX(-50%) rotate(var(--turret-facing, 0deg));
+    transform-origin: 50% calc(100% - 4px);
+    border: 1px solid #111c21;
+    border-radius: 3px;
+    background: #7f979e;
+    box-shadow: 0 1px 3px rgba(0,0,0,.48);
+    transition: transform .18s ease;
+}
+
+.turret-token .robot-icon::after {
+    content: "";
+    position: absolute;
+    inset: 7px;
+    border-radius: 50%;
+    background: #6bd8ce;
+    box-shadow: 0 0 7px rgba(107,216,206,.48);
+}
+
+.turret-token.armed .robot-icon {
+    box-shadow:
+        0 0 0 1px rgba(213,235,239,.10),
+        0 0 11px rgba(240,182,91,.18),
+        0 4px 7px rgba(0,0,0,.48);
+}
+
+.turret-token.hostile .robot-icon::after {
+    background: var(--danger);
+    box-shadow: 0 0 10px rgba(236,109,115,.75);
+}
+
+.turret-token.tracking .robot-icon::after {
+    animation: turret-lock-pulse .48s ease-in-out infinite alternate;
+}
+
+.turret-token.shutdown .robot-icon::after {
+    background: #54666b;
+    box-shadow: none;
+}
+
+@keyframes turret-lock-pulse {
+    from { transform: scale(.78); opacity: .62; }
+    to { transform: scale(1.12); opacity: 1; }
+}
+
+@media (max-width: 760px) {
+    .room-titlebar {
+        padding: 2px 3px;
+    }
+
+    .room-glyph {
+        display: none;
+    }
+
+    .room-data b:nth-child(n+3) {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fixture-generator,
+    .fixture-reactorcore,
+    .crew-token .person-icon,
+    .crew-token .crew-shadow,
+    .crew-token .crew-motion-dot,
+    .robot-token .robot-icon::after,
+    .turret-token .robot-icon::after {
+        animation: none !important;
+    }
+}
