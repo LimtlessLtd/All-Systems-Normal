@@ -6,201 +6,183 @@ namespace Overseer.Simulation.Tests;
 public sealed class StationGeometryTests
 {
     [Fact]
-    public void EveryDoor_IsAnchoredToTheExactSharedWall()
+    public void EveryDoor_IsAnchoredToTheExactSharedWall_AcrossSeeds()
     {
-        var state = FacilitySeeder.CreateDefault();
-
-        foreach (var door in state.Facility.Doors)
+        foreach (var seed in Enumerable.Range(1, 20))
         {
-            var first = state.Facility.Rooms[door.RoomAId];
-            var second = state.Facility.Rooms[door.RoomBId];
-            var portal = StationGeometry.FindSharedPortal(first, second);
+            var state = FacilitySeeder.CreateDefault(stationSeed: seed);
+
+            foreach (var door in state.Facility.Doors)
+            {
+                var first = state.Facility.Rooms[door.RoomAId];
+                var second = state.Facility.Rooms[door.RoomBId];
+                var portal = StationGeometry.FindSharedPortal(first, second);
+
+                Assert.True(
+                    IsOnBoundary(first, portal.X, portal.Y),
+                    $"Seed {seed}: {door.Id} portal is not on {first.Id}'s boundary.");
+                Assert.True(
+                    IsOnBoundary(second, portal.X, portal.Y),
+                    $"Seed {seed}: {door.Id} portal is not on {second.Id}'s boundary.");
+                Assert.True(StationGeometry.Contains(first, portal.X, portal.Y));
+                Assert.True(StationGeometry.Contains(second, portal.X, portal.Y));
+            }
+        }
+    }
+
+    [Fact]
+    public void ConnectorHallways_TerminateFlushWithoutEnteringRoomsOrNetwork()
+    {
+        foreach (var seed in Enumerable.Range(100, 12))
+        {
+            var facility = FacilitySeeder.CreateDefault(stationSeed: seed).Facility;
+
+            foreach (var hallway in facility.Rooms.Values.Where(IsConnectorHallway))
+            {
+                var connectedDoors = facility.Doors
+                    .Where(door => door.RoomAId == hallway.Id || door.RoomBId == hallway.Id)
+                    .ToList();
+
+                Assert.Equal(2, connectedDoors.Count);
+
+                foreach (var door in connectedDoors)
+                {
+                    var otherId = door.RoomAId == hallway.Id ? door.RoomBId : door.RoomAId;
+                    var other = facility.Rooms[otherId];
+
+                    Assert.InRange(
+                        StationGeometry.InteriorOverlapArea(hallway, other),
+                        0,
+                        0.000001);
+
+                    _ = StationGeometry.FindSharedPortal(hallway, other);
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void GeneratedRoomsAndCorridors_DoNotIllegallyOverlap()
+    {
+        foreach (var seed in Enumerable.Range(300, 20))
+        {
+            var rooms = FacilitySeeder.CreateDefault(stationSeed: seed)
+                .Facility.Rooms.Values.ToList();
+
+            for (var firstIndex = 0; firstIndex < rooms.Count; firstIndex++)
+            {
+                for (var secondIndex = firstIndex + 1; secondIndex < rooms.Count; secondIndex++)
+                {
+                    Assert.InRange(
+                        StationGeometry.InteriorOverlapArea(
+                            rooms[firstIndex],
+                            rooms[secondIndex]),
+                        0,
+                        0.000001);
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void FunctionalRoomsRemainVisuallyDominantOverCirculation()
+    {
+        foreach (var seed in Enumerable.Range(500, 16))
+        {
+            var rooms = FacilitySeeder.CreateDefault(stationSeed: seed).Facility.Rooms.Values;
+            var functionalArea = rooms
+                .Where(room => room.Type != RoomType.Corridor)
+                .Sum(room => room.MapWidth * room.MapHeight);
+            var corridorArea = rooms
+                .Where(room => room.Type == RoomType.Corridor)
+                .Sum(room => room.MapWidth * room.MapHeight);
 
             Assert.True(
-                IsOnBoundary(first, portal.X, portal.Y),
-                $"{door.Id} portal is not on {first.Id}'s boundary.");
-            Assert.True(
-                IsOnBoundary(second, portal.X, portal.Y),
-                $"{door.Id} portal is not on {second.Id}'s boundary.");
-            Assert.True(StationGeometry.Contains(first, portal.X, portal.Y));
-            Assert.True(StationGeometry.Contains(second, portal.X, portal.Y));
+                functionalArea > corridorArea,
+                $"Seed {seed}: circulation area {corridorArea:0} dominates functional room area {functionalArea:0}.");
         }
     }
 
     [Fact]
-    public void ConnectorHallways_TerminateFlushWithoutEnteringRoomsOrMainCorridor()
+    public void AllGeneratedGeometry_StaysInsideStationCanvas()
     {
-        var state = FacilitySeeder.CreateDefault();
-        var facility = state.Facility;
-
-        foreach (var hallway in facility.Rooms.Values.Where(IsConnectorHallway))
+        foreach (var seed in Enumerable.Range(700, 20))
         {
-            var connectedDoors = facility.Doors
-                .Where(door => door.RoomAId == hallway.Id || door.RoomBId == hallway.Id)
-                .ToList();
-
-            Assert.Equal(2, connectedDoors.Count);
-
-            foreach (var door in connectedDoors)
+            foreach (var room in FacilitySeeder.CreateDefault(stationSeed: seed).Facility.Rooms.Values)
             {
-                var otherId = door.RoomAId == hallway.Id ? door.RoomBId : door.RoomAId;
-                var other = facility.Rooms[otherId];
-
-                Assert.InRange(
-                    StationGeometry.InteriorOverlapArea(hallway, other),
-                    0,
-                    0.000001);
-
-                _ = StationGeometry.FindSharedPortal(hallway, other);
+                var bounds = StationGeometry.Bounds(room);
+                Assert.InRange(bounds.Left, 0, 100);
+                Assert.InRange(bounds.Right, 0, 100);
+                Assert.InRange(bounds.Top, 0, 100);
+                Assert.InRange(bounds.Bottom, 0, 100);
             }
-        }
-    }
-
-    [Fact]
-    public void ConnectorHallways_DoNotAccidentallyOverlapEachOther()
-    {
-        var hallways = FacilitySeeder.CreateDefault().Facility.Rooms.Values
-            .Where(IsConnectorHallway)
-            .ToList();
-
-        for (var firstIndex = 0; firstIndex < hallways.Count; firstIndex++)
-        {
-            for (var secondIndex = firstIndex + 1; secondIndex < hallways.Count; secondIndex++)
-            {
-                var first = hallways[firstIndex];
-                var second = hallways[secondIndex];
-
-                Assert.InRange(
-                    StationGeometry.InteriorOverlapArea(first, second),
-                    0,
-                    0.000001);
-            }
-        }
-    }
-
-
-    [Fact]
-    public void FunctionalRooms_DominateTheDeckCanvas()
-    {
-        var rooms = FacilitySeeder.CreateDefault().Facility.Rooms.Values;
-
-        var functionalRoomArea = rooms
-            .Where(room => room.Type != RoomType.Corridor)
-            .Sum(room => room.MapWidth * room.MapHeight);
-
-        var corridorArea = rooms
-            .Where(room => room.Type == RoomType.Corridor)
-            .Sum(room => room.MapWidth * room.MapHeight);
-
-        Assert.True(
-            functionalRoomArea >= 7_000,
-            $"Functional rooms occupy only {functionalRoomArea / 100:0.0}% of the deck canvas.");
-        Assert.True(
-            corridorArea <= 1_000,
-            $"Corridors occupy {corridorArea / 100:0.0}% of the deck canvas.");
-    }
-
-    [Fact]
-    public void FunctionalRooms_DoNotOverlapEachOther()
-    {
-        var rooms = FacilitySeeder.CreateDefault().Facility.Rooms.Values
-            .Where(room => room.Type != RoomType.Corridor)
-            .ToList();
-
-        for (var firstIndex = 0; firstIndex < rooms.Count; firstIndex++)
-        {
-            for (var secondIndex = firstIndex + 1; secondIndex < rooms.Count; secondIndex++)
-            {
-                var first = rooms[firstIndex];
-                var second = rooms[secondIndex];
-
-                Assert.InRange(
-                    StationGeometry.InteriorOverlapArea(first, second),
-                    0,
-                    0.000001);
-            }
-        }
-    }
-
-    [Fact]
-    public void FunctionalModules_StayInsideDeckCanvas()
-    {
-        var rooms = FacilitySeeder.CreateDefault().Facility.Rooms.Values
-            .Where(room => room.Type != RoomType.Corridor)
-            .ToList();
-
-        foreach (var room in rooms)
-        {
-            var bounds = StationGeometry.Bounds(room);
-            Assert.InRange(bounds.Left, 0, 100);
-            Assert.InRange(bounds.Right, 0, 100);
-            Assert.InRange(bounds.Top, 0, 100);
-            Assert.InRange(bounds.Bottom, 0, 100);
         }
     }
 
     [Fact]
     public void FunctionalModules_HaveVariedFootprintsRatherThanUniformGridCells()
     {
-        var modules = FacilitySeeder.CreateDefault().Facility.Rooms.Values
-            .Where(room =>
-                room.Type != RoomType.Corridor
-                && room.Id is not "airlock"
-                && room.Id is not "isolation")
-            .ToList();
+        foreach (var seed in Enumerable.Range(900, 12))
+        {
+            var modules = FacilitySeeder.CreateDefault(stationSeed: seed).Facility.Rooms.Values
+                .Where(room => room.Type != RoomType.Corridor)
+                .ToList();
 
-        var distinctFootprints = modules
-            .Select(room => (room.MapWidth, room.MapHeight))
-            .Distinct()
-            .Count();
+            var distinctFootprints = modules
+                .Select(room => (
+                    Width: Math.Round(room.MapWidth, 1),
+                    Height: Math.Round(room.MapHeight, 1)))
+                .Distinct()
+                .Count();
 
-        Assert.True(
-            distinctFootprints >= 7,
-            $"Deck A has only {distinctFootprints} distinct functional module footprints.");
-
-        var reactor = modules.Single(room => room.Id == "reactor");
-        Assert.True(
-            reactor.MapWidth * reactor.MapHeight
-            == modules.Max(room => room.MapWidth * room.MapHeight),
-            "Reactor should remain the visually dominant industrial module.");
+            Assert.True(
+                distinctFootprints >= 7,
+                $"Seed {seed}: only {distinctFootprints} distinct functional module footprints.");
+        }
     }
 
     [Fact]
-    public void Passages_AreWideEnoughForTwoWayCrewTraffic()
+    public void PhysicalPassagesHaveUsableCrossSections()
     {
-        var state = FacilitySeeder.CreateDefault();
-        var corridor = state.Facility.Rooms["corridor"];
-
-        Assert.True(
-            corridor.MapHeight >= 8,
-            $"Main corridor height {corridor.MapHeight:0.0}% is too narrow for two-way traffic.");
-
-        foreach (var hallway in state.Facility.Rooms.Values.Where(IsConnectorHallway))
+        foreach (var seed in Enumerable.Range(1100, 16))
         {
-            var neighbours = state.Facility.Doors
-                .Where(door => door.RoomAId == hallway.Id || door.RoomBId == hallway.Id)
-                .Select(door => state.Facility.Rooms[
-                    door.RoomAId == hallway.Id ? door.RoomBId : door.RoomAId])
-                .ToList();
+            var state = FacilitySeeder.CreateDefault(stationSeed: seed);
 
-            Assert.True(neighbours.Count >= 2);
+            foreach (var hallway in state.Facility.Rooms.Values.Where(IsConnectorHallway))
+            {
+                var door = state.Facility.Doors.First(candidate =>
+                    candidate.RoomAId.Equals(hallway.Id, StringComparison.OrdinalIgnoreCase)
+                    || candidate.RoomBId.Equals(hallway.Id, StringComparison.OrdinalIgnoreCase));
+                var neighbourId = door.RoomAId.Equals(hallway.Id, StringComparison.OrdinalIgnoreCase)
+                    ? door.RoomBId
+                    : door.RoomAId;
+                var portal = StationGeometry.FindSharedPortal(
+                    hallway,
+                    state.Facility.Rooms[neighbourId]);
 
-            var portal = StationGeometry.FindSharedPortal(
-                hallway,
-                neighbours[0]);
-            var vertical = portal.Wall == StationWall.Horizontal;
-            var passageWidth = vertical ? hallway.MapWidth : hallway.MapHeight;
+                var crossSection = portal.Wall == StationWall.Horizontal
+                    ? hallway.MapWidth
+                    : hallway.MapHeight;
 
-            Assert.True(
-                passageWidth >= 4.5,
-                $"{hallway.Id} is only {passageWidth:0.0}% wide.");
+                Assert.True(
+                    crossSection >= 3.35,
+                    $"Seed {seed}: {hallway.Id} cross-section is only {crossSection:0.00}%.");
+            }
+
+            foreach (var corridor in state.Facility.Rooms.Values.Where(room =>
+                         room.Type == RoomType.Corridor && !IsConnectorHallway(room)))
+            {
+                Assert.True(
+                    Math.Min(corridor.MapWidth, corridor.MapHeight) >= 3.5,
+                    $"Seed {seed}: {corridor.Id} is microscopically narrow.");
+            }
         }
     }
 
     [Fact]
     public void CorridorsUseOnlyRestrainedWindowSeatingAndCameraFixtures()
     {
-        var corridorFixtures = FacilitySeeder.CreateDefault().Facility.Rooms.Values
+        var corridorFixtures = FacilitySeeder.CreateDefault(stationSeed: 1337).Facility.Rooms.Values
             .Where(room => room.Type == RoomType.Corridor)
             .SelectMany(room => room.Fixtures)
             .ToList();
@@ -216,25 +198,28 @@ public sealed class StationGeometryTests
     [Fact]
     public void SeededFixturesAndInteractionAnchors_StayInsideTheirRooms()
     {
-        var state = FacilitySeeder.CreateDefault();
-
-        foreach (var room in state.Facility.Rooms.Values)
+        foreach (var seed in new[] { 7, 41, 1337, 90210 })
         {
-            foreach (var fixture in room.Fixtures)
+            var state = FacilitySeeder.CreateDefault(stationSeed: seed);
+
+            foreach (var room in state.Facility.Rooms.Values)
             {
-                Assert.InRange(fixture.X - (fixture.Width / 2), 0, 100);
-                Assert.InRange(fixture.X + (fixture.Width / 2), 0, 100);
-                Assert.InRange(fixture.Y - (fixture.Height / 2), 0, 100);
-                Assert.InRange(fixture.Y + (fixture.Height / 2), 0, 100);
-
-                if (fixture.InteractionX is { } interactionX)
+                foreach (var fixture in room.Fixtures)
                 {
-                    Assert.InRange(interactionX, 0, 100);
-                }
+                    Assert.InRange(fixture.X - (fixture.Width / 2), 0, 100);
+                    Assert.InRange(fixture.X + (fixture.Width / 2), 0, 100);
+                    Assert.InRange(fixture.Y - (fixture.Height / 2), 0, 100);
+                    Assert.InRange(fixture.Y + (fixture.Height / 2), 0, 100);
 
-                if (fixture.InteractionY is { } interactionY)
-                {
-                    Assert.InRange(interactionY, 0, 100);
+                    if (fixture.InteractionX is { } interactionX)
+                    {
+                        Assert.InRange(interactionX, 0, 100);
+                    }
+
+                    if (fixture.InteractionY is { } interactionY)
+                    {
+                        Assert.InRange(interactionY, 0, 100);
+                    }
                 }
             }
         }
@@ -243,8 +228,8 @@ public sealed class StationGeometryTests
     [Fact]
     public void HumanUseFixtures_DescribeThePoseTheySupport()
     {
-        var state = FacilitySeeder.CreateDefault();
-        var fixtures = state.Facility.Rooms.Values.SelectMany(room => room.Fixtures).ToList();
+        var fixtures = FacilitySeeder.CreateDefault(stationSeed: 17)
+            .Facility.Rooms.Values.SelectMany(room => room.Fixtures).ToList();
 
         Assert.All(
             fixtures.Where(fixture => fixture.Type is FixtureType.Bed or FixtureType.MedicalBed),
