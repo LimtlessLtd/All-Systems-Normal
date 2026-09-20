@@ -100,7 +100,7 @@ public static class StationGenerator
 
         IReadOnlyList<string> lastErrors = [];
 
-        for (var attempt = 0; attempt < 12; attempt++)
+        for (var attempt = 0; attempt < 24; attempt++)
         {
             var random = new SeededRandom(MixSeed(seed, 0x7001 + attempt));
             Facility facility;
@@ -799,7 +799,8 @@ public static class StationGenerator
     private static void BuildSprawling(Facility facility, SeededRandom random, double t)
     {
         var y = random.NextDouble(45, 52);
-        AddHorizontal(facility, "corridor", "Long Concourse", 7, 93, y, t);
+        const double eastJunction = 89;
+        AddHorizontal(facility, "corridor", "Long Concourse", 7, eastJunction, y, t);
 
         var northX = random.NextDouble(22, 34);
         AddVertical(facility, "corridor-north-wing", "North Wing", northX, 7, y - (t / 2), t);
@@ -807,7 +808,14 @@ public static class StationGenerator
         var southX = random.NextDouble(65, 78);
         AddVertical(facility, "corridor-south-wing", "South Wing", southX, y + (t / 2), 93, t);
 
-        AddVertical(facility, "corridor-east-wing", "East Wing", 93 + (t / 2), 18, 82, t);
+        AddVertical(
+            facility,
+            "corridor-east-wing",
+            "East Wing",
+            eastJunction + (t / 2),
+            18,
+            82,
+            t);
     }
 
     private static void BuildMultiSpine(Facility facility, SeededRandom random, double t)
@@ -842,44 +850,72 @@ public static class StationGenerator
     private static void AddRetrofitStub(Facility facility, SeededRandom random, double t)
     {
         var corridors = facility.Rooms.Values
-            .Where(room => room.Type == RoomType.Corridor && !room.Id.StartsWith("hall-", StringComparison.OrdinalIgnoreCase))
+            .Where(room => room.Type == RoomType.Corridor
+                && !room.Id.StartsWith("hall-", StringComparison.OrdinalIgnoreCase))
             .OrderBy(room => room.Id)
             .ToList();
 
         foreach (var target in random.Shuffle(corridors))
         {
             var bounds = StationGeometry.Bounds(target);
+            Room? candidate = null;
+
             if (target.MapWidth >= target.MapHeight)
             {
-                var x = random.NextDouble(bounds.Left + 2, bounds.Right - 2);
-                var top = bounds.Bottom;
-                var bottom = Math.Min(CanvasMax, top + random.NextDouble(12, 25));
-                if (bottom - top < 8)
+                if (bounds.Width <= 4)
                 {
                     continue;
                 }
 
-                var id = "corridor-retrofit-stub";
-                if (!facility.Rooms.ContainsKey(id))
+                var x = random.NextDouble(bounds.Left + 2, bounds.Right - 2);
+                var top = bounds.Bottom;
+                var bottom = Math.Min(CanvasMax, top + random.NextDouble(12, 25));
+                if (bottom - top >= 8)
                 {
-                    AddVertical(facility, id, "Retrofit Service Passage", x, top, bottom, Math.Min(t, 4.4));
+                    candidate = CreateRoom(
+                        "corridor-retrofit-stub",
+                        "Retrofit Service Passage",
+                        RoomType.Corridor,
+                        x,
+                        (top + bottom) / 2,
+                        Math.Min(t, 4.4),
+                        bottom - top);
                 }
-                return;
+            }
+            else
+            {
+                if (bounds.Height <= 4)
+                {
+                    continue;
+                }
+
+                var y = random.NextDouble(bounds.Top + 2, bounds.Bottom - 2);
+                var left = bounds.Right;
+                var right = Math.Min(CanvasMax, left + random.NextDouble(12, 25));
+                if (right - left >= 8)
+                {
+                    candidate = CreateRoom(
+                        "corridor-retrofit-stub",
+                        "Retrofit Service Passage",
+                        RoomType.Corridor,
+                        (left + right) / 2,
+                        y,
+                        right - left,
+                        Math.Min(t, 4.4));
+                }
             }
 
-            var y = random.NextDouble(bounds.Top + 2, bounds.Bottom - 2);
-            var left = bounds.Right;
-            var right = Math.Min(CanvasMax, left + random.NextDouble(12, 25));
-            if (right - left < 8)
+            if (candidate is null
+                || !InsideCanvas(candidate)
+                || facility.Rooms.Values.Any(existing =>
+                    !existing.Id.Equals(target.Id, StringComparison.OrdinalIgnoreCase)
+                    && StationGeometry.InteriorOverlapArea(candidate, existing) > OverlapTolerance)
+                || !TryFindSharedPortal(candidate, target, out _))
             {
                 continue;
             }
 
-            var horizontalId = "corridor-retrofit-stub";
-            if (!facility.Rooms.ContainsKey(horizontalId))
-            {
-                AddHorizontal(facility, horizontalId, "Retrofit Service Passage", left, right, y, Math.Min(t, 4.4));
-            }
+            facility.Rooms.Add(candidate.Id, candidate);
             return;
         }
     }
@@ -900,7 +936,7 @@ public static class StationGenerator
 
         PlacementCandidate? best = null;
 
-        for (var attempt = 0; attempt < 420; attempt++)
+        for (var attempt = 0; attempt < 760; attempt++)
         {
             var corridor = random.Choose(corridors);
             var side = ChooseAttachmentSide(random, corridor);
@@ -925,7 +961,7 @@ public static class StationGenerator
                 best = candidate;
             }
 
-            if (attempt > 100 && best.Score >= 145)
+            if (attempt > 140 && best.Score >= 145)
             {
                 break;
             }
@@ -977,9 +1013,9 @@ public static class StationGenerator
             scale *= 0.9 + (identity.IndustrialIntensity / 500d);
         }
 
-        var shrink = attempt < 260
+        var shrink = attempt < 240
             ? 1d
-            : Math.Clamp(1d - ((attempt - 260) / 500d), 0.78, 1d);
+            : Math.Clamp(1d - ((attempt - 240) / 650d), 0.68, 1d);
 
         var width = random.NextDouble(profile.MinWidth, profile.MaxWidth) * scale * shrink;
         var height = random.NextDouble(profile.MinHeight, profile.MaxHeight) * scale * shrink;
@@ -1008,8 +1044,8 @@ public static class StationGenerator
         };
 
         var hallLength = Math.Clamp(
-            random.NextDouble(2.2, 5.7) * retrofitFactor,
-            1.8,
+            random.NextDouble(2.6, 5.7) * retrofitFactor,
+            2.4,
             8.5);
 
         if (profile.Type == RoomType.Airlock)
@@ -1833,7 +1869,18 @@ public static class StationGenerator
         double width,
         double height)
     {
-        facility.Rooms.Add(id, new Room
+        facility.Rooms.Add(id, CreateRoom(id, name, type, x, y, width, height));
+    }
+
+    private static Room CreateRoom(
+        string id,
+        string name,
+        RoomType type,
+        double x,
+        double y,
+        double width,
+        double height) =>
+        new()
         {
             Id = id,
             Name = name,
@@ -1842,8 +1889,7 @@ public static class StationGenerator
             MapY = y,
             MapWidth = width,
             MapHeight = height
-        });
-    }
+        };
 
     private static bool InsideCanvas(Room room)
     {
