@@ -23,31 +23,49 @@ public sealed class LocalMovementSystem
         {
             if (npc.Movement is { } movement)
             {
-                AdvanceDoorMovement(state, npc, movement, maxDistance);
+                AdvanceDoorMovement(state, npc, npc.Name, movement, maxDistance);
                 continue;
             }
 
             var destination = GetLocalDestination(state, npc);
             MoveTowards(npc, destination.X, destination.Y, maxDistance);
         }
+
+        foreach (var robot in state.Robots.Where(robot => !robot.IsDestroyed))
+        {
+            if (robot.Movement is { } movement)
+            {
+                AdvanceDoorMovement(state, robot, robot.Name, movement, maxDistance);
+                continue;
+            }
+
+            if (!robot.IsOperational)
+            {
+                continue;
+            }
+
+            var destination = GetRobotDestination(state, robot);
+            MoveTowards(robot, destination.X, destination.Y, maxDistance);
+        }
     }
 
     private static void AdvanceDoorMovement(
         GameState state,
-        Npc npc,
+        IStationMobileEntity entity,
+        string displayName,
         NpcMovement movement,
         double maxDistance)
     {
-        if (!npc.CurrentRoomId.Equals(
+        if (!entity.CurrentRoomId.Equals(
                 movement.FromRoomId,
                 StringComparison.OrdinalIgnoreCase))
         {
-            npc.Movement = null;
+            entity.Movement = null;
             return;
         }
 
         var reachedDoor = MoveTowards(
-            npc,
+            entity,
             movement.ExitX,
             movement.ExitY,
             maxDistance);
@@ -64,29 +82,37 @@ public sealed class LocalMovementSystem
             || !door.Connects(movement.FromRoomId, movement.ToRoomId)
             || !door.IsPassable)
         {
-            npc.Movement = null;
-            npc.CurrentAction = new NpcAction(
-                ActionKind.Idle,
-                movement.ToRoomId,
-                $"Reached {movement.DoorId}, but it is now sealed.");
+            entity.Movement = null;
+
+            if (entity is Npc npc)
+            {
+                npc.CurrentAction = new NpcAction(
+                    ActionKind.Idle,
+                    movement.ToRoomId,
+                    $"Reached {movement.DoorId}, but it is now sealed.");
+            }
+            else if (entity is StationRobot robot)
+            {
+                robot.CurrentTask = $"Route blocked at {movement.DoorId}.";
+            }
 
             Log(
                 state,
-                $"{npc.Name} reaches {movement.DoorId} but cannot cross because it is sealed.");
+                $"{displayName} reaches {movement.DoorId} but cannot cross because it is sealed.");
             return;
         }
 
         var fromRoom = state.Facility.Rooms[movement.FromRoomId];
         var toRoom = state.Facility.Rooms[movement.ToRoomId];
 
-        npc.CurrentRoomId = movement.ToRoomId;
-        npc.PositionX = movement.EntryX;
-        npc.PositionY = movement.EntryY;
-        npc.Movement = null;
+        entity.CurrentRoomId = movement.ToRoomId;
+        entity.PositionX = movement.EntryX;
+        entity.PositionY = movement.EntryY;
+        entity.Movement = null;
 
         Log(
             state,
-            $"{npc.Name} crosses {door.Id} from {fromRoom.Name} to {toRoom.Name}.");
+            $"{displayName} crosses {door.Id} from {fromRoom.Name} to {toRoom.Name}.");
     }
 
     private static (double X, double Y) GetLocalDestination(
@@ -171,6 +197,32 @@ public sealed class LocalMovementSystem
         return PersonalIdlePoint(npc.Name);
     }
 
+    private static (double X, double Y) GetRobotDestination(
+        GameState state,
+        StationRobot robot)
+    {
+        if (robot.TargetNpcId is { } targetId)
+        {
+            var target = state.Crew.FirstOrDefault(npc =>
+                npc.Id == targetId
+                && npc.IsAlive
+                && npc.IsPresent
+                && npc.CurrentRoomId.Equals(robot.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
+
+            if (target is not null)
+            {
+                return (
+                    Math.Clamp(target.PositionX + 7, 8, 92),
+                    Math.Clamp(target.PositionY + 5, 8, 92));
+            }
+        }
+
+        return robot.TargetRoomId is not null
+            && robot.TargetRoomId.Equals(robot.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
+                ? (50, 50)
+                : PersonalIdlePoint(robot.Name);
+    }
+
     private static (double X, double Y) PersonalIdlePoint(string name)
     {
         var slots = new (double X, double Y)[]
@@ -198,7 +250,7 @@ public sealed class LocalMovementSystem
     }
 
     private static bool MoveTowards(
-        Npc npc,
+        IStationMobileEntity npc,
         double targetX,
         double targetY,
         double maxDistance)

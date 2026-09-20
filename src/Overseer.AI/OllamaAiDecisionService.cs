@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using Overseer.Domain;
+using Overseer.Simulation;
 
 namespace Overseer.AI;
 
@@ -37,7 +38,12 @@ public sealed class OllamaAiDecisionService(
         ActionKind.SecureAirlock,
         ActionKind.RepairDoor,
         ActionKind.WeldDoor,
-        ActionKind.BarricadeDoor
+        ActionKind.BarricadeDoor,
+        ActionKind.ShutdownRobot,
+        ActionKind.IsolateRobotNetwork,
+        ActionKind.DisableRobotCharging,
+        ActionKind.DamageRobot,
+        ActionKind.ReprogramRobot
     ];
 
     public async Task<NpcIntent> DecideAsync(
@@ -229,6 +235,59 @@ public sealed class OllamaAiDecisionService(
             else
             {
                 target = invitation.TeamId;
+            }
+        }
+        else if (action is ActionKind.ShutdownRobot
+            or ActionKind.DamageRobot
+            or ActionKind.ReprogramRobot
+            or ActionKind.IsolateRobotNetwork
+            or ActionKind.DisableRobotCharging)
+        {
+            var robot = RobotCountermeasureSystem.FindRobot(state, target);
+            var hasThreatEvidence = robot is not null
+                && RobotCountermeasureSystem.HasHostileRobotEvidence(npc, robot);
+
+            if (robot is null || robot.IsDestroyed)
+            {
+                action = ActionKind.Idle;
+                target = null;
+            }
+            else if (action is ActionKind.ShutdownRobot or ActionKind.DamageRobot)
+            {
+                if (!RobotCountermeasureSystem.IsCoLocated(npc, robot)
+                    || robot.Policy != RobotPolicy.Hostile
+                    || !robot.IsOperational)
+                {
+                    action = ActionKind.Idle;
+                    target = null;
+                }
+                else
+                {
+                    target = robot.Id;
+                }
+            }
+            else if (action == ActionKind.ReprogramRobot)
+            {
+                if (!RobotCountermeasureSystem.IsCoLocated(npc, robot)
+                    || robot.IsOperational
+                    || robot.Policy != RobotPolicy.Hostile)
+                {
+                    action = ActionKind.Idle;
+                    target = null;
+                }
+                else
+                {
+                    target = robot.Id;
+                }
+            }
+            else if (!hasThreatEvidence)
+            {
+                action = ActionKind.Idle;
+                target = null;
+            }
+            else
+            {
+                target = robot.Id;
             }
         }
         else if (action == ActionKind.ShutdownOverseer)

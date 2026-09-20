@@ -273,8 +273,44 @@
                 }
             </div>
 
+            @if (Session.State.Robots.FirstOrDefault() is { } controlRobot)
+            {
+                <section class="controlRobot-control-card">
+                    <span class="overline">AUTONOMOUS PLATFORM</span>
+                    <strong>@controlRobot.Name · @controlRobot.Policy</strong>
+                    <small>
+                        @Session.State.Facility.Rooms[controlRobot.CurrentRoomId].Name
+                        · HP @controlRobot.Health.ToString("0")%
+                        · BAT @controlRobot.BatteryPercent.ToString("0")%
+                    </small>
+                    <small>
+                        LINK @(controlRobot.IsNetworkIsolated ? "ISOLATED" : "ONLINE")
+                        · CHARGE @(controlRobot.ChargingEnabled ? "ON" : "DENIED")
+                        · @(controlRobot.IsOperational ? "ACTIVE" : "SHUT DOWN")
+                    </small>
+                    <p>@controlRobot.CurrentTask</p>
+                    <div class="controlRobot-policy-controls">
+                        <button class="mini secondary"
+                                disabled="@(!controlRobot.HasRemoteControlLink)"
+                                @onclick="() => Session.SetRobotPolicy(controlRobot.Id, RobotPolicy.Friendly)">FRIENDLY</button>
+                        <button class="mini secondary"
+                                disabled="@(!controlRobot.HasRemoteControlLink)"
+                                @onclick="() => Session.SetRobotPolicy(controlRobot.Id, RobotPolicy.Neutral)">NEUTRAL</button>
+                        <button class="mini danger"
+                                disabled="@(!controlRobot.HasRemoteControlLink)"
+                                @onclick="() => Session.SetRobotPolicy(controlRobot.Id, RobotPolicy.Hostile)">HOSTILE</button>
+                        <button class="mini secondary"
+                                disabled="@(!controlRobot.HasRemoteControlLink)"
+                                @onclick="() => Session.ToggleRobotRemoteShutdown(controlRobot.Id)">
+                            @(controlRobot.IsRemotelyShutdown ? "REMOTE RESTART" : "REMOTE SHUTDOWN")
+                        </button>
+                    </div>
+                </section>
+            }
+
             <div class="legend">
                 <span><i class="legend-dot crew"></i> visible crew</span>
+                <span><i class="legend-dot robot"></i> autonomous robot</span>
                 <span><i class="legend-dot open"></i> open door</span>
                 <span><i class="legend-dot locked"></i> locked door</span>
             </div>
@@ -364,6 +400,18 @@
                             @onclick="() => Session.ToggleDoor(door.Id)">
                         @(door.IsLocked ? "L" : door.IsOpen ? "O" : "C")
                     </button>
+                }
+
+                @foreach (var mapRobot in Session.State.Robots.Where(CanSee))
+                {
+                    <div @key="mapRobot"
+                         class="@RobotTokenClass(mapRobot)"
+                         style="@RobotStyle(mapRobot)"
+                         title="@($"{mapRobot.Name} — {mapRobot.Policy} — {mapRobot.CurrentTask}")"
+                         aria-label="@($"{mapRobot.Name}, {mapRobot.Policy} policy")">
+                        <span class="robot-icon" aria-hidden="true">▣</span>
+                        <span class="robot-nameplate">@mapRobot.Name</span>
+                    </div>
                 }
 
                 @foreach (var npc in Session.State.Crew.Where(CanSee))
@@ -1462,6 +1510,18 @@
         npc.IsPresent
         && Session.State.Facility.Rooms[npc.CurrentRoomId].HasVisualFeed;
 
+    private bool CanSee(StationRobot robot) =>
+        !robot.IsDestroyed
+        && Session.State.Facility.Rooms[robot.CurrentRoomId].HasVisualFeed;
+
+    private static string RobotTokenClass(StationRobot robot)
+    {
+        var state = robot.IsDestroyed ? "destroyed"
+            : !robot.IsOperational ? "shutdown"
+            : robot.Policy.ToString().ToLowerInvariant();
+        return $"robot-token {state}{(robot.Movement is null ? "" : " is-moving")}";
+    }
+
     private static string Initials(string name) =>
         string.Concat(
             name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
@@ -1621,6 +1681,17 @@
 
         return FormattableString.Invariant(
             $"left:{mapX}%;top:{mapY}%;--crew-facing:{facing:0.##}deg;");
+    }
+
+    private string RobotStyle(StationRobot robot)
+    {
+        var room = Session.State.Facility.Rooms[robot.CurrentRoomId];
+        var mapX = room.MapX
+            + (((robot.PositionX - 50) / 100) * room.MapWidth);
+        var mapY = room.MapY
+            + (((robot.PositionY - 50) / 100) * room.MapHeight);
+
+        return FormattableString.Invariant($"left:{mapX}%;top:{mapY}%;");
     }
 
     private string DoorStyle(Door door)

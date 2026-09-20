@@ -3745,3 +3745,104 @@ button.sound-toggle.sound-on {
     font-size: .58rem;
     letter-spacing: .08em;
 }
+
+
+/* ---- V0.9A autonomous robot ------------------------------------------ */
+
+.robot-control-card {
+    display: flex;
+    flex-direction: column;
+    gap: .28rem;
+    margin: .55rem .55rem .7rem;
+    padding: .55rem;
+    border: 1px solid var(--line-bright);
+    background: var(--panel-raised);
+}
+
+.robot-control-card strong {
+    font-size: .78rem;
+}
+
+.robot-control-card small,
+.robot-control-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: .6rem;
+    line-height: 1.35;
+}
+
+.robot-policy-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .3rem;
+    margin-top: .2rem;
+}
+
+.robot-policy-controls .danger {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.legend-dot.robot {
+    background: var(--warning);
+}
+
+.robot-token {
+    position: absolute;
+    z-index: 18;
+    transform: translate(-50%, -50%);
+    display: grid;
+    place-items: center;
+    min-width: 24px;
+    min-height: 24px;
+    pointer-events: none;
+    transition: left .2s linear, top .2s linear, opacity .2s ease;
+}
+
+.robot-icon {
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--warning);
+    background: var(--panel);
+    color: var(--warning);
+    box-shadow: 0 0 10px rgba(255, 255, 255, .14);
+    font-size: .82rem;
+}
+
+.robot-nameplate {
+    position: absolute;
+    top: 23px;
+    padding: 1px 4px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--text);
+    font-size: .48rem;
+    letter-spacing: .08em;
+    white-space: nowrap;
+}
+
+.robot-token.hostile .robot-icon {
+    border-color: var(--danger);
+    color: var(--danger);
+    animation: robot-hostile-pulse .8s ease-in-out infinite alternate;
+}
+
+.robot-token.shutdown {
+    opacity: .55;
+}
+
+.robot-token.shutdown .robot-icon {
+    border-color: var(--muted);
+    color: var(--muted);
+}
+
+.robot-token.is-moving .robot-icon {
+    box-shadow: 0 0 14px rgba(255, 255, 255, .25);
+}
+
+@keyframes robot-hostile-pulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.12); }
+}

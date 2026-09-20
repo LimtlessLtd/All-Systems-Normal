@@ -11,6 +11,8 @@ public sealed class GameSession
     private readonly VacuumConsequenceSystem _vacuum = new();
     private readonly MissingPersonSystem _missingPeople = new();
     private readonly CrewCounterplaySystem _counterplay = new();
+    private readonly RobotCountermeasureSystem _robotCountermeasures = new();
+    private readonly RobotSystem _robots = new();
     private readonly CrewRoutineSystem _crewRoutines = new();
     private readonly SocialSimulationSystem _social = new();
     private readonly BrowserMindSystem _browserMind = new();
@@ -64,7 +66,12 @@ public sealed class GameSession
             room.HasExteriorHatch
             && (room.ExteriorHatchOpen
                 || room.AirlockAlarmActive
-                || !room.AirlockSafetyInterlocksEnabled));
+                || !room.AirlockSafetyInterlocksEnabled))
+        + State.Robots.Count(robot =>
+            robot.IsDestroyed
+            || robot.Policy == RobotPolicy.Hostile
+            || robot.IsNetworkIsolated
+            || !robot.ChargingEnabled);
 
     public (bool Started, long Generation) StartClock() =>
         _clock.Start();
@@ -637,6 +644,30 @@ public sealed class GameSession
         Log($"PRIMARY LIFE SUPPORT {(State.LifeSupport.IsOnline ? "ONLINE" : "OFFLINE")}.");
     }
 
+    public bool SetRobotPolicy(string robotId, RobotPolicy policy)
+    {
+        if (_robots.TrySetPolicy(State, robotId, policy, out var message))
+        {
+            return true;
+        }
+
+        Log(message);
+        AudioCueSystem.Emit(State, AudioCueKind.Warning);
+        return false;
+    }
+
+    public bool ToggleRobotRemoteShutdown(string robotId)
+    {
+        if (_robots.TryToggleRemoteShutdown(State, robotId, out var message))
+        {
+            return true;
+        }
+
+        Log(message);
+        AudioCueSystem.Emit(State, AudioCueKind.Warning);
+        return false;
+    }
+
     private void AdvanceCore()
     {
         if (State.ScenarioStatus != ScenarioStatus.Running) return;
@@ -651,12 +682,14 @@ public sealed class GameSession
         _intentExecution.Tick(State);
         _investigations.Tick(State);
         _counterplay.Tick(State);
+        _robotCountermeasures.Tick(State);
         _manualOverrides.Tick(State);
         _shutdownCoordination.Tick(State);
         _social.Tick(State);
         _suspicion.Tick(State);
         _conversationPacing.Tick(State);
         _crewRoutines.Tick(State);
+        _robots.Tick(State, turn);
         _movement.Tick(State, TimeSpan.FromMinutes(1));
         _shutdown.Tick(State);
         _provisioning.Tick(State, turn);

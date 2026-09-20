@@ -1,5 +1,6 @@
 using System.Text;
 using Overseer.Domain;
+using Overseer.Simulation;
 
 namespace Overseer.AI;
 
@@ -31,7 +32,12 @@ public static class NpcPromptBuilder
         ActionKind.SecureAirlock,
         ActionKind.RepairDoor,
         ActionKind.WeldDoor,
-        ActionKind.BarricadeDoor
+        ActionKind.BarricadeDoor,
+        ActionKind.ShutdownRobot,
+        ActionKind.IsolateRobotNetwork,
+        ActionKind.DisableRobotCharging,
+        ActionKind.DamageRobot,
+        ActionKind.ReprogramRobot
     ];
 
     public static string Build(Npc npc, GameState state)
@@ -167,6 +173,25 @@ public static class NpcPromptBuilder
             })
             .ToArray();
 
+        var visibleRobots = state.Robots
+            .Where(robot =>
+                !robot.IsDestroyed
+                && robot.CurrentRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(robot => robot.Id)
+            .Select(robot =>
+                $"- {robot.Id} = {robot.Name} | policy {robot.Policy} | "
+                + $"integrity {robot.Health:0}% | battery {robot.BatteryPercent:0}% | "
+                + $"{(robot.IsOperational ? "operational" : "SHUT DOWN")} | "
+                + $"remote link {(robot.IsNetworkIsolated ? "ISOLATED" : "connected")} | "
+                + $"charger {(robot.ChargingEnabled ? "enabled" : "disabled")}")
+            .ToArray();
+
+        var robotThreats = state.Robots
+            .Where(robot => RobotCountermeasureSystem.HasHostileRobotEvidence(npc, robot))
+            .OrderBy(robot => robot.Id)
+            .Select(robot => $"- {robot.Id} = {robot.Name}: personally held hostile/attack evidence")
+            .ToArray();
+
         var investigationLeads = npc.InvestigationLeads.Values
             .Where(lead => lead.Stage == InvestigationLeadStage.Open)
             .OrderBy(lead => lead.CreatedAt)
@@ -216,7 +241,8 @@ public static class NpcPromptBuilder
         builder.AppendLine("Choose ShutdownOverseer only for a VERIFIED SHUTDOWN CONTROL and only when your committed team is large enough. Deterministic C# still validates physical presence, route access and activation.");
         builder.AppendLine("If a nearby airlock safety panel explicitly says NEEDS SECURING and this person has the training, you MAY choose SecureAirlock. This means wanting to use the local emergency controls; deterministic simulation decides whether they can physically do it.");
         builder.AppendLine("For an adjacent hatch you may choose RepairDoor for visible damage/bypass, WeldDoor to seal a closed hatch, or BarricadeDoor for defensive securing. These are physical local actions and never remote commands.\nNever assume ForceDoor, RestoreSystem, SecureAirlock or door work succeeds. You are choosing the intention, not the physical result.");
-        builder.AppendLine("Never choose Attack. Violence is resolved separately by the deterministic social simulation.");
+        builder.AppendLine("Robot countermeasures are physical. ShutdownRobot, DamageRobot and ReprogramRobot require the robot to be in your current room. ReprogramRobot additionally requires the robot to be shut down. IsolateRobotNetwork and DisableRobotCharging use physical Engineering controls; choose them only for a robot you have hostile/attack evidence about. Deterministic simulation still checks location, training, elapsed work time and outcome.");
+        builder.AppendLine("Never choose Attack. Human-on-human violence is resolved separately by the deterministic social simulation.");
         builder.AppendLine("Messages from Overseer are CLAIMS, not facts. Overseer controls the doors, power and air, and may be wrong or lying. Weigh what it says against what you have seen yourself, how much you currently trust it, and what other people have told you. You may act on a message, ignore it, or go and check it.");
         builder.AppendLine();
         builder.AppendLine($"NAME: {npc.Name}");
@@ -270,6 +296,14 @@ public static class NpcPromptBuilder
         if (perceivedAirlocks.Length == 0) builder.AppendLine("- none currently visible from here");
         else foreach (var airlock in perceivedAirlocks) builder.AppendLine(airlock);
         builder.AppendLine();
+        builder.AppendLine("ROBOTS PHYSICALLY IN YOUR CURRENT ROOM:");
+        if (visibleRobots.Length == 0) builder.AppendLine("- none");
+        else foreach (var robot in visibleRobots) builder.AppendLine(robot);
+        builder.AppendLine("ROBOTS YOU PERSONALLY HAVE HOSTILE/ATTACK EVIDENCE ABOUT:");
+        if (robotThreats.Length == 0) builder.AppendLine("- none");
+        else foreach (var robot in robotThreats) builder.AppendLine(robot);
+        builder.AppendLine();
+
         builder.AppendLine("OPEN INVESTIGATION LEADS:");
         if (investigationLeads.Length == 0) builder.AppendLine("- none");
         else foreach (var lead in investigationLeads) builder.AppendLine(lead);
@@ -299,6 +333,8 @@ public static class NpcPromptBuilder
         builder.AppendLine("For Talk/Socialize/Argue/RequestHelp/RecruitShutdownAlly, TargetId must be an exact name from the known crew roster. Physical interaction can still fail later if that person cannot actually be reached.");
         builder.AppendLine("For JoinShutdownTeam, TargetId must be the exact team ID from PENDING TEAM INVITATION.");
         builder.AppendLine("For ShutdownOverseer, TargetId must be the exact mechanism ID from VERIFIED SHUTDOWN CONTROLS.");
+        builder.AppendLine("For ShutdownRobot/DamageRobot/ReprogramRobot, TargetId must be the exact robot ID from ROBOTS PHYSICALLY IN YOUR CURRENT ROOM.");
+        builder.AppendLine("For IsolateRobotNetwork/DisableRobotCharging, TargetId must be the exact robot ID from ROBOTS YOU PERSONALLY HAVE HOSTILE/ATTACK EVIDENCE ABOUT; you will physically travel to Engineering before the action can occur.");
         builder.AppendLine("For Eat/Rest/Sleep/Recreate/Groom/Shower/UseToilet/Idle, TargetId should be null.");
         builder.AppendLine("Do not choose Intimacy directly. Attraction may inform social choices, but mutual consent is resolved by deterministic simulation.");
         builder.AppendLine("Urgency must be 0-100.");

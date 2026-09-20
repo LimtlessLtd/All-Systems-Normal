@@ -449,7 +449,7 @@ public sealed class CrewCounterplaySystem
             return;
         }
 
-        RestoreOneProblem(state, targetId);
+        TryRestoreOneProblem(state, targetId);
         EndAction(npc, $"Restored {DescribeTarget(state, targetId)}.");
 
         npc.Bubble = new NpcBubble(
@@ -489,44 +489,50 @@ public sealed class CrewCounterplaySystem
         return null;
     }
 
-    private static void RestoreOneProblem(GameState state, string targetId)
+    public static bool TryRestoreOneProblem(GameState state, string targetId)
     {
         if (targetId.Equals(LifeSupportTarget, StringComparison.OrdinalIgnoreCase))
         {
             state.LifeSupport.IsOnline = true;
-            return;
+            return true;
         }
 
-        var room = state.Facility.Rooms[targetId];
+        if (!state.Facility.Rooms.TryGetValue(targetId, out var room))
+        {
+            return false;
+        }
 
         if (!room.IsPowered)
         {
             room.IsPowered = true;
-            return;
+            return true;
         }
 
         if (room.HasVentilationControl && !room.VentilationEnabled)
         {
             room.VentilationEnabled = true;
-            return;
+            return true;
         }
 
         if (room.HasTemperatureControl && !room.TemperatureControlOnline)
         {
             room.TemperatureControlOnline = true;
-            return;
+            return true;
         }
 
         if (!room.CameraOnline)
         {
             room.CameraOnline = true;
-            return;
+            return true;
         }
 
         if (!room.LightsOn)
         {
             room.LightsOn = true;
+            return true;
         }
+
+        return false;
     }
 
     private static string DescribeTarget(GameState state, string targetId) =>

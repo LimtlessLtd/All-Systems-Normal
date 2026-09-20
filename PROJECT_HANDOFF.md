@@ -3,8 +3,8 @@
 Repository: https://github.com/LimtlessLtd/All-Systems-Normal  
 Playable Pages build: https://limtlessltd.github.io/All-Systems-Normal/
 
-**Current milestone:** V0.8E — Campaign Transition, Endgame & Persistence  
-**Next milestone:** V0.9A — Autonomous Robots & Human Countermeasures
+**Current milestone:** V0.9A — Autonomous Robots & Human Countermeasures  
+**Next milestone:** V0.9B — Fixed Security Turret & Human Counterplay
 
 This file is the authoritative handoff for the current architecture, invariants, completed capabilities, workflow and next milestone. Do not append historical milestone diaries. Update the relevant current-state sections in place.
 
@@ -148,6 +148,20 @@ Implemented deterministic systems include:
 - crew provisioning/eating
 - physical environmental harm and evacuation behaviour
 
+### Autonomous robot
+
+V0.9A adds one authoritative MR-1 maintenance/security robot.
+
+- `StationRobot` uses the same room containment, local coordinates, movement order and door-threshold revalidation model as crew.
+- Overseer can set only high-level `Friendly` / `Neutral` / `Hostile` policy and issue remote power commands while the control link is available.
+- Friendly repairs real station faults; Neutral patrols/charges; Hostile selects reachable humans, physically navigates to them and only attacks inside deterministic range/cooldown rules.
+- Robot policy changes, remote shutdowns and attacks generate observer-local evidence through the existing suspicion/provenance system.
+- Crew cognition in both browser fallback and Ollama can choose grounded countermeasures: local shutdown, Engineering network isolation, charging denial, physical damage, and local reprogram/reboot.
+- Network isolation blocks later Overseer remote policy/power commands. Charging denial matters through deterministic battery depletion.
+- Both UIs show MR-1 position/state/task and the same link-gated high-level controls.
+
+Implementation lives primarily in `RobotSystem.cs` and `RobotCountermeasureSystem.cs`; regression coverage is in `RobotSystemTests.cs`.
+
 ### Door and human counterplay
 
 Doors support mechanically distinct states including:
@@ -273,6 +287,8 @@ Key areas:
 - `Overseer.Domain/CorporateDirectives.cs` — corporate directive contracts
 - `Overseer.Domain/CampaignProgression.cs` — campaign domain state/endings
 - `Overseer.Simulation/ScenarioSystems.cs` — scenario catalog/application and related rules
+- `Overseer.Simulation/RobotSystem.cs` — deterministic MR-1 policy execution, navigation, repair, power and attacks
+- `Overseer.Simulation/RobotCountermeasureSystem.cs` — deterministic physical crew counterplay
 - `Overseer.Simulation/CampaignProgressionSystem.cs` — campaign capture, carry-over, reveal and transitions
 - `Overseer.Persistence/CampaignStateSerializer.cs` — persistence boundary
 - `Overseer.Web/Services/GameSession.cs` — Ollama/server session integration
@@ -321,43 +337,31 @@ Before handoff:
 
 ---
 
-## 8. Next milestone — V0.9A Autonomous Robots & Human Countermeasures
+## 8. Next milestone — V0.9B Fixed Security Turret & Human Counterplay
 
-Implement one narrow robot vertical slice before adding multiple robot classes, self-destruct or turrets.
+Build one fixed security-turret vertical slice using the authority model proven by MR-1. Do not add a fleet or general combat framework yet.
 
 Required scope:
 
-1. Add one physical maintenance/security robot with authoritative room/local-position state.
-2. Reuse existing deterministic navigation, door traversal and physical constraints; no robot teleportation or parallel movement model.
-3. Overseer controls only high-level policy:
-   - Friendly
-   - Neutral
-   - Hostile
-   - remote shutdown only where the control link permits it
-4. Deterministic robot behaviour should initially cover:
-   - assist/repair under Friendly policy
-   - self-preservation/routine work under Neutral
-   - physically pursue/attack humans under Hostile
-5. Policy does not directly choose movement steps or damage outcomes.
-6. Suspicious policy changes, refusal to help, attacks and unexplained shutdowns must create observable evidence through the existing provenance/suspicion model.
-7. Add grounded human counterplay:
-   - local/manual robot shutdown
-   - network/control isolation
-   - charging/power denial
-   - robot damage
-   - scenario-appropriate local reboot/reprogramming
-8. Surface robot state and available controls in both Pages and Ollama/server UIs.
-9. Add regression coverage for navigation, authority boundaries, attack/damage, shutdown/isolation, counterplay and evidence generation.
+1. Add one fixed turret with authoritative room, power, network/control-link, integrity and armed state.
+2. Overseer controls only high-level security policy and arming where the control link permits it; no direct click-to-damage command.
+3. Deterministic C# must own target eligibility, line/range checks, firing cadence, hit/damage outcomes and ammunition/heat/power limits.
+4. Turret behaviour must be physically local to its installed compartment/coverage; it cannot observe or attack through sealed geometry.
+5. Arming, tracking and firing must create perception-limited evidence through the existing provenance/suspicion system.
+6. Add grounded human counterplay: local disarm, network isolation, power denial, physical sabotage/damage and skilled local reprogramming.
+7. Reuse existing Engineering/control-link and station power concepts where possible rather than inventing a parallel authority model.
+8. Surface turret state and available high-level controls in both Pages and Ollama/server UIs.
+9. Add regression coverage for authority boundaries, visibility/range, damage, control-link isolation, power denial, human counterplay and evidence.
 
-Explicitly defer until later slices:
+Keep deferred:
 
+- multiple turret classes or broad weapons framework
 - multiple robot classes
-- self-destruct protocols
-- automated turrets
-- heavyweight LLM-controlled robot tool use
+- robot/turret self-destruct
+- autonomous lethal decisions delegated directly to an LLM
+- virus/malware mechanics
 
-The first robot must prove the shared physical/authority model before expanding the security layer.
-
+V0.9B should stay a narrow second proof that fixed security infrastructure obeys the same physical, observable and counterable rules as MR-1.
 ---
 
 ## 9. Handoff rule
