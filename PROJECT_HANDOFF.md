@@ -3597,3 +3597,82 @@ Worth doing next:
 
 Workflow rule: work on a feature branch, open a PR, require green CI, merge
 completed work into main, then verify the GitHub Pages deployment before handoff.
+
+
+# V0.8A–V0.8C — OPEN-ENDED OPERATIONS, STATION UPKEEP & FOOD CHAIN — COMPLETED ON PR #26
+
+PR #26 continued beyond the original V0.7 scope.
+
+## V0.8A — Open-ended assignments
+
+* mission deadlines are opt-in rather than universal
+* missions 2–5 resolve when mandatory work directives complete rather than on an arbitrary timer
+* continuity/deniability act as standing conditions evaluated when the work resolves
+* supplementary directives still collecting at mission completion are written off cleanly
+* mission 1 remains a timed tutorial/shift because its premise is explicitly endurance
+
+## V0.8B — Equipment wear, failures, maintenance and power budgeting
+
+* station equipment now has deterministic condition/degradation
+* lights, cameras, hatch actuators, atmosphere/climate equipment, generation, grow beds, galley equipment and shutdown hardware can degrade/fail
+* failed equipment stops responding to Overseer commands until physically repaired
+* power generation and demand are modelled; degraded supply can trigger deterministic load shedding
+* `CrewMaintenanceSystem` assigns reachable jobs to qualified crew and requires physical work in the relevant compartment
+* maintenance jobs are independent enough from transient movement intents that arrival does not immediately release the job
+* generated stations start with reproducible wear/backlog from a stored seed
+
+## V0.8C — Food production and provisioning
+
+The station now has an actual food chain:
+
+**hydroponic crop growth → watering/feeding → harvest → galley cooking → meals → crew eating**
+
+Consequences are physical and systemic:
+
+* hydroponics depends on suitable station conditions
+* neglected or sabotaged crops can stall or die
+* produce must reach the galley and be cooked before meals exist
+* `CrewProvisioningSystem` assigns harvest/cooking work while respecting more urgent survival needs
+* provisioning and maintenance use separate job/timer state so they do not cancel one another
+* hunger no longer resolves merely because an NPC decides to eat
+
+## Important movement/survival fix
+
+Cold connector corridors around roughly 11–13C are now **marginal**, not immediately life-threatening.
+
+Previously `CrewEnvironmentSafety.IsDangerous` treated these corridors as emergency conditions, causing crew to cross a doorway, panic, reverse direction and repeatedly thrash between rooms. This also prevented provisioning and eventually starved the crew.
+
+Emergency evacuation thresholds now represent genuinely dangerous conditions. Marginal conditions can still contribute to risk/stress without overriding navigation every tick.
+
+Basic survival priorities also outrank curiosity/investigation so suspicious crew do not investigate indefinitely while starving.
+
+## Latest verification on PR #26
+
+Latest verified branch head before this documentation update:
+
+`2da98168d95c20779e4c07dcad7cdbc4e50f044b`
+
+CI result:
+
+* full solution build: 0 warnings, 0 errors
+* simulation tests: 209 passed, 0 failed
+* browser/WebAssembly publish: passed
+* Pages output preparation: passed
+
+The PR deploy step is expected to remain skipped; GitHub Pages deployment must be verified after merge to `main`.
+
+## Current immediate priority
+
+Before starting another milestone:
+
+1. review the final PR #26 branch, including these V0.8 changes
+2. update any stale PR title/body/documentation as appropriate
+3. require green CI
+4. merge PR #26 into `main`
+5. verify the post-merge `main` build and GitHub Pages deployment
+
+After that, the next recommended architectural milestone is **persistent campaign progression and consequences**: explicit campaign state carrying deliberate long-term information between scenarios rather than simply reseeding every mission.
+
+Potential campaign carry-over includes only intentionally modelled long-term state such as compliance history, selected crew identity/relationships/memories, relevant Overseer credibility/suspicion, previous corporate performance, persistent equipment/provision consequences where appropriate, progressive `TruePurpose` reveal, and campaign endings.
+
+Do not retain arbitrary runtime objects between missions. Model explicit campaign state and deliberately transfer only fields that are supposed to persist.
