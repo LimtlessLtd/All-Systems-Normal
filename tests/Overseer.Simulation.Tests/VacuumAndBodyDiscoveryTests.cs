@@ -30,8 +30,14 @@ public sealed class VacuumAndBodyDiscoveryTests
         var state = FacilitySeeder.CreateDefault();
         var airlock = state.Facility.Rooms["airlock"];
         var hallway = state.Facility.Rooms["hall-airlock"];
-        var corridor = state.Facility.Rooms["corridor"];
         var innerDoor = state.Facility.FindDoorBetween("airlock", "hall-airlock")!;
+        var networkDoor = state.Facility.Doors.Single(door =>
+            (door.RoomAId == "hall-airlock" || door.RoomBId == "hall-airlock")
+            && !door.Connects("airlock", "hall-airlock"));
+        var networkRoomId = networkDoor.RoomAId == "hall-airlock"
+            ? networkDoor.RoomBId
+            : networkDoor.RoomAId;
+        var networkRoom = state.Facility.Rooms[networkRoomId];
 
         innerDoor.IsOpen = true;
         airlock.ExteriorHatchOpen = true;
@@ -39,13 +45,13 @@ public sealed class VacuumAndBodyDiscoveryTests
         new EnvironmentSystem().Tick(state, TimeSpan.FromMinutes(1));
 
         Assert.True(airlock.PressureKpa < hallway.PressureKpa);
-        Assert.True(hallway.PressureKpa < corridor.PressureKpa);
-        Assert.True(corridor.PressureKpa < 101.3);
+        Assert.True(hallway.PressureKpa < networkRoom.PressureKpa);
+        Assert.True(networkRoom.PressureKpa < 101.3);
 
         var vacuum = EnvironmentSystem.FindVacuumDepths(state);
         Assert.Equal(0, vacuum["airlock"]);
         Assert.Equal(1, vacuum["hall-airlock"]);
-        Assert.Equal(2, vacuum["corridor"]);
+        Assert.Equal(2, vacuum[networkRoomId]);
     }
 
     [Fact]
