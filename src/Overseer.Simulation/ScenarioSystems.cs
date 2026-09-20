@@ -112,6 +112,7 @@ public static class ScenarioCatalog
             npc.InvestigationLeads.Clear();
             npc.Discoveries.Clear();
             npc.ShutdownTeamId = null;
+            npc.PendingShutdownTeamInvitation = null;
         }
     }
 
