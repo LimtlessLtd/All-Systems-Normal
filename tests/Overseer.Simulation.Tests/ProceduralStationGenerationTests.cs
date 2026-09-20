@@ -302,10 +302,10 @@ public sealed class ProceduralStationGenerationTests
             Assert.InRange(profile.FitScale, 0.84, 1.18);
             Assert.InRange(profile.FitOffsetX, -10, 10);
             Assert.InRange(profile.FitOffsetY, -10, 10);
-            Assert.Contains("purpose-", profile.CssClasses, StringComparison.Ordinal);
-            Assert.Contains("budget-", profile.CssClasses, StringComparison.Ordinal);
-            Assert.Contains("expansion-", profile.CssClasses, StringComparison.Ordinal);
-            Assert.Contains("hull-variant-", profile.CssClasses, StringComparison.Ordinal);
+            Assert.Contains("purpose-", profile.CssClasses);
+            Assert.Contains("budget-", profile.CssClasses);
+            Assert.Contains("expansion-", profile.CssClasses);
+            Assert.Contains("hull-variant-", profile.CssClasses);
         }
     }
 
