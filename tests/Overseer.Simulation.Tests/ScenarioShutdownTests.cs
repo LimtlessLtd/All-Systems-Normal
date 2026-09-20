@@ -130,7 +130,9 @@ public sealed class ScenarioShutdownTests
         var david = state.Crew.Single(npc => npc.Name == "David Hale");
         var mechanism = Assert.Single(state.ShutdownMechanisms);
 
-        marcus.CurrentRoomId = "corridor";
+        var door = NetworkDoorForHall(state, "hall-isolation", "isolation");
+        var networkRoomId = door.RoomAId == "hall-isolation" ? door.RoomBId : door.RoomAId;
+        marcus.CurrentRoomId = networkRoomId;
         marcus.OverseerSuspicion = 90;
         marcus.KnownShutdownMechanismIds.Add(mechanism.Id);
         marcus.KnowsShutdownControl = true;
@@ -147,7 +149,6 @@ public sealed class ScenarioShutdownTests
         state.ShutdownTeams.Add(team);
         marcus.ShutdownTeamId = team.Id;
 
-        var door = state.Facility.FindDoorBetween("hall-isolation", "corridor")!;
         door.IsOpen = false;
         door.IsLocked = true;
 
@@ -185,8 +186,8 @@ public sealed class ScenarioShutdownTests
             "analogue", "ANALOGUE", "", ShutdownAccessVariant.ImpossibleToSeal, []));
 
         var routeDoors = state.Facility.Doors.Where(door =>
-            door.Connects("isolation", "hall-isolation")
-            || door.Connects("hall-isolation", "corridor"));
+            door.RoomAId.Equals("hall-isolation", StringComparison.OrdinalIgnoreCase)
+            || door.RoomBId.Equals("hall-isolation", StringComparison.OrdinalIgnoreCase));
 
         Assert.All(routeDoors, door =>
         {
@@ -204,8 +205,9 @@ public sealed class ScenarioShutdownTests
             "override", "OVERRIDE", "", ShutdownAccessVariant.CrewOverridable, []));
 
         var nadia = state.Crew.Single(npc => npc.Name == "Nadia Okafor");
-        nadia.CurrentRoomId = "corridor";
-        var door = state.Facility.FindDoorBetween("hall-isolation", "corridor")!;
+        var door = NetworkDoorForHall(state, "hall-isolation", "isolation");
+        var networkRoomId = door.RoomAId == "hall-isolation" ? door.RoomBId : door.RoomAId;
+        nadia.CurrentRoomId = networkRoomId;
         door.IsOpen = false;
         door.IsLocked = true;
 
@@ -237,4 +239,13 @@ public sealed class ScenarioShutdownTests
         Assert.Equal(2, state.ShutdownMechanisms.Count);
         Assert.All(state.Crew, npc => Assert.Empty(npc.KnownShutdownMechanismIds));
     }
+    private static Door NetworkDoorForHall(
+        GameState state,
+        string hallwayId,
+        string functionalRoomId) =>
+        state.Facility.Doors.Single(door =>
+            (door.RoomAId.Equals(hallwayId, StringComparison.OrdinalIgnoreCase)
+             || door.RoomBId.Equals(hallwayId, StringComparison.OrdinalIgnoreCase))
+            && !door.Connects(functionalRoomId, hallwayId));
+
 }
