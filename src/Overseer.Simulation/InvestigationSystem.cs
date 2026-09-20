@@ -82,6 +82,7 @@ public sealed class InvestigationSystem
             RoomId = targetRoomId,
             CreatedAt = state.Elapsed
         };
+        npc.NeedsMindReconsideration = true;
     }
 
     public static void AddEvidenceLead(
