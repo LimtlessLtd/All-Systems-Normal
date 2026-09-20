@@ -154,9 +154,9 @@ public sealed class OllamaAiDecisionService(
                 || !state.Facility.Rooms.TryGetValue(target, out var airlock)
                 || airlock.Type != RoomType.Airlock
                 || !airlock.HasExteriorHatch
-                || !AirlockSafetySystem.NeedsCrewSecuring(state, airlock)
-                || !AirlockSafetySystem.CanCrewSecure(npc)
-                || !AirlockSafetySystem.CanPerceiveSafetyState(
+                || !AirlockSafetyRules.NeedsCrewSecuring(state, airlock)
+                || !AirlockSafetyRules.CanCrewSecure(npc)
+                || !AirlockSafetyRules.CanPerceiveSafetyState(
                     state,
                     npc,
                     airlock))
