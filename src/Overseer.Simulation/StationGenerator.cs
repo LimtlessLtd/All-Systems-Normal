@@ -103,9 +103,20 @@ public static class StationGenerator
         for (var attempt = 0; attempt < 12; attempt++)
         {
             var random = new SeededRandom(MixSeed(seed, 0x7001 + attempt));
-            var facility = constraints.FullyAuthoredGeometry
-                ? BuildFullyAuthored(constraints)
-                : BuildProceduralFacility(random, identity, archetype, requirements, constraints);
+            Facility facility;
+
+            try
+            {
+                facility = constraints.FullyAuthoredGeometry
+                    ? BuildFullyAuthored(constraints)
+                    : BuildProceduralFacility(random, identity, archetype, requirements, constraints);
+            }
+            catch (InvalidOperationException ex)
+                when (!constraints.FullyAuthoredGeometry && ex is not StationGenerationException)
+            {
+                lastErrors = [$"Packing attempt {attempt + 1}: {ex.Message}"];
+                continue;
+            }
 
             ApplyInitialDoorConstraints(facility, constraints);
 
