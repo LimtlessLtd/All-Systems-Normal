@@ -43,6 +43,7 @@ public static class FacilitySeeder
         var facility = generation.Facility;
 
         AddFixtures(facility);
+        ApplyIdentityDrivenDetails(facility, generation.Metadata);
         ConfigureEnvironmentControls(facility);
         StationGenerator.ApplyEnvironmentOverrides(facility, stationConstraints);
 
@@ -119,6 +120,115 @@ public static class FacilitySeeder
 
         state.EventLog.Add($"T+00:00: ALL SYSTEMS NORMAL. {state.Crew.Count} crew members online.");
         return state;
+    }
+
+    private static void ApplyIdentityDrivenDetails(
+        Facility facility,
+        StationGenerationMetadata metadata)
+    {
+        var identity = metadata.Identity;
+        var securityDelta = (identity.SecurityLevel - 50) / 5;
+
+        foreach (var door in facility.Doors)
+        {
+            door.TechnicalDifficulty = Math.Clamp(
+                door.TechnicalDifficulty + securityDelta,
+                45,
+                95);
+            door.ForceDifficulty = Math.Clamp(
+                door.ForceDifficulty + (securityDelta / 2),
+                50,
+                90);
+        }
+
+        var random = new Random(StableDerivedSeed(metadata.Seed ^ 0x26A5B31));
+        var extraDetailBase = identity.ExpansionHistory switch
+        {
+            StationExpansionHistory.HeavilyRetrofitted => 2,
+            StationExpansionHistory.LightlyExpanded => 1,
+            _ => 0
+        };
+
+        if (identity.MaintenanceCondition < 45)
+        {
+            extraDetailBase++;
+        }
+
+        foreach (var room in facility.Rooms.Values
+                     .Where(room => room.Type != RoomType.Corridor)
+                     .OrderBy(room => room.Id, StringComparer.OrdinalIgnoreCase))
+        {
+            var detailCount = extraDetailBase + random.Next(0, 2);
+            for (var index = 0; index < detailCount; index++)
+            {
+                var type = ChooseIdentityFixture(identity, room.Type, random);
+                var x = 14 + (random.NextDouble() * 72);
+                var y = 18 + (random.NextDouble() * 64);
+                var width = type is FixtureType.Pipe or FixtureType.Window
+                    ? 16 + (random.NextDouble() * 18)
+                    : 8 + (random.NextDouble() * 9);
+                var height = type == FixtureType.Pipe
+                    ? 6 + (random.NextDouble() * 5)
+                    : 7 + (random.NextDouble() * 8);
+
+                AddFixture(
+                    facility,
+                    room.Id,
+                    type,
+                    $"Generated {type} {index + 1}",
+                    x,
+                    y,
+                    width,
+                    height);
+            }
+
+            if (identity.SecurityLevel >= 75
+                && room.Type is RoomType.ControlRoom or RoomType.Engineering or RoomType.Airlock)
+            {
+                AddFixture(
+                    facility,
+                    room.Id,
+                    FixtureType.UtilityPanel,
+                    "Security hardline",
+                    12,
+                    84,
+                    12,
+                    12);
+            }
+        }
+    }
+
+    private static FixtureType ChooseIdentityFixture(
+        StationIdentity identity,
+        RoomType roomType,
+        Random random)
+    {
+        FixtureType[] choices = identity.Purpose switch
+        {
+            StationPurpose.Research =>
+                [FixtureType.Screen, FixtureType.Console, FixtureType.Cabinet, FixtureType.UtilityPanel],
+            StationPurpose.Mining or StationPurpose.Industrial =>
+                [FixtureType.Pipe, FixtureType.Crate, FixtureType.ToolCabinet, FixtureType.UtilityPanel],
+            StationPurpose.Habitat =>
+                [FixtureType.Cabinet, FixtureType.Window, FixtureType.Table, FixtureType.Locker],
+            StationPurpose.Security =>
+                [FixtureType.UtilityPanel, FixtureType.Screen, FixtureType.Cabinet, FixtureType.Crate],
+            StationPurpose.Logistics =>
+                [FixtureType.Crate, FixtureType.StorageRack, FixtureType.Cabinet, FixtureType.UtilityPanel],
+            _ =>
+                [FixtureType.Cabinet, FixtureType.Pipe, FixtureType.Window, FixtureType.UtilityPanel]
+        };
+
+        if (roomType == RoomType.Reactor)
+        {
+            choices = [FixtureType.Pipe, FixtureType.UtilityPanel, FixtureType.Console];
+        }
+        else if (roomType == RoomType.Airlock)
+        {
+            choices = [FixtureType.SuitLocker, FixtureType.UtilityPanel, FixtureType.Cabinet];
+        }
+
+        return choices[random.Next(choices.Length)];
     }
 
     private static void EnsureValidCrewContainment(Facility facility, IEnumerable<Npc> crew)
