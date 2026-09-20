@@ -303,7 +303,12 @@ public enum ActionKind
     IsolateRobotNetwork,
     DisableRobotCharging,
     DamageRobot,
-    ReprogramRobot
+    ReprogramRobot,
+    DisarmTurret,
+    IsolateTurretNetwork,
+    DisableTurretPower,
+    DamageTurret,
+    ReprogramTurret
 }
 
 public sealed record Memory(
@@ -470,6 +475,36 @@ public sealed class StationRobot : IStationMobileEntity
         && BatteryPercent > 0
         && !IsLocallyShutdown
         && !IsRemotelyShutdown;
+}
+
+public enum TurretPolicy
+{
+    Safe,
+    ProtectOverseer,
+    SuppressCrew
+}
+
+public sealed class SecurityTurret
+{
+    public required string Id { get; init; }
+    public required string Name { get; init; }
+    public required string RoomId { get; init; }
+    public double PositionX { get; init; } = 50;
+    public double PositionY { get; init; } = 50;
+
+    public TurretPolicy Policy { get; set; } = TurretPolicy.Safe;
+    public double Integrity { get; set; } = 100;
+    public bool IsArmed { get; set; }
+    public bool IsNetworkIsolated { get; set; }
+    public bool PowerFeedEnabled { get; set; } = true;
+    public int Ammunition { get; set; } = 12;
+    public double Heat { get; set; }
+    public Guid? TrackedNpcId { get; set; }
+    public TimeSpan? NextShotAt { get; set; }
+    public string CurrentTask { get; set; } = "Safe and disarmed.";
+
+    public bool IsDestroyed => Integrity <= 0;
+    public bool HasRemoteControlLink => !IsNetworkIsolated && !IsDestroyed;
 }
 
 public sealed record CrewSighting(
@@ -743,6 +778,7 @@ public sealed class GameState
     public required Facility Facility { get; init; }
     public List<Npc> Crew { get; init; } = [];
     public List<StationRobot> Robots { get; } = [];
+    public List<SecurityTurret> Turrets { get; } = [];
     public TimeSpan Elapsed { get; set; }
     public List<string> EventLog { get; } = [];
     public ScenarioDefinition? Scenario { get; set; }
