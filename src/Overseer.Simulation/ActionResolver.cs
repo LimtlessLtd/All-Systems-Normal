@@ -176,6 +176,13 @@ public sealed class ActionResolver
             return false;
         }
 
+        if (engineeringAction
+            && !TurretCountermeasureSystem.HasHostileTurretEvidence(npc, turret))
+        {
+            message = $"{npc.Name} has no personally grounded evidence justifying remote security countermeasures against {turret.Name}.";
+            return false;
+        }
+
         if (npc.CurrentAction.Kind == action.Kind
             && npc.CurrentAction.TargetId?.Equals(turret.Id, StringComparison.OrdinalIgnoreCase) == true)
         {
