@@ -8,7 +8,7 @@ Playable GitHub Pages build:
 
 https://limtlessltd.github.io/All-Systems-Normal/
 
-The project is currently at **V0.6E — Airlock, AI-Generated Crew & Human Counterplay**. V0.6D established the room-dominant station architecture and survival behaviour; V0.6E adds real exterior-airlock decompression, body discovery, generated crew traits and LLM-selected human door/repair counterplay.
+The project is currently at **V0.6F — Map Inspection, Resizable UI & Ambient Music**. V0.6E established real exterior-airlock decompression, body discovery, generated crew traits and LLM-selected human door/repair counterplay; V0.6F adds map zoom, resizable control-room regions and chilled procedural ambient music.
 
 The current `main` branch therefore contains substantially more functionality than the older V0.4 notes below. Treat the "Implemented Versions" and "Immediate Task" sections in this document as the authoritative roadmap summary, but still inspect the repository before changing code.
 
@@ -2748,3 +2748,54 @@ This focused presentation pass follows V0.6E.
 * Sound effects and music are independently controllable.
 * Ambient music is generated locally with Web Audio as a quiet, slow pad progression; there are no external music assets, network requests or licensing dependencies.
 * Both the static GitHub Pages client and the full server/Ollama UI receive the same presentation behaviour.
+
+# NEXT AGENT — IMMEDIATE TASK
+
+The next agent should begin by reading this file in full and inspecting the current `main` branch. Do not rebuild existing systems.
+
+## First priority: proper visible IDE-style splitters
+
+V0.6F made several page regions technically resizable using native CSS `resize`. This works, but the browser resize grips are too subtle and are not good enough UX.
+
+Replace the subtle native resize interaction with explicit, visible splitters:
+
+* a draggable vertical splitter between **Systems** and **Station Overview**
+* a draggable vertical splitter between **Station Overview** and **Inspector**
+* a draggable horizontal splitter above the **Event Stream**
+* optionally retain map viewport height resizing if it still adds value after the splitter work
+* provide clear hover, active and drag cursor feedback
+* enforce sensible minimum and maximum panel sizes so neither side panel can crush or hide the map
+* resizing must be smooth and must not make rooms, doors, fixtures or NPCs visually jump
+* the station map must continue to behave correctly at every existing zoom level from 100% through 220%
+* on smaller/tablet/mobile layouts, splitters may disable or collapse into the existing responsive stack
+* if practical, persist the chosen panel sizes for the current browser session or local storage
+* apply the same UX to both `Overseer.Web.Client` and `Overseer.Web`
+
+This is a presentation/layout task only. Do **not** change authoritative station coordinates, navigation or simulation rules to make the splitters work.
+
+Preserve all key invariants:
+
+* stable Blazor `@key` identities
+* `CurrentRoomId` remains authoritative containment
+* deterministic C# decides what is physically possible and what actually happens
+* the LLM only decides high-level NPC wants / intentions
+* shared hatch portal geometry remains authoritative
+* existing V0.6E vacuum, generated-crew, body-discovery and human-counterplay mechanics must not regress
+* existing zoom, SFX and ambient-music controls must continue to work
+
+Run the full build, simulation tests and browser publish before considering the pass complete. Update this handoff with what changed.
+
+## After the splitter pass
+
+If the splitter UX is complete and stable, resume the highest-value gameplay work in roughly this order:
+
+1. **Missing-person reasoning** — crew should notice that someone has vanished based on schedules, witnessed absence, expected duties and communication rather than omniscient knowledge.
+2. **Richer airlock safety logic** — pressure cycling, emergency interlocks, alarms, and crew attempts to close an unsafe exterior hatch.
+3. **Damaged-door counterplay** — repairable/weldable/barricadable hatch damage and more explicit consequences for brute-force entry.
+4. **V0.6C Investigation, Discovery & Scenario Success** — evidence provenance, discovery of shutdown hardware, coordinated shutdown teams, scenario success conditions, optional objectives and experiment scoring.
+5. **Visible route / local movement polish** — selected-NPC routes, collision avoidance, steering and more precise interaction with furniture/fixtures.
+
+Continue to favour emergence over scripting and preserve the core rule:
+
+> **The LLM decides what an NPC WANTS to do. Deterministic C# decides what the NPC CAN do.**
+
