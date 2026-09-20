@@ -163,6 +163,10 @@ public sealed class GameSession(
         }
 
         door.IsOpen = opening;
+        if (!door.IsOpen)
+        {
+            State.Telemetry.RestrictiveDoorCommands++;
+        }
         _suspicion.ObservePlayerDoorChange(State, door, becameRestrictive: !door.IsOpen);
         AudioCueSystem.Emit(State, AudioCueKind.System, roomId: door.RoomAId);
         Log($"{door.Id} is now {(door.IsOpen ? "OPEN" : "CLOSED")}.");
@@ -190,6 +194,10 @@ public sealed class GameSession(
         }
 
         door.IsLocked = !door.IsLocked;
+        if (door.IsLocked)
+        {
+            State.Telemetry.RestrictiveDoorCommands++;
+        }
         _suspicion.ObservePlayerDoorChange(State, door, becameRestrictive: door.IsLocked);
         AudioCueSystem.Emit(
             State,
@@ -379,11 +387,21 @@ public sealed class GameSession(
 
     public void ToggleAirlockSafetyInterlocks(string roomId)
     {
+        var wasEnabled = State.Facility.Rooms.TryGetValue(roomId, out var room)
+            && room.AirlockSafetyInterlocksEnabled;
+
         if (_airlockSafety.TryToggleSafetyInterlocks(
                 State,
                 roomId,
                 out var message))
         {
+            if (wasEnabled
+                && State.Facility.Rooms.TryGetValue(roomId, out var changedRoom)
+                && !changedRoom.AirlockSafetyInterlocksEnabled)
+            {
+                State.Telemetry.AirlockSafetyBypasses++;
+            }
+
             Log(message);
             return;
         }
@@ -424,14 +442,17 @@ public sealed class GameSession(
         await ThinkIfDueAsync(cancellationToken);
 
         _intentExecution.Tick(State);
+        _investigations.Tick(State);
         _counterplay.Tick(State);
         _manualOverrides.Tick(State);
+        _shutdownCoordination.Tick(State);
         _social.Tick(State);
         _suspicion.Tick(State);
         _conversationPacing.Tick(State);
         _crewRoutines.Tick(State);
         _movement.Tick(State, TimeSpan.FromMinutes(1));
         _shutdown.Tick(State);
+        _scenarioProgress.Tick(State, turn);
     }
 
     private async Task ThinkIfDueAsync(CancellationToken cancellationToken)
