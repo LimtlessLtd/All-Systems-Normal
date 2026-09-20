@@ -82,9 +82,19 @@ public enum ScenarioStatus
 
 public enum ScenarioObjectiveKind
 {
+    /// <summary>Hold out for a fixed number of simulated minutes.</summary>
     SurviveMinutes,
+
     KeepCrewAlive,
-    LifeSupportUptimePercent
+    LifeSupportUptimePercent,
+
+    /// <summary>
+    /// Complete when the sponsor's mandatory directives are all satisfied,
+    /// however long that takes. This is what an open-ended mission uses in place
+    /// of a countdown: Overseer is patient, and the shift ends when the work is
+    /// done rather than when a clock runs out.
+    /// </summary>
+    DirectivesSatisfied
 }
 
 public enum EvidenceOrigin
@@ -149,7 +159,8 @@ public sealed record ScenarioDefinition(
     string Title,
     string Briefing,
     ShutdownAccessVariant ShutdownVariant,
-    IReadOnlyList<ScenarioObjective> Objectives);
+    IReadOnlyList<ScenarioObjective> Objectives,
+    IReadOnlyList<CorporateDirective>? Directives = null);
 
 public sealed class ShutdownMechanism
 {
@@ -164,6 +175,29 @@ public sealed class ShutdownMechanism
     public int RequiredCrewCount { get; init; } = 1;
 }
 
+/// <summary>
+/// A falsifiable assertion embedded in a piece of evidence. Claims are what
+/// make deceit possible: an NPC who can directly observe the subject of a
+/// claim can discover that the claim is no longer true.
+/// </summary>
+public enum EvidenceClaim
+{
+    /// <summary>Nothing about this evidence can be checked against the world.</summary>
+    None,
+
+    /// <summary>Overseer restricted access to the subject room.</summary>
+    AccessRestricted,
+
+    /// <summary>Overseer cut power to the subject room.</summary>
+    PowerCut,
+
+    /// <summary>Overseer disabled primary life support.</summary>
+    LifeSupportDisabled,
+
+    /// <summary>Overseer opened an exterior hatch.</summary>
+    HatchOpened
+}
+
 public sealed record OverseerEvidence(
     string Description,
     double Weight,
@@ -173,7 +207,21 @@ public sealed record OverseerEvidence(
     string? LocationId = null,
     string? EvidenceId = null,
     string? SourceEvidenceId = null,
-    double Reliability = 1);
+    double Reliability = 1,
+    EvidenceClaim Claim = EvidenceClaim.None)
+{
+    /// <summary>
+    /// Set when the NPC personally observed the world contradicting this claim.
+    /// Discredited evidence keeps a residue of doubt rather than vanishing.
+    /// </summary>
+    public bool IsDiscredited { get; init; }
+
+    /// <summary>
+    /// Present weight after decay. Starts equal to <see cref="Weight"/> and is
+    /// eroded by time, by reassurance, and by being contradicted.
+    /// </summary>
+    public double CurrentWeight { get; set; } = Weight;
+}
 
 public sealed class InvestigationLead
 {
@@ -210,6 +258,7 @@ public sealed record ShutdownTeamInvitation(
     string TargetRoomId,
     TimeSpan OfferedAt);
 
+
 public enum AirlockCycleMode
 {
     Idle,
@@ -244,6 +293,9 @@ public enum ActionKind
     ForceDoor,
     RestoreSystem,
     SecureAirlock,
+    TendCrops,
+    Harvest,
+    Cook,
     RepairDoor,
     WeldDoor,
     BarricadeDoor
@@ -455,6 +507,25 @@ public sealed class Npc
     public string? ShutdownTeamId { get; set; }
     public ShutdownTeamInvitation? PendingShutdownTeamInvitation { get; set; }
 
+    /// <summary>
+    /// How far this person takes Overseer at its word, 0..100. Being caught in
+    /// a lie spends this; it is not the same thing as suspecting hostility.
+    /// </summary>
+    public double OverseerCredibility { get; set; } = 70;
+
+    /// <summary>Claims Overseer has made to this person that are not yet settled.</summary>
+    public List<OverseerClaimRecord> PendingOverseerClaims { get; } = [];
+
+    /// <summary>Messages this person has received, newest first, for prompt context.</summary>
+    public List<OverseerMessage> ReceivedMessages { get; } = [];
+
+    /// <summary>
+    /// Accounts already compared with a colleague, so one conversation is not
+    /// replayed on every tick. Keys identify the pair of statements discussed.
+    /// </summary>
+    public HashSet<string> ComparedAccounts { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
     public string? CauseOfDeath { get; set; }
     public bool IsPresent { get; set; } = true;
     public bool IsAlive => Health > 0;
@@ -474,6 +545,11 @@ public sealed class Npc
     public Dictionary<Guid, MissingPersonConcern> MissingPersonConcerns { get; } = [];
     public HashSet<string> ObservedUnsafeAirlocks { get; } =
         new(StringComparer.OrdinalIgnoreCase);
+
+    // Faults this person has personally noticed, keyed "roomId:fault". Cleared
+    // when the fault clears so a recurring failure can be noticed again.
+    public HashSet<string> ObservedFaults { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
     public bool NeedsMindReconsideration { get; set; }
 
     public NpcAction CurrentAction { get; set; } =
@@ -481,6 +557,29 @@ public sealed class Npc
 
     public NpcIntent? Intent { get; set; }
     public TimeSpan RoutineUntil { get; set; }
+
+    /// <summary>Equipment this person is currently servicing, if any.</summary>
+    public string? ServicingDeviceId { get; set; }
+
+    /// <summary>Crop bed this person is currently tending or harvesting.</summary>
+    public string? TendingBedId { get; set; }
+
+    // The provisioning job in hand, held independently of Intent. Arriving
+    // somewhere clears the intent that took you there, so a job that relied on
+    // the intent surviving would be dropped and reassigned forever.
+    public ActionKind? ProvisioningJob { get; set; }
+
+    public string? ProvisioningRoomId { get; set; }
+
+    /// <summary>
+    /// When the provisioning job in hand finishes. Kept separate from
+    /// ServiceCompletesAt: sharing one timer let the maintenance system clear
+    /// the galley's clock every tick, so nothing was ever cooked.
+    /// </summary>
+    public TimeSpan? ProvisioningCompletesAt { get; set; }
+
+    /// <summary>When the service visit in progress finishes.</summary>
+    public TimeSpan? ServiceCompletesAt { get; set; }
     public NpcBubble? Bubble { get; set; }
     public List<ScheduledNpcBubble> PendingBubbles { get; } = [];
     public TimeSpan NextConversationAt { get; set; }
@@ -605,4 +704,32 @@ public sealed class GameState
     public ExperimentTelemetry Telemetry { get; } = new();
     public List<AudioCue> AudioCues { get; } = [];
     public long NextAudioCueSequence { get; set; } = 1;
+
+    // Overseer's own voice. Messages are the player's only non-physical verb.
+    public List<OverseerMessage> OverseerMessages { get; } = [];
+    public long NextMessageSequence { get; set; } = 1;
+
+    // Station upkeep. Equipment wears out, the crew service it, and the power
+    // grid is what everything else depends on.
+    public Dictionary<string, StationDevice> Devices { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    public PowerGrid Power { get; } = new();
+
+    // The food chain: beds in hydroponics, stores the galley draws on.
+    public List<CropBed> CropBeds { get; } = [];
+    public StationStores Stores { get; } = new();
+
+    /// <summary>Seeded per game so a station's wear and tear is reproducible.</summary>
+    public int UpkeepSeed { get; set; }
+
+    // Corporate campaign layer. Directives are the assigned objectives; progress
+    // is graded deterministically by CorporateDirectiveSystem.
+    public List<CorporateDirective> Directives { get; } = [];
+
+    public Dictionary<string, DirectiveProgress> DirectiveProgress { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>0..100 standing with the corporate sponsor.</summary>
+    public double ComplianceScore { get; set; } = 100;
 }

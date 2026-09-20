@@ -1,6 +1,7 @@
 using Microsoft.Extensions.AI;
 using OllamaSharp;
 using Overseer.AI;
+using Overseer.Simulation;
 using Overseer.Web.Components;
 using Overseer.Web.Services;
 
@@ -25,8 +26,10 @@ builder.Services.AddSingleton<IChatClient>(
 
 builder.Services.AddSingleton<RuleBasedAiDecisionService>();
 builder.Services.AddSingleton<RuleBasedCrewGenerator>();
+builder.Services.AddSingleton<RuleBasedOverseerMessageInterpreter>();
 builder.Services.AddSingleton<IAiDecisionService, OllamaAiDecisionService>();
 builder.Services.AddSingleton<IAiCrewGenerator, OllamaCrewGenerator>();
+builder.Services.AddSingleton<IOverseerMessageInterpreter, OllamaOverseerMessageInterpreter>();
 
 // A Blazor Server game session is per browser circuit. Do not share station
 // state between different players by registering it as a singleton.

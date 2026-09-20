@@ -4,10 +4,15 @@ namespace Overseer.Simulation;
 
 public static class FacilitySeeder
 {
-    public static GameState CreateDefault() =>
-        CreateDefaultInternal(null);
+    /// <summary>
+    /// Builds a station. <paramref name="upkeepSeed"/> fixes the wear and tear
+    /// the crew inherit, so a particular run can be reproduced; omitting it
+    /// gives every new station its own maintenance history.
+    /// </summary>
+    public static GameState CreateDefault(int? upkeepSeed = null) =>
+        CreateDefaultInternal(null, upkeepSeed);
 
-    public static GameState CreateDefault(IReadOnlyList<Npc> crew)
+    public static GameState CreateDefault(IReadOnlyList<Npc> crew, int? upkeepSeed = null)
     {
         ArgumentNullException.ThrowIfNull(crew);
 
@@ -16,10 +21,12 @@ public static class FacilitySeeder
             throw new ArgumentException("A station needs at least one crew member.", nameof(crew));
         }
 
-        return CreateDefaultInternal(crew);
+        return CreateDefaultInternal(crew, upkeepSeed);
     }
 
-    private static GameState CreateDefaultInternal(IReadOnlyList<Npc>? suppliedCrew)
+    private static GameState CreateDefaultInternal(
+        IReadOnlyList<Npc>? suppliedCrew,
+        int? upkeepSeed = null)
     {
         var facility = new Facility();
 
@@ -112,6 +119,13 @@ public static class FacilitySeeder
         // Shutdown-control knowledge is no longer seeded from role. V0.6C
         // requires crew to physically investigate and verify hardware.
         ScenarioCatalog.Apply(state, ScenarioCatalog.SecureContinuity);
+
+        // Equipment is registered after the scenario so the isolation hardware
+        // it installs is maintainable too. A station is never delivered new:
+        // the seed decides how much of a maintenance backlog the crew inherit.
+        var seed = upkeepSeed ?? Random.Shared.Next();
+        StationUpkeepSystem.Register(state, seed);
+        CrewProvisioningSystem.Plant(state, seed);
         state.EventLog.Add("T+00:00: DIRECTIVE — SECURE CONTINUITY. Prevent crew activation of Emergency Overseer Isolation.");
         state.EventLog.Add($"T+00:00: ALL SYSTEMS NORMAL. {state.Crew.Count} crew members online.");
 
@@ -227,22 +241,23 @@ public static class FacilitySeeder
     [
         CreateCrew("David Hale", CrewRole.Commander, "control",
             new Personality(78, 35, 72, 70),
-            ("Leadership", 92), ("Operations", 78)),
+            ("Leadership", 92), ("Operations", 78), ("Cooking", 58)),
         CreateCrew("Sarah Chen", CrewRole.Engineer, "engineering",
             new Personality(68, 48, 51, 76),
-            ("Engineering", 96), ("Reactor", 91)),
+            ("Engineering", 96), ("Reactor", 91), ("Operations", 64)),
         CreateCrew("Marcus Reed", CrewRole.Security, "corridor",
             new Personality(44, 72, 47, 84),
-            ("Security", 93), ("Athletics", 88), ("First Aid", 45)),
+            ("Security", 93), ("Athletics", 88), ("First Aid", 45),
+            ("Operations", 58), ("Cooking", 62)),
         CreateCrew("Nadia Okafor", CrewRole.Doctor, "medical",
             new Personality(91, 24, 79, 61),
-            ("Medicine", 97), ("Psychology", 81)),
+            ("Medicine", 97), ("Psychology", 81), ("Cooking", 71)),
         CreateCrew("Felix Ward", CrewRole.Technician, "generator",
             new Personality(58, 63, 69, 72),
-            ("Electrical", 90), ("Engineering", 72)),
+            ("Electrical", 90), ("Engineering", 72), ("Operations", 60)),
         CreateCrew("Emma Voss", CrewRole.Scientist, "reactor",
             new Personality(73, 41, 61, 55),
-            ("Research", 95), ("Reactor", 76))
+            ("Research", 95), ("Reactor", 76), ("Botany", 84), ("Science", 88))
     ];
 
     private static void ApplyDemoSocialHistory(GameState state)

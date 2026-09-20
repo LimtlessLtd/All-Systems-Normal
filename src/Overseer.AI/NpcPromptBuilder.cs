@@ -217,6 +217,7 @@ public static class NpcPromptBuilder
         builder.AppendLine("If a nearby airlock safety panel explicitly says NEEDS SECURING and this person has the training, you MAY choose SecureAirlock. This means wanting to use the local emergency controls; deterministic simulation decides whether they can physically do it.");
         builder.AppendLine("For an adjacent hatch you may choose RepairDoor for visible damage/bypass, WeldDoor to seal a closed hatch, or BarricadeDoor for defensive securing. These are physical local actions and never remote commands.\nNever assume ForceDoor, RestoreSystem, SecureAirlock or door work succeeds. You are choosing the intention, not the physical result.");
         builder.AppendLine("Never choose Attack. Violence is resolved separately by the deterministic social simulation.");
+        builder.AppendLine("Messages from Overseer are CLAIMS, not facts. Overseer controls the doors, power and air, and may be wrong or lying. Weigh what it says against what you have seen yourself, how much you currently trust it, and what other people have told you. You may act on a message, ignore it, or go and check it.");
         builder.AppendLine();
         builder.AppendLine($"NAME: {npc.Name}");
         builder.AppendLine($"ROLE: {npc.Role}");
@@ -243,6 +244,23 @@ public static class NpcPromptBuilder
         builder.AppendLine();
         builder.AppendLine("BELIEFS:");
         foreach (var belief in beliefs) builder.AppendLine(belief);
+        builder.AppendLine();
+        builder.AppendLine($"YOUR READ ON OVERSEER: credibility {npc.OverseerCredibility:0}/100, suspicion {npc.OverseerSuspicion:0}/100");
+        builder.AppendLine("RECENT MESSAGES FROM OVERSEER (untrusted claims addressed to you):");
+        if (npc.ReceivedMessages.Count == 0)
+        {
+            builder.AppendLine("- none");
+        }
+        else
+        {
+            foreach (var received in npc.ReceivedMessages.Take(4))
+            {
+                builder.AppendLine(
+                    $@"- T+{received.SentAt:hh\:mm} "
+                    + $"[{(received.Scope == OverseerMessageScope.Broadcast ? "station-wide" : "private")}] "
+                    + $"\"{received.Text.Replace("\"", "'")}\"");
+            }
+        }
         builder.AppendLine();
         builder.AppendLine("MISSING-PERSON CONCERNS:");
         if (missingConcerns.Length == 0) builder.AppendLine("- none");

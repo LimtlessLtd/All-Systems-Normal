@@ -30,9 +30,18 @@ public sealed class SimulationEngine
                 -25,
                 25);
 
+            // Eating only helps if there is actually food. Hunger used to fall
+            // the moment somebody decided to eat, which made the galley and the
+            // hydroponics bay scenery.
+            var eating = npc.CurrentAction.Kind == ActionKind.Eat && state.Stores.HasMeal;
+
+            if (eating)
+            {
+                state.Stores.Meals = Math.Max(0, state.Stores.Meals - (0.07 * minutes));
+            }
+
             npc.Hunger = Clamp(
-                npc.Hunger
-                + ((npc.CurrentAction.Kind == ActionKind.Eat ? -1.9 : 0.11) * minutes));
+                npc.Hunger + ((eating ? -1.9 : 0.11) * minutes));
 
             npc.Fatigue = npc.CurrentAction.Kind is ActionKind.Rest or ActionKind.Sleep
                 ? Clamp(npc.Fatigue - (0.9 * minutes))

@@ -217,6 +217,44 @@ public sealed class BrowserMindSystem
                 90);
         }
 
+        // Basic survival comes before curiosity. These used to sit below the
+        // investigation and suspicion branches, so a crew member who suspected
+        // Overseer would investigate indefinitely while starving — and, because
+        // the deterministic routine was meanwhile steering them to the kitchen,
+        // they oscillated across a doorway and never arrived anywhere at all.
+        if (npc.Hunger >= 58)
+        {
+            return Create(
+                state,
+                ActionKind.Eat,
+                null,
+                "Find something to eat.",
+                "I am getting hungry and want a proper meal.",
+                75);
+        }
+
+        if (npc.Fatigue >= 68)
+        {
+            return Create(
+                state,
+                ActionKind.Sleep,
+                null,
+                "Get some sleep.",
+                "I am exhausted enough that I should sleep.",
+                72);
+        }
+
+        if (npc.BladderNeed >= 72)
+        {
+            return Create(
+                state,
+                ActionKind.UseToilet,
+                null,
+                "Use the washroom.",
+                "I really need the toilet.",
+                82);
+        }
+
         if (MostPressingMissingConcern(npc) is { } missingConcern
             && FindMissingSearchRoom(state, npc, missingConcern) is { } searchRoom)
         {
@@ -296,38 +334,6 @@ public sealed class BrowserMindSystem
                 66);
         }
 
-        if (npc.Hunger >= 58)
-        {
-            return Create(
-                state,
-                ActionKind.Eat,
-                null,
-                "Find something to eat.",
-                "I am getting hungry and want a proper meal.",
-                75);
-        }
-
-        if (npc.Fatigue >= 68)
-        {
-            return Create(
-                state,
-                ActionKind.Sleep,
-                null,
-                "Get some sleep.",
-                "I am exhausted enough that I should sleep.",
-                72);
-        }
-
-        if (npc.BladderNeed >= 72)
-        {
-            return Create(
-                state,
-                ActionKind.UseToilet,
-                null,
-                "Use the washroom.",
-                "I really need the toilet.",
-                82);
-        }
 
         if (npc.HygieneNeed >= 60)
         {

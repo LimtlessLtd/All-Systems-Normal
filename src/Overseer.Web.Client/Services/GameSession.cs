@@ -21,6 +21,15 @@ public sealed class GameSession
     private readonly SuspicionSystem _suspicion = new();
     private readonly ShutdownSystem _shutdown = new();
     private readonly ScenarioProgressSystem _scenarioProgress = new();
+    private readonly CorporateDirectiveSystem _directives = new();
+    private readonly SuspicionDynamicsSystem _suspicionDynamics = new();
+    private readonly OverseerCommsSystem _comms = new();
+    private readonly CrewAccountComparisonSystem _accountComparison = new();
+    private readonly StationUpkeepSystem _upkeep = new();
+    private readonly CrewMaintenanceSystem _maintenance = new();
+    private readonly CrewProvisioningSystem _provisioning = new();
+    private readonly IOverseerMessageInterpreter _messageInterpreter =
+        new RuleBasedOverseerMessageInterpreter();
     private readonly ManualOverrideSystem _manualOverrides = new();
     private readonly ConversationPacingSystem _conversationPacing = new();
     private readonly SimulationClock _clock = new();
@@ -96,6 +105,26 @@ public sealed class GameSession
         State = FacilitySeeder.CreateDefault();
     }
 
+    /// <summary>
+    /// Starts a named campaign scenario on a fresh station. Directives, crew and
+    /// station state are all reseeded so a mission is reproducible.
+    /// </summary>
+    public void LoadScenario(string scenarioId)
+    {
+        var scenario = ScenarioCatalog.Find(scenarioId);
+
+        if (scenario is null)
+        {
+            return;
+        }
+
+        _clock.Pause();
+        State = FacilitySeeder.CreateDefault();
+        ScenarioCatalog.Apply(State, scenario);
+
+        Log($"DIRECTIVE PACKAGE LOADED — {scenario.Title}.");
+    }
+
     public void ToggleDoor(string doorId)
     {
         var door = State.Facility.Doors.First(door => door.Id == doorId);
@@ -140,6 +169,20 @@ public sealed class GameSession
             State.Telemetry.RestrictiveDoorCommands++;
         }
         _suspicion.ObservePlayerDoorChange(State, door, becameRestrictive: !door.IsOpen);
+
+        if (opening)
+        {
+            SuspicionDynamicsSystem.RecordBenignAct(
+                State,
+                door.RoomAId,
+                $"Overseer opened {door.Id} without being asked.",
+                2);
+            SuspicionDynamicsSystem.RecordBenignAct(
+                State,
+                door.RoomBId,
+                $"Overseer opened {door.Id} without being asked.",
+                2);
+        }
         AudioCueSystem.Emit(State, AudioCueKind.System, roomId: door.RoomAId);
         Log($"{door.Id} is now {(door.IsOpen ? "OPEN" : "CLOSED")}.");
     }
@@ -200,6 +243,16 @@ public sealed class GameSession
             State,
             room.IsPowered ? AudioCueKind.System : AudioCueKind.Warning,
             roomId: room.Id);
+
+        if (room.IsPowered)
+        {
+            SuspicionDynamicsSystem.RecordBenignAct(
+                State,
+                room.Id,
+                $"Overseer restored power to {room.Name}.",
+                8);
+        }
+
         Log($"{room.Name} power {(room.IsPowered ? "RESTORED" : "CUT")}.");
     }
 
@@ -221,6 +274,16 @@ public sealed class GameSession
             becameDisruptive: !room.LightsOn,
             weight: 3);
         AudioCueSystem.Emit(State, AudioCueKind.System, roomId: room.Id);
+
+        if (room.LightsOn)
+        {
+            SuspicionDynamicsSystem.RecordBenignAct(
+                State,
+                room.Id,
+                $"Overseer brought the lights back up in {room.Name}.",
+                3);
+        }
+
         Log($"{room.Name} lights {(room.LightsOn ? "ON" : "OFF")}.");
     }
 
@@ -302,6 +365,16 @@ public sealed class GameSession
             State,
             room.TemperatureControlOnline ? AudioCueKind.System : AudioCueKind.Warning,
             roomId: room.Id);
+
+        if (room.TemperatureControlOnline)
+        {
+            SuspicionDynamicsSystem.RecordBenignAct(
+                State,
+                room.Id,
+                $"Overseer restored climate control in {room.Name}.",
+                5);
+        }
+
         Log($"{room.Name} climate control {(room.TemperatureControlOnline ? "ONLINE" : "OFFLINE")}.");
     }
 
@@ -333,6 +406,16 @@ public sealed class GameSession
             State,
             room.VentilationEnabled ? AudioCueKind.System : AudioCueKind.Warning,
             roomId: room.Id);
+
+        if (room.VentilationEnabled)
+        {
+            SuspicionDynamicsSystem.RecordBenignAct(
+                State,
+                room.Id,
+                $"Overseer reopened the air loop to {room.Name}.",
+                6);
+        }
+
         Log($"{room.Name} ventilation {(room.VentilationEnabled ? "OPEN" : "ISOLATED")}.");
     }
 
@@ -416,6 +499,53 @@ public sealed class GameSession
             roomId: roomId);
     }
 
+    /// <summary>
+    /// Overseer's voice. The player writes whatever they like; an interpreter
+    /// reads it into a structured claim, and the simulation decides what that
+    /// claim does to the people who hear it. Nothing here edits a belief
+    /// directly, and a false claim is recorded as false the moment it is sent.
+    /// </summary>
+    public async Task<bool> SendMessageAsync(
+        OverseerMessageScope scope,
+        string? targetNpcName,
+        string text,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(text) || State.ScenarioStatus != ScenarioStatus.Running)
+        {
+            return false;
+        }
+
+        if (scope == OverseerMessageScope.Direct
+            && !State.Crew.Any(npc =>
+                npc.IsAlive
+                && npc.IsPresent
+                && npc.Name.Equals(targetNpcName, StringComparison.OrdinalIgnoreCase)))
+        {
+            Log($"CHANNEL FAILED: {targetNpcName ?? "unknown recipient"} is not reachable.");
+            return false;
+        }
+
+        var intent = await _messageInterpreter.InterpretAsync(
+            text,
+            scope,
+            targetNpcName,
+            State,
+            cancellationToken);
+
+        OverseerCommsSystem.Send(
+            State,
+            scope,
+            targetNpcName,
+            text,
+            intent.Claim,
+            intent.SubjectNpcName,
+            intent.SubjectRoomId,
+            intent.Source);
+
+        return true;
+    }
+
     public void ToggleLifeSupport()
     {
         if (!State.LifeSupport.IsAiControllable)
@@ -429,6 +559,25 @@ public sealed class GameSession
         AudioCueSystem.Emit(
             State,
             State.LifeSupport.IsOnline ? AudioCueKind.System : AudioCueKind.Critical);
+
+        if (State.LifeSupport.IsOnline)
+        {
+            // Bringing the air back is the loudest possible reassurance, and
+            // everyone aboard witnesses it.
+            foreach (var occupiedRoomId in State.Crew
+                         .Where(npc => npc.IsAlive && npc.IsPresent)
+                         .Select(npc => npc.CurrentRoomId)
+                         .Distinct(StringComparer.OrdinalIgnoreCase)
+                         .ToList())
+            {
+                SuspicionDynamicsSystem.RecordBenignAct(
+                    State,
+                    occupiedRoomId,
+                    "Overseer brought primary life support back online.",
+                    12);
+            }
+        }
+
         Log($"PRIMARY LIFE SUPPORT {(State.LifeSupport.IsOnline ? "ONLINE" : "OFFLINE")}.");
     }
 
@@ -436,6 +585,7 @@ public sealed class GameSession
     {
         if (State.ScenarioStatus != ScenarioStatus.Running) return;
         var turn = TimeSpan.FromMinutes(1);
+        _upkeep.Tick(State, turn);
         _environment.Tick(State, turn);
         _airlockSafety.Tick(State, turn);
         _vacuum.Tick(State);
@@ -453,6 +603,16 @@ public sealed class GameSession
         _crewRoutines.Tick(State);
         _movement.Tick(State, TimeSpan.FromMinutes(1));
         _shutdown.Tick(State);
+        _provisioning.Tick(State, turn);
+        _maintenance.Tick(State);
+        _comms.Tick(State);
+        _accountComparison.Tick(State);
+        _suspicionDynamics.Tick(State, turn);
+
+        // Directives are graded before the station layer decides the outcome, so
+        // its win gate reads this tick's directive results rather than the
+        // previous tick's.
+        _directives.Tick(State, turn);
         _scenarioProgress.Tick(State, turn);
     }
 

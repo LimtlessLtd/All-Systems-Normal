@@ -212,13 +212,21 @@ public sealed class InvestigationAndScenarioTests
         var state = FacilitySeeder.CreateDefault();
         var system = new ScenarioProgressSystem();
 
-        state.Elapsed = TimeSpan.FromMinutes(59);
-        system.Tick(state, TimeSpan.FromMinutes(59));
+        // This exercises the station objective layer on its own. Corporate
+        // directives are graded by CorporateDirectiveSystem and gate the
+        // outcome too, so drop them to keep the subject of the test isolated.
+        state.Directives.Clear();
+        state.DirectiveProgress.Clear();
+
+        var window = ScenarioCatalog.ObservationWindow;
+
+        state.Elapsed = window - TimeSpan.FromMinutes(1);
+        system.Tick(state, state.Elapsed);
 
         Assert.Equal(ScenarioStatus.Running, state.ScenarioStatus);
         Assert.False(state.ObjectiveProgress["survive"].IsComplete);
 
-        state.Elapsed = TimeSpan.FromMinutes(60);
+        state.Elapsed = window;
         system.Tick(state, TimeSpan.FromMinutes(1));
 
         Assert.Equal(ScenarioStatus.Won, state.ScenarioStatus);

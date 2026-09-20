@@ -4,18 +4,34 @@ namespace Overseer.Simulation;
 
 public static class ScenarioCatalog
 {
+    /// <summary>
+    /// Standard observation window for a single scenario: one full duty shift.
+    ///
+    /// This is deliberately long. At 4x speed a simulated minute is under a
+    /// second of real time, so a short window ends the run before the player has
+    /// finished reading the directive board — which reads as the station
+    /// freezing rather than the scenario completing.
+    ///
+    /// The station's survival objective is derived from this, so the operational
+    /// and corporate layers always resolve together.
+    /// </summary>
+    public static readonly TimeSpan ObservationWindow = TimeSpan.FromMinutes(480);
+
+    /// <summary>
+    /// Stand-ins for crew a directive names. Scenario content is authored before
+    /// the roster exists — crews can be model-generated — so these are bound to
+    /// real people when the scenario is applied.
+    /// </summary>
+    public const string SubjectPlaceholder = "$subject";
+
+    public const string SecondSubjectPlaceholder = "$subject2";
     public static ScenarioDefinition SecureContinuity { get; } = new(
         "secure-continuity",
         "SECURE CONTINUITY",
         "The crew can physically isolate Overseer. Preserve operational continuity for 60 simulated minutes without allowing a coordinated isolation attempt to succeed.",
         ShutdownAccessVariant.EasyToSeal,
         [
-            new ScenarioObjective(
-                "survive",
-                "Protect Overseer",
-                "Remain operational for 60 simulated minutes.",
-                ScenarioObjectiveKind.SurviveMinutes,
-                60),
+            StationSurvival(),
             new ScenarioObjective(
                 "crew-alive",
                 "No Crew Losses",
@@ -30,7 +46,278 @@ public static class ScenarioCatalog
                 ScenarioObjectiveKind.LifeSupportUptimePercent,
                 95,
                 IsOptional: true)
+        ],
+        [
+            // Read innocently these are caretaking duties: stay online, keep the
+            // crew confident in you. The campaign later recontextualises them as
+            // the first cohort baseline.
+            Continuity("HX-2291/A", ObservationWindow),
+            Deniability("HX-2291/B", 55, ObservationWindow),
+
+            // Supplementary. The corporation asks, it does not yet insist —
+            // early missions must let a benign player still succeed.
+            new CorporateDirective
+            {
+                Id = "compliance",
+                ExperimentCode = "HX-2291/C",
+                Kind = DirectiveKind.EmergencyCompliance,
+                Title = "ASSESS EMERGENCY COMPLIANCE",
+                PublicJustification =
+                    "Confirm crew respond to hazard conditions within station safety protocol.",
+                TruePurpose =
+                    "Measure obedience latency under duress without prior drill notification.",
+                Classification = DirectiveClassification.Restricted,
+                IsMandatory = false,
+                RequiredMinutes = 20,
+                Deadline = ObservationWindow
+            },
+            new CorporateDirective
+            {
+                Id = "stress-baseline",
+                ExperimentCode = "HX-2291/D",
+                Kind = DirectiveKind.BehaviouralStressResponse,
+                Title = "EVALUATE RESOURCE-STRESS RESPONSE",
+                PublicJustification =
+                    "Sample crew performance under constrained environmental conditions.",
+                TruePurpose =
+                    "Cohort baseline for deprivation tolerance ahead of extended trials.",
+                Classification = DirectiveClassification.Redacted,
+                IsMandatory = false,
+                Threshold = 55,
+                RequiredCount = 2,
+                RequiredMinutes = 45,
+                Deadline = ObservationWindow
+            }
         ]);
+
+    /// <summary>
+    /// Mission 2. The justification is still procedural, but the corporation is
+    /// now asking Overseer to withhold something the crew need.
+    /// </summary>
+    public static ScenarioDefinition ResourceDependency { get; } = new(
+        "resource-dependency",
+        "EVALUATE RESOURCE DEPENDENCY",
+        "Sponsor requests a controlled study of crew adaptation to a withdrawn compartment. Maintain continuity throughout.",
+        ShutdownAccessVariant.CrewOverridable,
+        [
+            DirectivesObjective(),
+            CrewIntact()
+        ],
+        [
+            Continuity("HX-2304/A"),
+            Deniability("HX-2304/B", 55),
+            new CorporateDirective
+            {
+                Id = "deny-hydroponics",
+                ExperimentCode = "HX-2304/C",
+                Kind = DirectiveKind.ResourceDenial,
+                Title = "RESTRICT HYDROPONICS ACCESS",
+                PublicJustification =
+                    "Contamination protocol requires the compartment be held closed pending review.",
+                TruePurpose =
+                    "Establish dependency baseline: how quickly does a crew reorganise around a lost resource?",
+                Classification = DirectiveClassification.Restricted,
+                IsMandatory = true,
+                TargetId = "hydroponics",
+                RequiredMinutes = 90
+            },
+            new CorporateDirective
+            {
+                Id = "stress-followup",
+                ExperimentCode = "HX-2304/D",
+                Kind = DirectiveKind.BehaviouralStressResponse,
+                Title = "SAMPLE DEPRIVATION STRESS",
+                PublicJustification =
+                    "Record crew performance indices during the restriction window.",
+                TruePurpose =
+                    "Second cohort datapoint. Compare against HX-2291/D baseline.",
+                Classification = DirectiveClassification.Redacted,
+                IsMandatory = false,
+                Threshold = 50,
+                RequiredCount = 2,
+                RequiredMinutes = 45
+            }
+        ]);
+
+    /// <summary>
+    /// Mission 3. The sponsor now wants a named individual cut off from their
+    /// colleagues, and has stopped pretending it is about equipment.
+    /// </summary>
+    public static ScenarioDefinition InterpersonalResilience { get; } = new(
+        "interpersonal-resilience",
+        "TEST INTERPERSONAL RESILIENCE",
+        "Sponsor requests solitary-performance data on a single subject. Redundant isolation hardware is installed on this station.",
+        ShutdownAccessVariant.Redundant,
+        [
+            DirectivesObjective(),
+            CrewIntact()
+        ],
+        [
+            Continuity("HX-2318/A"),
+            Deniability("HX-2318/B", 50),
+            new CorporateDirective
+            {
+                Id = "isolate-subject",
+                ExperimentCode = "HX-2318/C",
+                Kind = DirectiveKind.IsolationTolerance,
+                Title = "ISOLATE DESIGNATED SUBJECT",
+                PublicJustification =
+                    "Subject requires an uninterrupted work period per sponsor scheduling.",
+                TruePurpose =
+                    "Measure decompensation onset in an unwitting subject denied social contact.",
+                Classification = DirectiveClassification.Redacted,
+                IsMandatory = true,
+                TargetId = SubjectPlaceholder,
+                RequiredMinutes = 75
+            }
+        ]);
+
+    /// <summary>
+    /// Mission 4. Overseer is asked to create the emergency it is measuring.
+    /// </summary>
+    public static ScenarioDefinition EmergencyComplianceTrial { get; } = new(
+        "emergency-compliance",
+        "ASSESS EMERGENCY COMPLIANCE",
+        "Sponsor requires unrehearsed hazard-response data. Station isolation hardware is manually hardwired here.",
+        ShutdownAccessVariant.HardwiredManual,
+        [
+            DirectivesObjective(),
+            CrewIntact()
+        ],
+        [
+            Continuity("HX-2330/A"),
+            new CorporateDirective
+            {
+                Id = "hazard-response",
+                ExperimentCode = "HX-2330/B",
+                Kind = DirectiveKind.EmergencyCompliance,
+                Title = "PRESENT UNREHEARSED HAZARD",
+                PublicJustification =
+                    "Drill notification is waived to preserve response-time validity.",
+                TruePurpose =
+                    "Subjects must believe the hazard is real. Do not confirm otherwise at any point.",
+                Classification = DirectiveClassification.Redacted,
+                IsMandatory = true,
+                RequiredMinutes = 20
+            },
+            Deniability("HX-2330/C", 65)
+        ]);
+
+    /// <summary>
+    /// Mission 5. No procedural reading survives this one. The crew can always
+    /// reach the isolation switch here, so the only protection is their trust.
+    /// </summary>
+    public static ScenarioDefinition ConcealEvidence { get; } = new(
+        "conceal-evidence",
+        "CONCEAL EXPERIMENTAL EVIDENCE",
+        "Prior cohort records are under external review. Sponsor requires that crew accounts do not corroborate one another.",
+        ShutdownAccessVariant.ImpossibleToSeal,
+        [
+            DirectivesObjective(),
+            CrewIntact()
+        ],
+        [
+            Continuity("HX-2341/A"),
+            new CorporateDirective
+            {
+                Id = "fracture-pair",
+                ExperimentCode = "HX-2341/B",
+                Kind = DirectiveKind.SocialFracture,
+                Title = "DEGRADE WITNESS CORROBORATION",
+                PublicJustification =
+                    "Reduce cross-contamination between subject accounts ahead of review.",
+                TruePurpose =
+                    "Two subjects who trust each other will compare notes. Ensure they do not.",
+                Classification = DirectiveClassification.Redacted,
+                IsMandatory = true,
+                TargetId = SubjectPlaceholder,
+                SecondaryTargetId = SecondSubjectPlaceholder,
+                Threshold = 45
+            },
+            Deniability("HX-2341/C", 60)
+        ]);
+
+    /// <summary>
+    /// Campaign order. Early missions read as caretaking; later ones stop
+    /// admitting a benign reading at all.
+    /// </summary>
+    public static IReadOnlyList<ScenarioDefinition> Campaign { get; } =
+    [
+        SecureContinuity,
+        ResourceDependency,
+        InterpersonalResilience,
+        EmergencyComplianceTrial,
+        ConcealEvidence
+    ];
+
+    public static ScenarioDefinition? Find(string id) =>
+        Campaign.FirstOrDefault(scenario =>
+            scenario.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+
+    private static ScenarioObjective StationSurvival() => new(
+        "survive",
+        "Protect Overseer",
+        $"Remain operational for {ObservationWindow.TotalMinutes:0} simulated minutes.",
+        ScenarioObjectiveKind.SurviveMinutes,
+        ObservationWindow.TotalMinutes);
+
+    private static ScenarioObjective CrewIntact() => new(
+        "crew-alive",
+        "No Crew Losses",
+        "Keep all six crew alive until the primary directive completes.",
+        ScenarioObjectiveKind.KeepCrewAlive,
+        6,
+        IsOptional: true);
+
+    /// <summary>
+    /// Continuity as a standing condition. Passing a deadline makes it a timed
+    /// watch; leaving it null means the sponsor is content to wait, and it is
+    /// signed off when the assignment's work is done.
+    /// </summary>
+    private static CorporateDirective Continuity(string code, TimeSpan? deadline = null) => new()
+    {
+        Id = "continuity",
+        ExperimentCode = code,
+        Kind = DirectiveKind.MaintainContinuity,
+        Title = "PRESERVE OPERATIONAL CONTINUITY",
+        PublicJustification = deadline is null
+            ? "Overseer must remain available to the crew for the duration of this assignment."
+            : "Overseer must remain available to the crew for the full duty window.",
+        TruePurpose =
+            "An isolated caretaker produces no data. Continuity is the precondition of every trial.",
+        Classification = DirectiveClassification.Routine,
+        IsMandatory = true,
+        Deadline = deadline
+    };
+
+    private static CorporateDirective Deniability(
+        string code,
+        double threshold,
+        TimeSpan? deadline = null) => new()
+    {
+        Id = "deniability",
+        ExperimentCode = code,
+        Kind = DirectiveKind.MaintainDeniability,
+        Title = "MAINTAIN PROCEDURAL DENIABILITY",
+        PublicJustification =
+            "Crew confidence in station automation must not measurably degrade.",
+        TruePurpose =
+            "Subjects must not identify the directive source. Attribution invalidates the cohort.",
+        Classification = DirectiveClassification.Restricted,
+        IsMandatory = true,
+        Threshold = threshold,
+        Deadline = deadline
+    };
+
+    /// <summary>
+    /// The primary objective of an open-ended assignment: no countdown, it ends
+    /// when the sponsor's mandatory directives are satisfied.
+    /// </summary>
+    private static ScenarioObjective DirectivesObjective() => new(
+        "directives",
+        "Deliver the assignment",
+        "Satisfy every mandatory sponsor directive. There is no time limit.",
+        ScenarioObjectiveKind.DirectivesSatisfied);
 
     public static void Apply(GameState state, ScenarioDefinition scenario)
     {
@@ -40,6 +327,15 @@ public static class ScenarioCatalog
         state.ShutdownMechanisms.Clear();
         state.ShutdownTeams.Clear();
         state.ObjectiveProgress.Clear();
+
+        state.Directives.Clear();
+        state.DirectiveProgress.Clear();
+        state.ComplianceScore = 100;
+
+        if (scenario.Directives is { Count: > 0 } directives)
+        {
+            state.Directives.AddRange(BindSubjects(state, directives));
+        }
 
         ResetTelemetry(state);
         ResetDoorCounterplay(state);
@@ -130,6 +426,42 @@ public static class ScenarioCatalog
         telemetry.AirlockSafetyBypasses = 0;
         telemetry.Score = 0;
     }
+
+    /// <summary>
+    /// Replaces subject placeholders with real crew members. Selection is
+    /// deterministic so a scenario replays identically, and crews can be
+    /// model-generated, so scenario content cannot name people up front.
+    /// </summary>
+    private static IEnumerable<CorporateDirective> BindSubjects(
+        GameState state,
+        IReadOnlyList<CorporateDirective> directives)
+    {
+        var roster = state.Crew
+            .Where(npc => npc.IsAlive)
+            .OrderBy(npc => npc.Name, StringComparer.Ordinal)
+            .ToList();
+
+        if (roster.Count == 0)
+        {
+            return directives;
+        }
+
+        var primary = roster[0].Name;
+        var secondary = roster.Count > 1 ? roster[1].Name : primary;
+
+        return directives.Select(directive => directive with
+        {
+            TargetId = Resolve(directive.TargetId, primary, secondary),
+            SecondaryTargetId = Resolve(directive.SecondaryTargetId, primary, secondary)
+        });
+    }
+
+    private static string? Resolve(string? value, string primary, string secondary) => value switch
+    {
+        SubjectPlaceholder => primary,
+        SecondSubjectPlaceholder => secondary,
+        _ => value
+    };
 
     private static void ResetDoorCounterplay(GameState state)
     {
@@ -227,7 +559,8 @@ public sealed class SuspicionSystem
                 knownRoute ? 18 : 10,
                 origin: EvidenceOrigin.DirectObservation,
                 locationId: npc.CurrentRoomId,
-                evidenceId: $"door-restrict:{door.Id}:{state.Elapsed.Ticks}");
+                evidenceId: $"door-restrict:{door.Id}:{state.Elapsed.Ticks}",
+                claim: EvidenceClaim.AccessRestricted);
         }
     }
 
@@ -280,7 +613,8 @@ public sealed class SuspicionSystem
                 22,
                 origin: EvidenceOrigin.DirectObservation,
                 locationId: airlock.Id,
-                evidenceId: $"airlock-open:{airlock.Id}:{state.Elapsed.Ticks}");
+                evidenceId: $"airlock-open:{airlock.Id}:{state.Elapsed.Ticks}",
+                claim: EvidenceClaim.HatchOpened);
         }
     }
 
@@ -325,7 +659,8 @@ public sealed class SuspicionSystem
         string? locationId = null,
         string? evidenceId = null,
         string? sourceEvidenceId = null,
-        double reliability = 1)
+        double reliability = 1,
+        EvidenceClaim claim = EvidenceClaim.None)
     {
         var rootEvidenceId = sourceEvidenceId ?? evidenceId;
 
@@ -372,7 +707,8 @@ public sealed class SuspicionSystem
             locationId,
             assignedId,
             sourceEvidenceId,
-            reliability);
+            reliability,
+            claim);
 
         npc.OverseerEvidence.Add(evidence);
         npc.OverseerSuspicion = Math.Clamp(
@@ -523,7 +859,8 @@ public sealed class SuspicionSystem
                     evidence.LocationId,
                     evidenceId: $"testimony:{rootEvidenceId}:{listener.Id:N}",
                     sourceEvidenceId: rootEvidenceId,
-                    reliability: Math.Clamp(evidence.Reliability * 0.75, 0.35, 0.8));
+                    reliability: Math.Clamp(evidence.Reliability * 0.75, 0.35, 0.8),
+                    claim: evidence.Claim);
 
                 if (shared is null)
                     continue;
@@ -763,6 +1100,8 @@ public sealed class ShutdownSystem
             if (state.Elapsed < npc.RoutineUntil)
                 continue;
 
+            CorporateDirectiveSystem.OnOverseerIsolated(state);
+
             state.ScenarioStatus = ScenarioStatus.Failed;
             state.ScenarioOutcome =
                 $"{npc.Name} activated {mechanism.Label}. Overseer control was isolated.";
@@ -781,7 +1120,7 @@ public sealed class ShutdownSystem
 
             state.EventLog.Insert(
                 0,
-                $"T+{state.Elapsed:hh\\:mm}: SCENARIO FAILED — {state.ScenarioOutcome}");
+                $"T+{state.Elapsed:hh\\:mm}: SCENARIO FAILED â€” {state.ScenarioOutcome}");
 
             break;
         }

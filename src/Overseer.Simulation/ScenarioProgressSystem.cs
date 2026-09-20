@@ -53,6 +53,21 @@ public sealed class ScenarioProgressSystem
                     progress.StatusText =
                         $"{uptimePercent:0.0}% uptime";
                     break;
+
+                case ScenarioObjectiveKind.DirectivesSatisfied:
+                {
+                    var mandatory = state.Directives.Where(d => d.IsMandatory).ToList();
+                    var satisfied = mandatory.Count(d =>
+                        CorporateDirectiveSystem.Progress(state, d).Status
+                            == DirectiveStatus.Completed);
+
+                    progress.Current = satisfied;
+                    progress.Target = mandatory.Count;
+                    progress.IsComplete = mandatory.Count > 0 && satisfied == mandatory.Count;
+                    progress.StatusText =
+                        $"{satisfied}/{mandatory.Count} sponsor directives satisfied";
+                    break;
+                }
             }
         }
 
@@ -62,7 +77,10 @@ public sealed class ScenarioProgressSystem
                 state.ObjectiveProgress.TryGetValue(objective.Id, out var progress)
                 && progress.IsComplete);
 
-        if (requiredComplete)
+        // The station's own objectives are only half the picture. A scenario is
+        // not won while the corporate sponsor is still grading its directives,
+        // and never won once a mandatory one has failed.
+        if (requiredComplete && CorporateDirectiveSystem.MandatoryDirectivesSatisfied(state))
         {
             CompleteScenario(state, livingCrew, uptimePercent);
         }

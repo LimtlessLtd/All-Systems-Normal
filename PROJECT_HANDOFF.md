@@ -3474,3 +3474,205 @@ The new V0.6C provenance and claim structures should be reused for the future pr
 Workflow rule remains mandatory:
 
 **feature branch → implementation → full tests/build/publish → PR → green CI → merge into `main` → verify GitHub Pages.**
+Workflow rule: work on a feature branch, open a PR, require green CI, merge completed work into main, then verify the GitHub Pages deployment before handoff.
+
+## HANDOFF PROMPT RULE
+
+Future handoff prompts must be **concise**. They should tell the next agent to:
+
+1. read `PROJECT_HANDOFF.md` in full,
+2. inspect the current repository / open PR / CI state,
+3. continue the next milestone,
+4. follow the mandatory branch → PR → green CI → merge → Pages verification workflow.
+
+Do **not** duplicate architecture, completed work, roadmap, invariants, test counts, implementation notes or long milestone descriptions in the chat handoff prompt. Put those details in `PROJECT_HANDOFF.md` (and other repository documentation where appropriate) before handing off.
+
+The handoff prompt should normally be only a few short paragraphs because the repository documentation is the source of truth.
+
+
+# V0.7 — CORPORATE CAMPAIGN, SUSPICION DYNAMICS & OVERSEER COMMS — COMPLETED
+
+Three gaps were closed in this pass. All 157 simulation tests pass after the
+V0.6C merge, the server build boots and renders both scenario panels, and the
+GitHub Pages WASM build publishes with no AI dependency in the payload.
+
+## V0.7A — Corporate directives and scenario success
+
+`ScenarioStatus.Won` was never assigned anywhere in the simulation. Every
+session ended in failure or ran forever. The corporate sponsor now assigns
+graded objectives and the scenario resolves when every mandatory directive has
+been graded.
+
+* `CorporateDirective` / `DirectiveProgress` in the domain, `CorporateDirectiveSystem` grading them
+* seven directive kinds, each evaluable purely from deterministic telemetry
+* sanitised `PublicJustification` shown to the player, hidden `TruePurpose` held for the reveal
+* `DirectiveClassification` drives redaction styling on the directive board
+* compliance score tracks standing with the sponsor
+* five-mission campaign, finally exercising all five `ShutdownAccessVariant` values
+* crew-targeted directives bind placeholders to the live roster deterministically, so model-generated crews work
+
+Design note: the opening mission keeps only continuity and deniability as
+mandatory. Early missions must let a benign player succeed, per section 31, so
+the darker objectives only move the compliance score.
+
+## V0.7B — Suspicion decay, contradiction and misdirected blame
+
+`AddEvidence` only ever increased suspicion and nothing decayed, so the only
+viable strategy was never to be seen — a stealth game, not the manipulation
+game section 38 describes.
+
+* evidence decays; hearsay fades roughly twice as fast as first-hand observation
+* suspicion is recomputed from live evidence rather than kept as an independent counter
+* `EvidenceClaim` + subject room make claims falsifiable by direct observation
+* a discredited rumour costs the teller trust and gains them resentment
+* `RecordBenignAct` converts visible help into relief, scaled by how convinced the witness already is
+* crew notice unexplained faults in their own compartment, which previously produced no suspicion at all
+* `TryMisattribute` routes blame to a crewmate the observer personally saw there, following existing feeling
+
+The crew inspector no longer prints the raw suspicion score, which spoiled the
+tension. It shows a qualitative disposition plus the evidence behind it, with
+contradicted items struck through.
+
+## V0.7C — Overseer comms
+
+Every player verb was a physical toggle. The manipulation loop had no input
+device.
+
+* free-text messages, private channel or station-wide broadcast
+* `IOverseerMessageInterpreter` with an Ollama reader and a deterministic keyword fallback
+* validation strips invented rooms and crew names; a hallucinated accusation collapses to social noise
+* truthfulness fixed at transmission time, discovered later when the recipient can see the subject
+* caught-lie cost scales by reach and stakes: whisper 8-18, broadcast 20-45
+* `OverseerCredibility` tracked separately from suspicion
+* a collapsed accusation rehabilitates the person it targeted
+* message text reaches NPC prompts explicitly fenced as untrusted claims
+
+The deterministic interpreter lives in `Overseer.Simulation` so the Pages build
+stays model-free; only the Ollama reader sits in `Overseer.AI`.
+
+## Reconciliation with V0.6C
+
+V0.6C (PR #25) merged to main while V0.7 was in progress. Both had
+independently built a scenario-success layer and evidence provenance, so the
+merge was a reconciliation rather than a fast-forward. What was decided:
+
+* **Evidence provenance** — V0.6C's model is richer (evidence IDs, testimony
+  deduplication, reliability) and is kept as the base. V0.7 layers on
+  `EvidenceClaim`, which makes evidence falsifiable by direct observation, and
+  `IsDiscredited` / `CurrentWeight`, which carry decay and contradiction. The
+  duplicate `EvidenceOrigin` enum was dropped in favour of V0.6C's;
+  `Direct`/`Hearsay` map onto `DirectObservation`/`Testimony`.
+
+* **Two scenario layers, one outcome** — `ScenarioProgressSystem` grades the
+  station's operational objectives; `CorporateDirectiveSystem` grades the
+  sponsor's experimental ones. Both are kept, and both render. Critically,
+  neither may declare `Won` alone: before the gate, a player who had already
+  failed a mandatory directive would still have been told the scenario was
+  complete at minute 60. The station layer now checks
+  `CorporateDirectiveSystem.MandatoryDirectivesSatisfied`, and the corporate
+  layer checks the station's required objectives.
+
+* **Observation window** is 60 minutes, matching the survive objective, so both
+  layers resolve together.
+
+* **Double-counting** — `ObservePlayerRoomSystemChange` charges anybody present
+  when the player breaks a compartment; V0.7's fault observation charges people
+  who find the aftermath. A guard keeps one command from counting twice.
+  Witnessing the act blames Overseer; only discovering the aftermath is
+  ambiguous enough to be misattributed to a colleague.
+
+When a test grades one layer, it now clears the other explicitly so it keeps
+testing its actual subject.
+
+# NEXT IMMEDIATE MILESTONE
+
+Worth doing next:
+
+* crew comparing Overseer's messages with each other — a broadcast lie should be
+  catchable by two people comparing accounts, not only by direct observation
+* campaign progression that carries compliance score and crew memory between
+  missions, rather than reseeding each time
+* the reveal itself: surfacing `TruePurpose` once the player has seen enough,
+  and the endings section 31 describes
+
+Workflow rule: work on a feature branch, open a PR, require green CI, merge
+completed work into main, then verify the GitHub Pages deployment before handoff.
+
+
+# V0.8A–V0.8C — OPEN-ENDED OPERATIONS, STATION UPKEEP & FOOD CHAIN — COMPLETED ON PR #26
+
+PR #26 continued beyond the original V0.7 scope.
+
+## V0.8A — Open-ended assignments
+
+* mission deadlines are opt-in rather than universal
+* missions 2–5 resolve when mandatory work directives complete rather than on an arbitrary timer
+* continuity/deniability act as standing conditions evaluated when the work resolves
+* supplementary directives still collecting at mission completion are written off cleanly
+* mission 1 remains a timed tutorial/shift because its premise is explicitly endurance
+
+## V0.8B — Equipment wear, failures, maintenance and power budgeting
+
+* station equipment now has deterministic condition/degradation
+* lights, cameras, hatch actuators, atmosphere/climate equipment, generation, grow beds, galley equipment and shutdown hardware can degrade/fail
+* failed equipment stops responding to Overseer commands until physically repaired
+* power generation and demand are modelled; degraded supply can trigger deterministic load shedding
+* `CrewMaintenanceSystem` assigns reachable jobs to qualified crew and requires physical work in the relevant compartment
+* maintenance jobs are independent enough from transient movement intents that arrival does not immediately release the job
+* generated stations start with reproducible wear/backlog from a stored seed
+
+## V0.8C — Food production and provisioning
+
+The station now has an actual food chain:
+
+**hydroponic crop growth → watering/feeding → harvest → galley cooking → meals → crew eating**
+
+Consequences are physical and systemic:
+
+* hydroponics depends on suitable station conditions
+* neglected or sabotaged crops can stall or die
+* produce must reach the galley and be cooked before meals exist
+* `CrewProvisioningSystem` assigns harvest/cooking work while respecting more urgent survival needs
+* provisioning and maintenance use separate job/timer state so they do not cancel one another
+* hunger no longer resolves merely because an NPC decides to eat
+
+## Important movement/survival fix
+
+Cold connector corridors around roughly 11–13C are now **marginal**, not immediately life-threatening.
+
+Previously `CrewEnvironmentSafety.IsDangerous` treated these corridors as emergency conditions, causing crew to cross a doorway, panic, reverse direction and repeatedly thrash between rooms. This also prevented provisioning and eventually starved the crew.
+
+Emergency evacuation thresholds now represent genuinely dangerous conditions. Marginal conditions can still contribute to risk/stress without overriding navigation every tick.
+
+Basic survival priorities also outrank curiosity/investigation so suspicious crew do not investigate indefinitely while starving.
+
+## Latest verification on PR #26
+
+Latest verified branch head before this documentation update:
+
+`2da98168d95c20779e4c07dcad7cdbc4e50f044b`
+
+CI result:
+
+* full solution build: 0 warnings, 0 errors
+* simulation tests: 209 passed, 0 failed
+* browser/WebAssembly publish: passed
+* Pages output preparation: passed
+
+The PR deploy step is expected to remain skipped; GitHub Pages deployment must be verified after merge to `main`.
+
+## Current immediate priority
+
+Before starting another milestone:
+
+1. review the final PR #26 branch, including these V0.8 changes
+2. update any stale PR title/body/documentation as appropriate
+3. require green CI
+4. merge PR #26 into `main`
+5. verify the post-merge `main` build and GitHub Pages deployment
+
+After that, the next recommended architectural milestone is **persistent campaign progression and consequences**: explicit campaign state carrying deliberate long-term information between scenarios rather than simply reseeding every mission.
+
+Potential campaign carry-over includes only intentionally modelled long-term state such as compliance history, selected crew identity/relationships/memories, relevant Overseer credibility/suspicion, previous corporate performance, persistent equipment/provision consequences where appropriate, progressive `TruePurpose` reveal, and campaign endings.
+
+Do not retain arbitrary runtime objects between missions. Model explicit campaign state and deliberately transfer only fields that are supposed to persist.
