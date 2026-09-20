@@ -158,6 +158,25 @@ public sealed class InvestigationSystem
             }
 
             Log(state, $"{npc.Name} discovers physical Overseer isolation hardware in {room.Name}.");
+
+            foreach (var alternate in state.ShutdownMechanisms.Where(other =>
+                         other.IsOnline
+                         && !other.Id.Equals(mechanism.Id, StringComparison.OrdinalIgnoreCase)
+                         && !npc.KnownShutdownMechanismIds.Contains(other.Id)))
+            {
+                var leadId = $"redundant-control:{alternate.Id}";
+                if (!npc.InvestigationLeads.ContainsKey(leadId))
+                {
+                    npc.InvestigationLeads[leadId] = new InvestigationLead
+                    {
+                        Id = leadId,
+                        Description =
+                            $"The verified isolation hardware references a redundant emergency circuit associated with {state.Facility.Rooms[alternate.RoomId].Name}. Verify that second control physically.",
+                        RoomId = alternate.RoomId,
+                        CreatedAt = state.Elapsed
+                    };
+                }
+            }
         }
 
         InspectLocalDoorConditions(state, npc, room);
