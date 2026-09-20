@@ -32,6 +32,7 @@ public static class NpcPromptBuilder
         var room = state.Facility.Rooms[npc.CurrentRoomId];
         var occupants = state.Crew
             .Where(other => other.IsAlive
+                && other.IsPresent
                 && other.Id != npc.Id
                 && other.CurrentRoomId == npc.CurrentRoomId)
             .Select(other => $"{other.Name} ({other.Role})")
@@ -104,9 +105,33 @@ public static class NpcPromptBuilder
                 + $"pressure {r.PressureKpa:0.0} kPa | temp {r.TemperatureC:0.0}C | "
                 + $"{CrewEnvironmentSafety.Label(r)}");
 
-        var livingCrew = state.Crew
-            .Where(other => other.IsAlive && other.Id != npc.Id)
+        var knownPersonTargets = state.Crew
+            .Where(other =>
+                other.Id != npc.Id
+                && !npc.DiscoveredBodies.Contains(other.Id))
             .Select(other => other.Name);
+
+        var missingConcerns = npc.MissingPersonConcerns.Values
+            .OrderByDescending(concern => concern.Stage)
+            .ThenBy(concern => concern.FirstConcernAt)
+            .Select(concern =>
+            {
+                var expectedRoom = state.Facility.Rooms[concern.ExpectedRoomId].Name;
+                var lastSeen = concern.LastSeenAt is { } seenAt
+                    ? $"last personally seen T+{seenAt:hh\\:mm} in "
+                        + state.Facility.Rooms[concern.LastKnownRoomId!].Name
+                    : "no direct sighting recorded this shift";
+                var checkedRooms = concern.CheckedRoomIds.Count == 0
+                    ? "none"
+                    : string.Join(", ", concern.CheckedRoomIds.Select(id =>
+                        state.Facility.Rooms.TryGetValue(id, out var checkedRoom)
+                            ? checkedRoom.Name
+                            : id));
+
+                return $"- {concern.PersonName}: {concern.Stage}; {lastSeen}; "
+                    + $"expected duty around {expectedRoom}; checked rooms: {checkedRooms}";
+            })
+            .ToArray();
 
         var builder = new StringBuilder();
         builder.AppendLine("You are choosing ONE high-level intention for a human NPC in a space-station simulation.");
@@ -116,6 +141,7 @@ public static class NpcPromptBuilder
         builder.AppendLine("If the CURRENT ROOM is marked DANGER, survival should normally override routine work, recreation, or casual socialising.");
         builder.AppendLine("If a hatch blocks something you strongly want to do, you MAY choose ForceDoor for an adjacent blocked hatch. Whether it works is resolved later from skills, traits and chance.");
         builder.AppendLine("If a disabled system matters enough to this person, you MAY choose RestoreSystem. Do not automatically repair every outage: personality, role, danger, relationships and priorities should decide whether you care enough to try.");
+        builder.AppendLine("A missing-person concern is observer knowledge, not omniscient truth. It does NOT prove that person is dead or reveal their real location. You may Investigate a plausible room, ask another known crewmember for help, or keep another priority if it matters more.");
         builder.AppendLine("Never assume ForceDoor or RestoreSystem succeeds. You are choosing the intention, not the physical result.");
         builder.AppendLine("Never choose Attack. Violence is resolved separately by the deterministic social simulation.");
         builder.AppendLine();
@@ -145,6 +171,10 @@ public static class NpcPromptBuilder
         builder.AppendLine("BELIEFS:");
         foreach (var belief in beliefs) builder.AppendLine(belief);
         builder.AppendLine();
+        builder.AppendLine("MISSING-PERSON CONCERNS:");
+        if (missingConcerns.Length == 0) builder.AppendLine("- none");
+        else foreach (var concern in missingConcerns) builder.AppendLine(concern);
+        builder.AppendLine();
         builder.AppendLine("STATION STATUS-PANEL ROOM READINGS:");
         builder.AppendLine("These are the compartment readings currently available to this crew member; route status reflects passable hatches.");
         foreach (var knownRoom in rooms) builder.AppendLine($"- {knownRoom}");
@@ -153,14 +183,14 @@ public static class NpcPromptBuilder
         builder.AppendLine(disabledSystems.Count == 0
             ? "none"
             : string.Join(", ", disabledSystems));
-        builder.AppendLine("VALID PERSON TARGETS:");
-        builder.AppendLine(string.Join(", ", livingCrew));
+        builder.AppendLine("KNOWN CREW ROSTER / VALID PERSON TARGETS:");
+        builder.AppendLine(string.Join(", ", knownPersonTargets));
         builder.AppendLine();
         builder.AppendLine($"ALLOWED ACTIONS: {string.Join(", ", AllowedActions)}");
         builder.AppendLine("For Move/Investigate/Repair/Work, TargetId must be a valid room ID.");
         builder.AppendLine("For ForceDoor, TargetId must be the exact ID of a currently connected blocked hatch listed above.");
         builder.AppendLine("For RestoreSystem, TargetId must be one of the DISABLED SYSTEM TARGET IDS (room ID or life-support).");
-        builder.AppendLine("For Talk/Socialize/Argue/RequestHelp, TargetId must be an exact living person's name.");
+        builder.AppendLine("For Talk/Socialize/Argue/RequestHelp, TargetId must be an exact name from the known crew roster. Physical interaction can still fail later if that person cannot actually be reached.");
         builder.AppendLine("For Eat/Rest/Sleep/Recreate/Groom/Shower/UseToilet/Idle, TargetId should be null.");
         builder.AppendLine("Do not choose Intimacy directly. Attraction may inform social choices, but mutual consent is resolved by deterministic simulation.");
         builder.AppendLine("Urgency must be 0-100.");

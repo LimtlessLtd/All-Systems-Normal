@@ -8,6 +8,7 @@ public sealed class GameSession
     private readonly SimulationEngine _simulation = new();
     private readonly EnvironmentSystem _environment = new();
     private readonly VacuumConsequenceSystem _vacuum = new();
+    private readonly MissingPersonSystem _missingPeople = new();
     private readonly CrewCounterplaySystem _counterplay = new();
     private readonly CrewRoutineSystem _crewRoutines = new();
     private readonly SocialSimulationSystem _social = new();
@@ -329,6 +330,7 @@ public sealed class GameSession
         _environment.Tick(State, turn);
         _vacuum.Tick(State);
         _simulation.Tick(State, turn);
+        _missingPeople.Tick(State);
         _browserMind.Tick(State);
         _intentExecution.Tick(State);
         _counterplay.Tick(State);

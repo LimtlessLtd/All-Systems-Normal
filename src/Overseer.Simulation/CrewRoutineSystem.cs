@@ -7,23 +7,6 @@ public sealed class CrewRoutineSystem
     private readonly ActionResolver _actions = new();
     private readonly NavigationSystem _navigation = new();
 
-    private static readonly IReadOnlyDictionary<CrewRole, string[]> WorkRoutes =
-        new Dictionary<CrewRole, string[]>
-        {
-            [CrewRole.Commander] =
-                ["control", "medical", "hydroponics", "engineering", "kitchen", "lounge", "quarters", "storage"],
-            [CrewRole.Engineer] =
-                ["engineering", "reactor", "generator", "hydroponics", "control", "storage", "airlock"],
-            [CrewRole.Security] =
-                ["corridor", "airlock", "storage", "quarters", "hydroponics", "medical", "control", "engineering"],
-            [CrewRole.Doctor] =
-                ["medical", "quarters", "hydroponics", "kitchen", "control", "storage", "lounge"],
-            [CrewRole.Technician] =
-                ["generator", "engineering", "storage", "hydroponics", "airlock", "control", "reactor", "medical"],
-            [CrewRole.Scientist] =
-                ["reactor", "hydroponics", "medical", "control", "storage", "engineering", "lounge", "kitchen"]
-        };
-
     public void Tick(GameState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -287,9 +270,9 @@ public sealed class CrewRoutineSystem
             }
         }
 
-        var route = WorkRoutes[npc.Role];
-        var phase = ((minute / 30) + (int)npc.Role) % route.Length;
-        var target = route[phase];
+        var target = CrewDutySchedule.ExpectedDutyRoomId(
+            npc.Role,
+            state.Elapsed);
 
         return new(
             target,

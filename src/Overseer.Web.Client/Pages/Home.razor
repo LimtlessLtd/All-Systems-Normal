@@ -341,6 +341,30 @@
                     }
                 </div>
 
+                <div class="belief-card">
+                    <span>MISSING CREW CONCERNS</span>
+                    @if (selectedCrew.MissingPersonConcerns.Count == 0)
+                    {
+                        <p>No one currently appears missing to this crew member.</p>
+                    }
+                    else
+                    {
+                        @foreach (var concern in selectedCrew.MissingPersonConcerns.Values
+                            .OrderByDescending(concern => concern.Stage)
+                            .ThenBy(concern => concern.FirstConcernAt))
+                        {
+                            <p>
+                                <strong>@concern.PersonName · @concern.Stage</strong>
+                                <small style="display:block">
+                                    Expected @Session.State.Facility.Rooms[concern.ExpectedRoomId].Name
+                                    · Last seen @(concern.LastSeenAt is { } seenAt ? $"T+{seenAt:hh\\:mm}" : "unknown")
+                                    · Checked @concern.CheckedRoomIds.Count
+                                </small>
+                            </p>
+                        }
+                    }
+                </div>
+
                 <div class="relationship-card">
                     <span>RELATIONSHIPS</span>
                     @foreach (var relationship in selectedCrew.Relationships.Values

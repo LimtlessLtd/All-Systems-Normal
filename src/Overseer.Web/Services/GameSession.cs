@@ -13,6 +13,7 @@ public sealed class GameSession(
     private readonly SimulationEngine _simulation = new();
     private readonly EnvironmentSystem _environment = new();
     private readonly VacuumConsequenceSystem _vacuum = new();
+    private readonly MissingPersonSystem _missingPeople = new();
     private readonly CrewCounterplaySystem _counterplay = new();
     private readonly CrewRoutineSystem _crewRoutines = new();
     private readonly SocialSimulationSystem _social = new();
@@ -360,6 +361,7 @@ public sealed class GameSession(
         _environment.Tick(State, turn);
         _vacuum.Tick(State);
         _simulation.Tick(State, turn);
+        _missingPeople.Tick(State);
 
         await ThinkIfDueAsync(cancellationToken);
 
@@ -415,6 +417,31 @@ public sealed class GameSession(
                 emergency: true,
                 cancellationToken);
 
+            return;
+        }
+
+        var eventNpc = living
+            .Where(npc =>
+                npc.NeedsMindReconsideration
+                && (npc.Intent is null || npc.Intent.Urgency < 85))
+            .OrderByDescending(npc =>
+                npc.MissingPersonConcerns.Values.Any(concern =>
+                    concern.Stage == MissingPersonConcernStage.Escalated))
+            .ThenBy(npc => npc.Name)
+            .FirstOrDefault();
+
+        if (eventNpc is not null)
+        {
+            eventNpc.Intent = null;
+            eventNpc.Movement = null;
+            eventNpc.RoutineUntil = TimeSpan.Zero;
+
+            await ThinkForNpcAsync(
+                eventNpc,
+                emergency: eventNpc.MissingPersonConcerns.Count > 0,
+                cancellationToken);
+
+            eventNpc.NeedsMindReconsideration = false;
             return;
         }
 
