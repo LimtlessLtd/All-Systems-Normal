@@ -708,9 +708,21 @@ public static class StationGenerator
     private static void BuildLinear(Facility facility, SeededRandom random, double t)
     {
         var y = random.NextDouble(45, 55);
-        AddHorizontal(facility, "corridor", "Primary Spine", 14, 86, y, t);
-        AddVertical(facility, "corridor-west", "West Service Spine", 14 - (t / 2), 18, 82, t);
-        AddVertical(facility, "corridor-east", "East Service Spine", 86 + (t / 2), 18, 82, t);
+        AddHorizontal(facility, "corridor", "Primary Spine", 10, 90, y, t);
+
+        if (random.NextDouble() < 0.45)
+        {
+            var x = random.NextDouble(34, 66);
+            var north = random.NextDouble() < 0.5;
+            if (north)
+            {
+                AddVertical(facility, "corridor-service", "Service Spur", x, 24, y - (t / 2), Math.Min(t, 4.2));
+            }
+            else
+            {
+                AddVertical(facility, "corridor-service", "Service Spur", x, y + (t / 2), 76, Math.Min(t, 4.2));
+            }
+        }
     }
 
     private static void BuildHub(Facility facility, SeededRandom random, double t)
@@ -755,7 +767,7 @@ public static class StationGenerator
 
     private static void BuildRing(Facility facility, SeededRandom random, double t)
     {
-        var inset = random.NextDouble(15, 21);
+        var inset = random.NextDouble(23, 28);
         var left = inset;
         var right = 100 - inset;
         var top = inset + random.NextDouble(-2, 2);
@@ -799,38 +811,37 @@ public static class StationGenerator
     private static void BuildSprawling(Facility facility, SeededRandom random, double t)
     {
         var y = random.NextDouble(45, 52);
-        const double eastJunction = 89;
-        AddHorizontal(facility, "corridor", "Long Concourse", 7, eastJunction, y, t);
+        const double eastJunction = 82;
+        AddHorizontal(facility, "corridor", "Long Concourse", 10, eastJunction, y, t);
 
-        var northX = random.NextDouble(22, 34);
-        AddVertical(facility, "corridor-north-wing", "North Wing", northX, 7, y - (t / 2), t);
+        var northX = random.NextDouble(24, 36);
+        AddVertical(facility, "corridor-north-wing", "North Wing", northX, 14, y - (t / 2), t);
 
-        var southX = random.NextDouble(65, 78);
-        AddVertical(facility, "corridor-south-wing", "South Wing", southX, y + (t / 2), 93, t);
+        var southX = random.NextDouble(60, 73);
+        AddVertical(facility, "corridor-south-wing", "South Wing", southX, y + (t / 2), 86, t);
 
         AddVertical(
             facility,
             "corridor-east-wing",
             "East Wing",
             eastJunction + (t / 2),
-            18,
-            82,
+            26,
+            74,
             t);
     }
 
     private static void BuildMultiSpine(Facility facility, SeededRandom random, double t)
     {
-        var top = random.NextDouble(27, 34);
-        var bottom = random.NextDouble(66, 73);
-        var left = 14d;
-        var right = 86d;
+        var top = random.NextDouble(29, 34);
+        var bottom = random.NextDouble(66, 71);
+        var left = 18d;
+        var right = 82d;
         var half = t / 2;
 
         AddHorizontal(facility, "corridor", "Upper Spine", left, right, top, t);
         AddHorizontal(facility, "corridor-lower", "Lower Spine", left, right, bottom, t);
         AddVertical(facility, "corridor-west-link", "West Link", left - half, top, bottom, t);
         AddVertical(facility, "corridor-east-link", "East Link", right + half, top, bottom, t);
-        AddVertical(facility, "corridor-mid-link", "Mid Link", random.NextDouble(43, 57), top + half, bottom - half, t);
     }
 
     private static void BuildRetrofit(Facility facility, SeededRandom random, double t)
@@ -998,9 +1009,9 @@ public static class StationGenerator
     {
         var scale = identity.Size switch
         {
-            StationSizeClass.Compact => 0.95,
-            StationSizeClass.Large => 1.25,
-            _ => 1.12
+            StationSizeClass.Compact => 0.88,
+            StationSizeClass.Large => 1.12,
+            _ => 1.00
         };
 
         if (profile.Id.Equals("quarters", StringComparison.OrdinalIgnoreCase))
@@ -1013,9 +1024,9 @@ public static class StationGenerator
             scale *= 0.9 + (identity.IndustrialIntensity / 500d);
         }
 
-        var shrink = attempt < 360
+        var shrink = attempt < 280
             ? 1d
-            : Math.Clamp(1d - ((attempt - 360) / 1800d), 0.86, 1d);
+            : Math.Clamp(1d - ((attempt - 280) / 1200d), 0.75, 1d);
 
         var width = random.NextDouble(profile.MinWidth, profile.MaxWidth) * scale * shrink;
         var height = random.NextDouble(profile.MinHeight, profile.MaxHeight) * scale * shrink;
@@ -1026,8 +1037,8 @@ public static class StationGenerator
             (width, height) = (height, width);
         }
 
-        width = Math.Clamp(width, 8.5, 28);
-        height = Math.Clamp(height, 9.5, 30);
+        width = Math.Clamp(width, 7.5, 24);
+        height = Math.Clamp(height, 8.5, 27);
 
         var passageWidth = identity.Budget switch
         {
