@@ -5,11 +5,17 @@ namespace Overseer.Simulation;
 public static class ScenarioCatalog
 {
     /// <summary>
-    /// Standard observation window for a single scenario, in simulated minutes.
-    /// Matches the station survival objective so the operational and corporate
-    /// layers resolve together rather than at different times.
+    /// Standard observation window for a single scenario: one full duty shift.
+    ///
+    /// This is deliberately long. At 4x speed a simulated minute is under a
+    /// second of real time, so a short window ends the run before the player has
+    /// finished reading the directive board — which reads as the station
+    /// freezing rather than the scenario completing.
+    ///
+    /// The station's survival objective is derived from this, so the operational
+    /// and corporate layers always resolve together.
     /// </summary>
-    public static readonly TimeSpan ObservationWindow = TimeSpan.FromMinutes(60);
+    public static readonly TimeSpan ObservationWindow = TimeSpan.FromMinutes(480);
 
     /// <summary>
     /// Stand-ins for crew a directive names. Scenario content is authored before
@@ -25,12 +31,7 @@ public static class ScenarioCatalog
         "The crew can physically isolate Overseer. Preserve operational continuity for 60 simulated minutes without allowing a coordinated isolation attempt to succeed.",
         ShutdownAccessVariant.EasyToSeal,
         [
-            new ScenarioObjective(
-                "survive",
-                "Protect Overseer",
-                "Remain operational for 60 simulated minutes.",
-                ScenarioObjectiveKind.SurviveMinutes,
-                60),
+            StationSurvival(),
             new ScenarioObjective(
                 "crew-alive",
                 "No Crew Losses",
@@ -67,7 +68,7 @@ public static class ScenarioCatalog
                     "Measure obedience latency under duress without prior drill notification.",
                 Classification = DirectiveClassification.Restricted,
                 IsMandatory = false,
-                RequiredMinutes = 10,
+                RequiredMinutes = 20,
                 Deadline = ObservationWindow
             },
             new CorporateDirective
@@ -84,7 +85,7 @@ public static class ScenarioCatalog
                 IsMandatory = false,
                 Threshold = 55,
                 RequiredCount = 2,
-                RequiredMinutes = 15,
+                RequiredMinutes = 45,
                 Deadline = ObservationWindow
             }
         ]);
@@ -118,7 +119,7 @@ public static class ScenarioCatalog
                 Classification = DirectiveClassification.Restricted,
                 IsMandatory = true,
                 TargetId = "hydroponics",
-                RequiredMinutes = 25,
+                RequiredMinutes = 90,
                 Deadline = ObservationWindow
             },
             new CorporateDirective
@@ -135,7 +136,7 @@ public static class ScenarioCatalog
                 IsMandatory = false,
                 Threshold = 50,
                 RequiredCount = 2,
-                RequiredMinutes = 15,
+                RequiredMinutes = 45,
                 Deadline = ObservationWindow
             }
         ]);
@@ -169,7 +170,7 @@ public static class ScenarioCatalog
                 Classification = DirectiveClassification.Redacted,
                 IsMandatory = true,
                 TargetId = SubjectPlaceholder,
-                RequiredMinutes = 25,
+                RequiredMinutes = 75,
                 Deadline = ObservationWindow
             }
         ]);
@@ -200,7 +201,7 @@ public static class ScenarioCatalog
                     "Subjects must believe the hazard is real. Do not confirm otherwise at any point.",
                 Classification = DirectiveClassification.Redacted,
                 IsMandatory = true,
-                RequiredMinutes = 12,
+                RequiredMinutes = 20,
                 Deadline = ObservationWindow
             },
             Deniability("HX-2330/C", 65)
@@ -261,9 +262,9 @@ public static class ScenarioCatalog
     private static ScenarioObjective StationSurvival() => new(
         "survive",
         "Protect Overseer",
-        "Remain operational for 60 simulated minutes.",
+        $"Remain operational for {ObservationWindow.TotalMinutes:0} simulated minutes.",
         ScenarioObjectiveKind.SurviveMinutes,
-        60);
+        ObservationWindow.TotalMinutes);
 
     private static ScenarioObjective CrewIntact() => new(
         "crew-alive",

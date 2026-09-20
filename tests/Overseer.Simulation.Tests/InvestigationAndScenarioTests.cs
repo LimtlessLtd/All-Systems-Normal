@@ -218,13 +218,15 @@ public sealed class InvestigationAndScenarioTests
         state.Directives.Clear();
         state.DirectiveProgress.Clear();
 
-        state.Elapsed = TimeSpan.FromMinutes(59);
-        system.Tick(state, TimeSpan.FromMinutes(59));
+        var window = ScenarioCatalog.ObservationWindow;
+
+        state.Elapsed = window - TimeSpan.FromMinutes(1);
+        system.Tick(state, state.Elapsed);
 
         Assert.Equal(ScenarioStatus.Running, state.ScenarioStatus);
         Assert.False(state.ObjectiveProgress["survive"].IsComplete);
 
-        state.Elapsed = TimeSpan.FromMinutes(60);
+        state.Elapsed = window;
         system.Tick(state, TimeSpan.FromMinutes(1));
 
         Assert.Equal(ScenarioStatus.Won, state.ScenarioStatus);

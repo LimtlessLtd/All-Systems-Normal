@@ -862,6 +862,49 @@
         </div>
     </section>
     </div>
+
+    @if (Session.State.ScenarioStatus != ScenarioStatus.Running)
+    {
+        <div class="run-end-overlay">
+            <section class="run-end-card run-end-@Session.State.ScenarioStatus.ToString().ToLowerInvariant()">
+                <span class="overline">SHIFT ENDED · T+@Session.State.Elapsed.ToString(@"hh\:mm")</span>
+                <h2>@RunEndHeadline</h2>
+                <p class="run-end-outcome">@Session.State.ScenarioOutcome</p>
+
+                @if (Session.State.Directives.Count > 0)
+                {
+                    <div class="run-end-directives">
+                        @foreach (var directive in Session.State.Directives)
+                        {
+                            var endProgress = CorporateDirectiveSystem.Progress(Session.State, directive);
+
+                            <div class="run-end-row status-@endProgress.Status.ToString().ToLowerInvariant()">
+                                <span class="directive-code">@directive.ExperimentCode</span>
+                                <span class="run-end-title">@directive.Title</span>
+                                <span class="directive-status">@DirectiveStatusLabel(endProgress.Status)</span>
+                            </div>
+                        }
+                    </div>
+
+                    <p class="run-end-compliance">
+                        SPONSOR COMPLIANCE
+                        <strong class="@ComplianceClass">@Session.State.ComplianceScore.ToString("0")%</strong>
+                    </p>
+                }
+
+                <div class="run-end-actions">
+                    <button class="wide" @onclick="RestartScenarioAsync">RUN THIS SHIFT AGAIN</button>
+                    <select class="comms-target" @onchange="OnScenarioChanged">
+                        <option value="">— load another directive package —</option>
+                        @foreach (var option in ScenarioCatalog.Campaign)
+                        {
+                            <option value="@option.Id">@option.Title</option>
+                        }
+                    </select>
+                </div>
+            </section>
+        </div>
+    }
 </div>
 
 @code {
@@ -930,6 +973,29 @@
         {
             _transmitting = false;
         }
+    }
+
+    private string RunEndHeadline => Session.State.ScenarioStatus switch
+    {
+        ScenarioStatus.Won => "DIRECTIVES SATISFIED",
+        ScenarioStatus.Failed => "SHIFT COMPROMISED",
+        _ => "SHIFT ENDED"
+    };
+
+    private Task RestartScenarioAsync()
+    {
+        if (Session.State.Scenario is { } current)
+        {
+            Session.LoadScenario(current.Id);
+        }
+        else
+        {
+            Session.Reset();
+        }
+
+        _selectedCrewId = null;
+        _selectedRoomId = null;
+        return Task.CompletedTask;
     }
 
     private string ComplianceClass => Session.State.ComplianceScore switch

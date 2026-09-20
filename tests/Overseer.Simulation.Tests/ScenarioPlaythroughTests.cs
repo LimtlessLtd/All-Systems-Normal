@@ -105,23 +105,29 @@ public sealed class ScenarioPlaythroughTests
         var state = FacilitySeeder.CreateDefault();
         var harness = new Harness();
 
-        // Repeatedly give every crew member direct, first-hand evidence that
-        // Overseer is acting against them.
-        for (var i = 0; i < 6; i++)
+        // Sustained hostility across the whole shift. Evidence decays, so a
+        // player who is blatant once and then behaves is meant to recover —
+        // testing the loss condition means keeping it up.
+        var window = (int)ScenarioCatalog.ObservationWindow.TotalMinutes;
+
+        for (var incident = 0; incident * 15 < window + 15; incident++)
         {
+            if (state.ScenarioStatus != ScenarioStatus.Running)
+            {
+                break;
+            }
+
             foreach (var npc in state.Crew.Where(n => n.IsAlive))
             {
                 SuspicionSystem.AddEvidence(
                     state,
                     npc,
-                    $"I watched Overseer seal a hatch in my face. (incident {i})",
+                    $"I watched Overseer seal a hatch in my face. (incident {incident})",
                     20);
             }
 
-            harness.Run(state, 5);
+            harness.Run(state, 15);
         }
-
-        harness.Run(state, (int)ScenarioCatalog.ObservationWindow.TotalMinutes);
 
         Assert.Equal(ScenarioStatus.Failed, state.ScenarioStatus);
         Assert.True(state.ComplianceScore < 100);

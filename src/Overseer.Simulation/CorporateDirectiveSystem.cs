@@ -524,38 +524,23 @@ public sealed class CorporateDirectiveSystem
     {
         var mandatory = state.Directives.Where(d => d.IsMandatory).ToList();
 
-        if (mandatory.Count == 0
-            || mandatory.Any(d => !Progress(state, d).IsResolved))
+        if (mandatory.Count == 0)
         {
             return;
         }
 
+        // A mandatory directive that has failed ends the run straight away.
+        // There is no point finishing a shift the sponsor has already written
+        // off, and leaving it running hid the loss from the player.
         var failed = mandatory
             .Where(d => Progress(state, d).Status == DirectiveStatus.Failed)
             .ToList();
 
-        var optionalCompleted = state.Directives.Count(d =>
-            !d.IsMandatory && Progress(state, d).Status == DirectiveStatus.Completed);
-
         if (failed.Count == 0)
         {
-            // Symmetric with ScenarioProgressSystem: satisfying the sponsor does
-            // not end the scenario while the station's own required objectives
-            // are still outstanding.
-            if (!StationObjectivesComplete(state))
-            {
-                return;
-            }
-
-            state.ScenarioStatus = ScenarioStatus.Won;
-            state.ScenarioOutcome =
-                $"All mandatory directives satisfied. Compliance {state.ComplianceScore:0}%"
-                + (optionalCompleted > 0
-                    ? $", {optionalCompleted} supplementary objective(s) delivered."
-                    : ".");
-
-            AudioCueSystem.Emit(state, AudioCueKind.Important);
-            Log(state, $"SCENARIO COMPLETE — {state.ScenarioOutcome}");
+            // Victory belongs to ScenarioProgressSystem, which owns the station
+            // objectives, the telemetry score and the outcome text. Declaring it
+            // here as well would race that bookkeeping and skip it.
             return;
         }
 
@@ -579,24 +564,6 @@ public sealed class CorporateDirectiveSystem
         return state.Directives
             .Where(directive => directive.IsMandatory)
             .All(directive => Progress(state, directive).Status == DirectiveStatus.Completed);
-    }
-
-    /// <summary>
-    /// True when the station's own required objectives are complete, or when the
-    /// scenario declares none.
-    /// </summary>
-    private static bool StationObjectivesComplete(GameState state)
-    {
-        if (state.Scenario is null)
-        {
-            return true;
-        }
-
-        return state.Scenario.Objectives
-            .Where(objective => !objective.IsOptional)
-            .All(objective =>
-                state.ObjectiveProgress.TryGetValue(objective.Id, out var progress)
-                && progress.IsComplete);
     }
 
     private static double Fraction(DirectiveProgress progress, CorporateDirective directive) =>

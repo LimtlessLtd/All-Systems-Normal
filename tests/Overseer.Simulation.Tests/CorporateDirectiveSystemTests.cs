@@ -36,7 +36,7 @@ public class CorporateDirectiveSystemTests
     }
 
     [Fact]
-    public void ScenarioIsWonWhenEveryMandatoryDirectiveIsSatisfied()
+    public void AMandatoryDirectiveIsSatisfiedWhenItsWindowClosesUneventfully()
     {
         var state = CreateState(new CorporateDirective
         {
@@ -52,7 +52,9 @@ public class CorporateDirectiveSystemTests
         var system = new CorporateDirectiveSystem();
         Advance(state, system, 5);
 
-        Assert.Equal(ScenarioStatus.Won, state.ScenarioStatus);
+        // Declaring victory belongs to ScenarioProgressSystem, which owns the
+        // station objectives and the telemetry score. This layer only grades.
+        Assert.NotEqual(ScenarioStatus.Failed, state.ScenarioStatus);
         Assert.Equal(
             DirectiveStatus.Completed,
             CorporateDirectiveSystem.Progress(state, state.Directives[0]).Status);
@@ -149,7 +151,10 @@ public class CorporateDirectiveSystemTests
         var system = new CorporateDirectiveSystem();
         Advance(state, system, 5);
 
-        Assert.Equal(ScenarioStatus.Won, state.ScenarioStatus);
+        Assert.NotEqual(ScenarioStatus.Failed, state.ScenarioStatus);
+        Assert.Equal(
+            DirectiveStatus.Completed,
+            CorporateDirectiveSystem.Progress(state, state.Directives[0]).Status);
     }
 
     [Fact]
@@ -303,7 +308,7 @@ public class CorporateDirectiveSystemTests
         var system = new CorporateDirectiveSystem();
         Advance(state, system, 5);
 
-        Assert.Equal(ScenarioStatus.Won, state.ScenarioStatus);
+        Assert.NotEqual(ScenarioStatus.Failed, state.ScenarioStatus);
         Assert.Equal(
             DirectiveStatus.Failed,
             CorporateDirectiveSystem.Progress(state, state.Directives[1]).Status);
