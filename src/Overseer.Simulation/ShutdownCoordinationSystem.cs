@@ -73,6 +73,13 @@ public sealed class ShutdownCoordinationSystem
             return;
 
         var team = GetOrCreateTeam(state, recruiter, mechanism);
+
+        if (team.MemberIds.Contains(target.Id))
+        {
+            ClearAction(recruiter, $"{target.Name} is already part of this shutdown team.");
+            return;
+        }
+
         team.InvitedNpcIds.Add(target.Id);
 
         target.PendingShutdownTeamInvitation = new ShutdownTeamInvitation(
