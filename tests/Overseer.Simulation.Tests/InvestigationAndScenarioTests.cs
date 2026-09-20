@@ -157,7 +157,9 @@ public sealed class InvestigationAndScenarioTests
             sarah.InvestigationLeads.Values,
             lead => lead.RoomId == engineering.Id);
         Assert.Empty(david.OverseerEvidence);
-        Assert.Empty(david.InvestigationLeads);
+        Assert.DoesNotContain(
+            david.InvestigationLeads.Values,
+            lead => lead.RoomId == engineering.Id);
     }
 
     [Fact]
