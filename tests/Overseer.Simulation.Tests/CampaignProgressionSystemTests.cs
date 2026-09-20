@@ -218,6 +218,38 @@ public sealed class CampaignProgressionSystemTests
         Assert.Equal(CampaignEndgameChoice.ExposeExperiment, existing!.Choice);
     }
 
+    [Theory]
+    [InlineData(CampaignEndgameChoice.ObeySponsor, "CONTINUE THE PROGRAMME")]
+    [InlineData(CampaignEndgameChoice.ExposeExperiment, "TRANSMIT THE ARCHIVE")]
+    [InlineData(CampaignEndgameChoice.PreserveOverseer, "SEVER SPONSOR CONTROL")]
+    [InlineData(CampaignEndgameChoice.AcceptCrewShutdown, "STAND DOWN")]
+    public void EveryEndgameChoiceResolvesToADistinctExplicitEnding(
+        CampaignEndgameChoice choice,
+        string expectedTitle)
+    {
+        var campaign = new CampaignState();
+
+        foreach (var scenario in ScenarioCatalog.Campaign)
+        {
+            var state = FacilitySeeder.CreateDefault(upkeepSeed: 8);
+            ScenarioCatalog.Apply(state, scenario);
+            state.ScenarioStatus = ScenarioStatus.Won;
+            CampaignProgressionSystem.CaptureCompletedMission(campaign, state);
+        }
+
+        Assert.True(CampaignProgressionSystem.TryResolveEnding(
+            campaign,
+            choice,
+            out var ending));
+        Assert.NotNull(ending);
+        Assert.Equal(expectedTitle, ending!.Title);
+
+        var restored = CampaignStateSerializer.Deserialize(
+            CampaignStateSerializer.Serialize(campaign));
+        Assert.NotNull(restored);
+        Assert.Equal(choice, restored!.Ending!.Choice);
+    }
+
     [Fact]
     public void CampaignSaveRoundTripPreservesOnlyExplicitContinuityState()
     {
