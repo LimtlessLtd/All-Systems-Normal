@@ -220,6 +220,49 @@ public sealed class ProceduralStationGenerationTests
     }
 
     [Fact]
+    public void StationIdentityMateriallyChangesSecurityAndInteriorCharacter()
+    {
+        var purposeBuilt = new StationGenerationConstraints
+        {
+            ForcedArchetype = StationArchetype.Linear,
+            ForcedPurpose = StationPurpose.Research,
+            ForcedExpansionHistory = StationExpansionHistory.PurposeBuilt,
+            ForcedSecurityLevel = 20
+        };
+
+        var retrofit = new StationGenerationConstraints
+        {
+            ForcedArchetype = StationArchetype.Linear,
+            ForcedPurpose = StationPurpose.Industrial,
+            ForcedExpansionHistory = StationExpansionHistory.HeavilyRetrofitted,
+            ForcedSecurityLevel = 90
+        };
+
+        var clean = FacilitySeeder.CreateDefault(
+            stationSeed: 424242,
+            stationConstraints: purposeBuilt);
+        var hardened = FacilitySeeder.CreateDefault(
+            stationSeed: 424242,
+            stationConstraints: retrofit);
+
+        Assert.True(
+            hardened.Facility.Doors.Average(door => door.TechnicalDifficulty)
+            > clean.Facility.Doors.Average(door => door.TechnicalDifficulty));
+
+        var cleanGeneratedDetails = clean.Facility.Rooms.Values
+            .SelectMany(room => room.Fixtures)
+            .Count(fixture => fixture.Label.StartsWith("Generated ", StringComparison.Ordinal));
+        var retrofitGeneratedDetails = hardened.Facility.Rooms.Values
+            .SelectMany(room => room.Fixtures)
+            .Count(fixture => fixture.Label.StartsWith("Generated ", StringComparison.Ordinal));
+
+        Assert.True(retrofitGeneratedDetails > cleanGeneratedDetails);
+        Assert.Contains(
+            hardened.Facility.Rooms.Values.SelectMany(room => room.Fixtures),
+            fixture => fixture.Label == "Security hardline");
+    }
+
+    [Fact]
     public void HumanAndRobotNavigation_RemainsValidAcrossGeneratedGeometry()
     {
         var navigation = new NavigationSystem();
