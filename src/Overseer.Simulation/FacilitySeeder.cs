@@ -90,6 +90,16 @@ public static class FacilitySeeder
             Crew = suppliedCrew?.ToList() ?? CreateDemoCrew()
         };
 
+        state.Robots.Add(new StationRobot
+        {
+            Id = "mr-1",
+            Name = "MR-1",
+            CurrentRoomId = "engineering",
+            PositionX = 62,
+            PositionY = 70,
+            Policy = RobotPolicy.Friendly
+        });
+
         foreach (var npc in state.Crew)
         {
             npc.Beliefs.Add(new Belief(
@@ -127,6 +137,7 @@ public static class FacilitySeeder
         StationUpkeepSystem.Register(state, seed);
         CrewProvisioningSystem.Plant(state, seed);
         state.EventLog.Add("T+00:00: DIRECTIVE — SECURE CONTINUITY. Prevent crew activation of Emergency Overseer Isolation.");
+        state.EventLog.Add("T+00:00: MR-1 maintenance/security platform online under crew-assist policy.");
         state.EventLog.Add($"T+00:00: ALL SYSTEMS NORMAL. {state.Crew.Count} crew members online.");
 
         return state;
