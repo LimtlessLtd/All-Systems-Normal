@@ -3,7 +3,7 @@
 Repository: https://github.com/LimtlessLtd/All-Systems-Normal  
 Playable Pages build: https://limtlessltd.github.io/All-Systems-Normal/
 
-**Current state:** V0.9B — Fixed Security Turret & Human Counterplay  
+**Current state:** V0.9B.1 — Station Layout, Art & Animation Pass  
 **Next recommended milestone:** V0.9C — Contained Security-Network Malware & Crew Recovery
 
 This file is the authoritative handoff. Keep it concise and update sections in place; do not append milestone diaries.
@@ -75,6 +75,9 @@ The station already supports:
 - corporate directives, five ordered campaign assignments, carry-over consequences, sponsor reveal and explicit endings
 - browser-local versioned campaign persistence; mid-assignment live simulation is intentionally not persisted
 - resizable IDE-style UI, map zoom, speech/thought bubbles, event audio and ambient music
+- room-dominant Deck A built from varied habitat/operations/industrial modules around a continuous two-way central spine
+- clean sci-fi cutaway art with chamfered modules, room-specific accents, dimensional fixtures and readable physical hatches
+- presentation-only crew/robot/turret animation including movement facing, idle/social/panic states and turret tracking; simulation authority is unchanged
 
 ### MR-1 autonomous robot
 
@@ -138,7 +141,7 @@ Inspect current code before changing a subsystem.
 - src/Overseer.AI/OllamaAiDecisionService.cs
 - src/Overseer.Web/Services/GameSession.cs
 - src/Overseer.Web.Client/Services/GameSession.cs
-- both Home.razor files
+- both Home.razor and Home.razor.css files — mirrored station/UI presentation
 - tests/Overseer.Simulation.Tests/
 
 Do not rely on historical test counts or old PR descriptions.

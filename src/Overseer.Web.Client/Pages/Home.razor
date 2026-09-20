@@ -396,6 +396,7 @@
                             aria-label="@($"Select {room.Name}")"
                             @onclick="() => SelectRoom(room.Id)">
                         <span class="room-titlebar">
+                            <i class="room-glyph" aria-hidden="true">@RoomGlyph(room.Type)</i>
                             <span class="room-name">@room.Name</span>
                             <i class="room-state-dot @RoomHealthClass(room)" aria-hidden="true"></i>
                         </span>
@@ -445,7 +446,7 @@
                          style="@RobotStyle(mapRobot)"
                          title="@($"{mapRobot.Name} — {mapRobot.Policy} — {mapRobot.CurrentTask}")"
                          aria-label="@($"{mapRobot.Name}, {mapRobot.Policy} policy")">
-                        <span class="robot-icon" aria-hidden="true">▣</span>
+                        <span class="robot-icon" aria-hidden="true"></span>
                         <span class="robot-nameplate">@mapRobot.Name</span>
                     </div>
                 }
@@ -457,7 +458,7 @@
                          style="@TurretStyle(mapTurret)"
                          title="@($"{mapTurret.Name} — {mapTurret.Policy} — {mapTurret.CurrentTask}")"
                          aria-label="@($"{mapTurret.Name}, {mapTurret.Policy} policy, {(mapTurret.IsArmed ? "armed" : "disarmed")}")">
-                        <span class="robot-icon" aria-hidden="true">⌖</span>
+                        <span class="robot-icon" aria-hidden="true"></span>
                         <span class="robot-nameplate">@mapTurret.Name</span>
                     </div>
                 }
@@ -1561,11 +1562,20 @@
 
     private string TurretTokenClass(SecurityTurret turret)
     {
-        var state = !turret.IsArmed || !TurretSystem.HasPower(Session.State, turret)
-            ? "shutdown"
-            : turret.Policy == TurretPolicy.SuppressCrew ? "hostile"
-            : "neutral";
-        return $"robot-token turret-token {state}";
+        var classes = new List<string> { "robot-token", "turret-token" };
+
+        if (!turret.IsArmed || !TurretSystem.HasPower(Session.State, turret))
+            classes.Add("shutdown");
+        else
+            classes.Add(turret.Policy == TurretPolicy.SuppressCrew ? "hostile" : "neutral");
+
+        if (turret.IsArmed)
+            classes.Add("armed");
+
+        if (turret.TrackedNpcId is not null)
+            classes.Add("tracking");
+
+        return string.Join(' ', classes);
     }
 
     private static string RobotTokenClass(StationRobot robot)
@@ -1593,6 +1603,9 @@
         if (SelectedCrew?.Id == npc.Id)
             classes.Add("selected");
 
+        if (npc.IsAlive && (npc.Fear >= 65 || npc.Stress >= 75))
+            classes.Add("is-panicked");
+
         if (!npc.IsAlive)
             classes.Add("deceased");
         else if (npc.Movement is not null)
@@ -1611,6 +1624,24 @@
 
         return string.Join(' ', classes);
     }
+
+    private static string RoomGlyph(RoomType type) => type switch
+    {
+        RoomType.CrewQuarters => "⌂",
+        RoomType.Kitchen => "▤",
+        RoomType.Recreation => "◇",
+        RoomType.Hydroponics => "♧",
+        RoomType.Medical => "+",
+        RoomType.ControlRoom => "⌘",
+        RoomType.Washroom => "≈",
+        RoomType.Storage => "▥",
+        RoomType.Engineering => "⚙",
+        RoomType.Generator => "ϟ",
+        RoomType.Reactor => "◎",
+        RoomType.Airlock => "⇄",
+        RoomType.Corridor => "·",
+        _ => "·"
+    };
 
     private static string RoleGlyph(CrewRole role) => role switch
     {
@@ -1744,8 +1775,27 @@
             + (((robot.PositionX - 50) / 100) * room.MapWidth);
         var mapY = room.MapY
             + (((robot.PositionY - 50) / 100) * room.MapHeight);
+        var facing = RobotFacingAngle(robot);
 
-        return FormattableString.Invariant($"left:{mapX}%;top:{mapY}%;");
+        return FormattableString.Invariant(
+            $"left:{mapX}%;top:{mapY}%;--robot-facing:{facing:0.##}deg;");
+    }
+
+    private static double RobotFacingAngle(StationRobot robot)
+    {
+        if (robot.Movement is not { } movement)
+            return 0;
+
+        var dx = movement.ExitX - robot.PositionX;
+        var dy = movement.ExitY - robot.PositionY;
+
+        if (Math.Abs(dx) < .01 && Math.Abs(dy) < .01)
+        {
+            dx = movement.EntryX - movement.ExitX;
+            dy = movement.EntryY - movement.ExitY;
+        }
+
+        return (Math.Atan2(dy, dx) * 180 / Math.PI) + 90;
     }
 
     private string TurretStyle(SecurityTurret turret)
@@ -1755,8 +1805,19 @@
             + (((turret.PositionX - 50) / 100) * room.MapWidth);
         var mapY = room.MapY
             + (((turret.PositionY - 50) / 100) * room.MapHeight);
+        var facing = 0d;
 
-        return FormattableString.Invariant($"left:{mapX}%;top:{mapY}%;");
+        if (turret.TrackedNpcId is { } targetId
+            && Session.State.Crew.FirstOrDefault(npc => npc.Id == targetId) is { } target
+            && target.CurrentRoomId.Equals(turret.RoomId, StringComparison.OrdinalIgnoreCase))
+        {
+            var dx = target.PositionX - turret.PositionX;
+            var dy = target.PositionY - turret.PositionY;
+            facing = (Math.Atan2(dy, dx) * 180 / Math.PI) + 90;
+        }
+
+        return FormattableString.Invariant(
+            $"left:{mapX}%;top:{mapY}%;--turret-facing:{facing:0.##}deg;");
     }
 
     private string DoorStyle(Door door)

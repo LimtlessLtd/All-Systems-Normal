@@ -123,6 +123,49 @@ public sealed class StationGeometryTests
     }
 
     [Fact]
+    public void FunctionalModules_StayInsideDeckCanvas()
+    {
+        var rooms = FacilitySeeder.CreateDefault().Facility.Rooms.Values
+            .Where(room => room.Type != RoomType.Corridor)
+            .ToList();
+
+        foreach (var room in rooms)
+        {
+            var bounds = StationGeometry.Bounds(room);
+            Assert.InRange(bounds.Left, 0, 100);
+            Assert.InRange(bounds.Right, 0, 100);
+            Assert.InRange(bounds.Top, 0, 100);
+            Assert.InRange(bounds.Bottom, 0, 100);
+        }
+    }
+
+    [Fact]
+    public void FunctionalModules_HaveVariedFootprintsRatherThanUniformGridCells()
+    {
+        var modules = FacilitySeeder.CreateDefault().Facility.Rooms.Values
+            .Where(room =>
+                room.Type != RoomType.Corridor
+                && room.Id is not "airlock"
+                && room.Id is not "isolation")
+            .ToList();
+
+        var distinctFootprints = modules
+            .Select(room => (room.MapWidth, room.MapHeight))
+            .Distinct()
+            .Count();
+
+        Assert.True(
+            distinctFootprints >= 7,
+            $"Deck A has only {distinctFootprints} distinct functional module footprints.");
+
+        var reactor = modules.Single(room => room.Id == "reactor");
+        Assert.True(
+            reactor.MapWidth * reactor.MapHeight
+            == modules.Max(room => room.MapWidth * room.MapHeight),
+            "Reactor should remain the visually dominant industrial module.");
+    }
+
+    [Fact]
     public void Passages_AreWideEnoughForTwoWayCrewTraffic()
     {
         var state = FacilitySeeder.CreateDefault();

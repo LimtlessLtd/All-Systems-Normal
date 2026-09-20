@@ -30,39 +30,30 @@ public static class FacilitySeeder
     {
         var facility = new Facility();
 
-        // Deck A is laid out as a real orthogonal station plan rather than a
-        // graph with decorative connector lines. Functional rooms sit in two
-        // aligned banks. Each bank reaches the main east/west corridor through
-        // a short north/south access corridor with a hatch at each end.
-        //
-        // Airlock and Overseer Isolation sit at the west/east ends of the spine
-        // and use short east/west access corridors. No connector corridor passes
-        // through another functional room.
-        // V0.6D.1 room-dominant cutaway: functional rooms are the station.
-        // They deliberately occupy roughly three quarters of the entire deck
-        // canvas, while the circulation spine and short connector necks stay
-        // visually narrow. This makes the map read as a place people inhabit
-        // rather than a graph joined by oversized passages.
-        AddRoom(facility, "quarters", "Crew Quarters", RoomType.CrewQuarters, 9.5, 21.5, 15, 39);
-        AddRoom(facility, "kitchen", "Kitchen", RoomType.Kitchen, 25.5, 21.5, 15, 39);
-        AddRoom(facility, "lounge", "Recreation Lounge", RoomType.Recreation, 41.5, 21.5, 15, 39);
-        AddRoom(facility, "hydroponics", "Hydroponics Bay", RoomType.Hydroponics, 57.5, 21.5, 15, 39);
-        AddRoom(facility, "medical", "Medical", RoomType.Medical, 73.5, 21.5, 15, 39);
-        AddRoom(facility, "control", "Control Room", RoomType.ControlRoom, 90, 21.5, 16, 39);
+        // Deck A is a room-dominant modular station rather than a uniform grid.
+        // Large functional modules flank a broad central transit spine; deliberately
+        // varied footprints make habitat, command and industrial sections read as
+        // distinct pieces of a real station while keeping every physical connector
+        // and hatch authoritative for movement.
+        AddRoom(facility, "quarters", "Crew Quarters", RoomType.CrewQuarters, 9.5, 21.5, 15, 40);
+        AddRoom(facility, "kitchen", "Kitchen", RoomType.Kitchen, 24, 23, 13, 36);
+        AddRoom(facility, "lounge", "Recreation Lounge", RoomType.Recreation, 38.5, 21.5, 15.5, 40);
+        AddRoom(facility, "hydroponics", "Hydroponics Bay", RoomType.Hydroponics, 54.5, 22.5, 15.5, 38);
+        AddRoom(facility, "medical", "Medical", RoomType.Medical, 69.75, 23, 14, 36);
+        AddRoom(facility, "control", "Control Room", RoomType.ControlRoom, 87.5, 21.5, 20, 40);
 
-        // The central spine remains secondary to the rooms, but is now wide enough
-        // for opposing crew traffic to pass without reading as a single-file tube.
-        // End-cap rooms remain substantial enough to read as real spaces while
-        // retaining short horizontal service necks.
+        // The spine is intentionally continuous and wide enough for two-way traffic.
+        // Airlock and Overseer Isolation form compact end caps rather than competing
+        // visually with the primary occupied/industrial modules.
         AddRoom(facility, "airlock", "Airlock", RoomType.Airlock, 4, 50, 6, 12);
-        AddRoom(facility, "corridor", "Central Corridor", RoomType.Corridor, 50, 50, 82, 8.5);
+        AddRoom(facility, "corridor", "Central Corridor", RoomType.Corridor, 50, 50, 82, 9);
         AddRoom(facility, "isolation", "Overseer Isolation", RoomType.ControlRoom, 96, 50, 6, 12);
 
-        AddRoom(facility, "washroom", "Washroom", RoomType.Washroom, 10, 78.5, 16, 39);
-        AddRoom(facility, "storage", "Storage", RoomType.Storage, 27.5, 78.5, 17, 39);
-        AddRoom(facility, "engineering", "Engineering", RoomType.Engineering, 46.5, 78.5, 18, 39);
-        AddRoom(facility, "generator", "Generator", RoomType.Generator, 65.5, 78.5, 18, 39);
-        AddRoom(facility, "reactor", "Reactor", RoomType.Reactor, 86.25, 78.5, 21.5, 39);
+        AddRoom(facility, "washroom", "Washroom", RoomType.Washroom, 9.5, 78.5, 15, 36);
+        AddRoom(facility, "storage", "Storage", RoomType.Storage, 24.5, 79.5, 14, 39);
+        AddRoom(facility, "engineering", "Engineering", RoomType.Engineering, 40.5, 79, 18, 40);
+        AddRoom(facility, "generator", "Generator", RoomType.Generator, 59, 79.5, 18, 37);
+        AddRoom(facility, "reactor", "Reactor", RoomType.Reactor, 83.5, 79, 28, 40);
 
         foreach (var roomId in new[]
         {
