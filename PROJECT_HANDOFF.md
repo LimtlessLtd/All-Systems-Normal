@@ -3479,9 +3479,9 @@ Workflow rule: work on a feature branch, open a PR, require green CI, merge comp
 
 # V0.7 — CORPORATE CAMPAIGN, SUSPICION DYNAMICS & OVERSEER COMMS — COMPLETED
 
-Three gaps were closed in this pass. All 144 simulation tests pass, the server
-build boots and renders, and the GitHub Pages WASM build publishes with no AI
-dependency in the payload.
+Three gaps were closed in this pass. All 157 simulation tests pass after the
+V0.6C merge, the server build boots and renders both scenario panels, and the
+GitHub Pages WASM build publishes with no AI dependency in the payload.
 
 ## V0.7A — Corporate directives and scenario success
 
@@ -3537,16 +3537,43 @@ device.
 The deterministic interpreter lives in `Overseer.Simulation` so the Pages build
 stays model-free; only the Ollama reader sits in `Overseer.AI`.
 
+## Reconciliation with V0.6C
+
+V0.6C (PR #25) merged to main while V0.7 was in progress. Both had
+independently built a scenario-success layer and evidence provenance, so the
+merge was a reconciliation rather than a fast-forward. What was decided:
+
+* **Evidence provenance** — V0.6C's model is richer (evidence IDs, testimony
+  deduplication, reliability) and is kept as the base. V0.7 layers on
+  `EvidenceClaim`, which makes evidence falsifiable by direct observation, and
+  `IsDiscredited` / `CurrentWeight`, which carry decay and contradiction. The
+  duplicate `EvidenceOrigin` enum was dropped in favour of V0.6C's;
+  `Direct`/`Hearsay` map onto `DirectObservation`/`Testimony`.
+
+* **Two scenario layers, one outcome** — `ScenarioProgressSystem` grades the
+  station's operational objectives; `CorporateDirectiveSystem` grades the
+  sponsor's experimental ones. Both are kept, and both render. Critically,
+  neither may declare `Won` alone: before the gate, a player who had already
+  failed a mandatory directive would still have been told the scenario was
+  complete at minute 60. The station layer now checks
+  `CorporateDirectiveSystem.MandatoryDirectivesSatisfied`, and the corporate
+  layer checks the station's required objectives.
+
+* **Observation window** is 60 minutes, matching the survive objective, so both
+  layers resolve together.
+
+* **Double-counting** — `ObservePlayerRoomSystemChange` charges anybody present
+  when the player breaks a compartment; V0.7's fault observation charges people
+  who find the aftermath. A guard keeps one command from counting twice.
+  Witnessing the act blames Overseer; only discovering the aftermath is
+  ambiguous enough to be misattributed to a colleague.
+
+When a test grades one layer, it now clears the other explicitly so it keeps
+testing its actual subject.
+
 # NEXT IMMEDIATE MILESTONE
 
-The V0.6C investigation slice is still partly open. Remaining from it:
-
-* structured evidence provenance beyond the current claim model
-* crew investigation of suspicious station behaviour as a deliberate goal
-* discovery of shutdown hardware rather than seeded `KnowsShutdownControl`
-* coordinated shutdown teams and recruitment
-
-Newly opened by V0.7, worth doing next:
+Worth doing next:
 
 * crew comparing Overseer's messages with each other — a broadcast lie should be
   catchable by two people comparing accounts, not only by direct observation
