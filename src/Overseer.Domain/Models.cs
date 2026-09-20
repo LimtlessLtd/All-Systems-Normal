@@ -554,6 +554,12 @@ public sealed class Npc
 
     public NpcIntent? Intent { get; set; }
     public TimeSpan RoutineUntil { get; set; }
+
+    /// <summary>Equipment this person is currently servicing, if any.</summary>
+    public string? ServicingDeviceId { get; set; }
+
+    /// <summary>When the service visit in progress finishes.</summary>
+    public TimeSpan? ServiceCompletesAt { get; set; }
     public NpcBubble? Bubble { get; set; }
     public List<ScheduledNpcBubble> PendingBubbles { get; } = [];
     public TimeSpan NextConversationAt { get; set; }
@@ -682,6 +688,16 @@ public sealed class GameState
     // Overseer's own voice. Messages are the player's only non-physical verb.
     public List<OverseerMessage> OverseerMessages { get; } = [];
     public long NextMessageSequence { get; set; } = 1;
+
+    // Station upkeep. Equipment wears out, the crew service it, and the power
+    // grid is what everything else depends on.
+    public Dictionary<string, StationDevice> Devices { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    public PowerGrid Power { get; } = new();
+
+    /// <summary>Seeded per game so a station's wear and tear is reproducible.</summary>
+    public int UpkeepSeed { get; set; }
 
     // Corporate campaign layer. Directives are the assigned objectives; progress
     // is graded deterministically by CorporateDirectiveSystem.

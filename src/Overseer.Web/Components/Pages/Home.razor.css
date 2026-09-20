@@ -3689,3 +3689,51 @@ button.sound-toggle.sound-on {
         font-size: 1.15rem;
     }
 }
+
+/* ---- Equipment condition --------------------------------------------- */
+
+.equipment-card {
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.equipment-row {
+    margin-bottom: .45rem;
+    padding-left: .4rem;
+    border-left: 2px solid var(--line-bright);
+}
+
+.equipment-row.equipment-degraded { border-left-color: var(--warning); }
+.equipment-row.equipment-failed { border-left-color: var(--danger); }
+
+.equipment-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .5rem;
+}
+
+.equipment-head strong {
+    font-size: .72rem;
+}
+
+.equipment-head span {
+    font-size: .68rem;
+    color: var(--muted);
+}
+
+.equipment-failed .equipment-head span { color: var(--danger); }
+.equipment-degraded .equipment-head span { color: var(--warning); }
+
+.equipment-row .directive-meter {
+    margin: .2rem 0;
+}
+
+.equipment-degraded .directive-meter > span { background: var(--warning); }
+.equipment-failed .directive-meter > span { background: var(--danger); }
+
+.equipment-row small {
+    color: var(--muted);
+    font-size: .58rem;
+    letter-spacing: .08em;
+}

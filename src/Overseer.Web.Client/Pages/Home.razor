@@ -30,6 +30,10 @@
                 <span>LIFE SUPPORT</span>
                 <strong>@(Session.State.LifeSupport.IsOnline ? "ONLINE" : "OFFLINE")</strong>
             </div>
+            <div class="@(Session.State.Power.IsBrownedOut ? "has-alerts" : "")">
+                <span class="overline">GRID</span>
+                <strong>@Session.State.Power.SupplyKilowatts.ToString("0")/@Session.State.Power.DemandKilowatts.ToString("0") kW</strong>
+            </div>
             <div class="@(Session.AlertCount > 0 ? "has-alerts" : "")">
                 <span>ALERTS</span>
                 <strong>@Session.AlertCount</strong>
@@ -767,6 +771,50 @@
                         </div>
                     }
                 </div>
+
+                <div class="belief-card equipment-card">
+                    <span>EQUIPMENT CONDITION</span>
+                    @{
+                        var roomDevices = Session.State.Devices.Values
+                            .Where(device => device.RoomId == selectedRoom.Id)
+                            .OrderBy(device => device.Condition)
+                            .ToList();
+                    }
+                    @if (roomDevices.Count == 0)
+                    {
+                        <p>No serviceable equipment in this compartment.</p>
+                    }
+                    else
+                    {
+                        @foreach (var device in roomDevices)
+                        {
+                            <div class="equipment-row @DeviceClass(device)">
+                                <div class="equipment-head">
+                                    <strong>@device.Label</strong>
+                                    <span>@device.Condition.ToString("0")%</span>
+                                </div>
+                                <div class="directive-meter">
+                                    <span style="width:@(((int)Math.Round(device.Condition)).ToString())%"></span>
+                                </div>
+                                <small>
+                                    @device.Discipline
+                                    @if (device.ServicedByNpcId is not null)
+                                    {
+                                        <text> · BEING SERVICED</text>
+                                    }
+                                    else if (device.IsFailed)
+                                    {
+                                        <text> · FAILED</text>
+                                    }
+                                    else if (device.IsDegraded)
+                                    {
+                                        <text> · NEEDS ATTENTION</text>
+                                    }
+                                </small>
+                            </div>
+                        }
+                    }
+                </div>
             }
         </aside>
 
@@ -997,6 +1045,11 @@
         _selectedRoomId = null;
         return Task.CompletedTask;
     }
+
+    private static string DeviceClass(StationDevice device) =>
+        device.IsFailed ? "equipment-failed"
+        : device.IsDegraded ? "equipment-degraded"
+        : "equipment-ok";
 
     private string ComplianceClass => Session.State.ComplianceScore switch
     {
