@@ -450,7 +450,7 @@ public sealed class BrowserMindSystem
         Npc npc,
         ShutdownTeam? team)
     {
-        var excluded = team?.MemberIds ?? [];
+        var excluded = team?.MemberIds ?? new HashSet<Guid>();
         return state.Crew
             .Where(other =>
                 other.IsAlive
