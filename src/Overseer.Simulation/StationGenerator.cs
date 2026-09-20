@@ -478,6 +478,37 @@ public static class StationGenerator
             }
         }
 
+        foreach (var airlockRoomId in constraints.RequiredAirlockRoomIds)
+        {
+            if (constraints.ForbiddenRoomIds.Contains(airlockRoomId))
+            {
+                throw new StationGenerationException(
+                    $"Airlock '{airlockRoomId}' is both required and forbidden.",
+                    [$"Constraint conflict: '{airlockRoomId}' required airlock + forbidden."]);
+            }
+
+            if (!profiles.TryGetValue(airlockRoomId, out var profile))
+            {
+                profiles[airlockRoomId] = new RoomProfile(
+                    airlockRoomId,
+                    airlockRoomId.Equals("airlock", StringComparison.OrdinalIgnoreCase)
+                        ? "Airlock"
+                        : $"Airlock {airlockRoomId}",
+                    RoomType.Airlock,
+                    7,
+                    12,
+                    9,
+                    15,
+                    90);
+            }
+            else if (profile.Type != RoomType.Airlock)
+            {
+                throw new StationGenerationException(
+                    $"Required airlock room '{airlockRoomId}' is defined as {profile.Type}.",
+                    [$"Room '{airlockRoomId}' must have RoomType.Airlock."]);
+            }
+        }
+
         if (!string.IsNullOrWhiteSpace(constraints.RequiredShutdownRoomId)
             && !profiles.ContainsKey(constraints.RequiredShutdownRoomId))
         {
@@ -493,7 +524,9 @@ public static class StationGenerator
             }
         }
 
-        var desiredAirlocks = Math.Max(0, constraints.RequiredAirlockCount ?? 1);
+        var desiredAirlocks = Math.Max(
+            constraints.RequiredAirlockRoomIds.Count,
+            Math.Max(0, constraints.RequiredAirlockCount ?? 1));
         var currentAirlocks = profiles.Values.Count(profile => profile.Type == RoomType.Airlock);
         for (var index = currentAirlocks + 1; index <= desiredAirlocks; index++)
         {
@@ -1362,6 +1395,31 @@ public static class StationGenerator
             }
         }
 
+        foreach (var roomId in constraints.RequiredAirlockRoomIds)
+        {
+            if (!facility.Rooms.TryGetValue(roomId, out var room)
+                || room.Type != RoomType.Airlock)
+            {
+                errors.Add($"Required airlock placement '{roomId}' is missing or is not an airlock.");
+            }
+        }
+
+        foreach (var roomId in constraints.RequiredRobotRoomIds)
+        {
+            if (!facility.Rooms.ContainsKey(roomId))
+            {
+                errors.Add($"Required robot placement room '{roomId}' does not exist.");
+            }
+        }
+
+        foreach (var roomId in constraints.RequiredTurretRoomIds)
+        {
+            if (!facility.Rooms.ContainsKey(roomId))
+            {
+                errors.Add($"Required turret placement room '{roomId}' does not exist.");
+            }
+        }
+
         if (requirePlayableDefault && !facility.Rooms.ContainsKey("corridor"))
         {
             errors.Add("Playable station is missing canonical primary corridor 'corridor'.");
@@ -1828,6 +1886,11 @@ public static class StationGenerator
         || constraints.MinimumFunctionalRoomCount is not null
         || constraints.MaximumFunctionalRoomCount is not null
         || constraints.RequiredAirlockCount is not null
+        || constraints.RequiredAirlockRoomIds.Count > 0
+        || constraints.RequiredTurretCount is not null
+        || constraints.RequiredTurretRoomIds.Count > 0
+        || constraints.RequiredRobotCount is not null
+        || constraints.RequiredRobotRoomIds.Count > 0
         || constraints.RequireRedundantPaths is not null
         || constraints.ForbidRedundantPaths is not null
         || constraints.RequiredChokepointCount is not null
