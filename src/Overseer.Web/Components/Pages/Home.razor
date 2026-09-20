@@ -273,36 +273,36 @@
                 }
             </div>
 
-            @if (Session.State.Robots.FirstOrDefault() is { } robot)
+            @if (Session.State.Robots.FirstOrDefault() is { } controlRobot)
             {
-                <section class="robot-control-card">
+                <section class="controlRobot-control-card">
                     <span class="overline">AUTONOMOUS PLATFORM</span>
-                    <strong>@robot.Name · @robot.Policy</strong>
+                    <strong>@controlRobot.Name · @controlRobot.Policy</strong>
                     <small>
-                        @Session.State.Facility.Rooms[robot.CurrentRoomId].Name
-                        · HP @robot.Health.ToString("0")%
-                        · BAT @robot.BatteryPercent.ToString("0")%
+                        @Session.State.Facility.Rooms[controlRobot.CurrentRoomId].Name
+                        · HP @controlRobot.Health.ToString("0")%
+                        · BAT @controlRobot.BatteryPercent.ToString("0")%
                     </small>
                     <small>
-                        LINK @(robot.IsNetworkIsolated ? "ISOLATED" : "ONLINE")
-                        · CHARGE @(robot.ChargingEnabled ? "ON" : "DENIED")
-                        · @(robot.IsOperational ? "ACTIVE" : "SHUT DOWN")
+                        LINK @(controlRobot.IsNetworkIsolated ? "ISOLATED" : "ONLINE")
+                        · CHARGE @(controlRobot.ChargingEnabled ? "ON" : "DENIED")
+                        · @(controlRobot.IsOperational ? "ACTIVE" : "SHUT DOWN")
                     </small>
-                    <p>@robot.CurrentTask</p>
-                    <div class="robot-policy-controls">
+                    <p>@controlRobot.CurrentTask</p>
+                    <div class="controlRobot-policy-controls">
                         <button class="mini secondary"
-                                disabled="@(!robot.HasRemoteControlLink)"
-                                @onclick="() => Session.SetRobotPolicy(robot.Id, RobotPolicy.Friendly)">FRIENDLY</button>
+                                disabled="@(!controlRobot.HasRemoteControlLink)"
+                                @onclick="() => Session.SetRobotPolicy(controlRobot.Id, RobotPolicy.Friendly)">FRIENDLY</button>
                         <button class="mini secondary"
-                                disabled="@(!robot.HasRemoteControlLink)"
-                                @onclick="() => Session.SetRobotPolicy(robot.Id, RobotPolicy.Neutral)">NEUTRAL</button>
+                                disabled="@(!controlRobot.HasRemoteControlLink)"
+                                @onclick="() => Session.SetRobotPolicy(controlRobot.Id, RobotPolicy.Neutral)">NEUTRAL</button>
                         <button class="mini danger"
-                                disabled="@(!robot.HasRemoteControlLink)"
-                                @onclick="() => Session.SetRobotPolicy(robot.Id, RobotPolicy.Hostile)">HOSTILE</button>
+                                disabled="@(!controlRobot.HasRemoteControlLink)"
+                                @onclick="() => Session.SetRobotPolicy(controlRobot.Id, RobotPolicy.Hostile)">HOSTILE</button>
                         <button class="mini secondary"
-                                disabled="@(!robot.HasRemoteControlLink)"
-                                @onclick="() => Session.ToggleRobotRemoteShutdown(robot.Id)">
-                            @(robot.IsRemotelyShutdown ? "REMOTE RESTART" : "REMOTE SHUTDOWN")
+                                disabled="@(!controlRobot.HasRemoteControlLink)"
+                                @onclick="() => Session.ToggleRobotRemoteShutdown(controlRobot.Id)">
+                            @(controlRobot.IsRemotelyShutdown ? "REMOTE RESTART" : "REMOTE SHUTDOWN")
                         </button>
                     </div>
                 </section>
@@ -402,15 +402,15 @@
                     </button>
                 }
 
-                @foreach (var robot in Session.State.Robots.Where(CanSee))
+                @foreach (var mapRobot in Session.State.Robots.Where(CanSee))
                 {
-                    <div @key="robot"
-                         class="@RobotTokenClass(robot)"
-                         style="@RobotStyle(robot)"
-                         title="@($"{robot.Name} — {robot.Policy} — {robot.CurrentTask}")"
-                         aria-label="@($"{robot.Name}, {robot.Policy} policy")">
+                    <div @key="mapRobot"
+                         class="@RobotTokenClass(mapRobot)"
+                         style="@RobotStyle(mapRobot)"
+                         title="@($"{mapRobot.Name} — {mapRobot.Policy} — {mapRobot.CurrentTask}")"
+                         aria-label="@($"{mapRobot.Name}, {mapRobot.Policy} policy")">
                         <span class="robot-icon" aria-hidden="true">▣</span>
-                        <span class="robot-nameplate">@robot.Name</span>
+                        <span class="robot-nameplate">@mapRobot.Name</span>
                     </div>
                 }
 
