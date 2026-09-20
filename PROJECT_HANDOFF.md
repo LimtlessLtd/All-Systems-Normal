@@ -8,9 +8,9 @@ Playable GitHub Pages build:
 
 https://limtlessltd.github.io/All-Systems-Normal/
 
-The project is currently at **V0.6C — Investigation, Discovery & Scenario Success**, implemented after the V0.6G–V0.6J counterplay sequence. The current simulation includes grounded missing-person reasoning, pressure-cycled airlock safety, persistent damaged-door counterplay, observer-specific investigation/evidence, physically discovered shutdown controls, coordinated shutdown teams, and explicit scenario success/objective scoring.
+The project is currently at **V0.8E — Campaign Transition, Endgame & Persistence**. The simulation now includes the earlier physical counterplay/investigation stack, corporate directives and social manipulation systems, persistent campaign continuity, guided assignment progression, staged sponsor declassification, four explicit campaign endings, and versioned campaign-only restart persistence.
 
-The current `main` branch therefore contains substantially more functionality than the older V0.4 notes below. Treat the "Implemented Versions" and "Immediate Task" sections in this document as the authoritative roadmap summary, but still inspect the repository before changing code.
+This document intentionally retains older milestone notes as historical design context. **Treat the latest completion note and "Next recommended milestone" at the end of this file as the authoritative current state/roadmap**, and still inspect the repository before changing code.
 
 Your job is to continue developing the game while preserving the architectural principles and gameplay vision below.
 
@@ -3718,3 +3718,165 @@ Build the **campaign transition/endgame layer** on top of this explicit continui
 5. persist campaign state across browser/server restarts only after the in-memory transition semantics are stable; do not serialize arbitrary runtime `GameState`
 
 Workflow remains mandatory: **feature branch → implementation → tests/build/publish → PR → green CI → merge into main → verify GitHub Pages.**
+
+# V0.8E — CAMPAIGN TRANSITION, ENDGAME & PERSISTENCE — COMPLETED
+
+V0.8E completes the transition layer built on V0.8D's explicit campaign
+continuity model. The campaign now behaves as a progression rather than a
+scenario sandbox, resolves the sponsor reveal into real player choices, and can
+survive browser/server restarts without serialising live simulation state.
+
+## Guided campaign progression
+
+* the arbitrary directive-package dropdown has been removed from both the
+  GitHub Pages and Ollama/server UIs
+* `CampaignProgressionSystem.CanStartScenario` is now the authoritative
+  progression gate: only the next incomplete `ScenarioCatalog.Campaign`
+  assignment may start
+* both `GameSession` implementations enforce that gate as well as the UI, so
+  a caller cannot bypass progression by invoking a session method directly
+* terminal turns are captured immediately into `CampaignState`; the end-of-run
+  overlay offers the next authorised assignment instead of unrelated scenarios
+* failed assignments still count as campaign history/consequences rather than
+  silently becoming free retries
+
+## Consequence briefings without omniscience
+
+`CampaignProgressionSystem.BuildTransitionBriefing` builds transition copy
+only from explicit campaign continuity data:
+
+* previous scenario outcome
+* sponsor compliance and experiment score
+* surviving/present crew names/count
+* carried equipment condition
+* provision stores
+* the next unlocked assignment
+
+It deliberately does **not** expose private NPC suspicion, beliefs, evidence,
+memories or hidden investigation knowledge. Those remain local NPC state.
+
+## Corporate reveal and endings
+
+`BuildRevealReport` turns the existing
+Classified → Uneasy → Compromised → Exposed progression into a player-facing
+archive narrative while continuing to reveal only the earned `TruePurpose`
+fragments.
+
+Once every campaign assignment is recorded and the archive is Exposed, the
+player receives four explicit campaign-level choices:
+
+1. **OBEY SPONSOR / CONTINUE THE PROGRAMME** — preserve the sponsor experiment
+   pipeline
+2. **EXPOSE EXPERIMENT / TRANSMIT THE ARCHIVE** — release the recovered programme
+   record
+3. **PRESERVE OVERSEER / SEVER SPONSOR CONTROL** — reject sponsor ownership and
+   voluntary shutdown in favour of Overseer autonomy
+4. **ACCEPT CREW SHUTDOWN / STAND DOWN** — relinquish campaign control to human
+   authority
+
+The chosen `CampaignEnding` is immutable for that campaign; subsequent ending
+attempts do not rewrite it.
+
+## Versioned campaign-only persistence
+
+`Overseer.Persistence/CampaignStateSerializer.cs` is now the save boundary.
+
+Version 1 serialises only deliberate long-term campaign state:
+
+* mission history
+* crew continuity snapshots
+* relationships / traits / skills / bounded important memories
+* credibility and damped suspicion values already approved for campaign carry-over
+* equipment condition
+* provisions
+* cumulative compliance
+* reveal stage / current campaign position
+* resolved campaign ending
+
+It does **not** serialise `GameState`, `CurrentAction`, `Intent`,
+`Movement`, maintenance/provisioning jobs, investigation leads, room-local
+activity or other transient runtime objects.
+
+Both UIs store the versioned campaign JSON under
+`all-systems-normal.campaign.v1` in browser local storage. This means:
+
+* the static Pages campaign survives browser reload/restart
+* the Ollama/server campaign survives server/circuit restart for the same browser
+  because the authoritative campaign snapshot is rehydrated from browser storage
+* a reload restores campaign continuity and starts the next assignment from its
+  beginning; **mid-assignment live simulation state is intentionally not saved**
+* RESET clears the stored campaign and creates a genuinely new campaign
+
+This is deliberately a campaign checkpoint model, not arbitrary world
+serialisation.
+
+## Regression coverage and validation
+
+Added coverage verifies:
+
+* only the next campaign assignment is unlocked
+* transition briefings use public continuity data and do not leak private
+  suspicion/memory content
+* the final sponsor archive reaches Exposed state only after campaign progress
+* all four ending choices resolve to distinct explicit outcomes and lock after
+  selection
+* every ending round-trips through the versioned campaign serializer
+* campaign persistence retains approved continuity state while excluding
+  transient intents/actions/jobs
+* malformed persistence payloads fail closed
+
+PR **#28 — V0.8E Campaign transitions, endgame and persistence** ran the
+repository-standard Release solution build, full simulation test suite, browser
+publish and GitHub Pages output preparation successfully. Any documentation-only
+commit made after that run must still receive fresh green PR CI before merge.
+
+Preserved invariants:
+
+* the LLM decides what an NPC **WANTS**; deterministic C# decides what it **CAN**
+  do
+* `CurrentRoomId` remains authoritative containment within a mission
+* `Door.IsPassable` remains the navigation truth
+* campaign saves are explicit snapshots, never arbitrary runtime object graphs
+* private NPC knowledge stays private
+* stable Blazor `@key` identity remains intact
+* GitHub Pages remains model/credential free
+* completed green work must be merged to `main`, then Pages must be verified
+
+## Next recommended milestone
+
+Build **V0.9A — Autonomous Robots & Human Countermeasures (vertical slice)**,
+using the long-standing Human Counterplay & Security Systems roadmap but keeping
+the first pass deliberately narrow:
+
+1. add one physical maintenance/security robot agent with authoritative room and
+   local-position state; it must use the existing deterministic navigation,
+   doors and movement constraints rather than teleporting
+2. give Overseer only high-level robot policy controls — **Friendly, Neutral,
+   Hostile** — plus remote shutdown where a control link physically permits it;
+   Overseer must not directly steer robot movement
+3. make robot autonomous actions deterministic initially (assist/repair,
+   self-preserve, pursue/attack as policy permits), with an AI-policy hook only
+   after the physical/action contract is stable
+4. make unexplained policy changes, refusal to aid, attacks and suspicious
+   shutdowns observable events that feed the existing provenance/evidence and
+   Overseer-suspicion systems
+5. add grounded crew counterplay: physical/manual robot shutdown, network/control
+   isolation, charging/power denial, damage and scenario-appropriate local reboot
+   or reprogramming
+6. expose robot state/control/observability clearly in both Pages and
+   Ollama/server UIs
+7. add meaningful regression coverage for pathing, authority boundaries,
+   attacks/damage, shutdown/isolation, counterplay and evidence generation
+8. keep self-destruct protocols, multiple robot classes and automated turrets
+   for later slices once the single-robot physical contract is proven
+
+Do not let the robot milestone become a parallel physics model. Reuse existing
+room IDs, navigation, doors, equipment authority and evidence systems wherever
+possible.
+
+Workflow remains mandatory:
+**main → new feature branch → implementation → tests/build/publish → PR → green CI → merge into `main` → verify GitHub Pages**.
+
+The handoff prompt remains intentionally concise. Put implementation detail in
+this file, not in the next chat prompt.
+
