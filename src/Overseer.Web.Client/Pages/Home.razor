@@ -44,6 +44,9 @@
             <button class="secondary sound-toggle @(_soundEnabled ? "sound-on" : "")" @onclick="ToggleSoundAsync">
                 @(_soundEnabled ? "SOUND ON" : "ENABLE SOUND")
             </button>
+            <button class="secondary sound-toggle @(_musicEnabled ? "sound-on" : "")" @onclick="ToggleMusicAsync">
+                @(_musicEnabled ? "MUSIC ON" : "MUSIC OFF")
+            </button>
             <button class="secondary" @onclick="ResetGame">RESET</button>
         </div>
     </header>
@@ -105,7 +108,18 @@
                 </span>
             </div>
 
-            <div class="station-map" style="@StationMapStyle">
+            <div class="map-toolbar">
+                <span>MAP ZOOM</span>
+                <div class="map-zoom-controls">
+                    <button class="secondary mini" disabled="@(_mapZoom <= MinMapZoom)" @onclick="ZoomOut" aria-label="Zoom map out">−</button>
+                    <button class="secondary zoom-readout" @onclick="ResetMapZoom" title="Reset map zoom">@MapZoomPercent%</button>
+                    <button class="secondary mini" disabled="@(_mapZoom >= MaxMapZoom)" @onclick="ZoomIn" aria-label="Zoom map in">+</button>
+                </div>
+                <small>Scroll the deck while zoomed · drag side panel resize handles to reclaim map space.</small>
+            </div>
+
+            <div class="station-map-viewport">
+                <div class="station-map" style="@StationMapStyle">
                 @foreach (var room in Session.State.Facility.Rooms.Values)
                 {
                     <button @key="room.Id"
@@ -193,6 +207,7 @@
                         }
                     </button>
                 }
+                </div>
             </div>
 
             <div class="map-footer">
@@ -491,6 +506,11 @@
     private Guid? _selectedCrewId;
     private int _delayMs = 2800;
     private bool _soundEnabled;
+    private bool _musicEnabled;
+    private double _mapZoom = 1.0;
+    private const double MinMapZoom = 1.0;
+    private const double MaxMapZoom = 2.2;
+    private const double MapZoomStep = 0.2;
     private long _lastAudioSequence;
     private CancellationTokenSource? _clockCts;
     private Task? _clockTask;
@@ -520,9 +540,11 @@
         _ => $"LIVE TURNS {SpeedLabel}"
     };
 
+    private int MapZoomPercent => (int)Math.Round(_mapZoom * 100);
+
     private string StationMapStyle =>
         FormattableString.Invariant(
-            $"--crew-step-duration:{(_delayMs >= 2200 ? 2.35 : _delayMs >= 1200 ? 1.25 : 0.62)}s;");
+            $"--crew-step-duration:{(_delayMs >= 2200 ? 2.35 : _delayMs >= 1200 ? 1.25 : 0.62)}s;zoom:{_mapZoom:0.00};");
 
     private void SelectRoom(string roomId)
     {
@@ -550,6 +572,15 @@
     {
         _delayMs = delayMs;
     }
+
+    private void ZoomIn() =>
+        _mapZoom = Math.Min(MaxMapZoom, Math.Round(_mapZoom + MapZoomStep, 2));
+
+    private void ZoomOut() =>
+        _mapZoom = Math.Max(MinMapZoom, Math.Round(_mapZoom - MapZoomStep, 2));
+
+    private void ResetMapZoom() =>
+        _mapZoom = 1.0;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -595,6 +626,16 @@
             next);
 
         _soundEnabled = next && enabled;
+    }
+
+    private async Task ToggleMusicAsync()
+    {
+        var next = !_musicEnabled;
+        var enabled = await JS.InvokeAsync<bool>(
+            "overseerAudio.setMusicEnabled",
+            next);
+
+        _musicEnabled = next && enabled;
     }
 
     private async Task PlayPendingAudioAsync()
