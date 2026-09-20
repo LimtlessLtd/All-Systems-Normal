@@ -307,9 +307,46 @@
                 </section>
             }
 
+            @if (Session.State.Turrets.FirstOrDefault() is { } controlTurret)
+            {
+                <section class="controlRobot-control-card">
+                    <span class="overline">FIXED SECURITY</span>
+                    <strong>@controlTurret.Name · @controlTurret.Policy</strong>
+                    <small>
+                        @Session.State.Facility.Rooms[controlTurret.RoomId].Name
+                        · HP @controlTurret.Integrity.ToString("0")%
+                        · AMMO @controlTurret.Ammunition
+                    </small>
+                    <small>
+                        LINK @(controlTurret.IsNetworkIsolated ? "ISOLATED" : "ONLINE")
+                        · PWR @(TurretSystem.HasPower(Session.State, controlTurret) ? "ON" : "OFF")
+                        · HEAT @controlTurret.Heat.ToString("0")%
+                        · @(controlTurret.IsArmed ? "ARMED" : "SAFE")
+                    </small>
+                    <p>@controlTurret.CurrentTask</p>
+                    <div class="controlRobot-policy-controls">
+                        <button class="mini secondary"
+                                disabled="@(!controlTurret.HasRemoteControlLink)"
+                                @onclick="() => Session.SetTurretPolicy(controlTurret.Id, TurretPolicy.Safe)">SAFE</button>
+                        <button class="mini secondary"
+                                disabled="@(!controlTurret.HasRemoteControlLink)"
+                                @onclick="() => Session.SetTurretPolicy(controlTurret.Id, TurretPolicy.ProtectOverseer)">PROTECT</button>
+                        <button class="mini danger"
+                                disabled="@(!controlTurret.HasRemoteControlLink)"
+                                @onclick="() => Session.SetTurretPolicy(controlTurret.Id, TurretPolicy.SuppressCrew)">SUPPRESS</button>
+                        <button class="mini @(controlTurret.IsArmed ? "secondary" : "danger")"
+                                disabled="@(!controlTurret.HasRemoteControlLink)"
+                                @onclick="() => Session.SetTurretArmed(controlTurret.Id, !controlTurret.IsArmed)">
+                            @(controlTurret.IsArmed ? "DISARM" : "ARM")
+                        </button>
+                    </div>
+                </section>
+            }
+
             <div class="legend">
                 <span><i class="legend-dot crew"></i> visible crew</span>
                 <span><i class="legend-dot robot"></i> autonomous robot</span>
+                <span><i class="legend-dot robot"></i> fixed security turret</span>
                 <span><i class="legend-dot open"></i> open door</span>
                 <span><i class="legend-dot locked"></i> locked door</span>
             </div>
@@ -410,6 +447,18 @@
                          aria-label="@($"{mapRobot.Name}, {mapRobot.Policy} policy")">
                         <span class="robot-icon" aria-hidden="true">▣</span>
                         <span class="robot-nameplate">@mapRobot.Name</span>
+                    </div>
+                }
+
+                @foreach (var mapTurret in Session.State.Turrets.Where(CanSee))
+                {
+                    <div @key="mapTurret"
+                         class="@TurretTokenClass(mapTurret)"
+                         style="@TurretStyle(mapTurret)"
+                         title="@($"{mapTurret.Name} — {mapTurret.Policy} — {mapTurret.CurrentTask}")"
+                         aria-label="@($"{mapTurret.Name}, {mapTurret.Policy} policy, {(mapTurret.IsArmed ? "armed" : "disarmed")}")">
+                        <span class="robot-icon" aria-hidden="true">⌖</span>
+                        <span class="robot-nameplate">@mapTurret.Name</span>
                     </div>
                 }
 
@@ -1506,6 +1555,18 @@
         !robot.IsDestroyed
         && Session.State.Facility.Rooms[robot.CurrentRoomId].HasVisualFeed;
 
+    private bool CanSee(SecurityTurret turret) =>
+        !turret.IsDestroyed
+        && Session.State.Facility.Rooms[turret.RoomId].HasVisualFeed;
+
+    private static string TurretTokenClass(SecurityTurret turret)
+    {
+        var state = !turret.IsArmed ? "shutdown"
+            : turret.Policy == TurretPolicy.SuppressCrew ? "hostile"
+            : "neutral";
+        return $"robot-token turret-token {state}";
+    }
+
     private static string RobotTokenClass(StationRobot robot)
     {
         var state = robot.IsDestroyed ? "destroyed"
@@ -1682,6 +1743,17 @@
             + (((robot.PositionX - 50) / 100) * room.MapWidth);
         var mapY = room.MapY
             + (((robot.PositionY - 50) / 100) * room.MapHeight);
+
+        return FormattableString.Invariant($"left:{mapX}%;top:{mapY}%;");
+    }
+
+    private string TurretStyle(SecurityTurret turret)
+    {
+        var room = Session.State.Facility.Rooms[turret.RoomId];
+        var mapX = room.MapX
+            + (((turret.PositionX - 50) / 100) * room.MapWidth);
+        var mapY = room.MapY
+            + (((turret.PositionY - 50) / 100) * room.MapHeight);
 
         return FormattableString.Invariant($"left:{mapX}%;top:{mapY}%;");
     }
