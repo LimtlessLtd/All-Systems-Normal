@@ -329,10 +329,18 @@ public sealed class SuspicionSystem
     {
         var rootEvidenceId = sourceEvidenceId ?? evidenceId;
 
-        if (rootEvidenceId is not null
+        if (evidenceId is not null
             && npc.OverseerEvidence.Any(e =>
-                e.EvidenceId == rootEvidenceId
-                || e.SourceEvidenceId == rootEvidenceId))
+                e.EvidenceId == evidenceId))
+        {
+            return null;
+        }
+
+        if (origin == EvidenceOrigin.Testimony
+            && sourceEvidenceId is not null
+            && npc.OverseerEvidence.Any(e =>
+                e.EvidenceId == sourceEvidenceId
+                || e.SourceEvidenceId == sourceEvidenceId))
         {
             return null;
         }
