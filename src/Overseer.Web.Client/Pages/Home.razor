@@ -334,7 +334,7 @@
                         <button class="mini danger"
                                 disabled="@(!controlTurret.HasRemoteControlLink)"
                                 @onclick="() => Session.SetTurretPolicy(controlTurret.Id, TurretPolicy.SuppressCrew)">SUPPRESS</button>
-                        <button class="mini @(controlTurret.IsArmed ? "secondary" : "danger")"
+                        <button class="mini secondary"
                                 disabled="@(!controlTurret.HasRemoteControlLink)"
                                 @onclick="() => Session.SetTurretArmed(controlTurret.Id, !controlTurret.IsArmed)">
                             @(controlTurret.IsArmed ? "DISARM" : "ARM")
@@ -1559,9 +1559,10 @@
         !turret.IsDestroyed
         && Session.State.Facility.Rooms[turret.RoomId].HasVisualFeed;
 
-    private static string TurretTokenClass(SecurityTurret turret)
+    private string TurretTokenClass(SecurityTurret turret)
     {
-        var state = !turret.IsArmed ? "shutdown"
+        var state = !turret.IsArmed || !TurretSystem.HasPower(Session.State, turret)
+            ? "shutdown"
             : turret.Policy == TurretPolicy.SuppressCrew ? "hostile"
             : "neutral";
         return $"robot-token turret-token {state}";
