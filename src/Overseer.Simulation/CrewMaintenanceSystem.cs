@@ -64,7 +64,9 @@ public sealed class CrewMaintenanceSystem
             .Select(npc => npc.ServicingDeviceId!)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var npc in state.Crew.Where(IsAvailable).OrderBy(n => n.Name, StringComparer.Ordinal))
+        foreach (var npc in state.Crew
+                     .Where(npc => IsAvailable(state, npc))
+                     .OrderBy(n => n.Name, StringComparer.Ordinal))
         {
             // Properly qualified first; if nothing here is their speciality they
             // will still have a go at something rather than let it rot.
@@ -267,10 +269,20 @@ public sealed class CrewMaintenanceSystem
         }
     }
 
-    private static bool IsAvailable(Npc npc) =>
+    private static bool IsAvailable(GameState state, Npc npc) =>
         npc.IsAlive
         && npc.IsPresent
         && npc.ServicingDeviceId is null
+
+        // Somebody already watering the beds or cooking is not free. Two
+        // assignment systems overwriting each other's intents meant neither job
+        // was ever finished.
+        && npc.ProvisioningJob is null
+
+        // Nor is somebody who needs their meal. Handing out jobs regardless
+        // kept the crew permanently busy and permanently hungry, with a full
+        // galley they never got to.
+        && (npc.Hunger < StationProvisionRules.HungryAt || !state.Stores.HasMeal)
         && (npc.Intent is null || npc.Intent.Urgency < ProtectedUrgency);
 
     private bool CanReach(GameState state, Npc npc, StationDevice device) =>

@@ -14,6 +14,7 @@ public sealed class CrewMaintenanceSystemTests
         private readonly EnvironmentSystem _environment = new();
         private readonly StationUpkeepSystem _upkeep = new();
         private readonly CrewMaintenanceSystem _maintenance = new();
+        private readonly CrewProvisioningSystem _provisioning = new();
         private readonly CrewRoutineSystem _routines = new();
         private readonly IntentExecutionSystem _intents = new();
         private readonly LocalMovementSystem _movement = new();
@@ -27,6 +28,7 @@ public sealed class CrewMaintenanceSystemTests
             _simulation.Tick(state, Minute);
             _mind.Tick(state);
             _intents.Tick(state);
+            _provisioning.Tick(state, Minute);
             _maintenance.Tick(state);
             _pacing.Tick(state);
             _routines.Tick(state);

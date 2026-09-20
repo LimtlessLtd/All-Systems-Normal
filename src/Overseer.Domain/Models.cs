@@ -293,6 +293,9 @@ public enum ActionKind
     ForceDoor,
     RestoreSystem,
     SecureAirlock,
+    TendCrops,
+    Harvest,
+    Cook,
     RepairDoor,
     WeldDoor,
     BarricadeDoor
@@ -558,6 +561,23 @@ public sealed class Npc
     /// <summary>Equipment this person is currently servicing, if any.</summary>
     public string? ServicingDeviceId { get; set; }
 
+    /// <summary>Crop bed this person is currently tending or harvesting.</summary>
+    public string? TendingBedId { get; set; }
+
+    // The provisioning job in hand, held independently of Intent. Arriving
+    // somewhere clears the intent that took you there, so a job that relied on
+    // the intent surviving would be dropped and reassigned forever.
+    public ActionKind? ProvisioningJob { get; set; }
+
+    public string? ProvisioningRoomId { get; set; }
+
+    /// <summary>
+    /// When the provisioning job in hand finishes. Kept separate from
+    /// ServiceCompletesAt: sharing one timer let the maintenance system clear
+    /// the galley's clock every tick, so nothing was ever cooked.
+    /// </summary>
+    public TimeSpan? ProvisioningCompletesAt { get; set; }
+
     /// <summary>When the service visit in progress finishes.</summary>
     public TimeSpan? ServiceCompletesAt { get; set; }
     public NpcBubble? Bubble { get; set; }
@@ -695,6 +715,10 @@ public sealed class GameState
         new(StringComparer.OrdinalIgnoreCase);
 
     public PowerGrid Power { get; } = new();
+
+    // The food chain: beds in hydroponics, stores the galley draws on.
+    public List<CropBed> CropBeds { get; } = [];
+    public StationStores Stores { get; } = new();
 
     /// <summary>Seeded per game so a station's wear and tear is reproducible.</summary>
     public int UpkeepSeed { get; set; }

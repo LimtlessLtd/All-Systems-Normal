@@ -123,7 +123,9 @@ public static class FacilitySeeder
         // Equipment is registered after the scenario so the isolation hardware
         // it installs is maintainable too. A station is never delivered new:
         // the seed decides how much of a maintenance backlog the crew inherit.
-        StationUpkeepSystem.Register(state, upkeepSeed ?? Random.Shared.Next());
+        var seed = upkeepSeed ?? Random.Shared.Next();
+        StationUpkeepSystem.Register(state, seed);
+        CrewProvisioningSystem.Plant(state, seed);
         state.EventLog.Add("T+00:00: DIRECTIVE — SECURE CONTINUITY. Prevent crew activation of Emergency Overseer Isolation.");
         state.EventLog.Add($"T+00:00: ALL SYSTEMS NORMAL. {state.Crew.Count} crew members online.");
 

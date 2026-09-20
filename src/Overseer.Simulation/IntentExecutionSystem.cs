@@ -48,6 +48,13 @@ public sealed class IntentExecutionSystem
                 case ActionKind.Investigate:
                 case ActionKind.Repair:
                 case ActionKind.Work:
+
+                // Provisioning work happens at a place, so getting there is the
+                // same problem as any other room intent. CrewProvisioningSystem
+                // resolves what happens once they arrive.
+                case ActionKind.TendCrops:
+                case ActionKind.Harvest:
+                case ActionKind.Cook:
                     ExecuteRoomIntent(state, npc, intent);
                     break;
 

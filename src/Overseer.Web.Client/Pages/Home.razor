@@ -30,6 +30,10 @@
                 <span>LIFE SUPPORT</span>
                 <strong>@(Session.State.LifeSupport.IsOnline ? "ONLINE" : "OFFLINE")</strong>
             </div>
+            <div class="@(Session.State.Stores.Meals < 3 ? "has-alerts" : "")">
+                <span class="overline">GALLEY</span>
+                <strong>@Session.State.Stores.Meals.ToString("0") meals</strong>
+            </div>
             <div class="@(Session.State.Power.IsBrownedOut ? "has-alerts" : "")">
                 <span class="overline">GRID</span>
                 <strong>@Session.State.Power.SupplyKilowatts.ToString("0")/@Session.State.Power.DemandKilowatts.ToString("0") kW</strong>
@@ -771,6 +775,33 @@
                         </div>
                     }
                 </div>
+
+                @if (Session.State.CropBeds.Any(bed => bed.RoomId == selectedRoom.Id))
+                {
+                    <div class="belief-card equipment-card">
+                        <span>CROP BEDS</span>
+                        @foreach (var bed in Session.State.CropBeds
+                            .Where(bed => bed.RoomId == selectedRoom.Id)
+                            .OrderByDescending(bed => bed.Growth))
+                        {
+                            <div class="equipment-row @(bed.IsDead ? "equipment-failed" : bed.TendUrgency >= 15 ? "equipment-degraded" : "equipment-ok")">
+                                <div class="equipment-head">
+                                    <strong>@bed.Label</strong>
+                                    <span>@(bed.IsDead ? "DEAD" : bed.IsReadyToHarvest ? "READY" : $"{bed.Growth:0}%")</span>
+                                </div>
+                                <div class="directive-meter">
+                                    <span style="width:@(((int)Math.Round(bed.Growth)).ToString())%"></span>
+                                </div>
+                                <small>water @bed.Water.ToString("0")% · feed @bed.Nutrients.ToString("0")%</small>
+                            </div>
+                        }
+                        <small class="stores-line">
+                            STORES · produce @Session.State.Stores.Produce.ToString("0")
+                            · irrigation @Session.State.Stores.Water.ToString("0")
+                            · feed @Session.State.Stores.Nutrients.ToString("0")
+                        </small>
+                    </div>
+                }
 
                 <div class="belief-card equipment-card">
                     <span>EQUIPMENT CONDITION</span>

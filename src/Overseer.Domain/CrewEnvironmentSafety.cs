@@ -7,11 +7,19 @@ namespace Overseer.Domain;
 /// </summary>
 public static class CrewEnvironmentSafety
 {
+    /// <summary>
+    /// Life-threatening, not merely unpleasant. The temperature band used to
+    /// start at 14C, which made every unheated hallway on the station read as
+    /// DANGER — so crew fled the moment they stepped into one, bounced straight
+    /// back, and could never cross the station to eat or work. A cold corridor
+    /// is uncomfortable and belongs in the MARGINAL band, where it still feeds
+    /// RiskScore and crew stress without triggering an evacuation.
+    /// </summary>
     public static bool IsDangerous(Room room) =>
         room.OxygenPercent < 19.0
         || room.CarbonDioxidePercent > 1.25
         || room.PressureKpa < 90
-        || room.TemperatureC is < 14 or > 30;
+        || room.TemperatureC is < 6 or > 38;
 
     public static bool IsHabitable(Room room) =>
         room.IsPowered

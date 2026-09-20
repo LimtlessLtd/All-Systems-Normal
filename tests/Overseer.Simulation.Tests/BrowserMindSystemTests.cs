@@ -47,7 +47,10 @@ public sealed class BrowserMindSystemTests
         var david = state.Crew.Single(npc => npc.Name == "David Hale");
         var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
 
-        state.Facility.Rooms[david.CurrentRoomId].TemperatureC = 31;
+        // Genuinely dangerous rather than merely warm: DANGER now means
+        // life-threatening, so that ordinary cold hallways stop reading as
+        // emergencies the crew must flee.
+        state.Facility.Rooms[david.CurrentRoomId].TemperatureC = 44;
         state.Facility.Rooms[sarah.CurrentRoomId].CarbonDioxidePercent = 1.4;
         state.Elapsed = TimeSpan.FromMinutes(1);
 

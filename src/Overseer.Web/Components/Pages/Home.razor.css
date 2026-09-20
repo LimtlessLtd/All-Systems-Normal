@@ -3737,3 +3737,11 @@ button.sound-toggle.sound-on {
     font-size: .58rem;
     letter-spacing: .08em;
 }
+
+.stores-line {
+    display: block;
+    margin-top: .3rem;
+    color: var(--muted);
+    font-size: .58rem;
+    letter-spacing: .08em;
+}

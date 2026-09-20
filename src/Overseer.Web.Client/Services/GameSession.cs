@@ -27,6 +27,7 @@ public sealed class GameSession
     private readonly CrewAccountComparisonSystem _accountComparison = new();
     private readonly StationUpkeepSystem _upkeep = new();
     private readonly CrewMaintenanceSystem _maintenance = new();
+    private readonly CrewProvisioningSystem _provisioning = new();
     private readonly IOverseerMessageInterpreter _messageInterpreter =
         new RuleBasedOverseerMessageInterpreter();
     private readonly ManualOverrideSystem _manualOverrides = new();
@@ -602,6 +603,7 @@ public sealed class GameSession
         _crewRoutines.Tick(State);
         _movement.Tick(State, TimeSpan.FromMinutes(1));
         _shutdown.Tick(State);
+        _provisioning.Tick(State, turn);
         _maintenance.Tick(State);
         _comms.Tick(State);
         _accountComparison.Tick(State);
