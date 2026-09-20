@@ -135,6 +135,32 @@ public sealed class InvestigationAndScenarioTests
     }
 
     [Fact]
+    public void WitnessedLocalSystemDisruption_CreatesLeadWithoutRemoteKnowledge()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        var engineering = state.Facility.Rooms["engineering"];
+
+        sarah.CurrentRoomId = engineering.Id;
+        david.CurrentRoomId = "control";
+
+        new SuspicionSystem().ObservePlayerRoomSystemChange(
+            state,
+            engineering,
+            "ventilation",
+            becameDisruptive: true,
+            weight: 9);
+
+        Assert.Single(sarah.OverseerEvidence);
+        Assert.Contains(
+            sarah.InvestigationLeads.Values,
+            lead => lead.RoomId == engineering.Id);
+        Assert.Empty(david.OverseerEvidence);
+        Assert.Empty(david.InvestigationLeads);
+    }
+
+    [Fact]
     public void RecruitmentAndJoin_CreateTeamButDoNotTransferHardwareKnowledge()
     {
         var state = FacilitySeeder.CreateDefault();
