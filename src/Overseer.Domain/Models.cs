@@ -130,6 +130,12 @@ public enum ShutdownAccessVariant
     ImpossibleToSeal
 }
 
+public enum ScenarioRosterPolicy
+{
+    FreshGenerated,
+    CampaignContinuing
+}
+
 public sealed record ScenarioObjective(
     string Id,
     string Title,
@@ -169,7 +175,8 @@ public sealed record ScenarioDefinition(
     ShutdownAccessVariant ShutdownVariant,
     IReadOnlyList<ScenarioObjective> Objectives,
     IReadOnlyList<CorporateDirective>? Directives = null,
-    StationGenerationConstraints? StationConstraints = null);
+    StationGenerationConstraints? StationConstraints = null,
+    ScenarioRosterPolicy RosterPolicy = ScenarioRosterPolicy.CampaignContinuing);
 
 public sealed class ShutdownMechanism
 {
