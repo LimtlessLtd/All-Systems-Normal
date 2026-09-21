@@ -35,6 +35,12 @@ public sealed class TurretSystem
             return false;
         }
 
+        if (turret.IsControlLinkCompromised)
+        {
+            message = $"{turret.Name} refused direct policy update: CONTROL LINK COMPROMISED.";
+            return false;
+        }
+
         if (turret.Policy == policy)
         {
             message = $"{turret.Name} policy is already {policy}.";
@@ -79,6 +85,12 @@ public sealed class TurretSystem
         if (!turret.HasRemoteControlLink)
         {
             message = $"{turret.Name} refused arming command: CONTROL LINK ISOLATED.";
+            return false;
+        }
+
+        if (turret.IsControlLinkCompromised)
+        {
+            message = $"{turret.Name} refused direct arming command: CONTROL LINK COMPROMISED.";
             return false;
         }
 
