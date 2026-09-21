@@ -33,7 +33,8 @@ public static class CrewDutySchedule
             [CrewRole.Technician] =
                 ["generator", "engineering", "storage", "hydroponics", "airlock", "control", "reactor", "medical"],
             [CrewRole.Scientist] =
-                ["reactor", "hydroponics", "medical", "control", "storage", "engineering", "lounge", "kitchen"]
+                ["reactor", "hydroponics", "medical", "control", "storage", "engineering", "lounge", "kitchen"],
+            [CrewRole.Prisoner] = ["containment"]
         };
 
     public static IReadOnlyList<string> RouteFor(CrewRole role) => WorkRoutes[role];
