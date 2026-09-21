@@ -24,6 +24,50 @@ public static class CropRules
     };
 }
 
+public static class FoodPreferenceRules
+{
+    public static void EnsureDefaults(Npc npc)
+    {
+        ArgumentNullException.ThrowIfNull(npc);
+        if (npc.FoodLikes.Count > 0 || npc.FoodDislikes.Count > 0)
+            return;
+
+        var edible = Enum.GetValues<CropKind>().Where(CropRules.IsEdibleRaw).ToArray();
+        var first = StablePick(npc.Name, edible.Length, 17);
+        var second = StablePick(npc.Name, edible.Length, 43);
+        if (second == first) second = (second + 1) % edible.Length;
+        var dislike = StablePick(npc.Name, edible.Length, 89);
+        while (dislike == first || dislike == second)
+            dislike = (dislike + 1) % edible.Length;
+
+        npc.FoodLikes.Add(edible[first]);
+        npc.FoodLikes.Add(edible[second]);
+        npc.FoodDislikes.Add(edible[dislike]);
+    }
+
+    public static int PreferenceScore(Npc npc, CropKind crop)
+    {
+        EnsureDefaults(npc);
+        if (npc.FoodLikes.Contains(crop)) return 2;
+        if (npc.FoodDislikes.Contains(crop)) return -2;
+        return 0;
+    }
+
+    private static int StablePick(string value, int count, int salt)
+    {
+        unchecked
+        {
+            uint hash = 2166136261u + (uint)salt;
+            foreach (var ch in value)
+            {
+                hash ^= ch;
+                hash *= 16777619;
+            }
+            return (int)(hash % (uint)count);
+        }
+    }
+}
+
 /// <summary>
 /// One planted bed in the hydroponics bay. Crops need water and nutrients to
 /// grow, both of which drain and have to be topped up by somebody.
@@ -107,7 +151,7 @@ public static class StationProvisionRules
     /// substantially less hunger and usually make morale/stress worse.
     /// </summary>
     public const double RawCropUnitsPerMinute = 0.045;
-    public const double RawFoodStressPerMinute = 0.12;
+    public const double RawFoodStressPerMinute = 0.24;
 
     /// <summary>Hunger above which somebody goes looking for food.</summary>
     public const double HungryAt = 45;
