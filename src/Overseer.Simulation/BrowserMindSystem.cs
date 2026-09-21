@@ -56,7 +56,10 @@ public sealed class BrowserMindSystem
                 && candidate.NeedsMindReconsideration
                 && !CrewEnvironmentSafety.IsDangerous(
                     state.Facility.Rooms[candidate.CurrentRoomId])
-                && (candidate.Intent is null || candidate.Intent.Urgency < 85))
+                && (candidate.Intent is null
+                    || candidate.Intent.Urgency < 85
+                    || candidate.Hunger >= 72
+                    || candidate.Fatigue >= 86))
             .OrderByDescending(candidate =>
                 candidate.MissingPersonConcerns.Values.Any(concern =>
                     concern.Stage == MissingPersonConcernStage.Escalated))
@@ -213,6 +216,31 @@ public sealed class BrowserMindSystem
                 "Shelter and call for emergency help.",
                 "The environment is dangerous and I cannot identify a safer room.",
                 98);
+        }
+
+        // Critical bodily needs get an immediate chance to supersede long
+        // technical/social plans. This is still cognition choosing the goal,
+        // not the world layer issuing a scripted command.
+        if (npc.Hunger >= 72)
+        {
+            return Create(
+                state,
+                ActionKind.Eat,
+                null,
+                "Find food now.",
+                "I am hungry enough that continuing to ignore it is dangerous.",
+                92);
+        }
+
+        if (npc.Fatigue >= 86)
+        {
+            return Create(
+                state,
+                ActionKind.Sleep,
+                null,
+                "Get sleep now.",
+                "I am dangerously exhausted and need to stop.",
+                90);
         }
 
         var repairSkill = CrewCounterplaySystem.BestRepairSkill(npc);
