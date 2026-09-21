@@ -76,6 +76,7 @@ public static class StationGenerator
             ["generator"] = new("generator", "Generator", RoomType.Generator, 11, 18, 14, 22, 90),
             ["reactor"] = new("reactor", "Reactor", RoomType.Reactor, 14, 23, 16, 27, 100),
             ["airlock"] = new("airlock", "Airlock", RoomType.Airlock, 8, 12, 10, 14, 100),
+            ["containment"] = new("containment", "Secure Containment", RoomType.Containment, 14, 22, 16, 24, 90),
             ["isolation"] = new("isolation", "Overseer Isolation", RoomType.ControlRoom, 8, 12, 10, 16, 100)
         };
 
@@ -445,6 +446,8 @@ public static class StationGenerator
     {
         var profiles = CanonicalProfiles.Values
             .Where(profile => !constraints.ForbiddenRoomIds.Contains(profile.Id))
+            .Where(profile => !profile.Id.Equals("containment", StringComparison.OrdinalIgnoreCase)
+                || constraints.RequiredRoomIds.Contains("containment"))
             .ToDictionary(profile => profile.Id, StringComparer.OrdinalIgnoreCase);
 
         foreach (var authored in constraints.AuthoredRooms)
