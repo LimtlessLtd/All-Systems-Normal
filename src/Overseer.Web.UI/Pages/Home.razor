@@ -686,6 +686,14 @@
                             <b class="@PowerStatusClass(calloutRoom)">@(calloutRoom.IsPowered ? "PWR" : "PWR OFF")</b>
                             <b class="@TemperatureStatusClass(calloutRoom)">@calloutRoom.TemperatureC.ToString("0")°C</b>
                             <b class="@OxygenStatusClass(calloutRoom)">O₂ @calloutRoom.OxygenPercent.ToString("0.0")%</b>
+                            @if (calloutRoom.FireIntensity > 0)
+                            {
+                                <b class="bad">FIRE @calloutRoom.FireIntensity.ToString("0")%</b>
+                            }
+                            else if (calloutRoom.SmokePercent >= 12)
+                            {
+                                <b class="warn">SMOKE @calloutRoom.SmokePercent.ToString("0")%</b>
+                            }
                         </span>
                     </button>
                 }
@@ -1417,6 +1425,8 @@
                     <div><span>OXYGEN</span><strong>@selectedRoom.OxygenPercent.ToString("0.00")%</strong></div>
                     <div><span>CO₂</span><strong>@selectedRoom.CarbonDioxidePercent.ToString("0.00")%</strong></div>
                     <div><span>PRESSURE</span><strong>@selectedRoom.PressureKpa.ToString("0.0") kPa</strong></div>
+                    <div><span>FIRE</span><strong>@selectedRoom.FireIntensity.ToString("0")%</strong></div>
+                    <div><span>SMOKE</span><strong>@selectedRoom.SmokePercent.ToString("0")%</strong></div>
                     <div><span>OCCUPANTS</span><strong>@VisibleOccupantLabel(selectedRoom)</strong></div>
                 </div>
 
@@ -2761,6 +2771,11 @@
 
         if (!room.LightsOn)
             classes.Add("lights-off");
+
+        if (room.FireIntensity > 0)
+            classes.Add("has-fire");
+        else if (room.SmokePercent >= 12)
+            classes.Add("has-smoke");
 
         return string.Join(' ', classes);
     }
