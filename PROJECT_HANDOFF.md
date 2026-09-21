@@ -3,8 +3,8 @@
 Repository: https://github.com/LimtlessLtd/All-Systems-Normal
 Playable Pages build: https://limtlessltd.github.io/All-Systems-Normal/
 
-**Current state:** V0.10D — Large White/Grey Station Deck + External Telemetry
-**Next recommended milestone:** V0.10E — Inspector/Debug Separation, Door Interaction + Broader Crew Agency
+**Current state:** V0.10E — Inspector/Debug Separation, Door Interaction + Broader Crew Agency
+**Next recommended milestone:** V0.11 — Contained Security-Network Malware & Crew Recovery
 
 This file is the authoritative technical handoff. Keep it concise and update sections in place; do not append milestone diaries.
 
@@ -181,6 +181,12 @@ Current shared mechanics include:
 - mirrored Pages/server station UI, resizable panels, large pannable deck camera, wheel/WASD/drag zoom/pan, audio/music, speech/thought bubbles and physical entity animation
 - external room telemetry callouts with leader lines and no room/corridor overlap
 - bright white/grey spacecraft interior art direction with animated consoles/screens/vents/irrigation/pipes/medical/camera/airlock/machinery cues
+- one shared `StationSelection` / `StationInspectionSystem` contract drives the contextual Inspector for rooms, crew, doors, MR robots and ST turrets
+- the primary workspace is map + Inspector + comms; the old permanent Facility Systems panel is removed
+- `/debug` is a separate full-screen non-gameplay diagnostics surface; it contains cognition traces, raw Ollama prompt/response data, event logs and generation diagnostics and can be disabled without changing simulation authority
+- authoritative sliding doors animate from `Door.IsOpen`; ordinary crew automatically open traversable closed/unlocked hatches and they auto-close after traffic, while deterministic role/skill rules gate lock/unlock
+- `CrewAffordanceSystem` is the shared capability catalog for Ollama and browser fallback; deterministic systems still validate knowledge, targets, routes, skills, permissions and outcomes
+- expanded grounded crew agency includes cooperative, investigative, deceptive, safety and local door intentions; deception never directly edits another NPC's beliefs
 - selectable MR robots with dedicated Inspector telemetry; crew and friendly robots physically approach actual fixtures/equipment while working where an interaction point exists
 - transient cognition diagnostics via `CognitionTelemetrySystem`; Ollama traces retain prompt/raw response/validated intent, browser/rule-based minds emit the same decision shape
 - missing-person logic treats routine separation as normal: concern is measured in hours, Concerned-stage absence does not pre-empt work, and shared concern does not instantly interrupt the listener
@@ -195,6 +201,7 @@ Useful subsystem anchors:
 - src/Overseer.Simulation/TurretCountermeasureSystem.cs
 - src/Overseer.Simulation/EnvironmentSystem.cs
 - src/Overseer.Simulation/StationUpkeepSystem.cs
+- src/Overseer.Simulation/StationInteractionSystems.cs
 - src/Overseer.Simulation/CrewProvisioningSystem.cs
 - src/Overseer.Simulation/BrowserMindSystem.cs
 - src/Overseer.AI/NpcPromptBuilder.cs
@@ -232,48 +239,17 @@ Standard gate:
 
 ---
 
-## Next milestone — V0.10E Inspector/Debug Separation, Door Interaction + Broader Crew Agency
+## Completed V0.10E contracts
 
-This is the immediate pass before malware work.
+- Debug telemetry is isolated on `/debug`; no station map or player-critical controls live there.
+- The live workspace no longer carries the permanent Facility Systems panel.
+- Rooms, crew, doors, MR robots and ST turrets use one extensible Inspector selection contract.
+- Closed/unlocked powered doors are normal crew-traversable affordances: crew physically opens them at the portal, crossing revalidates live state, and traffic-driven auto-close is authoritative.
+- Engineer/Technician plus deterministic Security/Commander skill rules gate crew lock/unlock; existing damaged/manual/bypass/weld/barricade rules remain authoritative.
+- Ollama consumes a shared capability-oriented affordance catalog instead of a duplicated hardcoded menu; the model-free browser mind uses the same action contracts.
+- V0.10E regression coverage lives in `V010EInteractionTests.cs` plus existing navigation/browser-mind tests.
 
-Required scope:
-
-1. **Dedicated debug telemetry screen**
-   - Move cognition/event/model telemetry to a separate full-screen debug route/view; do not render the station map there.
-   - Debug telemetry must never be required to play the game and should be easy to hide/disable for normal release users.
-   - Keep raw LLM prompts/responses, validated actions and simulation diagnostics there.
-
-2. **Declutter Facility Systems**
-   - Remove the permanent Facility Systems panel from the primary station workspace.
-   - Put genuinely useful controls into the selected entity's Inspector where contextual.
-   - Move any remaining global/diagnostic controls to secondary utility/debug UI rather than consuming map space.
-
-3. **Universal contextual Inspector**
-   - Clicking crew shows identity, role, traits/personality, needs, beliefs, current goal/intent, current physical action, relationships/evidence and location.
-   - Clicking rooms shows environment, systems, fixtures, occupants, faults and available room controls.
-   - Clicking doors shows open/closed/locked/damaged state, access/authority, adjacent rooms and available controls.
-   - Clicking MR robots and ST turrets/automated defences shows operational state, policy, task/target, power/ammo/heat/link state and valid commands.
-   - Use the same extensible selection model for future clickable entities; avoid one-off side panels.
-
-4. **Physical sliding doors + crew door use**
-   - Animate doors opening/closing as sci-fi sliding panels that retract out of the passage and slide back into place.
-   - Door animation must reflect authoritative door state and never determine passability itself.
-   - Humans should physically open an unlocked closed door when traversing it and close it again when appropriate rather than requiring the player to micromanage normal passage.
-   - Initial access rule: ordinary crew may open/close unlocked doors; only suitably skilled/authorised roles (at minimum Engineer/Technician, with scenario/security overrides where appropriate) may lock/unlock doors. Keep deterministic C# authoritative over permissions, timing and state transitions.
-   - Preserve existing damaged/manual/bypass/weld/barricade mechanics and revalidate passability at crossing time.
-
-5. **Broader LLM-driven emergent agency**
-   - Expand the high-level action/affordance vocabulary substantially beyond the current rigid intent menu so Ollama minds can originate more varied work, social, investigative, cooperative, deceptive, improvised and self-preservation goals.
-   - Prefer capability/affordance descriptions in prompts over hardcoded scripts telling the model what to choose.
-   - Deterministic C# still validates entity knowledge, targets, prerequisites, skills, routes, tools, duration, permissions and physical outcomes.
-   - Preserve ongoing meaningful work from frivolous replanning, but allow surprising valid behaviour when the world state supports it.
-   - Browser/Pages remains model-free and needs a deterministic fallback covering the same action contracts.
-
-Regression coverage must include selection/Inspector routing, hidden/non-critical debug telemetry, crew door permissions + automatic traversal opening/closing, authoritative sliding-door states and expanded action validation.
-
----
-
-## Subsequent milestone — V0.11 Contained Security-Network Malware & Crew Recovery
+## Next milestone — V0.11 Contained Security-Network Malware & Crew Recovery
 
 Build one narrow malware vertical slice around the existing MR/ST control links; do not create a broad hacking framework.
 
