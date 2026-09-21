@@ -105,6 +105,53 @@ public static class StationPresentationSystem
         return "room-medium";
     }
 
+    private const string GeneratedFixturePrefix = "Generated ";
+
+    /// <summary>
+    /// Player-facing fixture name. Identity-driven fixtures keep their internal
+    /// "Generated {Type} {n}" label because generation tests and map styling key
+    /// off it; players should see "Utility panel 1" rather than that bookkeeping.
+    /// </summary>
+    public static string FixtureDisplayName(RoomFixture fixture)
+    {
+        ArgumentNullException.ThrowIfNull(fixture);
+
+        if (!fixture.Label.StartsWith(GeneratedFixturePrefix, StringComparison.Ordinal))
+        {
+            return fixture.Label;
+        }
+
+        var typeName = fixture.Type.ToString();
+        var remainder = fixture.Label[GeneratedFixturePrefix.Length..];
+        var suffix = remainder.StartsWith(typeName, StringComparison.Ordinal)
+            ? remainder[typeName.Length..]
+            : "";
+
+        return HumanizeIdentifier(typeName) + suffix;
+    }
+
+    private static string HumanizeIdentifier(string identifier)
+    {
+        var builder = new System.Text.StringBuilder(identifier.Length + 4);
+
+        for (var index = 0; index < identifier.Length; index++)
+        {
+            var character = identifier[index];
+
+            if (index > 0 && char.IsUpper(character))
+            {
+                builder.Append(' ');
+                builder.Append(char.ToLowerInvariant(character));
+            }
+            else
+            {
+                builder.Append(character);
+            }
+        }
+
+        return builder.ToString();
+    }
+
     private static string Slug<T>(T value)
         where T : struct, Enum =>
         value.ToString()

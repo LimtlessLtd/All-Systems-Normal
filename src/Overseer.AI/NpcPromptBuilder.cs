@@ -375,7 +375,7 @@ public static class NpcPromptBuilder
         while (queue.TryDequeue(out var current))
         {
             foreach (var door in state.Facility.Doors.Where(door =>
-                         CrewDoorInteractionSystem.CanOpenForTraversal(state, npc, door)
+                         CrewDoorInteractionSystem.CanTraverseWhenReached(state, npc, door)
                          && (door.RoomAId.Equals(current, StringComparison.OrdinalIgnoreCase)
                              || door.RoomBId.Equals(current, StringComparison.OrdinalIgnoreCase))))
             {

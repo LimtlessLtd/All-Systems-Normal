@@ -637,7 +637,11 @@ public sealed class IntentExecutionSystem
             return;
         }
 
-        var path = _navigation.FindPath(state.Facility, npc.CurrentRoomId, targetRoomId);
+        var path = _navigation.FindPathForCrew(
+            state,
+            npc,
+            npc.CurrentRoomId,
+            targetRoomId);
 
         if (path.Count < 2)
         {

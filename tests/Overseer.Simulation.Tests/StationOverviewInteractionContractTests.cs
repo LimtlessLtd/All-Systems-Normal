@@ -156,15 +156,27 @@ public sealed class StationOverviewInteractionContractTests
         })
         {
             var source = File.ReadAllText(Path.Combine(root, relative));
-            var guard = source.IndexOf(
-                "if (isStationInteractiveTarget(event.target))",
+            var pointerMove = source.IndexOf(
+                "addEventListener(\"pointermove\"",
+                StringComparison.Ordinal);
+            var panThreshold = source.IndexOf(
+                "Math.hypot(totalX, totalY) < 4",
+                pointerMove,
                 StringComparison.Ordinal);
             var capture = source.IndexOf(
                 "viewport.setPointerCapture",
                 StringComparison.Ordinal);
 
-            Assert.True(guard >= 0, $"{relative} is missing the interactive target guard.");
-            Assert.True(capture > guard, $"{relative} captures the pointer before checking interactive entities.");
+            // Capturing on pointerdown retargets a plain click to the viewport,
+            // which made rooms/crew/doors/robots unclickable. Capture may only
+            // begin once a press has moved far enough to be a pan, so drags
+            // that start on a room or corridor still move the camera.
+            Assert.True(pointerMove >= 0, $"{relative} is missing the camera pointermove handler.");
+            Assert.True(panThreshold > pointerMove, $"{relative} is missing the pan threshold.");
+            Assert.True(capture > panThreshold, $"{relative} captures the pointer before a press becomes a pan.");
+            Assert.Equal(
+                capture,
+                source.LastIndexOf("viewport.setPointerCapture", StringComparison.Ordinal));
         }
     }
 

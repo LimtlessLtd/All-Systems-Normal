@@ -415,7 +415,7 @@ public sealed class CrewProvisioningSystem
 
     private bool CanReach(GameState state, Npc npc, string roomId) =>
         npc.CurrentRoomId.Equals(roomId, StringComparison.OrdinalIgnoreCase)
-        || _navigation.FindPath(state.Facility, npc.CurrentRoomId, roomId).Count > 0;
+        || _navigation.FindPathForCrew(state, npc, npc.CurrentRoomId, roomId).Count > 0;
 
     private static void Log(GameState state, string message)
     {

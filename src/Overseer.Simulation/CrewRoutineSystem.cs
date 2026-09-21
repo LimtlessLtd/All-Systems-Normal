@@ -34,6 +34,11 @@ public sealed class CrewRoutineSystem
                 continue;
             }
 
+            if (IsWorkingJobOnSite(state, npc))
+            {
+                continue;
+            }
+
             var plan = ChoosePlan(state, npc, minute);
 
             if (npc.CurrentRoomId.Equals(
@@ -44,8 +49,9 @@ public sealed class CrewRoutineSystem
                 continue;
             }
 
-            var path = _navigation.FindPath(
-                state.Facility,
+            var path = _navigation.FindPathForCrew(
+                state,
+                npc,
                 npc.CurrentRoomId,
                 plan.TargetRoomId);
 
@@ -80,6 +86,26 @@ public sealed class CrewRoutineSystem
                 state.Elapsed,
                 4);
         }
+    }
+
+    /// <summary>
+    /// Maintenance and provisioning hold their worker without an Intent once
+    /// they arrive, so the routine must not hand that person a new errand in
+    /// the middle of the job. Only on-site work is protected: somebody holding
+    /// a job elsewhere is still free to be routed.
+    /// </summary>
+    private static bool IsWorkingJobOnSite(GameState state, Npc npc)
+    {
+        if (npc.ServicingDeviceId is { } deviceId
+            && state.Devices.TryGetValue(deviceId, out var device)
+            && npc.CurrentRoomId.Equals(device.RoomId, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return npc.ProvisioningJob is not null
+            && npc.ProvisioningRoomId is { } jobRoomId
+            && npc.CurrentRoomId.Equals(jobRoomId, StringComparison.OrdinalIgnoreCase);
     }
 
     private static void CoordinateMutualIntimacy(GameState state)

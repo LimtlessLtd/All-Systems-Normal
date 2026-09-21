@@ -48,7 +48,7 @@
                     data-station-interactive
                     @onclick='() => SelectDevice("power-bus:engineering")'>
                 <span class="overline">GRID</span>
-                <strong>@(Session.State.Power.SupplyKilowatts + Session.State.Power.BufferDischargeKilowatts).ToString("0")/@Session.State.Power.DemandKilowatts.ToString("0") kW</strong>
+                <strong>@((Session.State.Power.SupplyKilowatts + Session.State.Power.BufferDischargeKilowatts).ToString("0"))/@Session.State.Power.DemandKilowatts.ToString("0") kW</strong>
             </button>
             <div class="@(Session.AlertCount > 0 ? "has-alerts" : "")">
                 <span>ALERTS</span>
@@ -556,8 +556,8 @@
                                             type="button"
                                             class="@FixtureClass(fixture)"
                                             style="@FixtureStyle(fixture)"
-                                            title="@fixture.Label"
-                                            aria-label="@($"Inspect {fixture.Label}")"
+                                            title="@StationPresentationSystem.FixtureDisplayName(fixture)"
+                                            aria-label="@($"Inspect {StationPresentationSystem.FixtureDisplayName(fixture)}")"
                                             data-station-interactive
                                             @onclick:stopPropagation="true"
                                             @onclick="() => SelectDevice(deviceId)"></button>
@@ -567,7 +567,7 @@
                                     <i @key="fixture"
                                        class="@FixtureClass(fixture)"
                                        style="@FixtureStyle(fixture)"
-                                       title="@fixture.Label"
+                                       title="@StationPresentationSystem.FixtureDisplayName(fixture)"
                                        aria-hidden="true"></i>
                                 }
                             }
@@ -772,7 +772,7 @@
                     <div class="belief-card">
                         <span>GRID DISTRIBUTION</span>
                         <p>@Session.State.Power.DistributionEfficiencyPercent.ToString("0")% bus efficiency.</p>
-                        <small>Supply @(Session.State.Power.SupplyKilowatts + Session.State.Power.BufferDischargeKilowatts).ToString("0") kW · demand @Session.State.Power.DemandKilowatts.ToString("0") kW.</small>
+                        <small>Supply @((Session.State.Power.SupplyKilowatts + Session.State.Power.BufferDischargeKilowatts).ToString("0")) kW · demand @Session.State.Power.DemandKilowatts.ToString("0") kW.</small>
                     </div>
                 }
                 else if (selectedDevice.Kind == StationSystemKind.LifeSupport)
@@ -1251,7 +1251,7 @@
                     }
                     else
                     {
-                        <p>@string.Join(" · ", selectedRoom.Fixtures.Select(fixture => fixture.Label))</p>
+                        <p>@string.Join(" · ", selectedRoom.Fixtures.Select(StationPresentationSystem.FixtureDisplayName))</p>
                     }
                     @{
                         var localFaults = Session.State.Devices.Values
@@ -2263,25 +2263,21 @@
         FormattableString.Invariant(
             $"left:{fixture.X}%;top:{fixture.Y}%;width:{fixture.Width}%;height:{fixture.Height}%;");
 
-    private static RenderFragment Metric(string label, double value) => builder =>
+    // Authored as Razor markup, not RenderTreeBuilder calls: only markup gets
+    // the component's scoped-CSS attribute, so hand-built elements silently
+    // ignored every .metric rule in Home.razor.css.
+    private static RenderFragment Metric(string label, double value)
     {
         var safeValue = Math.Clamp(value, 0, 100);
-        builder.OpenElement(0, "div");
-        builder.AddAttribute(1, "class", "metric");
-        builder.OpenElement(2, "div");
-        builder.OpenElement(3, "span");
-        builder.AddContent(4, label);
-        builder.CloseElement();
-        builder.OpenElement(5, "strong");
-        builder.AddContent(6, safeValue.ToString("0"));
-        builder.CloseElement();
-        builder.CloseElement();
-        builder.OpenElement(7, "progress");
-        builder.AddAttribute(8, "max", "100");
-        builder.AddAttribute(9, "value", safeValue);
-        builder.CloseElement();
-        builder.CloseElement();
-    };
+
+        return @<div class="metric">
+            <div>
+                <span>@label</span>
+                <strong>@safeValue.ToString("0")</strong>
+            </div>
+            <progress max="100" value="@safeValue"></progress>
+        </div>;
+    }
 
     private static string RoomHealthClass(Room room) =>
         !room.IsPowered
