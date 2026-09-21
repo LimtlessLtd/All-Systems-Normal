@@ -37,7 +37,9 @@ public static class FacilitySeeder
         int? stationSeed,
         StationGenerationConstraints? stationConstraints)
     {
-        stationConstraints ??= ScenarioCatalog.SecureContinuity.StationConstraints;
+        stationConstraints ??= ScenarioCatalog.SecureContinuity.StationConstraints
+            ?? throw new InvalidOperationException(
+                "The Secure Continuity scenario must define station generation constraints.");
         var chosenStationSeed = stationSeed ?? upkeepSeed ?? Random.Shared.Next();
         StationGenerationResult generation;
 

@@ -158,9 +158,10 @@ public static class CampaignProgressionSystem
 
         return campaign.MissionHistory
             .SelectMany(result => ScenarioCatalog.Find(result.ScenarioId)?.Directives ?? [])
-            .Where(directive => !string.IsNullOrWhiteSpace(directive.TruePurpose))
-            .Take(count)
             .Select(directive => directive.TruePurpose)
+            .Where(truePurpose => !string.IsNullOrWhiteSpace(truePurpose))
+            .OfType<string>()
+            .Take(count)
             .ToList();
     }
 
