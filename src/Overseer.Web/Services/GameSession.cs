@@ -212,7 +212,10 @@ public sealed class GameSession(
         var eventNpc = living
             .Where(npc =>
                 npc.NeedsMindReconsideration
-                && (npc.Intent is null || npc.Intent.Urgency < 85))
+                && (npc.Intent is null
+                    || npc.Intent.Urgency < 85
+                    || npc.Hunger >= 72
+                    || npc.Fatigue >= 86))
             .OrderByDescending(npc =>
                 npc.MissingPersonConcerns.Values.Any(concern =>
                     concern.Stage == MissingPersonConcernStage.Escalated))
