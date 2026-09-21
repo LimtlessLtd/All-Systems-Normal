@@ -98,6 +98,7 @@ public static class FacilitySeeder
 
         foreach (var npc in state.Crew)
         {
+            FoodPreferenceRules.EnsureDefaults(npc);
             npc.Beliefs.Add(new Belief(
                 "Overseer",
                 "The facility AI is responsible for keeping the crew alive.",
@@ -1035,13 +1036,18 @@ public static class FacilitySeeder
         AddFixture(facility, "lounge", FixtureType.Table, "Low Table", 50, 62, 22, 16);
         AddFixture(facility, "lounge", FixtureType.Chair, "Reading Chair", 50, 82, 12, 12, 50, 82, FixtureUsePose.Sit, 0);
 
-        // Hydroponics.
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed A", 23, 45, 18, 50);
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed B", 50, 45, 18, 50);
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed C", 77, 45, 18, 50);
-        AddFixture(facility, "hydroponics", FixtureType.IrrigationTank, "Nutrient Tank", 13, 80, 16, 18);
-        AddFixture(facility, "hydroponics", FixtureType.Pipe, "Irrigation Manifold", 50, 74, 56, 7);
-        AddFixture(facility, "hydroponics", FixtureType.Console, "Climate Supervisor", 82, 81, 24, 12, 82, 81);
+        // Hydroponics — seven crop beds in two clean banks with a broad centre
+        // aisle. Each logical CropBed maps to one visible fixture by ordinal.
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed A", 14, 29, 15, 23);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed B", 38, 29, 15, 23);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed C", 62, 29, 15, 23);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed D", 86, 29, 15, 23);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed E", 26, 69, 16, 23);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed F", 50, 69, 16, 23);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed G", 74, 69, 16, 23);
+        AddFixture(facility, "hydroponics", FixtureType.IrrigationTank, "Nutrient Tank", 8, 87, 12, 14);
+        AddFixture(facility, "hydroponics", FixtureType.Pipe, "Irrigation Manifold", 50, 91, 52, 6);
+        AddFixture(facility, "hydroponics", FixtureType.Console, "Climate Supervisor", 91, 87, 14, 12, 91, 82);
 
         // Medical.
         AddFixture(facility, "medical", FixtureType.MedicalBed, "Med Bed A", 27, 47, 28, 19, 27, 47, FixtureUsePose.Lie, 90);
