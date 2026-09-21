@@ -661,6 +661,7 @@ public sealed class IntentExecutionSystem
     {
         if (npc.CurrentRoomId.Equals(targetRoomId, StringComparison.OrdinalIgnoreCase))
         {
+            npc.PlannedDestinationRoomId = null;
             _actions.TryApply(
                 state,
                 npc.Id,
@@ -675,6 +676,7 @@ public sealed class IntentExecutionSystem
             return;
         }
 
+        npc.PlannedDestinationRoomId = targetRoomId;
         var path = _navigation.FindPathForCrew(
             state,
             npc,
@@ -683,6 +685,7 @@ public sealed class IntentExecutionSystem
 
         if (path.Count < 2)
         {
+            npc.PlannedDestinationRoomId = null;
             npc.CurrentAction = new NpcAction(
                 ActionKind.Idle,
                 targetRoomId,
@@ -763,6 +766,7 @@ public sealed class IntentExecutionSystem
         NpcIntent intent,
         string targetRoomId)
     {
+        npc.PlannedDestinationRoomId = targetRoomId;
         var path = _navigation.FindPathForCrew(
             state,
             npc,
@@ -771,6 +775,7 @@ public sealed class IntentExecutionSystem
 
         if (path.Count < 2)
         {
+            npc.PlannedDestinationRoomId = null;
             npc.CurrentAction = new NpcAction(
                 ActionKind.Idle,
                 targetRoomId,
@@ -844,6 +849,7 @@ public sealed class IntentExecutionSystem
             return;
         }
 
+        npc.PlannedDestinationRoomId = target.CurrentRoomId;
         var path = _navigation.FindPathForCrew(
             state,
             npc,
@@ -852,6 +858,7 @@ public sealed class IntentExecutionSystem
 
         if (path.Count < 2)
         {
+            npc.PlannedDestinationRoomId = null;
             npc.CurrentAction = new NpcAction(
                 ActionKind.Idle,
                 target.Name,
@@ -889,5 +896,6 @@ public sealed class IntentExecutionSystem
     {
         npc.CurrentAction = new NpcAction(ActionKind.Idle, null, reason);
         npc.Intent = null;
+        npc.PlannedDestinationRoomId = null;
     }
 }
