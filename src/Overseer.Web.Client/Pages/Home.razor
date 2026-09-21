@@ -542,7 +542,190 @@
              tabindex="0"></div>
 
         <aside class="inspector-panel panel">
-            @if (SelectedRobot is { } selectedRobot)
+            @if (SelectedFixture is { } selectedFixture)
+            {
+                var fixtureDevice = selectedFixture.Device;
+                var fixtureDoor = selectedFixture.Door;
+                var fixtureRoom = selectedFixture.Room;
+                var fixtureSystemId = selectedFixture.Fixture.SystemId ?? string.Empty;
+
+                <div class="panel-heading">
+                    <div>
+                        <span class="overline">PHYSICAL STATION SYSTEM</span>
+                        <h2>@selectedFixture.Fixture.Label</h2>
+                    </div>
+                    <span class="system-dot @FixtureInspectionHealthClass(selectedFixture)"></span>
+                </div>
+
+                <p class="role-line">@fixtureRoom.Name · @selectedFixture.Fixture.Type</p>
+
+                @if (fixtureDevice is not null)
+                {
+                    <div class="environment-grid">
+                        <div><span>CONDITION</span><strong>@fixtureDevice.Condition.ToString("0")%</strong></div>
+                        <div><span>STATE</span><strong>@(fixtureDevice.IsFailed ? "FAILED" : fixtureDevice.IsDegraded ? "DEGRADED" : "SERVICEABLE")</strong></div>
+                        <div><span>DISCIPLINE</span><strong>@fixtureDevice.Discipline</strong></div>
+                        <div><span>SERVICE</span><strong>@fixtureDevice.ServiceDifficulty</strong></div>
+                        <div><span>WEAR</span><strong>@fixtureDevice.WearPerHour.ToString("0.00")%/h</strong></div>
+                        <div><span>CREW</span><strong>@DeviceServiceCrew(fixtureDevice)</strong></div>
+                    </div>
+                }
+
+                @if (fixtureSystemId.Equals("distribution:station", StringComparison.OrdinalIgnoreCase))
+                {
+                    <div class="action-card">
+                        <span>MAIN SWITCHBOARD</span>
+                        <strong>@Session.State.Power.GenerationKilowatts.ToString("0") kW GENERATED</strong>
+                        <p>
+                            Requested @Session.State.Power.RequestedKilowatts.ToString("0") kW ·
+                            delivered @Session.State.Power.SupplyKilowatts.ToString("0") kW ·
+                            grid quality @Session.State.Power.QualityPercent.ToString("0")%.
+                        </p>
+                        <small>Distribution capacity @Session.State.Power.DistributionCapacityKilowatts.ToString("0") kW.</small>
+                    </div>
+                }
+                else if (fixtureSystemId.Equals("capacitor:station", StringComparison.OrdinalIgnoreCase))
+                {
+                    <div class="action-card">
+                        <span>EMERGENCY ENERGY BUFFER</span>
+                        <strong>@Session.State.Power.CapacitorChargeKwh.ToString("0.0") / @Session.State.Power.CapacitorCapacityKwh.ToString("0.0") kWh</strong>
+                        <p>
+                            @(Session.State.Power.CapacitorFlowKilowatts > 0.01
+                                ? $"Discharging {Session.State.Power.CapacitorFlowKilowatts:0.0} kW into the bus."
+                                : Session.State.Power.CapacitorFlowKilowatts < -0.01
+                                    ? $"Charging {-Session.State.Power.CapacitorFlowKilowatts:0.0} kW from surplus generation."
+                                    : "Standing by as a short-term buffer against generation loss.")
+                        </p>
+                    </div>
+                }
+                else if (fixtureSystemId.Equals("oxygen:station", StringComparison.OrdinalIgnoreCase))
+                {
+                    <div class="environment-grid">
+                        <div><span>O₂ RESERVE</span><strong>@Session.State.LifeSupport.OxygenReservePercent.ToString("0.0")%</strong></div>
+                        <div><span>GENERATOR</span><strong>@Session.State.LifeSupport.OxygenGenerationPercent.ToString("0")%</strong></div>
+                        <div><span>ESSENTIAL BUS</span><strong>@(Session.State.LifeSupport.PowerAvailable ? "POWERED" : "DEAD")</strong></div>
+                        <div><span>LIFE SUPPORT</span><strong>@(Session.State.LifeSupport.IsOperational ? "ONLINE" : "OFFLINE")</strong></div>
+                    </div>
+                    <div class="control-stack">
+                        <button class="wide"
+                                disabled="@(!Session.State.LifeSupport.IsAiControllable)"
+                                @onclick="Session.ToggleLifeSupport">
+                            @(Session.State.LifeSupport.IsOnline ? "SHUT DOWN LIFE SUPPORT" : "START LIFE SUPPORT")
+                        </button>
+                    </div>
+                }
+                else if (fixtureSystemId.Equals("scrubber:station", StringComparison.OrdinalIgnoreCase))
+                {
+                    <div class="action-card">
+                        <span>ATMOSPHERE SCRUBBING</span>
+                        <strong>@Session.State.LifeSupport.ScrubberEfficiencyPercent.ToString("0")% EFFICIENCY</strong>
+                        <p>Low scrubber efficiency slows CO₂ removal throughout ventilated compartments.</p>
+                    </div>
+                }
+                else if (fixtureSystemId.Equals("thermal:station", StringComparison.OrdinalIgnoreCase))
+                {
+                    <div class="action-card">
+                        <span>THERMAL CONTROL LOOP</span>
+                        <strong>@Session.State.LifeSupport.ThermalLoopEfficiencyPercent.ToString("0")% EFFICIENCY</strong>
+                        <p>Degradation weakens room climate control and central air-loop heat exchange.</p>
+                    </div>
+                }
+                else if (fixtureSystemId.Equals("coolant:reactor", StringComparison.OrdinalIgnoreCase))
+                {
+                    var reactorDevice = Session.State.Devices.Values.FirstOrDefault(device =>
+                        device.Kind == StationSystemKind.Reactor);
+
+                    <div class="action-card">
+                        <span>PRIMARY REACTOR COOLANT</span>
+                        <strong>@fixtureRoom.TemperatureC.ToString("0.0")°C REACTOR ROOM</strong>
+                        <p>
+                            Reactor output
+                            @(reactorDevice is null
+                                ? "unavailable"
+                                : $"{StationUpkeepSystem.CurrentOutputKilowatts(Session.State, reactorDevice):0} kW").
+                            Failed coolant forces an automatic reactor derate and rising compartment heat.
+                        </p>
+                    </div>
+                }
+                else if (fixtureDevice?.Kind is StationSystemKind.Reactor or StationSystemKind.PowerGenerator)
+                {
+                    <div class="action-card">
+                        <span>LIVE POWER OUTPUT</span>
+                        <strong>@StationUpkeepSystem.CurrentOutputKilowatts(Session.State, fixtureDevice).ToString("0") kW</strong>
+                        <p>Output falls with equipment condition and reactor coolant availability.</p>
+                    </div>
+                }
+
+                @if (fixtureDoor is not null)
+                {
+                    <div class="environment-grid">
+                        <div><span>HATCH</span><strong>@(fixtureDoor.IsOpen ? "OPEN" : "CLOSED")</strong></div>
+                        <div><span>LOCK</span><strong>@(fixtureDoor.IsLocked ? "LOCKED" : "UNLOCKED")</strong></div>
+                        <div><span>ACTUATOR</span><strong>@(fixtureDoor.IsPowered ? "READY" : "FAILED")</strong></div>
+                        <div><span>GRID BUS</span><strong>@(fixtureDoor.GridPowerAvailable ? "POWERED" : "DEAD")</strong></div>
+                    </div>
+                    <div class="control-stack">
+                        <button class="wide"
+                                disabled="@(!fixtureDoor.IsAiControllable || fixtureDoor.IsManuallyOverridden || !fixtureDoor.IsPowered || !fixtureDoor.GridPowerAvailable)"
+                                @onclick="() => Session.ToggleDoor(fixtureDoor.Id)">
+                            @(fixtureDoor.IsOpen ? "CLOSE HATCH" : "OPEN HATCH")
+                        </button>
+                        <button class="wide secondary"
+                                disabled="@(!fixtureDoor.IsAiControllable || fixtureDoor.IsManuallyOverridden || !fixtureDoor.IsPowered || !fixtureDoor.GridPowerAvailable)"
+                                @onclick="() => Session.ToggleLock(fixtureDoor.Id)">
+                            @(fixtureDoor.IsLocked ? "UNLOCK HATCH" : "LOCK HATCH")
+                        </button>
+                    </div>
+                }
+
+                @if (fixtureSystemId.StartsWith("room:", StringComparison.OrdinalIgnoreCase))
+                {
+                    <div class="environment-grid">
+                        <div><span>LOCAL POWER</span><strong>@(fixtureRoom.IsPowered ? "ON" : "OFF")</strong></div>
+                        <div><span>LIGHT BUS</span><strong>@(fixtureRoom.LightingPowerAvailable ? "POWERED" : "DEAD")</strong></div>
+                        <div><span>CAMERA BUS</span><strong>@(fixtureRoom.CameraPowerAvailable ? "POWERED" : "DEAD")</strong></div>
+                        <div><span>VENTILATION</span><strong>@(fixtureRoom.VentilationEnabled ? "ON" : "OFF")</strong></div>
+                        <div><span>TEMP</span><strong>@fixtureRoom.TemperatureC.ToString("0.0")°C</strong></div>
+                        <div><span>O₂</span><strong>@fixtureRoom.OxygenPercent.ToString("0.0")%</strong></div>
+                    </div>
+                    <div class="robot-policy-controls">
+                        <button class="mini secondary" @onclick="() => Session.ToggleRoomPower(fixtureRoom.Id)">POWER</button>
+                        <button class="mini secondary"
+                                disabled="@(!fixtureRoom.IsPowered || !fixtureRoom.LightingPowerAvailable)"
+                                @onclick="() => Session.ToggleLights(fixtureRoom.Id)">LIGHTS</button>
+                        <button class="mini secondary"
+                                disabled="@(!fixtureRoom.IsPowered || !fixtureRoom.CameraPowerAvailable)"
+                                @onclick="() => Session.ToggleCamera(fixtureRoom.Id)">CAMERA</button>
+                        @if (fixtureRoom.HasVentilationControl)
+                        {
+                            <button class="mini secondary"
+                                    disabled="@(!fixtureRoom.IsPowered || !fixtureRoom.IsVentilationAiControllable)"
+                                    @onclick="() => Session.ToggleVentilation(fixtureRoom.Id)">VENT</button>
+                        }
+                    </div>
+
+                    @if (fixtureRoom.HasTemperatureControl && fixtureRoom.IsTemperatureAiControllable)
+                    {
+                        <div class="robot-policy-controls">
+                            <button class="mini secondary" @onclick="() => Session.AdjustTemperatureSetpoint(fixtureRoom.Id, -1)">TEMP −</button>
+                            <button class="mini secondary" @onclick="() => Session.AdjustTemperatureSetpoint(fixtureRoom.Id, 1)">TEMP +</button>
+                            <button class="mini secondary" @onclick="() => Session.ToggleTemperatureControl(fixtureRoom.Id)">
+                                @(fixtureRoom.TemperatureControlOnline ? "CLIMATE OFF" : "CLIMATE ON")
+                            </button>
+                        </div>
+                    }
+                }
+
+                @if (fixtureDevice is not null)
+                {
+                    <div class="belief-card">
+                        <span>MAINTENANCE CONSEQUENCE</span>
+                        <p>@MaintenanceConsequence(fixtureDevice.Kind)</p>
+                        <small>Human servicing remains physical and skill-gated; Overseer cannot directly repair failed machinery.</small>
+                    </div>
+                }
+            }
+            else if (SelectedRobot is { } selectedRobot)
             {
                 var robotRoom = Session.State.Facility.Rooms[selectedRobot.CurrentRoomId];
 
@@ -618,7 +801,8 @@
                 <div class="environment-grid">
                     <div><span>POSITION</span><strong>@(selectedDoor.IsOpen ? "OPEN" : "CLOSED")</strong></div>
                     <div><span>LOCK</span><strong>@(selectedDoor.IsLocked ? "LOCKED" : "UNLOCKED")</strong></div>
-                    <div><span>POWER</span><strong>@(selectedDoor.IsPowered ? "ONLINE" : "OFFLINE")</strong></div>
+                    <div><span>ACTUATOR</span><strong>@(selectedDoor.IsPowered ? "READY" : "FAILED")</strong></div>
+                    <div><span>GRID BUS</span><strong>@(selectedDoor.GridPowerAvailable ? "POWERED" : "DEAD")</strong></div>
                     <div><span>PASSAGE</span><strong>@(selectedDoor.IsPassable ? "PASSABLE" : "BLOCKED")</strong></div>
                     <div><span>INTEGRITY</span><strong>@selectedDoor.StructuralIntegrityPercent%</strong></div>
                     <div><span>AUTHORITY</span><strong>@((selectedDoor.IsAiControllable && !selectedDoor.IsManuallyOverridden) ? "OVERSEER" : "LOCAL")</strong></div>
@@ -641,12 +825,12 @@
 
                 <div class="control-stack">
                     <button class="wide"
-                            disabled="@(!selectedDoor.IsAiControllable || selectedDoor.IsManuallyOverridden)"
+                            disabled="@(!selectedDoor.IsAiControllable || selectedDoor.IsManuallyOverridden || !selectedDoor.IsPowered || !selectedDoor.GridPowerAvailable)"
                             @onclick="() => Session.ToggleDoor(selectedDoor.Id)">
                         @(selectedDoor.IsOpen ? "CLOSE HATCH" : "OPEN HATCH")
                     </button>
                     <button class="wide secondary"
-                            disabled="@(!selectedDoor.IsAiControllable || selectedDoor.IsManuallyOverridden)"
+                            disabled="@(!selectedDoor.IsAiControllable || selectedDoor.IsManuallyOverridden || !selectedDoor.IsPowered || !selectedDoor.GridPowerAvailable)"
                             @onclick="() => Session.ToggleLock(selectedDoor.Id)">
                         @(selectedDoor.IsLocked ? "UNLOCK HATCH" : "LOCK HATCH")
                     </button>
@@ -1500,6 +1684,50 @@
             await PersistCampaignAsync();
         }
     }
+
+    private string DeviceServiceCrew(StationDevice device)
+    {
+        if (device.ServicedByNpcId is not { } crewId)
+            return "NONE";
+
+        return Session.State.Crew.FirstOrDefault(npc => npc.Id == crewId)?.Name
+            ?? "UNKNOWN";
+    }
+
+    private static string FixtureInspectionHealthClass(
+        StationFixtureInspection inspection)
+    {
+        if (inspection.Device is { } device)
+            return device.IsFailed ? "critical" : device.IsDegraded ? "warning" : "healthy";
+
+        if (inspection.Door is { } door)
+            return !door.IsPowered || !door.GridPowerAvailable
+                ? "critical"
+                : door.IsLocked ? "warning" : "healthy";
+
+        return inspection.Room.IsPowered ? "healthy" : "critical";
+    }
+
+    private static string MaintenanceConsequence(StationSystemKind kind) => kind switch
+    {
+        StationSystemKind.PowerGenerator => "Generator wear reduces real station generation and forces the grid toward brownout.",
+        StationSystemKind.Reactor => "Reactor degradation reduces generation; coolant failure derates it further.",
+        StationSystemKind.PowerDistribution => "Switchboard damage limits how much generated power can reach the station.",
+        StationSystemKind.CapacitorBank => "Capacitors buffer short deficits; degraded banks hold and deliver less emergency energy.",
+        StationSystemKind.CoolantPump => "Coolant degradation derates reactor output and allows reactor-space temperature to climb.",
+        StationSystemKind.OxygenGenerator => "Oxygen generation weakens, so the station reserve stops recovering and eventually falls.",
+        StationSystemKind.CarbonScrubber => "Carbon-dioxide removal slows across ventilated rooms.",
+        StationSystemKind.ThermalLoop => "Climate control and central air-loop heat exchange become less effective.",
+        StationSystemKind.LifeSupport => "A failed controller disables central life support regardless of local room settings.",
+        StationSystemKind.Door => "A failed actuator removes powered hatch operation until crew repair it locally.",
+        StationSystemKind.Lighting => "Failure leaves the compartment dark even when the local power switch is on.",
+        StationSystemKind.Camera => "Failure removes Overseer's visual feed from the compartment.",
+        StationSystemKind.Ventilation => "Failure isolates the compartment from the central atmosphere loop.",
+        StationSystemKind.ClimateControl => "Failure removes active local temperature regulation.",
+        StationSystemKind.GrowBeds => "Hydroponic production degrades and creates real provisioning work for crew.",
+        StationSystemKind.GalleyEquipment => "Food preparation capacity degrades and can interrupt normal meal routines.",
+        _ => "Degradation creates a physical maintenance task with deterministic consequences."
+    };
 
     private static string DeviceClass(StationDevice device) =>
         device.IsFailed ? "equipment-failed"
