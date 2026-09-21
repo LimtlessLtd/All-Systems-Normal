@@ -516,7 +516,7 @@ public static class FacilitySeeder
         IsCentralFixture(fixture.Type)
             ? 300
             : IsWallFixture(fixture.Type)
-                ? 100
+                ? 250
                 : 200;
 
     private static bool IsCentralFixture(FixtureType type) =>
