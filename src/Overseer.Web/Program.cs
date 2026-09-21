@@ -33,7 +33,7 @@ builder.Services.AddSingleton<IOverseerMessageInterpreter, OllamaOverseerMessage
 
 // A Blazor Server game session is per browser circuit. Do not share station
 // state between different players by registering it as a singleton.
-builder.Services.AddScoped<GameSession>();
+builder.Services.AddScoped<StationSession, GameSession>();
 
 var app = builder.Build();
 
@@ -48,7 +48,9 @@ app.UseHttpsRedirection();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+// The station console pages live in the shared Overseer.Web.UI library.
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode()
+    .AddAdditionalAssemblies(typeof(Overseer.Web.UI.Pages.Home).Assembly);
 
 app.Run();

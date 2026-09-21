@@ -4,21 +4,16 @@ namespace Overseer.Simulation.Tests;
 
 /// <summary>
 /// Pause, crew roster, station log, reset confirmation and the station-first
-/// default layout must exist in both mirrored runtimes.
+/// default layout must exist in the shared station console.
 /// </summary>
 public sealed class StationConsoleControlsTests
 {
     private static readonly string[] HomePages =
     [
-        "src/Overseer.Web/Components/Pages/Home.razor",
-        "src/Overseer.Web.Client/Pages/Home.razor"
+        "src/Overseer.Web.UI/Pages/Home.razor"
     ];
 
-    private static readonly string[] LayoutScripts =
-    [
-        "src/Overseer.Web/wwwroot/layout.js",
-        "src/Overseer.Web.Client/wwwroot/layout.js"
-    ];
+    private const string LayoutScript = "src/Overseer.Web.UI/wwwroot/layout.js";
 
     [Fact]
     public void StationLog_OmitsRoutineMovementButKeepsStoryEvents()
@@ -58,7 +53,7 @@ public sealed class StationConsoleControlsTests
     }
 
     [Fact]
-    public void BothRuntimes_ExposePauseRosterLogAndMenu()
+    public void Console_ExposesPauseRosterLogAndMenu()
     {
         var root = FindRepositoryRoot();
 
@@ -93,18 +88,15 @@ public sealed class StationConsoleControlsTests
     }
 
     [Fact]
-    public void LayoutScripts_StayMirroredAndSupportPauseFitAndFocus()
+    public void LayoutScript_SupportsPauseFitAndFocus()
     {
         var root = FindRepositoryRoot();
-        var sources = LayoutScripts
-            .Select(relative => File.ReadAllText(Path.Combine(root, relative)))
-            .ToList();
+        var source = File.ReadAllText(Path.Combine(root, LayoutScript));
 
-        Assert.Equal(sources[0], sources[1]);
-        Assert.Contains("registerPauseHandler", sources[0]);
-        Assert.Contains("function fitCamera", sources[0]);
-        Assert.Contains("function focusEntity", sources[0]);
-        Assert.Contains("event.code === \"Space\"", sources[0]);
+        Assert.Contains("registerPauseHandler", source);
+        Assert.Contains("function fitCamera", source);
+        Assert.Contains("function focusEntity", source);
+        Assert.Contains("event.code === \"Space\"", source);
     }
 
     private static string FindRepositoryRoot()

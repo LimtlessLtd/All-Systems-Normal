@@ -3,26 +3,17 @@ namespace Overseer.Simulation.Tests;
 public sealed class DebugTelemetryUiTests
 {
     [Fact]
-    public void MirroredDebugPages_ShowLlmRequestAndResponseOnlyOnDebugSurface()
+    public void DebugPage_ShowsLlmRequestAndResponseOnlyOnDebugSurface()
     {
         var root = FindRepositoryRoot();
-        var serverDebug = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web", "Components", "Pages", "Debug.razor"));
-        var clientDebug = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.Client", "Pages", "Debug.razor"));
-        var serverHome = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web", "Components", "Pages", "Home.razor"));
-        var clientHome = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.Client", "Pages", "Home.razor"));
+        var debug = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Debug.razor"));
+        var home = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor"));
 
-        foreach (var debug in new[] { serverDebug, clientDebug })
-        {
-            Assert.Contains("LLM REQUEST // PROMPT + AFFORDANCES + OBSERVATIONS", debug);
-            Assert.Contains("LLM RESPONSE // RAW MODEL OUTPUT", debug);
-        }
+        Assert.Contains("LLM REQUEST // PROMPT + AFFORDANCES + OBSERVATIONS", debug);
+        Assert.Contains("LLM RESPONSE // RAW MODEL OUTPUT", debug);
 
-        foreach (var home in new[] { serverHome, clientHome })
-        {
-            Assert.DoesNotContain("LLM REQUEST // PROMPT", home);
-            Assert.DoesNotContain("LLM RESPONSE // RAW MODEL OUTPUT", home);
-        }
-
+        Assert.DoesNotContain("LLM REQUEST // PROMPT", home);
+        Assert.DoesNotContain("LLM RESPONSE // RAW MODEL OUTPUT", home);
     }
 
     private static string FindRepositoryRoot()

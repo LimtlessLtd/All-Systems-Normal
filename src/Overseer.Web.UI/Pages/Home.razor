@@ -1,8 +1,7 @@
 @page "/"
-@using Overseer.Simulation
 @using Overseer.Persistence
 @implements IAsyncDisposable
-@inject GameSession Session
+@inject StationSession Session
 @inject IJSRuntime JS
 
 <PageTitle>All Systems Normal</PageTitle>
@@ -2014,7 +2013,7 @@
             return;
         }
 
-        Session.LoadScenario(next.Id);
+        await Session.LoadScenarioAsync(next.Id);
         _selection = null;
         _lastAudioSequence = 0;
         await PersistCampaignAsync();
@@ -2144,16 +2143,16 @@
     private void SelectDevice(string deviceId) =>
         _selection = new(StationSelectionKind.Device, deviceId);
 
-    private void RegenerateSameSeed() =>
-        RegenerateStation(Session.State.StationGeneration?.Seed);
+    private Task RegenerateSameSeedAsync() =>
+        RegenerateStationAsync(Session.State.StationGeneration?.Seed);
 
-    private void RegenerateNewSeed() =>
-        RegenerateStation(null);
+    private Task RegenerateNewSeedAsync() =>
+        RegenerateStationAsync(null);
 
-    private void RegenerateStation(int? seed)
+    private async Task RegenerateStationAsync(int? seed)
     {
         StopClock();
-        Session.RegenerateStation(seed);
+        await Session.RegenerateStationAsync(seed);
         _selection = new(StationSelectionKind.Room, "control");
         _lastAudioSequence = 0;
         StartAutoClock();
@@ -2162,7 +2161,7 @@
     private async Task ResetGame()
     {
         StopClock();
-        Session.Reset();
+        await Session.ResetAsync();
         await JS.InvokeVoidAsync("localStorage.removeItem", CampaignStorageKey);
         _selection = new(StationSelectionKind.Room, "control");
         _lastAudioSequence = 0;
@@ -2179,6 +2178,11 @@
             _paused = false;
             StartAutoClock();
         }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Session.InitializeAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -2235,7 +2239,7 @@
         }
 
         StopClock();
-        Session.RestoreCampaign(campaign);
+        await Session.RestoreCampaignAsync(campaign);
         _selection = null;
         _lastAudioSequence = 0;
     }
@@ -2320,7 +2324,9 @@
             {
                 await Task.Delay(_delayMs, cancellationToken);
 
-                var keepRunning = Session.TryAdvanceRunning(generation);
+                var keepRunning = await Session.TryAdvanceRunningAsync(
+                    generation,
+                    cancellationToken);
 
                 if (!keepRunning)
                 {

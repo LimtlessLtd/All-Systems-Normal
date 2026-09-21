@@ -151,8 +151,7 @@ public sealed class StationOverviewInteractionContractTests
 
         foreach (var relative in new[]
         {
-            "src/Overseer.Web/wwwroot/layout.js",
-            "src/Overseer.Web.Client/wwwroot/layout.js"
+            "src/Overseer.Web.UI/wwwroot/layout.js"
         })
         {
             var source = File.ReadAllText(Path.Combine(root, relative));
@@ -187,8 +186,7 @@ public sealed class StationOverviewInteractionContractTests
 
         foreach (var relative in new[]
         {
-            "src/Overseer.Web/Components/Pages/Home.razor",
-            "src/Overseer.Web.Client/Pages/Home.razor"
+            "src/Overseer.Web.UI/Pages/Home.razor"
         })
         {
             var source = File.ReadAllText(Path.Combine(root, relative));
@@ -221,8 +219,7 @@ public sealed class StationOverviewInteractionContractTests
 
         foreach (var relative in new[]
         {
-            "src/Overseer.Web/Components/Pages/Home.razor.css",
-            "src/Overseer.Web.Client/Pages/Home.razor.css"
+            "src/Overseer.Web.UI/Pages/Home.razor.css"
         })
         {
             var source = File.ReadAllText(Path.Combine(root, relative));

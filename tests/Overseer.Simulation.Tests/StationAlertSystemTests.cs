@@ -46,30 +46,16 @@ public sealed class StationAlertSystemTests
     }
 
     [Fact]
-    public void BothRuntimes_CountAlertsFromTheSameList()
+    public void Console_CountsAlertsFromTheSameList()
     {
         var root = FindRepositoryRoot();
 
-        foreach (var relative in new[]
-        {
-            "src/Overseer.Web/Services/GameSession.cs",
-            "src/Overseer.Web.Client/Services/GameSession.cs"
-        })
-        {
-            var source = File.ReadAllText(Path.Combine(root, relative));
-            Assert.Contains("public int AlertCount => Alerts.Count;", source);
-        }
+        var session = File.ReadAllText(Path.Combine(root, "src/Overseer.Simulation/StationSession.cs"));
+        Assert.Contains("public int AlertCount => Alerts.Count;", session);
 
-        foreach (var relative in new[]
-        {
-            "src/Overseer.Web/Components/Pages/Home.razor",
-            "src/Overseer.Web.Client/Pages/Home.razor"
-        })
-        {
-            var source = File.ReadAllText(Path.Combine(root, relative));
-            Assert.Contains("ToggleStationOverlay(\"alerts\")", source);
-            Assert.Contains("@onclick=\"ShowAlertsAsync\"", source);
-        }
+        var home = File.ReadAllText(Path.Combine(root, "src/Overseer.Web.UI/Pages/Home.razor"));
+        Assert.Contains("ToggleStationOverlay(\"alerts\")", home);
+        Assert.Contains("@onclick=\"ShowAlertsAsync\"", home);
     }
 
     private static string FindRepositoryRoot()

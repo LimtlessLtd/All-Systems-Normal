@@ -34,20 +34,13 @@ public sealed class RoomCalloutOverlapTests
     }
 
     [Fact]
-    public void BothRuntimesSizeLabelsFromTheLayout()
+    public void ConsoleSizesLabelsFromTheLayout()
     {
         var root = FindRepositoryRoot();
 
-        foreach (var relative in new[]
-        {
-            "src/Overseer.Web/Components/Pages/Home.razor",
-            "src/Overseer.Web.Client/Pages/Home.razor"
-        })
-        {
-            Assert.Contains(
-                "width:{callout.LabelWidth:0.###}%;",
-                File.ReadAllText(Path.Combine(root, relative)));
-        }
+        Assert.Contains(
+            "width:{callout.LabelWidth:0.###}%;",
+            File.ReadAllText(Path.Combine(root, "src/Overseer.Web.UI/Pages/Home.razor")));
     }
 
     private static string FindRepositoryRoot()

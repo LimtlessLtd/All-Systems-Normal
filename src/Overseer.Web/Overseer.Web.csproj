@@ -12,6 +12,7 @@
     <ProjectReference Include="../Overseer.Domain/Overseer.Domain.csproj" />
     <ProjectReference Include="../Overseer.Simulation/Overseer.Simulation.csproj" />
     <ProjectReference Include="../Overseer.Persistence/Overseer.Persistence.csproj" />
+    <ProjectReference Include="../Overseer.Web.UI/Overseer.Web.UI.csproj" />
   </ItemGroup>
 
 </Project>

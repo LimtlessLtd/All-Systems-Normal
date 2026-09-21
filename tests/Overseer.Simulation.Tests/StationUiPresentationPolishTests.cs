@@ -109,48 +109,36 @@ public sealed class StationUiPresentationPolishTests
     }
 
     [Fact]
-    public void MirroredUiContracts_KeepFocusPopupsMachineFamiliesAndFineZoom()
+    public void SharedUiContracts_KeepFocusPopupsMachineFamiliesAndFineZoom()
     {
         var root = FindRepositoryRoot();
-        var serverHome = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web", "Components", "Pages", "Home.razor"));
-        var clientHome = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.Client", "Pages", "Home.razor"));
-        var serverCss = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web", "Components", "Pages", "Home.razor.css"));
-        var clientCss = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.Client", "Pages", "Home.razor.css"));
-        var serverJs = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web", "wwwroot", "layout.js"));
-        var clientJs = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.Client", "wwwroot", "layout.js"));
+        var home = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor"));
+        var css = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor.css"));
+        var script = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "wwwroot", "layout.js"));
 
-        foreach (var home in new[] { serverHome, clientHome })
-        {
-            Assert.Contains("station-focus-mode", home);
-            Assert.Contains("station-messages-popover", home);
-            Assert.Contains("station-objectives-popover", home);
-            Assert.Contains("fixture-system-", home);
-            Assert.Contains(">MESSAGES</button>", home);
-            Assert.Contains(">OBJECTIVES</button>", home);
-            Assert.Contains("station-speed-controls", home);
-            Assert.Contains("BloodStyle(blood)", home);
-            Assert.Contains("hands-active", home);
-            Assert.Contains("IsLocallyMoving", home);
-        }
+        Assert.Contains("station-focus-mode", home);
+        Assert.Contains("station-messages-popover", home);
+        Assert.Contains("station-objectives-popover", home);
+        Assert.Contains("fixture-system-", home);
+        Assert.Contains(">MESSAGES</button>", home);
+        Assert.Contains(">OBJECTIVES</button>", home);
+        Assert.Contains("station-speed-controls", home);
+        Assert.Contains("BloodStyle(blood)", home);
+        Assert.Contains("hands-active", home);
+        Assert.Contains("IsLocallyMoving", home);
 
-        Assert.Contains(".workspace-shell.station-focus-mode", serverCss);
-        Assert.Contains(".fixture-system-lighting", serverCss);
-        Assert.Contains(".fixture-system-climate", serverCss);
-        Assert.Contains(".fixture-system-ventilation", serverCss);
-        Assert.Contains(".fixture-resurrectionchamber", serverCss);
-        Assert.Contains(".blood-evidence", serverCss);
-        Assert.Contains(".station-speed-controls", serverCss);
-        Assert.Contains("selected::after", serverCss);
-        Assert.Equal(serverCss, clientCss);
+        Assert.Contains(".workspace-shell.station-focus-mode", css);
+        Assert.Contains(".fixture-system-lighting", css);
+        Assert.Contains(".fixture-system-climate", css);
+        Assert.Contains(".fixture-system-ventilation", css);
+        Assert.Contains(".fixture-resurrectionchamber", css);
+        Assert.Contains(".blood-evidence", css);
+        Assert.Contains(".station-speed-controls", css);
+        Assert.Contains("selected::after", css);
 
-        foreach (var script in new[] { serverJs, clientJs })
-        {
-            Assert.Contains("minZoom: 0.15", script);
-            Assert.Contains("zoomStep: 0.05", script);
-            Assert.Contains("document.body.style.userSelect = \"none\"", script);
-        }
-
-        Assert.Equal(serverJs, clientJs);
+        Assert.Contains("minZoom: 0.15", script);
+        Assert.Contains("zoomStep: 0.05", script);
+        Assert.Contains("document.body.style.userSelect = \"none\"", script);
     }
 
     private static List<GameState> RepresentativeStates(int count)
