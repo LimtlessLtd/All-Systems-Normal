@@ -293,6 +293,48 @@ Keep unrelated simulation expansion out of this pass.
 
 - **Diagnostics expansion:** cognition telemetry should eventually cover every model-backed interaction type (crew generation, message interpretation and future planners), while remaining bounded/transient by default.
 
+## Known issues and audit follow-ups (audit of 2026-09-21, after PR #62)
+
+A code/behaviour/UI audit was run and its fixes merged in PRs #52–#62. These items were found but **not** addressed. They are backlog, not the next milestone: pick them up when they block a milestone or when explicitly asked. Each was re-checked against `d70647b`.
+
+**Deliberate decisions (do not "fix"):**
+
+- The server tick awaits the Ollama decision (`StationSession.AdvanceCoreAsync` → `GameSession.ThinkAsync`), so the station pauses while a mind thinks. The owner wants this: the model gets time to take in the situation and the station waits for its decision. Do not make cognition non-blocking unless asked.
+- Closing an ordinary door no longer counts as "denying access" for corporate directives; the player must lock, weld or barricade it, or cut power (PR #52).
+
+**Server runtime:**
+
+- On first load the server generates the crew twice: once while prerendering and again when the interactive circuit starts, each in its own DI scope. That doubles the Ollama wait (about 100 s observed). Options: turn prerendering off in `Components/App.razor`'s `PageRenderMode` (`new InteractiveServerRenderMode(prerender: false)`), or carry the state across with `PersistentComponentState`.
+- `GameSession` is scoped per circuit, so opening `/debug` in a **new tab** shows a fresh session, not the player's game. In-app navigation keeps the same circuit.
+- The Ollama decision call never sets `num_ctx`. The prompt is about 3.9k tokens (every one of the 49 actions plus every room's atmosphere), so a 4B model's default context may silently cut off the rules at the top. Check the raw prompts in `/debug`.
+- Invalid model output quietly becomes `ActionKind.Idle` (`OllamaAiDecisionService`). One retry with the validation error would recover most of these.
+- `dotnet run` in Production mode serves no static assets (no static-web-assets manifest). Use Development locally, or `dotnet publish` for Production.
+
+**Emergent behaviour:**
+
+- Crew are omniscient about each other's location: social/check-on goals walk to the target's true room (`IntentExecutionSystem` compares against `target.CurrentRoomId`). Using last-seen positions plus searching would let the player hide or misdirect people.
+- There are two separate rule-based decision ladders with different thresholds: `BrowserMindSystem` (Pages) and `RuleBasedAiDecisionService` (server fallback). Fixes have already failed to reach both (hunger ordering, PR #52). A single utility scorer (need × personality × relationship × evidence, plus seeded noise) should drive both, and the options offered to the LLM.
+- Failures leave no mark: a failed goal writes no memory and causes no frustration. A door Overseer controls being in the way should become "Overseer sealed Medical" and feed suspicion.
+- All relationships start at Affinity/Trust 50 (`FacilitySeeder.cs:108`); only the default roster hard-codes one Sarah/Felix pair. Varied starting bonds (rivals, couples) would create tension from minute one.
+- The first assignment can be won passively (in an 8-hour run with no player input, it was won while 2 of 4 directives were logged failed). Worth checking the win gate against directive outcomes.
+
+**UI/UX:**
+
+- Missions start running immediately. Consider starting paused on the briefing and auto-pausing on a death or an attack.
+- The crew inspector gives equal weight to about 10 bars. Lead with mood, their read on Overseer, the current goal and key relationships.
+- The station seed (`GEN // …`) is developer information in the player toolbar and is oversized.
+
+**Aesthetics:**
+
+- The JWST backdrop competes with the small crew tokens. Dim or desaturate it, or vignette it. Door frames are brighter than the crew; give each crew member a colour used everywhere and larger tokens.
+- Station state is shown as text rather than atmosphere. Power loss could show as darkness with emergency strips, low O₂ as haze, decompression as particles, and rooms could have ambient audio.
+- There is no design system. `Home.razor.css` is 6.9k lines with 489 distinct hex colours, made of stacked per-version override layers. Next step: colour/spacing tokens, then fold the override layers into single rules per component. Only PR #62's provably neutral pruning has been done, so any merge of layers needs visual review.
+
+**Architecture:**
+
+- `Overseer.Web.UI/Pages/Home.razor` is one 2.9k-line component, so every tick re-renders the whole page. Split it into header, map, crew token, inspector, overlays and comms components; this helps performance and review.
+- The UI tests are source-string assertions plus ad-hoc Playwright runs. A committed Playwright (or bUnit) smoke suite in CI would catch layout regressions like the header overlap fixed in #62.
+
 ## Handoff prompt rule
 
 Future chat prompts should be short: tell the next agent to read this file, inspect current main/recent PR/CI/Pages state, implement the documented next milestone, follow the mandatory workflow, and update this file.
