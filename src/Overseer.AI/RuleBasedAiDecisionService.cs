@@ -98,7 +98,7 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                 searchRoom.Id,
                 $"Look for {missingConcern.PersonName} in {searchRoom.Name}.",
                 MissingConcernReason(state, missingConcern),
-                missingConcern.Stage == MissingPersonConcernStage.Escalated ? 88 : 76);
+                missingConcern.Stage == MissingPersonConcernStage.Escalated ? 80 : 52);
         }
         else if (npc.PendingShutdownTeamInvitation is { } invitation
             && ShouldJoinShutdownTeam(npc, invitation))
@@ -230,7 +230,7 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
 
                 if (bestRelationship is not null
                     && npc.Personality.Sociability >= 55
-                    && npc.SocialNeed >= 45)
+                    && npc.SocialNeed >= 68)
                 {
                     intent = Create(npc, state, ActionKind.Socialize, bestRelationship.PersonName,
                         $"Spend time with {bestRelationship.PersonName}.",
@@ -516,6 +516,7 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
 
     private static MissingPersonConcern? MostPressingMissingConcern(Npc npc) =>
         npc.MissingPersonConcerns.Values
+            .Where(concern => concern.Stage != MissingPersonConcernStage.Concerned)
             .OrderByDescending(concern => concern.Stage)
             .ThenBy(concern => concern.FirstConcernAt)
             .FirstOrDefault();
