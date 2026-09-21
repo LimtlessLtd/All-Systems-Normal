@@ -518,7 +518,7 @@
                     </p>
                 </div>
 
-                <div class="controlRobot-policy-controls">
+                <div class="robot-policy-controls">
                     <button class="mini secondary"
                             disabled="@(!selectedRobot.HasRemoteControlLink)"
                             @onclick="() => Session.SetRobotPolicy(selectedRobot.Id, RobotPolicy.Friendly)">FRIENDLY</button>
@@ -627,7 +627,7 @@
                     <p>Policy @selectedTurret.Policy · remote link @(selectedTurret.HasRemoteControlLink ? "available" : "unavailable").</p>
                 </div>
 
-                <div class="controlRobot-policy-controls">
+                <div class="robot-policy-controls">
                     <button class="mini secondary"
                             disabled="@(!selectedTurret.HasRemoteControlLink)"
                             @onclick="() => Session.SetTurretPolicy(selectedTurret.Id, TurretPolicy.Safe)">SAFE</button>
@@ -881,8 +881,14 @@
                             .ToList();
                     }
                     <p>@(localCrew.Count == 0 ? "No crew present." : string.Join(", ", localCrew.Select(npc => $"{npc.Name} ({npc.Role})")))</p>
-                    @if (localRobots.Count > 0) { <small>ROBOTS · @string.Join(", ", localRobots.Select(robot => robot.Name))</small> }
-                    @if (localTurrets.Count > 0) { <small style="display:block">TURRETS · @string.Join(", ", localTurrets.Select(turret => turret.Name))</small> }
+                    @if (localRobots.Count > 0)
+                    {
+                        <small>ROBOTS · @string.Join(", ", localRobots.Select(robot => robot.Name))</small>
+                    }
+                    @if (localTurrets.Count > 0)
+                    {
+                        <small style="display:block">TURRETS · @string.Join(", ", localTurrets.Select(turret => turret.Name))</small>
+                    }
                 </div>
 
                 <div class="belief-card">
