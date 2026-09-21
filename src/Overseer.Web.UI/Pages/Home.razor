@@ -785,9 +785,9 @@
                     }
                     @if (selectedRoute.Count > 1)
                     {
+                        var finalPoint = selectedRoute[^1];
                         <polyline class="selected-route-path"
                                   points="@RoutePointString(selectedRoute)"></polyline>
-                        var finalPoint = selectedRoute[^1];
                         <circle class="selected-route-destination"
                                 cx="@finalPoint.X"
                                 cy="@finalPoint.Y"
