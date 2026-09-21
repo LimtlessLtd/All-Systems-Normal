@@ -16,7 +16,13 @@ public enum StationSystemKind
     AirlockMechanism,
     IsolationMechanism,
     GrowBeds,
-    GalleyEquipment
+    GalleyEquipment,
+    PowerDistribution,
+    CapacitorBank,
+    CoolantPump,
+    OxygenGenerator,
+    CarbonScrubber,
+    ThermalLoop
 }
 
 /// <summary>
@@ -71,6 +77,13 @@ public sealed class StationDevice
 
     /// <summary>Set while a crew member is part-way through servicing it.</summary>
     public Guid? ServicedByNpcId { get; set; }
+
+    /// <summary>
+    /// Optional fixture label in the owning room. When present the visible
+    /// machinery on the overview is the authoritative interaction point for
+    /// this device rather than decorative scenery.
+    /// </summary>
+    public string? FixtureLabel { get; init; }
 
     public bool IsFailed => Condition <= 0.01;
     public bool IsDegraded => Condition < DegradedAt;
@@ -156,19 +169,44 @@ public static class StationUpkeepRules
 /// </summary>
 public sealed class PowerGrid
 {
-    /// <summary>Total output currently available, in arbitrary units.</summary>
+    /// <summary>Generation after coolant/distribution derating.</summary>
+    public double GenerationKilowatts { get; set; }
+
+    /// <summary>Generation plus any short-term capacitor discharge.</summary>
     public double SupplyKilowatts { get; set; }
 
-    /// <summary>Draw from everything currently powered.</summary>
+    /// <summary>Draw from everything currently powered after load shedding.</summary>
     public double DemandKilowatts { get; set; }
+
+    /// <summary>Demand before automatic shedding/auxiliary cut-outs.</summary>
+    public double RequestedKilowatts { get; set; }
+
+    /// <summary>Maximum power the main switchboard can actually carry.</summary>
+    public double DistributionCapacityKilowatts { get; set; } = 320;
+
+    /// <summary>Usable stored energy in the station capacitor bank.</summary>
+    public double CapacitorChargeKwh { get; set; } = 24;
+
+    public double CapacitorCapacityKwh { get; set; } = 48;
+
+    /// <summary>Positive while discharging, negative while charging.</summary>
+    public double CapacitorFlowKilowatts { get; set; }
+
+    /// <summary>
+    /// Pre-shed power quality. This is what causes flickering auxiliary loads
+    /// and sluggish/dead door actuators before entire compartments are dropped.
+    /// </summary>
+    public double QualityPercent { get; set; } = 100;
 
     /// <summary>Compartments the grid has shed because supply ran short.</summary>
     public HashSet<string> SheddedRoomIds { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
-    public bool IsBrownedOut => SupplyKilowatts < DemandKilowatts;
+    public bool IsBrownedOut => SupplyKilowatts + 0.001 < DemandKilowatts;
+
+    public bool IsOnEmergencyStorage => CapacitorFlowKilowatts > 0.01;
 
     public double LoadPercent => SupplyKilowatts <= 0
-        ? 100
+        ? 999
         : Math.Clamp((DemandKilowatts / SupplyKilowatts) * 100, 0, 999);
 }
