@@ -305,6 +305,11 @@ window.overseerLayout = (() => {
         applyCamera(viewport);
     }
 
+    function isStationInteractiveTarget(target) {
+        return target instanceof Element
+            && target.closest("[data-station-interactive], button, a, input, select, textarea, summary");
+    }
+
     function bindMapCamera(viewport) {
         if (!viewport || viewport.dataset.mapCameraReady === "true") {
             if (viewport) applyCamera(viewport);
@@ -321,6 +326,14 @@ window.overseerLayout = (() => {
         viewport.addEventListener("pointerdown", event => {
             if (event.button !== 0) return;
             lastActiveCamera = viewport;
+
+            // Never capture a pointer that began on a station interaction.
+            // Pointer capture retargets the eventual click to the viewport,
+            // which made rooms/crew/doors/robots look completely unclickable.
+            if (isStationInteractiveTarget(event.target)) {
+                return;
+            }
+
             viewport.focus({ preventScroll: true });
             drag = {
                 id: event.pointerId,

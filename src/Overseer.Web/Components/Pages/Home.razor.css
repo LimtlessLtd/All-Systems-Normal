@@ -7360,3 +7360,314 @@ button.turret-token {
         transition: none;
     }
 }
+
+
+/* Station-overview interaction + physical systems pass.
+   Exterior background: NASA/ESA/CSA/STScI Webb First Deep Field (SMACS 0723).
+   The spacecraft remains bright white/grey; only the surrounding void is dark. */
+.station-map-viewport {
+    background:
+        radial-gradient(circle at 50% 45%, rgba(22,38,54,.18), transparent 46%),
+        #010207;
+    scrollbar-color: #47525c #05070b;
+}
+
+.station-map {
+    background:
+        linear-gradient(rgba(0,4,11,.14), rgba(0,3,9,.30)),
+        url("https://assets.science.nasa.gov/dynamicimage/assets/science/missions/webb/science/2022/07/STScI-01G8H1K2BCNATEZSKVRN9Z69SR.png?crop=faces%2Cfocalpoint&fit=clip&h=2000&w=1960")
+            center / cover no-repeat,
+        #010207;
+    box-shadow:
+        inset 0 0 120px rgba(0,0,0,.48),
+        inset 0 0 0 1px rgba(186,206,216,.12);
+}
+
+.status-strip .status-tile {
+    appearance: none;
+    min-height: 0;
+    padding: .45rem .55rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.status-strip .status-tile:hover,
+.status-strip .status-tile:focus-visible {
+    background: rgba(98,229,213,.08);
+    box-shadow: inset 0 0 0 1px rgba(98,229,213,.25);
+}
+
+.station-authority-layer > .room-node {
+    cursor: pointer;
+}
+
+.fixture-layer {
+    pointer-events: none;
+}
+
+.fixture-layer .fixture-interactive {
+    appearance: none;
+    z-index: 6;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: filter .12s ease, outline-color .12s ease, transform .12s ease;
+}
+
+.fixture-layer .fixture-interactive:hover,
+.fixture-layer .fixture-interactive:focus-visible {
+    filter: brightness(1.22) saturate(1.08);
+    outline: 2px solid #52d5c7;
+    outline-offset: 2px;
+}
+
+.fixture-capacitorbank {
+    border: 2px solid #586c75;
+    border-radius: 3px;
+    background:
+        repeating-linear-gradient(90deg,
+            #73858c 0 12%,
+            #202d32 12% 16%,
+            #b0bcc0 16% 28%);
+    box-shadow:
+        inset 0 0 0 2px rgba(255,255,255,.14),
+        0 2px 4px rgba(0,0,0,.38);
+}
+
+.fixture-capacitorbank::after {
+    content: "";
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    bottom: 12%;
+    height: 3px;
+    background: #6ee7cf;
+    box-shadow: 0 0 6px rgba(110,231,207,.65);
+}
+
+.fixture-powerbus {
+    border: 2px solid #4f5f66;
+    background:
+        linear-gradient(180deg, #bac3c6, #69777c);
+    box-shadow: inset 0 0 0 3px #28363b;
+}
+
+.fixture-powerbus::before,
+.fixture-powerbus::after {
+    content: "";
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    height: 3px;
+    background: #d18f43;
+}
+.fixture-powerbus::before { top: 30%; }
+.fixture-powerbus::after { bottom: 30%; }
+
+.fixture-coolantpump {
+    border: 3px solid #52676f;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle,
+            #b9c5c8 0 16%,
+            #3b5159 17% 36%,
+            #8c9ba0 37% 52%,
+            #1c292e 53%);
+}
+
+.fixture-waterrecycler,
+.fixture-oxygengenerator,
+.fixture-carbonscrubber {
+    border: 2px solid #52676f;
+    border-radius: 5px;
+    background:
+        linear-gradient(90deg, rgba(255,255,255,.18), transparent 28%),
+        repeating-linear-gradient(0deg, #819096 0 13%, #34464d 13% 18%);
+}
+
+.fixture-waterrecycler::after,
+.fixture-oxygengenerator::after,
+.fixture-carbonscrubber::after {
+    content: "";
+    position: absolute;
+    right: 8%;
+    top: 10%;
+    width: 18%;
+    height: 12%;
+    border-radius: 50%;
+    background: #66decf;
+    box-shadow: 0 0 6px rgba(102,222,207,.55);
+}
+
+.fixture-networkrack {
+    border: 2px solid #45575e;
+    background:
+        repeating-linear-gradient(0deg,
+            #17262c 0 10%,
+            #718087 10% 13%,
+            #25383f 13% 22%);
+}
+
+.fixture-networkrack::after {
+    content: "";
+    position: absolute;
+    left: 10%;
+    right: 10%;
+    top: 12%;
+    height: 2px;
+    background: #65dfcf;
+    box-shadow:
+        0 7px #65dfcf,
+        0 14px #d8a752,
+        0 21px #65dfcf;
+}
+
+.fixture-doorconsole {
+    border: 1px solid #27383e;
+    border-radius: 2px;
+    background:
+        linear-gradient(180deg, #d8dfe1, #76878d);
+    box-shadow: 0 2px 3px rgba(0,0,0,.34);
+}
+
+.fixture-doorconsole::after {
+    content: "";
+    position: absolute;
+    inset: 20% 24%;
+    border-radius: 2px;
+    background: #5fd9c9;
+    box-shadow: 0 0 5px rgba(95,217,201,.7);
+}
+
+/* Hatches live in the bulkhead plane below mobile entities. Their physical
+   leaves retract fully clear of the walking line when open. */
+.map-door {
+    z-index: 12 !important;
+    overflow: visible;
+}
+
+.crew-token,
+.robot-token,
+.turret-token {
+    z-index: 30 !important;
+}
+
+.map-door .door-leaf {
+    z-index: 1;
+    will-change: transform;
+    transition:
+        transform .28s cubic-bezier(.2,.78,.18,1),
+        background .18s ease,
+        box-shadow .18s ease,
+        opacity .18s ease;
+}
+
+.map-door.closed .door-leaf {
+    background:
+        linear-gradient(180deg, rgba(255,255,255,.38), transparent 24%),
+        #c9974d;
+    box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,.22),
+        0 1px 3px rgba(0,0,0,.48);
+}
+
+.map-door.locked .door-leaf {
+    background:
+        repeating-linear-gradient(135deg,
+            rgba(255,255,255,.20) 0 3px,
+            transparent 3px 7px),
+        #c64f59;
+}
+
+.map-door.open.door-horizontal .door-leaf-a {
+    transform: translateX(-145%);
+}
+.map-door.open.door-horizontal .door-leaf-b {
+    transform: translateX(145%);
+}
+.map-door.open.door-vertical .door-leaf-a {
+    transform: translateY(-145%);
+}
+.map-door.open.door-vertical .door-leaf-b {
+    transform: translateY(145%);
+}
+
+.map-door.open .door-leaf {
+    background: #7f9298;
+    opacity: .72;
+}
+
+.map-door.open {
+    outline: 1px solid rgba(83,220,202,.65);
+    outline-offset: 1px;
+}
+
+.map-door.closed {
+    outline: 1px solid rgba(224,166,83,.68);
+    outline-offset: 1px;
+}
+
+.map-door.locked {
+    outline: 2px solid rgba(224,73,84,.82);
+    outline-offset: 1px;
+}
+
+.map-door.selected {
+    outline: 3px solid #5fe0d0 !important;
+    outline-offset: 4px;
+}
+
+.local-machine-list {
+    display: grid;
+    gap: .35rem;
+    margin-top: .65rem;
+}
+
+.local-machine-list button {
+    text-align: left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .map-door .door-leaf,
+    .fixture-layer .fixture-interactive {
+        transition: none !important;
+    }
+}
+
+
+.map-door .door-local-panel {
+    position: absolute;
+    z-index: 4;
+    width: 7px;
+    height: 9px;
+    border: 1px solid #17252a;
+    border-radius: 2px;
+    background:
+        radial-gradient(circle at 50% 30%, #65dfcf 0 16%, transparent 18%),
+        linear-gradient(180deg, #b4c0c3, #66777d);
+    box-shadow: 0 1px 2px rgba(0,0,0,.45);
+    pointer-events: none;
+}
+
+.map-door.door-horizontal .door-local-panel {
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.map-door.door-vertical .door-local-panel {
+    left: 50%;
+    bottom: -11px;
+    transform: translateX(-50%);
+}
+
+.map-door.locked .door-local-panel {
+    background:
+        radial-gradient(circle at 50% 30%, #f16c76 0 16%, transparent 18%),
+        linear-gradient(180deg, #b4c0c3, #66777d);
+}

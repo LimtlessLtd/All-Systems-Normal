@@ -23,6 +23,7 @@ public sealed class GameSession
     private readonly ShutdownCoordinationSystem _shutdownCoordination = new();
     private readonly LocalMovementSystem _movement = new();
     private readonly CrewDoorInteractionSystem _crewDoors = new();
+    private readonly StationDeviceControlSystem _deviceControls = new();
     private readonly SuspicionSystem _suspicion = new();
     private readonly ShutdownSystem _shutdown = new();
     private readonly ScenarioProgressSystem _scenarioProgress = new();
@@ -644,12 +645,17 @@ public sealed class GameSession
             return;
         }
 
-        State.LifeSupport.IsOnline = !State.LifeSupport.IsOnline;
+        State.LifeSupport.RequestedOnline = !State.LifeSupport.RequestedOnline;
+        State.LifeSupport.IsOnline = State.LifeSupport.RequestedOnline;
+        if (State.Devices.TryGetValue("life-support:station", out var lifeSupportController))
+        {
+            lifeSupportController.IsEnabled = State.LifeSupport.RequestedOnline;
+        }
         AudioCueSystem.Emit(
             State,
-            State.LifeSupport.IsOnline ? AudioCueKind.System : AudioCueKind.Critical);
+            State.LifeSupport.RequestedOnline ? AudioCueKind.System : AudioCueKind.Critical);
 
-        if (State.LifeSupport.IsOnline)
+        if (State.LifeSupport.RequestedOnline)
         {
             // Bringing the air back is the loudest possible reassurance, and
             // everyone aboard witnesses it.
@@ -667,7 +673,21 @@ public sealed class GameSession
             }
         }
 
-        Log($"PRIMARY LIFE SUPPORT {(State.LifeSupport.IsOnline ? "ONLINE" : "OFFLINE")}.");
+        Log($"PRIMARY LIFE SUPPORT REQUEST {(State.LifeSupport.RequestedOnline ? "ONLINE" : "OFFLINE")}.");
+    }
+
+    public bool ToggleDevice(string deviceId)
+    {
+        if (_deviceControls.TryToggle(State, deviceId, out var message))
+        {
+            AudioCueSystem.Emit(State, AudioCueKind.System);
+            Log(message);
+            return true;
+        }
+
+        Log(message);
+        AudioCueSystem.Emit(State, AudioCueKind.Warning);
+        return false;
     }
 
     public bool SetRobotPolicy(string robotId, RobotPolicy policy)

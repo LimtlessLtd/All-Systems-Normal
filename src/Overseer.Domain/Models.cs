@@ -61,7 +61,15 @@ public enum FixtureType
     Vent,
     UtilityPanel,
     Screen,
-    OverseerShutdown
+    OverseerShutdown,
+    CapacitorBank,
+    PowerBus,
+    CoolantPump,
+    WaterRecycler,
+    OxygenGenerator,
+    CarbonScrubber,
+    NetworkRack,
+    DoorConsole
 }
 
 public enum FixtureUsePose
@@ -336,7 +344,8 @@ public enum StationSelectionKind
     Crew,
     Door,
     Robot,
-    Turret
+    Turret,
+    Device
 }
 
 /// <summary>
@@ -597,7 +606,8 @@ public sealed record RoomFixture(
     double? InteractionX = null,
     double? InteractionY = null,
     FixtureUsePose UsePose = FixtureUsePose.Stand,
-    double FacingDegrees = 0);
+    double FacingDegrees = 0,
+    string? DeviceId = null);
 
 public sealed class Npc : IStationMobileEntity
 {
@@ -729,10 +739,16 @@ public sealed class Npc : IStationMobileEntity
     
 public sealed class LifeSupportState
 {
+    /// <summary>What Overseer/crew have requested; actual operation also requires utilities.</summary>
+    public bool RequestedOnline { get; set; } = true;
     public bool IsOnline { get; set; } = true;
     public bool IsAiControllable { get; set; } = true;
     public double OxygenReservePercent { get; set; } = 100;
     public double ScrubberEfficiencyPercent { get; set; } = 100;
+    public double WaterReservePercent { get; set; } = 100;
+    public bool OxygenGeneratorOnline { get; set; } = true;
+    public bool CarbonScrubberOnline { get; set; } = true;
+    public bool WaterRecyclerOnline { get; set; } = true;
 }
 
 public sealed class Room
@@ -749,6 +765,7 @@ public sealed class Room
     public bool IsPowered { get; set; } = true;
     public bool LightsOn { get; set; } = true;
     public bool CameraOnline { get; set; } = true;
+    public bool CameraNetworkReachable { get; set; } = true;
 
     public double TemperatureC { get; set; } = 21;
     public double TemperatureSetpointC { get; set; } = 21;
@@ -775,7 +792,7 @@ public sealed class Room
 
     public List<RoomFixture> Fixtures { get; } = [];
 
-    public bool HasVisualFeed => IsPowered && CameraOnline;
+    public bool HasVisualFeed => IsPowered && CameraOnline && CameraNetworkReachable;
 }
 
 public sealed class Door
@@ -864,6 +881,7 @@ public sealed class GameState
         new(StringComparer.OrdinalIgnoreCase);
 
     public PowerGrid Power { get; } = new();
+    public bool ControlNetworkOnline { get; set; } = true;
 
     // The food chain: beds in hydroponics, stores the galley draws on.
     public List<CropBed> CropBeds { get; } = [];

@@ -16,7 +16,14 @@ public enum StationSystemKind
     AirlockMechanism,
     IsolationMechanism,
     GrowBeds,
-    GalleyEquipment
+    GalleyEquipment,
+    PowerDistributionBus,
+    CapacitorBank,
+    CoolantPump,
+    WaterRecycler,
+    OxygenGenerator,
+    CarbonScrubber,
+    DataNetwork
 }
 
 /// <summary>
@@ -30,7 +37,8 @@ public enum MaintenanceDiscipline
     Reactor,
     LifeSupport,
     Horticulture,
-    Galley
+    Galley,
+    Utilities
 }
 
 /// <summary>
@@ -72,8 +80,23 @@ public sealed class StationDevice
     /// <summary>Set while a crew member is part-way through servicing it.</summary>
     public Guid? ServicedByNpcId { get; set; }
 
+    /// <summary>Operator command state. A healthy device can still be deliberately stopped.</summary>
+    public bool IsEnabled { get; set; } = true;
+
+    public bool IsAiControllable { get; init; } = true;
+
+    /// <summary>Nominal electrical output while healthy.</summary>
+    public double RatedOutputKilowatts { get; init; }
+
+    /// <summary>Nominal electrical draw while operating.</summary>
+    public double RatedDrawKilowatts { get; init; }
+
+    /// <summary>Optional energy storage capacity for capacitor/battery-like equipment.</summary>
+    public double StorageCapacityKwh { get; init; }
+
     public bool IsFailed => Condition <= 0.01;
     public bool IsDegraded => Condition < DegradedAt;
+    public bool IsOperational => IsEnabled && !IsFailed;
 
     /// <summary>
     /// Crew notice and prioritise the worst equipment first. Failed units score
@@ -103,6 +126,7 @@ public static class StationUpkeepRules
             MaintenanceDiscipline.LifeSupport => ["Engineering", "Operations", "Medicine"],
             MaintenanceDiscipline.Horticulture => ["Botany", "Science", "Operations"],
             MaintenanceDiscipline.Galley => ["Cooking", "Operations"],
+            MaintenanceDiscipline.Utilities => ["Engineering", "Electrical", "Operations"],
             _ => ["Engineering"]
         };
 
@@ -166,9 +190,18 @@ public sealed class PowerGrid
     public HashSet<string> SheddedRoomIds { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
-    public bool IsBrownedOut => SupplyKilowatts < DemandKilowatts;
+    /// <summary>Short-duration stored energy used to ride through generation dips.</summary>
+    public double StoredKilowattHours { get; set; } = 16;
+
+    public double StorageCapacityKilowattHours { get; set; } = 16;
+
+    public double BufferDischargeKilowatts { get; set; }
+
+    public double DistributionEfficiencyPercent { get; set; } = 100;
+
+    public bool IsBrownedOut => SupplyKilowatts + BufferDischargeKilowatts < DemandKilowatts;
 
     public double LoadPercent => SupplyKilowatts <= 0
         ? 100
-        : Math.Clamp((DemandKilowatts / SupplyKilowatts) * 100, 0, 999);
+        : Math.Clamp((DemandKilowatts / Math.Max(1, SupplyKilowatts + BufferDischargeKilowatts)) * 100, 0, 999);
 }

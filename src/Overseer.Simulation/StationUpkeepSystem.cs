@@ -37,7 +37,8 @@ public sealed class StationUpkeepSystem
         var hours = delta.TotalHours;
 
         Wear(state, hours);
-        UpdatePowerGrid(state);
+        ApplyUnexpectedFaults(state, delta);
+        UpdatePowerGrid(state, hours);
         ApplyFailures(state);
     }
 
@@ -142,7 +143,8 @@ public sealed class StationUpkeepSystem
                         Discipline = MaintenanceDiscipline.Mechanical,
                         WearPerHour = 0,
                         DegradedAt = 50,
-                        ServiceDifficulty = 55
+                        ServiceDifficulty = 55,
+                        RatedOutputKilowatts = 95
                     });
                     break;
 
@@ -156,7 +158,8 @@ public sealed class StationUpkeepSystem
                         Discipline = MaintenanceDiscipline.Reactor,
                         WearPerHour = 0,
                         DegradedAt = 55,
-                        ServiceDifficulty = 65
+                        ServiceDifficulty = 65,
+                        RatedOutputKilowatts = 200
                     });
                     break;
 
@@ -195,11 +198,117 @@ public sealed class StationUpkeepSystem
             Id = "life-support:station",
             Kind = StationSystemKind.LifeSupport,
             RoomId = "engineering",
-            Label = "Primary life support",
+            Label = "Primary life support controller",
             Discipline = MaintenanceDiscipline.LifeSupport,
             WearPerHour = 0,
             DegradedAt = 50,
-            ServiceDifficulty = 60
+            ServiceDifficulty = 60,
+            RatedDrawKilowatts = 14
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "power-bus:engineering",
+            Kind = StationSystemKind.PowerDistributionBus,
+            RoomId = "engineering",
+            Label = "Main 440 V distribution bus",
+            Discipline = MaintenanceDiscipline.Electrical,
+            WearPerHour = 0,
+            DegradedAt = 45,
+            ServiceDifficulty = 60,
+            RatedDrawKilowatts = 2
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "capacitor-bank:engineering",
+            Kind = StationSystemKind.CapacitorBank,
+            RoomId = "engineering",
+            Label = "Transient capacitor bank",
+            Discipline = MaintenanceDiscipline.Electrical,
+            WearPerHour = 0,
+            DegradedAt = 40,
+            ServiceDifficulty = 55,
+            RatedDrawKilowatts = 1,
+            StorageCapacityKwh = 18
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "oxygen-generator:engineering",
+            Kind = StationSystemKind.OxygenGenerator,
+            RoomId = "engineering",
+            Label = "Oxygen electrolyser",
+            Discipline = MaintenanceDiscipline.LifeSupport,
+            WearPerHour = 0,
+            DegradedAt = 45,
+            ServiceDifficulty = 58,
+            RatedDrawKilowatts = 10
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "co2-scrubber:engineering",
+            Kind = StationSystemKind.CarbonScrubber,
+            RoomId = "engineering",
+            Label = "CO₂ scrubber train",
+            Discipline = MaintenanceDiscipline.LifeSupport,
+            WearPerHour = 0,
+            DegradedAt = 45,
+            ServiceDifficulty = 58,
+            RatedDrawKilowatts = 8
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "water-recycler:engineering",
+            Kind = StationSystemKind.WaterRecycler,
+            RoomId = "engineering",
+            Label = "Water recovery loop",
+            Discipline = MaintenanceDiscipline.Utilities,
+            WearPerHour = 0,
+            DegradedAt = 40,
+            ServiceDifficulty = 52,
+            RatedDrawKilowatts = 7
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "network:control",
+            Kind = StationSystemKind.DataNetwork,
+            RoomId = "control",
+            Label = "Station control network rack",
+            Discipline = MaintenanceDiscipline.Electrical,
+            WearPerHour = 0,
+            DegradedAt = 35,
+            ServiceDifficulty = 50,
+            RatedDrawKilowatts = 4
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "coolant-pump:reactor",
+            Kind = StationSystemKind.CoolantPump,
+            RoomId = "reactor",
+            Label = "Reactor primary coolant pump",
+            Discipline = MaintenanceDiscipline.Mechanical,
+            WearPerHour = 0,
+            DegradedAt = 45,
+            ServiceDifficulty = 62,
+            RatedDrawKilowatts = 9
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "coolant-pump:generator",
+            Kind = StationSystemKind.CoolantPump,
+            RoomId = "generator",
+            Label = "Generator cooling pump",
+            Discipline = MaintenanceDiscipline.Mechanical,
+            WearPerHour = 0,
+            DegradedAt = 40,
+            ServiceDifficulty = 48,
+            RatedDrawKilowatts = 5
         });
 
         foreach (var door in state.Facility.Doors.OrderBy(d => d.Id, StringComparer.Ordinal))
@@ -232,6 +341,8 @@ public sealed class StationUpkeepSystem
                 ServiceDifficulty = 60
             });
         }
+
+        BindMachineFixtures(state);
     }
 
     /// <summary>
@@ -259,6 +370,13 @@ public sealed class StationUpkeepSystem
             StationSystemKind.Lighting => 0.28,
             StationSystemKind.Camera => 0.24,
             StationSystemKind.IsolationMechanism => 0.18,
+            StationSystemKind.PowerDistributionBus => 0.18,
+            StationSystemKind.CapacitorBank => 0.16,
+            StationSystemKind.CoolantPump => 0.24,
+            StationSystemKind.WaterRecycler => 0.20,
+            StationSystemKind.OxygenGenerator => 0.22,
+            StationSystemKind.CarbonScrubber => 0.21,
+            StationSystemKind.DataNetwork => 0.14,
             _ => 0.3
         };
 
@@ -274,6 +392,13 @@ public sealed class StationUpkeepSystem
             _ => 85 + (random.NextDouble() * 15)         // serviceable
         };
 
+        if (template.Kind is StationSystemKind.PowerDistributionBus
+            or StationSystemKind.CapacitorBank
+            or StationSystemKind.CoolantPump)
+        {
+            condition = Math.Max(condition, 68 + (random.NextDouble() * 16));
+        }
+
         var device = new StationDevice
         {
             Id = template.Id,
@@ -285,7 +410,12 @@ public sealed class StationUpkeepSystem
             WearPerHour = wear,
             DegradedAt = template.DegradedAt,
             ServiceDifficulty = template.ServiceDifficulty,
-            Condition = Math.Round(condition, 1)
+            Condition = Math.Round(condition, 1),
+            RatedOutputKilowatts = template.RatedOutputKilowatts,
+            RatedDrawKilowatts = template.RatedDrawKilowatts,
+            StorageCapacityKwh = template.StorageCapacityKwh,
+            IsEnabled = template.IsEnabled,
+            IsAiControllable = template.IsAiControllable
         };
 
         state.Devices[device.Id] = device;
@@ -297,7 +427,7 @@ public sealed class StationUpkeepSystem
     {
         foreach (var device in state.Devices.Values)
         {
-            if (device.IsFailed)
+            if (!device.IsOperational)
             {
                 continue;
             }
@@ -327,23 +457,121 @@ public sealed class StationUpkeepSystem
         }
     }
 
+    private static void ApplyUnexpectedFaults(GameState state, TimeSpan delta)
+    {
+        if (delta < TimeSpan.FromMinutes(1)
+            || state.Elapsed < TimeSpan.FromMinutes(15))
+        {
+            return;
+        }
+
+        var currentSlot = (int)(state.Elapsed.TotalMinutes / 15);
+        var previousSlot = (int)((state.Elapsed - delta).TotalMinutes / 15);
+        if (currentSlot == previousSlot)
+        {
+            return;
+        }
+
+        foreach (var device in state.Devices.Values
+                     .Where(device => device.IsOperational && device.Condition > 20)
+                     .OrderBy(device => device.Id, StringComparer.Ordinal))
+        {
+            var roll = StableUnit($"{state.UpkeepSeed}:{currentSlot}:{device.Id}:fault");
+            if (roll >= 0.00008)
+            {
+                continue;
+            }
+
+            var severity = 10
+                + (StableUnit($"{state.UpkeepSeed}:{currentSlot}:{device.Id}:severity") * 24);
+            var before = device.Condition;
+            device.Condition = Math.Max(0, device.Condition - severity);
+
+            AudioCueSystem.Emit(
+                state,
+                device.Condition <= 0.01 ? AudioCueKind.Critical : AudioCueKind.Warning,
+                roomId: device.RoomId);
+
+            Log(
+                state,
+                $"FAULT: {device.Label} suffers an unexpected failure event ({before:0}% to {device.Condition:0}%).");
+        }
+    }
+
+    private static double StableUnit(string value) =>
+        StableHash(value) / (double)int.MaxValue;
+
     // ---------------------------------------------------------------- power --
 
-    private static void UpdatePowerGrid(GameState state)
+    private static void UpdatePowerGrid(GameState state, double hours)
     {
-        var supply = state.Devices.Values
+        var rawSupply = state.Devices.Values
             .Where(device => device.Kind is StationSystemKind.Reactor
                 or StationSystemKind.PowerGenerator)
-            .Sum(device => Output(device));
+            .Sum(device => Output(state, device));
 
-        var demand = state.Facility.Rooms.Values
+        var bus = Find(state, StationSystemKind.PowerDistributionBus);
+        var busEfficiency = bus is null || !bus.IsOperational
+            ? 0.18
+            : bus.Condition >= bus.DegradedAt
+                ? 1.0
+                : Math.Clamp(0.68 + (0.32 * (bus.Condition / Math.Max(1, bus.DegradedAt))), 0.68, 1.0);
+
+        state.Power.DistributionEfficiencyPercent = busEfficiency * 100;
+        var supply = rawSupply * busEfficiency;
+
+        var roomDemand = state.Facility.Rooms.Values
             .Where(room => room.IsPowered)
             .Sum(Demand);
+        var deviceDemand = state.Devices.Values
+            .Where(device => device.IsOperational)
+            .Sum(device => DeviceDraw(state, device));
+
+        var demand = roomDemand + deviceDemand;
 
         state.Power.SupplyKilowatts = supply;
         state.Power.DemandKilowatts = demand;
+        state.Power.BufferDischargeKilowatts = 0;
+
+        var capacitor = Find(state, StationSystemKind.CapacitorBank);
+        state.Power.StorageCapacityKilowattHours = capacitor is null || !capacitor.IsOperational
+            ? 0
+            : Math.Max(1, capacitor.StorageCapacityKwh)
+                * Math.Clamp(capacitor.Condition / 100d, 0.15, 1);
+
+        state.Power.StoredKilowattHours = Math.Clamp(
+            state.Power.StoredKilowattHours,
+            0,
+            state.Power.StorageCapacityKilowattHours);
+
+        var deficit = demand - supply;
+        if (deficit > 0.01
+            && state.Power.StoredKilowattHours > 0.01
+            && capacitor is { IsOperational: true })
+        {
+            var maxDischarge = 55d * Math.Clamp(capacitor.Condition / 100d, 0.2, 1);
+            var energyLimitedKw = hours <= 0
+                ? maxDischarge
+                : state.Power.StoredKilowattHours / hours;
+            var discharge = Math.Min(deficit, Math.Min(maxDischarge, energyLimitedKw));
+            state.Power.BufferDischargeKilowatts = discharge;
+            state.Power.StoredKilowattHours = Math.Max(
+                0,
+                state.Power.StoredKilowattHours - (discharge * hours));
+        }
+        else if (deficit < -0.01
+                 && capacitor is { IsOperational: true }
+                 && state.Power.StorageCapacityKilowattHours > state.Power.StoredKilowattHours)
+        {
+            var maxCharge = 35d * Math.Clamp(capacitor.Condition / 100d, 0.2, 1);
+            var chargeKw = Math.Min(-deficit, maxCharge);
+            state.Power.StoredKilowattHours = Math.Min(
+                state.Power.StorageCapacityKilowattHours,
+                state.Power.StoredKilowattHours + (chargeKw * hours));
+        }
 
         ShedLoad(state);
+        ApplyPoweredDependencies(state);
     }
 
     /// <summary>
@@ -361,24 +589,58 @@ public sealed class StationUpkeepSystem
                 ? HeavyRoomDemandKilowatts
                 : 0);
 
-    private static double Output(StationDevice device)
+    private static double Output(GameState state, StationDevice device)
     {
-        if (device.IsFailed)
+        if (!device.IsOperational)
         {
             return 0;
         }
 
-        // Rated generously enough that a fully lit station runs on the reactor
-        // alone, or on the generators alone at a squeeze. Losing both is what
-        // should hurt.
-        var rated = device.Kind == StationSystemKind.Reactor ? 200.0 : 95.0;
+        var rated = device.RatedOutputKilowatts > 0
+            ? device.RatedOutputKilowatts
+            : device.Kind == StationSystemKind.Reactor ? 200.0 : 95.0;
 
-        // Output falls away as a unit degrades rather than dropping off a cliff.
         var efficiency = device.Condition >= device.DegradedAt
             ? 1.0
             : Math.Clamp(device.Condition / Math.Max(1, device.DegradedAt), 0.15, 1.0);
 
+        var coolant = device.Kind switch
+        {
+            StationSystemKind.Reactor => state.Devices.GetValueOrDefault("coolant-pump:reactor"),
+            StationSystemKind.PowerGenerator => state.Devices.GetValueOrDefault("coolant-pump:generator"),
+            _ => null
+        };
+
+        if (coolant is not null)
+        {
+            var coolingFactor = !coolant.IsOperational
+                ? 0.28
+                : coolant.Condition >= coolant.DegradedAt
+                    ? 1.0
+                    : Math.Clamp(coolant.Condition / Math.Max(1, coolant.DegradedAt), 0.45, 1.0);
+            efficiency *= coolingFactor;
+        }
+
         return rated * efficiency;
+    }
+
+    private static double DeviceDraw(GameState state, StationDevice device)
+    {
+        if (device.RatedDrawKilowatts <= 0)
+        {
+            return 0;
+        }
+
+        if (state.Facility.Rooms.TryGetValue(device.RoomId, out var room)
+            && !room.IsPowered
+            && device.Kind is not StationSystemKind.LifeSupport
+                and not StationSystemKind.PowerDistributionBus
+                and not StationSystemKind.CapacitorBank)
+        {
+            return 0;
+        }
+
+        return device.RatedDrawKilowatts;
     }
 
     /// <summary>
@@ -400,7 +662,8 @@ public sealed class StationUpkeepSystem
                 continue;
             }
 
-            if (state.Power.SupplyKilowatts - state.Power.DemandKilowatts < Demand(room))
+            if ((state.Power.SupplyKilowatts + state.Power.BufferDischargeKilowatts)
+                - state.Power.DemandKilowatts < Demand(room))
             {
                 break;
             }
@@ -445,6 +708,77 @@ public sealed class StationUpkeepSystem
             Log(
                 state,
                 $"GRID: insufficient generation. Load shed from {string.Join(", ", shed)}.");
+        }
+    }
+
+    private static StationDevice? Find(GameState state, StationSystemKind kind) =>
+        state.Devices.Values.FirstOrDefault(device => device.Kind == kind);
+
+    private static void ApplyPoweredDependencies(GameState state)
+    {
+        foreach (var door in state.Facility.Doors)
+        {
+            var actuator = state.Devices.GetValueOrDefault($"door:{door.Id}");
+            var aPowered = state.Facility.Rooms.TryGetValue(door.RoomAId, out var a) && a.IsPowered;
+            var bPowered = state.Facility.Rooms.TryGetValue(door.RoomBId, out var b) && b.IsPowered;
+
+            door.IsPowered = actuator is { IsOperational: true }
+                && aPowered
+                && bPowered
+                && state.Power.DistributionEfficiencyPercent >= 22;
+        }
+
+        var network = Find(state, StationSystemKind.DataNetwork);
+        var controlPowered = state.Facility.Rooms.TryGetValue("control", out var control)
+            && control.IsPowered;
+        state.ControlNetworkOnline = controlPowered
+            && network is { IsOperational: true }
+            && state.Power.DistributionEfficiencyPercent >= 18;
+
+        foreach (var room in state.Facility.Rooms.Values)
+            room.CameraNetworkReachable = state.ControlNetworkOnline;
+
+        var engineeringPowered = state.Facility.Rooms.TryGetValue("engineering", out var engineering)
+            && engineering.IsPowered;
+        var core = Find(state, StationSystemKind.LifeSupport);
+        var oxygen = Find(state, StationSystemKind.OxygenGenerator);
+        var scrubber = Find(state, StationSystemKind.CarbonScrubber);
+        var water = Find(state, StationSystemKind.WaterRecycler);
+
+        state.LifeSupport.OxygenGeneratorOnline =
+            engineeringPowered && oxygen is { IsOperational: true };
+        state.LifeSupport.CarbonScrubberOnline =
+            engineeringPowered && scrubber is { IsOperational: true };
+        state.LifeSupport.WaterRecyclerOnline =
+            engineeringPowered && water is { IsOperational: true };
+
+        state.LifeSupport.ScrubberEfficiencyPercent = scrubber is null
+            ? 0
+            : Math.Clamp(scrubber.Condition, 0, 100);
+
+        var utilitiesAvailable = engineeringPowered
+            && core is { IsOperational: true }
+            && state.Power.DistributionEfficiencyPercent >= 30;
+
+        state.LifeSupport.IsAiControllable = utilitiesAvailable;
+        state.LifeSupport.IsOnline =
+            state.LifeSupport.RequestedOnline
+            && utilitiesAvailable
+            && state.LifeSupport.OxygenGeneratorOnline
+            && state.LifeSupport.CarbonScrubberOnline;
+
+        var coolantReactor = state.Devices.GetValueOrDefault("coolant-pump:reactor");
+        if (state.Facility.Rooms.TryGetValue("reactor", out var reactorRoom)
+            && coolantReactor is { IsOperational: false })
+        {
+            reactorRoom.TemperatureC = Math.Min(55, reactorRoom.TemperatureC + 0.25);
+        }
+
+        var coolantGenerator = state.Devices.GetValueOrDefault("coolant-pump:generator");
+        if (state.Facility.Rooms.TryGetValue("generator", out var generatorRoom)
+            && coolantGenerator is { IsOperational: false })
+        {
+            generatorRoom.TemperatureC = Math.Min(48, generatorRoom.TemperatureC + 0.16);
         }
     }
 
@@ -493,7 +827,7 @@ public sealed class StationUpkeepSystem
 
                 case StationSystemKind.ClimateControl:
                     room.IsTemperatureAiControllable = !device.IsFailed;
-                    if (device.IsFailed)
+                    if (!device.IsOperational)
                     {
                         room.TemperatureControlOnline = false;
                     }
@@ -502,7 +836,7 @@ public sealed class StationUpkeepSystem
 
                 case StationSystemKind.Ventilation:
                     room.IsVentilationAiControllable = !device.IsFailed;
-                    if (device.IsFailed)
+                    if (!device.IsOperational)
                     {
                         room.VentilationEnabled = false;
                     }
@@ -523,7 +857,7 @@ public sealed class StationUpkeepSystem
 
                     // A dead actuator is a manual door. Overseer loses it until
                     // somebody gets a tool on it.
-                    if (device.IsFailed)
+                    if (!device.IsOperational)
                     {
                         door.IsAiControllable = false;
                     }
@@ -539,7 +873,7 @@ public sealed class StationUpkeepSystem
 
                     state.LifeSupport.IsAiControllable = !device.IsFailed;
 
-                    if (device.IsFailed)
+                    if (!device.IsOperational)
                     {
                         state.LifeSupport.IsOnline = false;
                     }
@@ -568,6 +902,161 @@ public sealed class StationUpkeepSystem
                     break;
                 }
             }
+        }
+    }
+
+
+    private static void BindMachineFixtures(GameState state)
+    {
+        foreach (var device in state.Devices.Values.OrderBy(device => device.Id, StringComparer.Ordinal))
+        {
+            if (device.Kind == StationSystemKind.Door
+                && device.DoorId is { } doorId
+                && state.Facility.Doors.FirstOrDefault(door =>
+                    door.Id.Equals(doorId, StringComparison.OrdinalIgnoreCase)) is { } door)
+            {
+                if (state.Facility.Rooms[door.RoomAId].Type != RoomType.Corridor)
+                    AddDoorConsole(state, device, door.RoomAId, side: 0);
+                if (state.Facility.Rooms[door.RoomBId].Type != RoomType.Corridor)
+                    AddDoorConsole(state, device, door.RoomBId, side: 1);
+                continue;
+            }
+
+            if (!state.Facility.Rooms.TryGetValue(device.RoomId, out var room))
+            {
+                continue;
+            }
+
+            if (room.Type == RoomType.Corridor
+                && device.Kind != StationSystemKind.Camera)
+            {
+                continue;
+            }
+
+            var fixtureType = FixtureTypeFor(device.Kind);
+            if (fixtureType is null)
+            {
+                continue;
+            }
+
+            var existingIndex = room.Fixtures.FindIndex(fixture =>
+                fixture.DeviceId is null
+                && FixtureMatchesDevice(fixture.Type, device.Kind));
+
+            if (existingIndex >= 0)
+            {
+                var existing = room.Fixtures[existingIndex];
+                room.Fixtures[existingIndex] = existing with
+                {
+                    Label = device.Label,
+                    DeviceId = device.Id,
+                    InteractionX = existing.InteractionX ?? existing.X,
+                    InteractionY = existing.InteractionY ?? existing.Y
+                };
+                continue;
+            }
+
+            var ordinal = StableHash(device.Id);
+            var x = 18 + (ordinal % 5) * 16;
+            var y = 18 + ((ordinal / 7) % 4) * 18;
+            var size = fixtureType.Value switch
+            {
+                FixtureType.CapacitorBank => (Width: 22d, Height: 18d),
+                FixtureType.PowerBus => (Width: 28d, Height: 12d),
+                FixtureType.CoolantPump => (Width: 18d, Height: 18d),
+                FixtureType.WaterRecycler => (Width: 24d, Height: 22d),
+                FixtureType.OxygenGenerator => (Width: 22d, Height: 22d),
+                FixtureType.CarbonScrubber => (Width: 22d, Height: 22d),
+                FixtureType.NetworkRack => (Width: 20d, Height: 24d),
+                _ => (Width: 18d, Height: 16d)
+            };
+
+            room.Fixtures.Add(new RoomFixture(
+                fixtureType.Value,
+                device.Label,
+                Math.Clamp(x, 12, 88),
+                Math.Clamp(y, 12, 88),
+                size.Width,
+                size.Height,
+                Math.Clamp(x, 12, 88),
+                Math.Clamp(y + (size.Height / 2) + 5, 8, 92),
+                FixtureUsePose.Stand,
+                0,
+                device.Id));
+        }
+    }
+
+    private static void AddDoorConsole(
+        GameState state,
+        StationDevice device,
+        string roomId,
+        int side)
+    {
+        if (!state.Facility.Rooms.TryGetValue(roomId, out var room))
+        {
+            return;
+        }
+
+        var hash = StableHash($"{device.Id}:{roomId}");
+        var x = side == 0 ? 9d : 91d;
+        var y = 22d + (hash % 55);
+
+        room.Fixtures.Add(new RoomFixture(
+            FixtureType.DoorConsole,
+            $"{device.Label} local control",
+            x,
+            y,
+            9,
+            12,
+            side == 0 ? 15 : 85,
+            y,
+            FixtureUsePose.Stand,
+            side == 0 ? 90 : 270,
+            device.Id));
+    }
+
+    private static FixtureType? FixtureTypeFor(StationSystemKind kind) =>
+        kind switch
+        {
+            StationSystemKind.PowerGenerator => FixtureType.Generator,
+            StationSystemKind.Reactor => FixtureType.ReactorCore,
+            StationSystemKind.Lighting => FixtureType.UtilityPanel,
+            StationSystemKind.Camera => FixtureType.Camera,
+            StationSystemKind.ClimateControl => FixtureType.UtilityPanel,
+            StationSystemKind.Ventilation => FixtureType.Vent,
+            StationSystemKind.AirlockMechanism => FixtureType.AirlockDoor,
+            StationSystemKind.IsolationMechanism => FixtureType.OverseerShutdown,
+            StationSystemKind.GrowBeds => FixtureType.GrowBed,
+            StationSystemKind.GalleyEquipment => FixtureType.KitchenCounter,
+            StationSystemKind.LifeSupport => FixtureType.Console,
+            StationSystemKind.PowerDistributionBus => FixtureType.PowerBus,
+            StationSystemKind.CapacitorBank => FixtureType.CapacitorBank,
+            StationSystemKind.CoolantPump => FixtureType.CoolantPump,
+            StationSystemKind.WaterRecycler => FixtureType.WaterRecycler,
+            StationSystemKind.OxygenGenerator => FixtureType.OxygenGenerator,
+            StationSystemKind.CarbonScrubber => FixtureType.CarbonScrubber,
+            StationSystemKind.DataNetwork => FixtureType.NetworkRack,
+            _ => null
+        };
+
+    private static bool FixtureMatchesDevice(FixtureType fixtureType, StationSystemKind kind) =>
+        FixtureTypeFor(kind) == fixtureType
+        || (kind == StationSystemKind.LifeSupport && fixtureType == FixtureType.Console)
+        || (kind is StationSystemKind.ClimateControl or StationSystemKind.Lighting
+            && fixtureType == FixtureType.UtilityPanel);
+
+    private static int StableHash(string value)
+    {
+        unchecked
+        {
+            uint hash = 2166136261;
+            foreach (var ch in value)
+            {
+                hash ^= ch;
+                hash *= 16777619;
+            }
+
+            return (int)(hash & 0x7fffffff);
         }
     }
 
