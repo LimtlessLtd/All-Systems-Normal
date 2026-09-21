@@ -321,6 +321,14 @@ window.overseerLayout = (() => {
         viewport.addEventListener("pointerdown", event => {
             if (event.button !== 0) return;
             lastActiveCamera = viewport;
+
+            // Never capture pointer input that began on a station entity.
+            // Capturing on the viewport retargets pointerup/click away from
+            // Blazor buttons, which silently broke the universal Inspector.
+            if (event.target.closest("[data-station-interactable]")) {
+                return;
+            }
+
             viewport.focus({ preventScroll: true });
             drag = {
                 id: event.pointerId,
@@ -328,9 +336,9 @@ window.overseerLayout = (() => {
                 startY: event.clientY,
                 lastX: event.clientX,
                 lastY: event.clientY,
-                moved: false
+                moved: false,
+                captured: false
             };
-            viewport.setPointerCapture?.(event.pointerId);
         });
 
         viewport.addEventListener("pointermove", event => {
@@ -341,6 +349,10 @@ window.overseerLayout = (() => {
             if (!drag.moved && Math.hypot(totalX, totalY) < 4) return;
 
             drag.moved = true;
+            if (!drag.captured) {
+                viewport.setPointerCapture?.(event.pointerId);
+                drag.captured = true;
+            }
             const dx = event.clientX - drag.lastX;
             const dy = event.clientY - drag.lastY;
             drag.lastX = event.clientX;
