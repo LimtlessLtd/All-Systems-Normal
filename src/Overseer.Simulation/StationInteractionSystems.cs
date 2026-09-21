@@ -166,10 +166,13 @@ public static class CrewAffordanceSystem
             normalizedTarget = door.Id;
             return action switch
             {
-                ActionKind.OpenDoor => CrewDoorInteractionSystem.CanOpen(state, npc, door),
+                ActionKind.OpenDoor => !door.IsOpen
+                    && CrewDoorInteractionSystem.CanOpen(state, npc, door),
                 ActionKind.CloseDoor => CrewDoorInteractionSystem.CanClose(npc, door),
-                ActionKind.LockDoor => CrewDoorInteractionSystem.CanLockOrUnlock(npc, door),
-                ActionKind.UnlockDoor => CrewDoorInteractionSystem.CanLockOrUnlock(npc, door),
+                ActionKind.LockDoor => !door.IsLocked
+                    && CrewDoorInteractionSystem.CanLockOrUnlock(npc, door),
+                ActionKind.UnlockDoor => door.IsLocked
+                    && CrewDoorInteractionSystem.CanLockOrUnlock(npc, door),
                 _ => false
             };
         }
@@ -299,16 +302,9 @@ public sealed class CrewDoorInteractionSystem
             return true;
         }
 
-        if (!CanOpen(state, npc, door)
-            || !_airlocks.CanToggleInnerHatch(
-                state,
-                door,
-                opening: true,
-                out var safetyMessage))
+        if (!CanOpen(state, npc, door))
         {
-            message = string.IsNullOrWhiteSpace(safetyMessage)
-                ? $"{npc.Name} cannot open {door.Id}."
-                : safetyMessage;
+            message = $"{npc.Name} cannot open {door.Id}.";
             return false;
         }
 
@@ -343,16 +339,9 @@ public sealed class CrewDoorInteractionSystem
                     message = $"{door.Id} is already open.";
                     return false;
                 }
-                if (!CanOpen(state, npc, door)
-                    || !_airlocks.CanToggleInnerHatch(
-                        state,
-                        door,
-                        opening: true,
-                        out var safetyMessage))
+                if (!CanOpen(state, npc, door))
                 {
-                    message = string.IsNullOrWhiteSpace(safetyMessage)
-                        ? $"{npc.Name} cannot open {door.Id}."
-                        : safetyMessage;
+                    message = $"{npc.Name} cannot open {door.Id}.";
                     return false;
                 }
                 door.IsOpen = true;
