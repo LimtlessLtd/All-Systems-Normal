@@ -271,6 +271,7 @@ Standard gate:
 - Room status strips attach to the owning room's top/bottom edge. Reactor air-handler visuals must remain inside their machinery footprint. Station Overview exposes simulation speed controls.
 - Human LOS is directional and door/geometry aware; robot/turret sensor LOS is deterministic and cannot acquire targets through walls. Previously acquired hostile targets may continue to be pursued under the existing deterministic rules.
 - Medical care, resurrection and blood evidence are deterministic C# systems. Resurrection requires a powered medbay, resources/charge and a present recoverable body.
+- The procedure in progress lives in `Npc.MedicalActionKind` (never read back from `CurrentAction`, which other systems rewrite). A doctor mid-procedure and a patient waiting in a medbay that can treat them are protected from routine errands; leaving the medbay abandons the procedure. A patient waiting in the medbay calls the doctor in as medical duty. Injured crew are only routed to the medbay when a doctor, supplies and a safe medbay exist; an existing trip is kept rather than recreated, and plans with urgency ≥ 97 are never overridden. Witnesses rethink once per injury (`Npc.NoticedInjuredCrewIds`), not every minute.
 - Movement/perception/medical regression coverage is concentrated in `MovementPerceptionMedicalPolishTests.cs` plus the existing lifecycle, robot, UI and procedural-generation suites.
 
 ## Next milestone — V0.13 Hazardous Transport Assignments

@@ -21,16 +21,14 @@ public sealed class MedicalSystem
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        var medbay = state.Facility.Rooms.Values
-            .Where(room => room.Type == RoomType.Medical)
-            .OrderBy(room => room.Id, StringComparer.Ordinal)
-            .FirstOrDefault();
+        var medbay = FindMedbay(state);
 
         if (medbay is null)
             return;
 
         RoutePatients(state, medbay);
         RouteMedicalWitnesses(state, medbay);
+        HoldWaitingPatients(state, medbay);
 
         foreach (var doctor in state.Crew
                      .Where(npc => npc.IsAlive && npc.IsPresent && npc.Role == CrewRole.Doctor)
@@ -40,17 +38,45 @@ public sealed class MedicalSystem
         }
     }
 
+    /// <summary>
+    /// True while an injured crew member is in the medbay and treatment there is
+    /// actually possible. Other systems use this to avoid sending them away.
+    /// </summary>
+    public static bool IsAwaitingCare(GameState state, Npc npc)
+    {
+        if (!npc.IsAlive || !npc.IsPresent || npc.Health >= SeekCareBelow)
+            return false;
+
+        var medbay = FindMedbay(state);
+
+        return medbay is not null
+            && npc.CurrentRoomId.Equals(medbay.Id, StringComparison.OrdinalIgnoreCase)
+            && IsCareAvailable(state, medbay, npc);
+    }
+
     private void RoutePatients(GameState state, Room medbay)
     {
-        if (!IsSafeForCare(medbay))
-            return;
-
         foreach (var patient in state.Crew.Where(npc =>
                      npc.IsAlive
                      && npc.IsPresent
                      && npc.Health < SeekCareBelow
                      && !npc.CurrentRoomId.Equals(medbay.Id, StringComparison.OrdinalIgnoreCase)))
         {
+            // Only send people where treatment can happen. Routing to an empty
+            // or unsupplied medbay made patients shuttle between it and their
+            // routine indefinitely.
+            if (!IsCareAvailable(state, medbay, patient))
+                continue;
+
+            // Keep an existing trip instead of restarting it every minute.
+            if (patient.Intent is { Action: ActionKind.Move } current
+                && medbay.Id.Equals(current.TargetId, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            // A more urgent plan (escape, forcing a hatch, shutdown) wins.
+            if (patient.Intent is { Urgency: >= 97 })
+                continue;
+
             var path = _navigation.FindPathForCrew(
                 state,
                 patient,
@@ -58,9 +84,6 @@ public sealed class MedicalSystem
                 medbay.Id);
 
             if (path.Count < 2)
-                continue;
-
-            if (patient.Intent is { Urgency: >= 97, Action: ActionKind.SeekSafety or ActionKind.ForceDoor })
                 continue;
 
             patient.Intent = new NpcIntent(
@@ -77,14 +100,22 @@ public sealed class MedicalSystem
 
     private void RouteMedicalWitnesses(GameState state, Room medbay)
     {
-        if (!IsSafeForCare(medbay))
-            return;
-
         var injured = state.Crew
             .Where(npc => npc.IsAlive && npc.IsPresent && npc.Health < SeekCareBelow)
             .OrderBy(npc => npc.Health)
             .ThenBy(npc => npc.Name)
             .ToList();
+        var injuredIds = injured.Select(npc => npc.Id).ToHashSet();
+
+        foreach (var observer in state.Crew)
+        {
+            // Recovered (or dead) colleagues are forgotten so a new injury is
+            // noticed afresh.
+            observer.NoticedInjuredCrewIds.RemoveWhere(id => !injuredIds.Contains(id));
+        }
+
+        if (!IsSafeForCare(medbay))
+            return;
 
         foreach (var observer in state.Crew.Where(npc => npc.IsAlive && npc.IsPresent))
         {
@@ -95,13 +126,20 @@ public sealed class MedicalSystem
             if (witnessed is null)
                 continue;
 
-            observer.NeedsMindReconsideration = true;
+            // Seeing an injured colleague is a reason to rethink once, not a
+            // demand to re-decide every minute they stay in view.
+            if (observer.NoticedInjuredCrewIds.Add(witnessed.Id))
+                observer.NeedsMindReconsideration = true;
 
             if (observer.Role != CrewRole.Doctor
                 && !observer.Skills.ContainsKey("First Aid"))
                 continue;
 
             if (observer.Intent is { Urgency: >= 94 })
+                continue;
+
+            if (observer.Intent is { Action: ActionKind.AssistCrew } assisting
+                && witnessed.Name.Equals(assisting.TargetId, StringComparison.OrdinalIgnoreCase))
                 continue;
 
             observer.Intent = new NpcIntent(
@@ -115,10 +153,37 @@ public sealed class MedicalSystem
         }
     }
 
+    /// <summary>
+    /// Patients already in a medbay that can treat them wait there rather than
+    /// drifting back into routine errands before the doctor arrives.
+    /// </summary>
+    private static void HoldWaitingPatients(GameState state, Room medbay)
+    {
+        foreach (var patient in state.Crew.Where(npc =>
+                     npc.Intent is null
+                     && npc.Movement is null
+                     && IsAwaitingCare(state, npc)
+                     && npc.CurrentAction.Kind != ActionKind.Rest))
+        {
+            patient.CurrentAction = new NpcAction(
+                ActionKind.Rest,
+                medbay.Id,
+                "Waiting in the medbay for treatment.");
+        }
+    }
+
     private void TickDoctor(GameState state, Room medbay, Npc doctor)
     {
         if (doctor.MedicalActionCompletesAt is { } completesAt)
         {
+            // Walking out abandons the procedure instead of finishing it
+            // remotely.
+            if (!doctor.CurrentRoomId.Equals(medbay.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                ClearProcedure(doctor);
+                return;
+            }
+
             if (state.Elapsed < completesAt)
                 return;
 
@@ -126,8 +191,13 @@ public sealed class MedicalSystem
             return;
         }
 
-        if (!doctor.CurrentRoomId.Equals(medbay.Id, StringComparison.OrdinalIgnoreCase)
-            || !IsSafeForCare(medbay))
+        if (!doctor.CurrentRoomId.Equals(medbay.Id, StringComparison.OrdinalIgnoreCase))
+        {
+            DispatchToWaitingPatient(state, medbay, doctor);
+            return;
+        }
+
+        if (!IsSafeForCare(medbay))
             return;
 
         var deadPatient = state.Crew
@@ -177,6 +247,46 @@ public sealed class MedicalSystem
         }
     }
 
+    /// <summary>
+    /// Medical duty, like maintenance duty: a patient waiting in a working
+    /// medbay calls the doctor in unless they are busy with something urgent.
+    /// </summary>
+    private void DispatchToWaitingPatient(GameState state, Room medbay, Npc doctor)
+    {
+        if (!IsSafeForCare(medbay) || state.Medical.Supplies < 1)
+            return;
+
+        var waiting = state.Crew
+            .Where(npc => npc.IsAlive && npc.IsPresent && npc.Id != doctor.Id
+                && npc.Health < SeekCareBelow
+                && npc.CurrentRoomId.Equals(medbay.Id, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(npc => npc.Health)
+            .ThenBy(npc => npc.Name)
+            .FirstOrDefault();
+
+        if (waiting is null)
+            return;
+
+        if (doctor.Intent is { Action: ActionKind.Move } current
+            && medbay.Id.Equals(current.TargetId, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (doctor.Intent is { Urgency: >= 94 })
+            return;
+
+        if (_navigation.FindPathForCrew(state, doctor, doctor.CurrentRoomId, medbay.Id).Count < 2)
+            return;
+
+        doctor.Intent = new NpcIntent(
+            ActionKind.Move,
+            medbay.Id,
+            $"Treat {waiting.Name} in the medbay",
+            $"{waiting.Name} is waiting in the medbay for treatment.",
+            93,
+            "Medical duty",
+            state.Elapsed);
+    }
+
     private static void Begin(
         Npc doctor,
         Npc patient,
@@ -187,20 +297,29 @@ public sealed class MedicalSystem
     {
         doctor.MedicalPatientId = patient.Id;
         doctor.MedicalActionCompletesAt = now + TimeSpan.FromMinutes(minutes);
+        doctor.MedicalActionKind = action;
         doctor.CurrentAction = new NpcAction(action, patient.Name, reason);
         doctor.Intent = null;
         doctor.Movement = null;
     }
 
+    private static void ClearProcedure(Npc doctor)
+    {
+        doctor.MedicalActionCompletesAt = null;
+        doctor.MedicalPatientId = null;
+        doctor.MedicalActionKind = null;
+    }
+
     private static void CompleteMedicalAction(GameState state, Room medbay, Npc doctor)
     {
-        var action = doctor.CurrentAction.Kind;
+        // CurrentAction is display state that other systems rewrite while the
+        // procedure runs; reading it here silently cancelled most treatments.
+        var action = doctor.MedicalActionKind ?? doctor.CurrentAction.Kind;
         var patient = doctor.MedicalPatientId is { } id
             ? state.Crew.FirstOrDefault(npc => npc.Id == id)
             : null;
 
-        doctor.MedicalActionCompletesAt = null;
-        doctor.MedicalPatientId = null;
+        ClearProcedure(doctor);
 
         if (patient is null
             || !patient.IsPresent
@@ -278,6 +397,22 @@ public sealed class MedicalSystem
         return headroom >= ResurrectionPowerHeadroomKw
             || state.Power.StoredKilowattHours >= state.Medical.ResurrectionEnergyKwh;
     }
+
+    private static Room? FindMedbay(GameState state) =>
+        state.Facility.Rooms.Values
+            .Where(room => room.Type == RoomType.Medical)
+            .OrderBy(room => room.Id, StringComparer.Ordinal)
+            .FirstOrDefault();
+
+    /// <summary>Somebody other than the patient can treat them there.</summary>
+    private static bool IsCareAvailable(GameState state, Room medbay, Npc patient) =>
+        IsSafeForCare(medbay)
+        && state.Medical.Supplies >= 1
+        && state.Crew.Any(npc =>
+            npc.IsAlive
+            && npc.IsPresent
+            && npc.Role == CrewRole.Doctor
+            && npc.Id != patient.Id);
 
     private static bool IsSafeForCare(Room room) =>
         room.IsPowered
