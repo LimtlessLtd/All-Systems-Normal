@@ -24,7 +24,7 @@ Core invariants:
 
 - Npc.CurrentRoomId is authoritative containment.
 - PositionX / PositionY / Movement are local physical/presentation state.
-- Door.IsPassable is navigation truth; crossings revalidate live door state.
+- Door.IsPassable is crossing truth; crossings revalidate live door state. Crew route planning (`FindPathForCrew`) also plans through closed, unlocked, powered hatches via `CrewDoorInteractionSystem.CanTraverseWhenReached`, because crew open those at the portal. Robots plan with `IsPassable` only.
 - Strategic routing is deterministic A* over real room/corridor/door topology.
 - Visible map connections must be real navigable geometry; never draw fake corridor edges.
 - Knowledge/evidence is observer-specific and provenance-aware.
@@ -186,7 +186,7 @@ Current shared mechanics include:
 - bright white/grey spacecraft interior art direction with animated consoles/screens/vents/irrigation/pipes/medical/camera/airlock/machinery cues
 - one shared `StationSelection` / `StationInspectionSystem` contract drives the contextual Inspector for rooms, crew, doors, MR robots and ST turrets
 - the primary workspace is objectives/directives + full-width Overseer Comms + map/Inspector; the old permanent Facility Systems panel is removed
-- map camera panning must never pointer-capture events that originate on `[data-station-interactive]` entities; this is regression-tested in both runtimes
+- map camera panning never pointer-captures on pointerdown; capture begins only once a press moves past the pan threshold, so plain clicks on `[data-station-interactive]` entities still reach them while drags that start on rooms/corridors still pan (and do not select); this is regression-tested in both runtimes
 - rooms, crew, doors, MR robots, ST turrets, physical machinery and key overview status readouts all route through the same Inspector
 - maintainable machinery is bound to physical room fixtures via `RoomFixture.DeviceId`; door entities carry visible local control pads without cluttering corridor fixture geometry
 - `/debug` is a separate full-screen non-gameplay diagnostics surface; it contains cognition traces, raw Ollama prompt/response data, event logs and generation diagnostics and can be disabled without changing simulation authority
