@@ -72,6 +72,7 @@ public static class FacilitySeeder
 
         AddFixtures(facility);
         ApplyIdentityDrivenDetails(facility, generation.Metadata);
+        StationInfrastructureSystem.EnsureInteractiveFixtures(facility);
         ConfigureEnvironmentControls(facility);
         StationGenerator.ApplyEnvironmentOverrides(facility, stationConstraints);
 
