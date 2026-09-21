@@ -89,7 +89,9 @@ public sealed class StationUiPresentationPolishTests
         var attached = Assert.Single(StationRoomCalloutSystem.Build(clear));
         Assert.False(attached.IsExternal);
         Assert.InRange(
-            Math.Hypot(attached.LabelX - attached.AnchorX, attached.LabelY - attached.AnchorY),
+            Math.Sqrt(
+                Math.Pow(attached.LabelX - attached.AnchorX, 2)
+                + Math.Pow(attached.LabelY - attached.AnchorY, 2)),
             2,
             7);
 
