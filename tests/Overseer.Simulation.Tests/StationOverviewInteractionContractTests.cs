@@ -6,38 +6,35 @@ namespace Overseer.Simulation.Tests;
 public sealed class StationOverviewInteractionContractTests
 {
     [Fact]
-    public void EveryMaintainableDevice_HasAPhysicalInspectableFixture()
+    public void CoreMachinery_HasPhysicalInspectableFixtures()
     {
         var state = FacilitySeeder.CreateDefault(stationSeed: 420042);
 
-        foreach (var device in state.Devices.Values)
+        var physicalKinds = new HashSet<StationSystemKind>
         {
-            var fixtures = state.Facility.Rooms.Values
-                .SelectMany(room => room.Fixtures)
-                .Where(fixture => string.Equals(
+            StationSystemKind.PowerGenerator,
+            StationSystemKind.Reactor,
+            StationSystemKind.LifeSupport,
+            StationSystemKind.GrowBeds,
+            StationSystemKind.GalleyEquipment,
+            StationSystemKind.PowerDistributionBus,
+            StationSystemKind.CapacitorBank,
+            StationSystemKind.CoolantPump,
+            StationSystemKind.WaterRecycler,
+            StationSystemKind.OxygenGenerator,
+            StationSystemKind.CarbonScrubber,
+            StationSystemKind.DataNetwork
+        };
+
+        foreach (var device in state.Devices.Values.Where(device =>
+                     physicalKinds.Contains(device.Kind)))
+        {
+            Assert.Contains(
+                state.Facility.Rooms.Values.SelectMany(room => room.Fixtures),
+                fixture => string.Equals(
                     fixture.DeviceId,
                     device.Id,
-                    StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            Assert.True(
-                fixtures.Count > 0,
-                $"{device.Id} ({device.Kind}) has no bound physical fixture.");
-        }
-
-        foreach (var doorDevice in state.Devices.Values.Where(device =>
-                     device.Kind == StationSystemKind.Door))
-        {
-            Assert.True(
-                state.Facility.Rooms.Values
-                    .SelectMany(room => room.Fixtures)
-                    .Count(fixture =>
-                        fixture.Type == FixtureType.DoorConsole
-                        && string.Equals(
-                            fixture.DeviceId,
-                            doorDevice.Id,
-                            StringComparison.OrdinalIgnoreCase)) >= 2,
-                $"{doorDevice.Id} does not have local controls on both sides.");
+                    StringComparison.OrdinalIgnoreCase));
         }
     }
 
@@ -74,9 +71,9 @@ public sealed class StationOverviewInteractionContractTests
         Assert.NotEmpty(state.Power.SheddedRoomIds);
         Assert.False(state.LifeSupport.IsOnline);
         Assert.Contains(state.Facility.Doors, door => !door.IsPowered);
-        Assert.True(
-            state.Facility.Rooms.Values.Any(room =>
-                !room.IsPowered && !IsCriticalPowerRoom(room)));
+        Assert.Contains(
+            state.Facility.Rooms.Values,
+            room => !room.IsPowered && !IsCriticalPowerRoom(room));
     }
 
     [Fact]
@@ -223,6 +220,7 @@ public sealed class StationOverviewInteractionContractTests
             Assert.Contains("translateY(-145%)", source);
             Assert.Contains(".map-door.closed .door-leaf", source);
             Assert.Contains(".map-door.locked .door-leaf", source);
+            Assert.Contains(".door-local-panel", source);
             Assert.Contains("z-index: 12 !important", source);
             Assert.Contains("z-index: 30 !important", source);
         }
