@@ -413,6 +413,12 @@ public sealed class CrewDoorInteractionSystem
     }
 }
 
+public sealed record StationFixtureInspection(
+    Room Room,
+    RoomFixture Fixture,
+    StationDevice? Device,
+    Door? Door);
+
 public static class StationInspectionSystem
 {
     public static bool Exists(GameState state, StationSelection? selection) =>
@@ -426,6 +432,8 @@ public static class StationInspectionSystem
             StationSelectionKind.Door =>
                 state.Facility.Doors.Any(door =>
                     door.Id.Equals(selection.Id, StringComparison.OrdinalIgnoreCase)),
+            StationSelectionKind.Fixture =>
+                Fixture(state, selection) is not null,
             StationSelectionKind.Robot =>
                 state.Robots.Any(robot =>
                     robot.Id.Equals(selection.Id, StringComparison.OrdinalIgnoreCase)),
@@ -452,6 +460,58 @@ public static class StationInspectionSystem
             ? state.Facility.Doors.FirstOrDefault(door =>
                 door.Id.Equals(selection.Id, StringComparison.OrdinalIgnoreCase))
             : null;
+
+    public static string FixtureSelectionId(
+        string roomId,
+        RoomFixture fixture) =>
+        $"{roomId}::{fixture.Label}";
+
+    public static StationFixtureInspection? Fixture(
+        GameState state,
+        StationSelection? selection)
+    {
+        if (selection is not { Kind: StationSelectionKind.Fixture })
+            return null;
+
+        var separator = selection.Id.IndexOf("::", StringComparison.Ordinal);
+        if (separator <= 0 || separator >= selection.Id.Length - 2)
+            return null;
+
+        var roomId = selection.Id[..separator];
+        var fixtureLabel = selection.Id[(separator + 2)..];
+
+        if (!state.Facility.Rooms.TryGetValue(roomId, out var room))
+            return null;
+
+        var fixture = room.Fixtures.FirstOrDefault(candidate =>
+            candidate.Label.Equals(
+                fixtureLabel,
+                StringComparison.OrdinalIgnoreCase));
+
+        if (fixture is null)
+            return null;
+
+        StationDevice? device = null;
+        Door? door = null;
+
+        if (!string.IsNullOrWhiteSpace(fixture.SystemId))
+        {
+            state.Devices.TryGetValue(fixture.SystemId, out device);
+
+            if (fixture.SystemId.StartsWith(
+                    "door:",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                var doorId = fixture.SystemId["door:".Length..];
+                door = state.Facility.Doors.FirstOrDefault(candidate =>
+                    candidate.Id.Equals(
+                        doorId,
+                        StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        return new StationFixtureInspection(room, fixture, device, door);
+    }
 
     public static StationRobot? Robot(GameState state, StationSelection? selection) =>
         selection is { Kind: StationSelectionKind.Robot }
