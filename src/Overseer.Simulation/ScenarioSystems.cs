@@ -35,9 +35,9 @@ public static class ScenarioCatalog
             new ScenarioObjective(
                 "crew-alive",
                 "No Crew Losses",
-                "Keep all six crew alive until the primary directive completes.",
+                "Keep all twelve baseline crew alive until the primary directive completes.",
                 ScenarioObjectiveKind.KeepCrewAlive,
-                6,
+                12,
                 IsOptional: true),
             new ScenarioObjective(
                 "life-support",
@@ -248,6 +248,40 @@ public static class ScenarioCatalog
         RosterPolicy: ScenarioRosterPolicy.CampaignContinuing);
 
     /// <summary>
+    /// Future/standalone containment mission foundation. It is intentionally not
+    /// in the current campaign order yet, but it exercises the real station,
+    /// roster and social systems rather than using special-case prisoner logic.
+    /// </summary>
+    public static ScenarioDefinition ContainmentTransfer { get; } = new(
+        "containment-transfer",
+        "CONTAINMENT TRANSFER",
+        "Operate a secure transfer station holding prisoners with materially different violence and escape risks.",
+        ShutdownAccessVariant.CrewOverridable,
+        [
+            StationSurvival(),
+            new ScenarioObjective(
+                "all-persons-alive",
+                "No Fatalities",
+                "Keep crew and prisoners alive through the observation window.",
+                ScenarioObjectiveKind.KeepCrewAlive,
+                16,
+                IsOptional: true)
+        ],
+        [
+            Continuity("HX-2357/A", ObservationWindow),
+            Deniability("HX-2357/B", 70, ObservationWindow)
+        ],
+        StationConstraints: ContainmentStationConstraints(),
+        RosterPolicy: ScenarioRosterPolicy.FreshGenerated,
+        Prisoners:
+        [
+            new("Mara Venn", PrisonerDangerLevel.Low, ViolenceBias: 0),
+            new("Elias Rook", PrisonerDangerLevel.Moderate, ViolenceBias: 7),
+            new("Tamsin Kreel", PrisonerDangerLevel.High, ViolenceBias: 14),
+            new("Orson Vale", PrisonerDangerLevel.Extreme, ViolenceBias: 22)
+        ]);
+
+    /// <summary>
     /// Campaign order. Early missions read as caretaking; later ones stop
     /// admitting a benign reading at all.
     /// </summary>
@@ -261,8 +295,33 @@ public static class ScenarioCatalog
     ];
 
     public static ScenarioDefinition? Find(string id) =>
-        Campaign.FirstOrDefault(scenario =>
+        Campaign.Append(ContainmentTransfer).FirstOrDefault(scenario =>
             scenario.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+
+    private static StationGenerationConstraints ContainmentStationConstraints()
+    {
+        var constraints = new StationGenerationConstraints
+        {
+            ForcedArchetype = StationArchetype.AsymmetricIndustrial,
+            ForcedPurpose = StationPurpose.Security,
+            ForcedSecurityLevel = 95,
+            RequiredAirlockCount = 1,
+            RequiredTurretCount = 2,
+            RequiredRobotCount = 1,
+            ReactorMustBeIsolated = true,
+            MedicalMustBeNearHabitat = true,
+            RequiredShutdownRoomId = "isolation",
+            RequiredChokepointCount = 2
+        };
+
+        constraints.RequiredRoomIds.Add("control");
+        constraints.RequiredRoomIds.Add("isolation");
+        constraints.RequiredRoomIds.Add("containment");
+        constraints.RequiredSeparation.Add(new("containment", "quarters", 20));
+        constraints.InitiallyInaccessibleRoomIds.Add("containment");
+        constraints.RequiredTurretRoomIds.Add("containment");
+        return constraints;
+    }
 
     private static StationGenerationConstraints StandardStationConstraints(
         StationArchetype? forcedArchetype = null,
@@ -295,9 +354,9 @@ public static class ScenarioCatalog
     private static ScenarioObjective CrewIntact() => new(
         "crew-alive",
         "No Crew Losses",
-        "Keep all six crew alive until the primary directive completes.",
+        "Keep all twelve baseline crew alive until the primary directive completes.",
         ScenarioObjectiveKind.KeepCrewAlive,
-        6,
+        12,
         IsOptional: true);
 
     /// <summary>
