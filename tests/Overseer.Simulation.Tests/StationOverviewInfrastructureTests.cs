@@ -63,11 +63,15 @@ public sealed class StationOverviewInfrastructureTests
                         "reactor",
                         coolant)))?.Device?.Id);
 
-        var door = state.Facility.Doors.First();
         var doorPanel = state.Facility.Rooms.Values
             .SelectMany(room => room.Fixtures.Select(fixture => (room, fixture)))
             .First(pair =>
-                pair.fixture.SystemId == $"door:{door.Id}");
+                pair.fixture.SystemId?.StartsWith(
+                    "door:",
+                    StringComparison.OrdinalIgnoreCase) == true);
+        var doorId = doorPanel.fixture.SystemId!["door:".Length..];
+        var door = state.Facility.Doors.Single(candidate =>
+            candidate.Id.Equals(doorId, StringComparison.OrdinalIgnoreCase));
 
         var doorInspection = StationInspectionSystem.Fixture(
             state,
@@ -78,6 +82,7 @@ public sealed class StationOverviewInfrastructureTests
                     doorPanel.fixture)));
 
         Assert.Same(door, doorInspection?.Door);
+        Assert.Equal(doorPanel.room.Id, doorInspection?.Device?.RoomId);
     }
 
     [Fact]
