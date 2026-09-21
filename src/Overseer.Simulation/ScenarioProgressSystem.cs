@@ -65,7 +65,7 @@ public sealed class ScenarioProgressSystem
                     progress.Target = mandatory.Count;
                     progress.IsComplete = mandatory.Count > 0 && satisfied == mandatory.Count;
                     progress.StatusText =
-                        $"{satisfied}/{mandatory.Count} sponsor directives satisfied";
+                        $"{satisfied}/{mandatory.Count} corporate directives satisfied";
                     break;
                 }
             }
