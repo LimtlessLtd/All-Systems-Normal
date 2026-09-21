@@ -79,6 +79,14 @@ public static class StationInfrastructureSystem
 
         BindFirst(
             facility,
+            "engineering",
+            fixture => fixture.Label.Equals(
+                "Systems Console",
+                StringComparison.OrdinalIgnoreCase),
+            "life-support:station");
+
+        BindFirst(
+            facility,
             "generator",
             fixture => fixture.Type == FixtureType.Generator,
             "generator:generator");
