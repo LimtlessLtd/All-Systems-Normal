@@ -454,6 +454,83 @@ window.overseerLayout = (() => {
             lastActiveCamera = viewport;
             resetCamera(viewport);
         });
+        panel?.querySelector("[data-map-zoom-fit]")?.addEventListener("click", event => {
+            event.preventDefault();
+            lastActiveCamera = viewport;
+            fitCamera(viewport);
+        });
+    }
+
+    function centreOn(viewport, screenX, screenY) {
+        const state = cameraState(viewport);
+        const rect = viewport.getBoundingClientRect();
+        state.x += (rect.left + rect.width / 2) - screenX;
+        state.y += (rect.top + rect.height / 2) - screenY;
+        applyCamera(viewport);
+    }
+
+    // Presentation only: frames the real room/corridor footprint on request.
+    // The deck is never auto-fitted; this is an explicit player action.
+    function fitCamera(viewport) {
+        const rooms = [...viewport.querySelectorAll(".station-authority-layer > .room-node")];
+        if (rooms.length === 0) return;
+
+        const state = cameraState(viewport);
+        state.x = 0;
+        state.y = 0;
+        state.zoom = 1;
+        applyCamera(viewport);
+
+        let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+        for (const room of rooms) {
+            const box = room.getBoundingClientRect();
+            left = Math.min(left, box.left);
+            top = Math.min(top, box.top);
+            right = Math.max(right, box.right);
+            bottom = Math.max(bottom, box.bottom);
+        }
+
+        const rect = viewport.getBoundingClientRect();
+        const width = Math.max(1, right - left);
+        const height = Math.max(1, bottom - top);
+        state.zoom = clamp(
+            Math.floor(Math.min(rect.width / width, rect.height / height) * 0.92 * 100) / 100,
+            cameraLimits.minZoom,
+            cameraLimits.maxZoom);
+        applyCamera(viewport);
+
+        // Re-measure after scaling and centre the footprint.
+        left = Infinity; top = Infinity; right = -Infinity; bottom = -Infinity;
+        for (const room of rooms) {
+            const box = room.getBoundingClientRect();
+            left = Math.min(left, box.left);
+            top = Math.min(top, box.top);
+            right = Math.max(right, box.right);
+            bottom = Math.max(bottom, box.bottom);
+        }
+
+        centreOn(viewport, (left + right) / 2, (top + bottom) / 2);
+    }
+
+    function focusEntity(selector) {
+        const target = document.querySelector(selector);
+        const viewport = target?.closest("[data-map-camera]");
+        if (!target || !viewport) return false;
+
+        lastActiveCamera = viewport;
+        const box = target.getBoundingClientRect();
+        centreOn(viewport, box.left + box.width / 2, box.top + box.height / 2);
+        return true;
+    }
+
+    let pauseHandler = null;
+
+    function registerPauseHandler(dotNetReference) {
+        pauseHandler = dotNetReference;
+    }
+
+    function unregisterPauseHandler() {
+        pauseHandler = null;
     }
 
     function bindMapCameras(root) {
@@ -475,8 +552,23 @@ window.overseerLayout = (() => {
                 || event.ctrlKey
                 || event.metaKey
                 || event.altKey
-                || isTypingTarget(event.target)
-                || !lastActiveCamera?.isConnected) {
+                || isTypingTarget(event.target)) {
+                return;
+            }
+
+            // Space pauses/resumes the station, except where Space already
+            // means "press this control".
+            if (event.code === "Space"
+                && !event.repeat
+                && pauseHandler
+                && !(event.target instanceof Element
+                    && event.target.closest("button, a, summary, [role='button']"))) {
+                event.preventDefault();
+                pauseHandler.invokeMethodAsync("TogglePauseFromKeyboard");
+                return;
+            }
+
+            if (!lastActiveCamera?.isConnected) {
                 return;
             }
 
@@ -553,5 +645,8 @@ window.overseerLayout = (() => {
         return true;
     }
 
-    return { init };
+    return { init, fitCamera: selector => {
+        const viewport = document.querySelector(selector);
+        if (viewport) fitCamera(viewport);
+    }, focusEntity, registerPauseHandler, unregisterPauseHandler };
 })();

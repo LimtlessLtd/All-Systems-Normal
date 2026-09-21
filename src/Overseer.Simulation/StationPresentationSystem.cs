@@ -160,3 +160,55 @@ public static class StationPresentationSystem
             .Replace("PurposeBuilt", "purpose-built", StringComparison.Ordinal)
             .ToLowerInvariant();
 }
+
+/// <summary>
+/// Player-facing view of the event log. The raw log is dominated by routine
+/// movement (over 90% of an ordinary shift), which buries the events that
+/// make a story: arguments, faults, discoveries, injuries and deaths.
+/// </summary>
+public static class StationLogPresentation
+{
+    private static readonly string[] RoutineMarkers =
+    [
+        " heads for ",
+        " crosses door-",
+        " gets on with their work.",
+        " inspects local equipment.",
+        " slides closed after crew traffic clears.",
+        " to pass through.",
+    ];
+
+    private static readonly string[] CriticalMarkers =
+    [
+        "CRITICAL",
+        " has died",
+        " killed ",
+        "SCENARIO FAILED",
+    ];
+
+    private static readonly string[] WarningMarkers =
+    [
+        "FAULT",
+        "FAILED",
+        "refused",
+        "WARNING",
+        " argument",
+        " attacks ",
+        "ALERT",
+    ];
+
+    public static IReadOnlyList<string> Notable(IEnumerable<string> log, int limit)
+    {
+        ArgumentNullException.ThrowIfNull(log);
+        return log.Where(IsNotable).Take(limit).ToList();
+    }
+
+    public static bool IsNotable(string entry) =>
+        !RoutineMarkers.Any(marker => entry.Contains(marker, StringComparison.Ordinal));
+
+    /// <summary>CSS severity class: critical, warning or info.</summary>
+    public static string Severity(string entry) =>
+        CriticalMarkers.Any(marker => entry.Contains(marker, StringComparison.Ordinal)) ? "critical"
+        : WarningMarkers.Any(marker => entry.Contains(marker, StringComparison.Ordinal)) ? "warning"
+        : "info";
+}
