@@ -178,7 +178,7 @@ public sealed class LocalMovementSystem
             && state.Devices.TryGetValue(deviceId, out var device)
             && device.RoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
         {
-            preferredFixture = FixtureForDevice(room, device.Kind);
+            preferredFixture = FixtureForDevice(room, device);
         }
 
         if (preferredFixture is null && npc.ProvisioningJob is { } provisioning)
@@ -310,7 +310,7 @@ public sealed class LocalMovementSystem
                 .FirstOrDefault();
 
             if (device is not null)
-                return FixtureForDevice(room, device.Kind);
+                return FixtureForDevice(room, device);
 
             return room.Fixtures.FirstOrDefault(fixture =>
                 fixture.Type is FixtureType.UtilityPanel
@@ -331,8 +331,28 @@ public sealed class LocalMovementSystem
         return null;
     }
 
-    private static RoomFixture? FixtureForDevice(Room room, StationSystemKind kind) =>
-        kind switch
+    private static RoomFixture? FixtureForDevice(Room room, StationDevice device)
+    {
+        if (!string.IsNullOrWhiteSpace(device.FixtureLabel))
+        {
+            var exact = room.Fixtures.FirstOrDefault(fixture =>
+                fixture.Label.Equals(
+                    device.FixtureLabel,
+                    StringComparison.OrdinalIgnoreCase));
+
+            if (exact is not null)
+                return exact;
+        }
+
+        var bySystemId = room.Fixtures.FirstOrDefault(fixture =>
+            fixture.SystemId?.Equals(
+                device.Id,
+                StringComparison.OrdinalIgnoreCase) == true);
+
+        if (bySystemId is not null)
+            return bySystemId;
+
+        return device.Kind switch
         {
             StationSystemKind.Camera =>
                 room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.Camera),
@@ -343,6 +363,18 @@ public sealed class LocalMovementSystem
                 room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.Generator),
             StationSystemKind.Reactor =>
                 room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.ReactorCore),
+            StationSystemKind.PowerDistribution =>
+                room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.PowerPanel),
+            StationSystemKind.CapacitorBank =>
+                room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.CapacitorBank),
+            StationSystemKind.CoolantPump =>
+                room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.CoolantPump),
+            StationSystemKind.OxygenGenerator =>
+                room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.OxygenGenerator),
+            StationSystemKind.CarbonScrubber =>
+                room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.CarbonScrubber),
+            StationSystemKind.ThermalLoop =>
+                room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.ThermalLoop),
             StationSystemKind.GrowBeds =>
                 room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.GrowBed),
             StationSystemKind.GalleyEquipment =>
@@ -352,12 +384,18 @@ public sealed class LocalMovementSystem
                 ?? room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.UtilityPanel),
             StationSystemKind.IsolationMechanism =>
                 room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.OverseerShutdown),
+            StationSystemKind.Door =>
+                room.Fixtures.FirstOrDefault(fixture =>
+                    fixture.SystemId?.Equals(
+                        $"door:{device.DoorId}",
+                        StringComparison.OrdinalIgnoreCase) == true),
             _ =>
                 room.Fixtures.FirstOrDefault(fixture =>
                     fixture.Type is FixtureType.UtilityPanel
                         or FixtureType.Console
                         or FixtureType.Workbench)
         };
+    }
 
     private static RoomFixture? FixtureForCropBed(Room room, string? bedId)
     {
