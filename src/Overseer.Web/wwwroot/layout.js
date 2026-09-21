@@ -345,9 +345,9 @@ window.overseerLayout = (() => {
             if (drag.moved) {
                 const state = cameraState(viewport);
                 state.suppressClick = true;
-                queueMicrotask(() => {
+                window.setTimeout(() => {
                     state.suppressClick = false;
-                });
+                }, 0);
             }
             viewport.classList.remove("is-panning");
             drag = null;
