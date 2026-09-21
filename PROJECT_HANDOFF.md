@@ -4,7 +4,7 @@ Repository: https://github.com/LimtlessLtd/All-Systems-Normal
 Playable Pages build: https://limtlessltd.github.io/All-Systems-Normal/
 
 **Current state:** V0.10D — Large White/Grey Station Deck + External Telemetry
-**Next recommended milestone:** V0.11 — Contained Security-Network Malware & Crew Recovery
+**Next recommended milestone:** V0.10E — Inspector/Debug Separation, Door Interaction + Broader Crew Agency
 
 This file is the authoritative technical handoff. Keep it concise and update sections in place; do not append milestone diaries.
 
@@ -154,7 +154,9 @@ Primary presentation helper: `src/Overseer.Simulation/StationPresentationSystem.
 - Room-specific interiors should be visually rich and active: consoles/screens, vents, irrigation, pipes, medical equipment, cameras, airlocks, generator/reactor machinery etc. Operational animation is presentation-only and should remain subtle enough not to become visual noise.
 - Browser and server `Home.razor` / `Home.razor.css` / `layout.js` must stay mirrored.
 - Robots are selectable map entities with a dedicated Inspector state and explicit machine silhouette; do not render them as generic dots/cards.
-- Desktop workspace is map-first. Facility Systems and Comms live in the right utility column; Inspector/Telemetry share a tabbed diagnostic panel. Do not restore a permanent left systems column or bottom Event Stream.
+- Desktop workspace is map-first. **Do not keep Facility Systems as a permanent primary-workspace panel.** Remove it or move non-contextual controls into a secondary utility surface so the station map + Inspector own the valuable screen area.
+- The right-side **Inspector is the universal contextual surface for anything clickable**: crew, rooms, doors, robots, turrets/automated defences and future interactable station entities. Selection must show that entity's relevant status, state, goals/motivations where applicable, diagnostics and permitted controls.
+- **Telemetry/debugging is not an Inspector tab beside the live station.** Move it to a separate full-screen debug view/route where the station map is not rendered. It must contain no player-critical information because normal release builds may hide/disable the debug view entirely.
 
 Visual invariants: never invent hull/corridor/door geometry, never offset one physical entity separately for aesthetics, and never let decorative fixtures become simulation-authoritative unless the domain contract is explicitly extended.
 
@@ -230,7 +232,48 @@ Standard gate:
 
 ---
 
-## Next milestone — V0.11 Contained Security-Network Malware & Crew Recovery
+## Next milestone — V0.10E Inspector/Debug Separation, Door Interaction + Broader Crew Agency
+
+This is the immediate pass before malware work.
+
+Required scope:
+
+1. **Dedicated debug telemetry screen**
+   - Move cognition/event/model telemetry to a separate full-screen debug route/view; do not render the station map there.
+   - Debug telemetry must never be required to play the game and should be easy to hide/disable for normal release users.
+   - Keep raw LLM prompts/responses, validated actions and simulation diagnostics there.
+
+2. **Declutter Facility Systems**
+   - Remove the permanent Facility Systems panel from the primary station workspace.
+   - Put genuinely useful controls into the selected entity's Inspector where contextual.
+   - Move any remaining global/diagnostic controls to secondary utility/debug UI rather than consuming map space.
+
+3. **Universal contextual Inspector**
+   - Clicking crew shows identity, role, traits/personality, needs, beliefs, current goal/intent, current physical action, relationships/evidence and location.
+   - Clicking rooms shows environment, systems, fixtures, occupants, faults and available room controls.
+   - Clicking doors shows open/closed/locked/damaged state, access/authority, adjacent rooms and available controls.
+   - Clicking MR robots and ST turrets/automated defences shows operational state, policy, task/target, power/ammo/heat/link state and valid commands.
+   - Use the same extensible selection model for future clickable entities; avoid one-off side panels.
+
+4. **Physical sliding doors + crew door use**
+   - Animate doors opening/closing as sci-fi sliding panels that retract out of the passage and slide back into place.
+   - Door animation must reflect authoritative door state and never determine passability itself.
+   - Humans should physically open an unlocked closed door when traversing it and close it again when appropriate rather than requiring the player to micromanage normal passage.
+   - Initial access rule: ordinary crew may open/close unlocked doors; only suitably skilled/authorised roles (at minimum Engineer/Technician, with scenario/security overrides where appropriate) may lock/unlock doors. Keep deterministic C# authoritative over permissions, timing and state transitions.
+   - Preserve existing damaged/manual/bypass/weld/barricade mechanics and revalidate passability at crossing time.
+
+5. **Broader LLM-driven emergent agency**
+   - Expand the high-level action/affordance vocabulary substantially beyond the current rigid intent menu so Ollama minds can originate more varied work, social, investigative, cooperative, deceptive, improvised and self-preservation goals.
+   - Prefer capability/affordance descriptions in prompts over hardcoded scripts telling the model what to choose.
+   - Deterministic C# still validates entity knowledge, targets, prerequisites, skills, routes, tools, duration, permissions and physical outcomes.
+   - Preserve ongoing meaningful work from frivolous replanning, but allow surprising valid behaviour when the world state supports it.
+   - Browser/Pages remains model-free and needs a deterministic fallback covering the same action contracts.
+
+Regression coverage must include selection/Inspector routing, hidden/non-critical debug telemetry, crew door permissions + automatic traversal opening/closing, authoritative sliding-door states and expanded action validation.
+
+---
+
+## Subsequent milestone — V0.11 Contained Security-Network Malware & Crew Recovery
 
 Build one narrow malware vertical slice around the existing MR/ST control links; do not create a broad hacking framework.
 
@@ -253,7 +296,6 @@ Keep deferred: station-wide self-propagation, malware families, direct malware d
 
 Keep these as deliberate follow-on designs rather than slipping them into unrelated passes:
 
-- **Broader human agency:** expand the high-level action/affordance vocabulary so LLM minds can propose a much wider range of work, social, improvised and self-preservation goals. Deterministic C# must still validate targets, prerequisites, routes, tools, time and physical outcomes. Protect ongoing duties from frivolous reconsideration so crop tending, harvesting/cooking, maintenance and repairs actually finish.
 - **Scenario roster policy:** Ollama crew generation already produces unique names/personality/skills/1–3 mechanical traits. Add an explicit scenario choice between fresh generated crew and campaign-continuing crew; Pages should use seeded deterministic roster variation rather than a model call.
 - **Hazardous transport assignments:** support missions carrying a hardened prisoner, hostile organism or other contained threat. Model containment/protocols/escape state deterministically, let crew form grounded responses, and allow Overseer to help or hinder survival without delegating combat, escape success or lethality to an LLM.
 - **Diagnostics expansion:** cognition telemetry should eventually cover every model-backed interaction type (crew generation, message interpretation and future planners), while remaining bounded/transient by default.
