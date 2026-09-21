@@ -291,7 +291,7 @@ public sealed class StationUpkeepSystem
             {
                 Id = $"door:{door.Id}",
                 Kind = StationSystemKind.Door,
-                RoomId = door.RoomAId,
+                RoomId = DoorServiceRoomId(state.Facility, door),
                 DoorId = door.Id,
                 Label = $"{door.Id} actuator",
                 FixtureLabel = $"{door.Id} Local Control",
@@ -812,6 +812,25 @@ public sealed class StationUpkeepSystem
                 }
             }
         }
+    }
+
+    private static string DoorServiceRoomId(Facility facility, Door door)
+    {
+        var roomA = facility.Rooms[door.RoomAId];
+        var roomB = facility.Rooms[door.RoomBId];
+
+        var aIsTinyConnector = roomA.Type == RoomType.Corridor
+            && roomA.Id.StartsWith("hall-", StringComparison.OrdinalIgnoreCase);
+        var bIsTinyConnector = roomB.Type == RoomType.Corridor
+            && roomB.Id.StartsWith("hall-", StringComparison.OrdinalIgnoreCase);
+
+        if (aIsTinyConnector && !bIsTinyConnector)
+            return roomB.Id;
+
+        if (bIsTinyConnector && !aIsTinyConnector)
+            return roomA.Id;
+
+        return roomA.Id;
     }
 
     private static void Log(GameState state, string message)
