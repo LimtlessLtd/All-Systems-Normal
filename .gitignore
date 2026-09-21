@@ -7,3 +7,8 @@
 *.cache
 TestResults/
 coverage/
+
+# Local agent/editor git worktrees are nested repositories; committing one
+# records a gitlink that breaks CI checkout.
+.claude/worktrees/
+release/
