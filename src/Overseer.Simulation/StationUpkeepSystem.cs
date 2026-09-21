@@ -37,6 +37,7 @@ public sealed class StationUpkeepSystem
         var hours = delta.TotalHours;
 
         Wear(state, hours);
+        ApplyUnexpectedFaults(state, delta);
         UpdatePowerGrid(state, hours);
         ApplyFailures(state);
     }
@@ -446,6 +447,50 @@ public sealed class StationUpkeepSystem
             device.Condition = Math.Clamp(device.Condition - (rate * hours), 0, 100);
         }
     }
+
+    private static void ApplyUnexpectedFaults(GameState state, TimeSpan delta)
+    {
+        if (delta < TimeSpan.FromMinutes(1)
+            || state.Elapsed < TimeSpan.FromMinutes(15))
+        {
+            return;
+        }
+
+        var currentSlot = (int)(state.Elapsed.TotalMinutes / 15);
+        var previousSlot = (int)((state.Elapsed - delta).TotalMinutes / 15);
+        if (currentSlot == previousSlot)
+        {
+            return;
+        }
+
+        foreach (var device in state.Devices.Values
+                     .Where(device => device.IsOperational && device.Condition > 20)
+                     .OrderBy(device => device.Id, StringComparer.Ordinal))
+        {
+            var roll = StableUnit($"{state.UpkeepSeed}:{currentSlot}:{device.Id}:fault");
+            if (roll >= 0.0025)
+            {
+                continue;
+            }
+
+            var severity = 10
+                + (StableUnit($"{state.UpkeepSeed}:{currentSlot}:{device.Id}:severity") * 24);
+            var before = device.Condition;
+            device.Condition = Math.Max(0, device.Condition - severity);
+
+            AudioCueSystem.Emit(
+                state,
+                device.Condition <= 0.01 ? AudioCueKind.Critical : AudioCueKind.Warning,
+                roomId: device.RoomId);
+
+            Log(
+                state,
+                $"FAULT: {device.Label} suffers an unexpected failure event ({before:0}% to {device.Condition:0}%).");
+        }
+    }
+
+    private static double StableUnit(string value) =>
+        StableHash(value) / (double)int.MaxValue;
 
     // ---------------------------------------------------------------- power --
 
