@@ -28,6 +28,53 @@ public static class StationInfrastructureSystem
                     12,
                     50,
                     SystemId: $"room:{room.Id}"));
+
+            BindFirst(
+                facility,
+                room.Id,
+                fixture => fixture.Type == FixtureType.Camera,
+                $"camera:{room.Id}");
+
+            EnsureServiceFixture(
+                room,
+                $"lighting:{room.Id}",
+                "Lighting Driver",
+                FixtureType.UtilityPanel,
+                8,
+                25);
+
+            if (room.HasVentilationControl)
+            {
+                EnsureServiceFixture(
+                    room,
+                    $"ventilation:{room.Id}",
+                    "Air Handler Service",
+                    FixtureType.Vent,
+                    92,
+                    28);
+            }
+
+            if (room.HasTemperatureControl)
+            {
+                EnsureServiceFixture(
+                    room,
+                    $"climate:{room.Id}",
+                    "Climate Controller",
+                    FixtureType.UtilityPanel,
+                    92,
+                    70);
+            }
+
+            if (room.HasExteriorHatch)
+            {
+                EnsureServiceFixture(
+                    room,
+                    $"airlock:{room.Id}",
+                    "Pressure / Hatch Service",
+                    FixtureType.UtilityPanel,
+                    50,
+                    88);
+            }
         }
 
         BindFirst(
@@ -143,6 +190,41 @@ public static class StationInfrastructureSystem
             return;
 
         room.Fixtures[index] = room.Fixtures[index] with { SystemId = systemId };
+    }
+
+    private static void EnsureServiceFixture(
+        Room room,
+        string systemId,
+        string label,
+        FixtureType preferredType,
+        double fallbackX,
+        double fallbackY)
+    {
+        var index = room.Fixtures.FindIndex(fixture =>
+            string.IsNullOrWhiteSpace(fixture.SystemId)
+            && fixture.Type == preferredType);
+
+        if (index >= 0)
+        {
+            room.Fixtures[index] = room.Fixtures[index] with
+            {
+                SystemId = systemId
+            };
+            return;
+        }
+
+        AddIfMissing(
+            room,
+            new RoomFixture(
+                preferredType,
+                label,
+                fallbackX,
+                fallbackY,
+                8,
+                10,
+                fallbackX,
+                fallbackY,
+                SystemId: systemId));
     }
 
     private static void AddSystemFixture(
