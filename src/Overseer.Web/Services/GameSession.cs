@@ -43,8 +43,11 @@ public sealed class GameSession(
     {
         var continuingCrew = CampaignProgressionSystem.CreateCrewForScenario(Campaign, scenario);
 
-        return continuingCrew
-            ?? await _crewGenerator.GenerateAsync(cancellationToken);
+        if (continuingCrew is not null)
+            return continuingCrew;
+
+        var generated = await _crewGenerator.GenerateAsync(cancellationToken);
+        return CrewRosterScalingSystem.EnsureTargetSize(generated, scenario.Id);
     }
 
     public override async Task ResetAsync(
