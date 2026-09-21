@@ -6818,7 +6818,7 @@ button.sound-toggle.sound-on {
 .station-authority-layer .crew-token.is-social .crew-motion-dot { background: #777e82; }
 
 /* Robots are now unmistakable machines and fully selectable. */
-.station-authority-layer .robot-token {
+.station-authority-layer .robot-token:not(.turret-token) {
     position: absolute;
     z-index: 14;
     width: 58px;
@@ -6835,12 +6835,12 @@ button.sound-toggle.sound-on {
     color: #252a2e;
 }
 
-.station-authority-layer .robot-token:hover,
-.station-authority-layer .robot-token.selected {
+.station-authority-layer .robot-token:not(.turret-token):hover,
+.station-authority-layer .robot-token:not(.turret-token).selected {
     transform: translate(-50%, -50%) scale(1.08);
 }
 
-.station-authority-layer .robot-token.selected::after {
+.station-authority-layer .robot-token:not(.turret-token).selected::after {
     content: "";
     position: absolute;
     inset: -8px;
