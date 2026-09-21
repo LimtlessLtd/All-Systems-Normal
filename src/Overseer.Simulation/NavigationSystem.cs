@@ -19,8 +19,7 @@ public sealed class NavigationSystem
             state.Facility,
             startRoomId,
             targetRoomId,
-            door => door.IsPassable
-                || CrewDoorInteractionSystem.CanOpenForTraversal(state, npc, door));
+            door => CrewDoorInteractionSystem.CanTraverseWhenReached(state, npc, door));
 
     private static IReadOnlyList<string> FindPathCore(
         Facility facility,

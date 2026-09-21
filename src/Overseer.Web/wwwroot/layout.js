@@ -268,14 +268,17 @@ window.overseerLayout = (() => {
             map.classList.toggle("zoom-close", state.zoom >= 1.35);
         }
 
-        viewport.querySelectorAll("[data-map-zoom-readout]").forEach(readout => {
+        // The zoom toolbar lives in the panel heading, outside the viewport.
+        const controls = viewport.closest(".station-panel") ?? viewport;
+
+        controls.querySelectorAll("[data-map-zoom-readout]").forEach(readout => {
             readout.textContent = `${Math.round(state.zoom * 100)}%`;
         });
 
-        viewport.closest(".station-panel")?.querySelectorAll("[data-map-zoom-out]").forEach(button => {
+        controls.querySelectorAll("[data-map-zoom-out]").forEach(button => {
             button.disabled = state.zoom <= cameraLimits.minZoom + 0.001;
         });
-        viewport.closest(".station-panel")?.querySelectorAll("[data-map-zoom-in]").forEach(button => {
+        controls.querySelectorAll("[data-map-zoom-in]").forEach(button => {
             button.disabled = state.zoom >= cameraLimits.maxZoom - 0.001;
         });
     }
@@ -310,6 +313,11 @@ window.overseerLayout = (() => {
             && target.closest("[data-station-interactive], button, a, input, select, textarea, summary");
     }
 
+    function isFormControlTarget(target) {
+        return target instanceof Element
+            && target.closest("input, select, textarea");
+    }
+
     function bindMapCamera(viewport) {
         if (!viewport || viewport.dataset.mapCameraReady === "true") {
             if (viewport) applyCamera(viewport);
@@ -326,15 +334,17 @@ window.overseerLayout = (() => {
         viewport.addEventListener("pointerdown", event => {
             if (event.button !== 0) return;
             lastActiveCamera = viewport;
+            if (isFormControlTarget(event.target)) return;
 
-            // Never capture a pointer that began on a station interaction.
-            // Pointer capture retargets the eventual click to the viewport,
-            // which made rooms/crew/doors/robots look completely unclickable.
-            if (isStationInteractiveTarget(event.target)) {
-                return;
+            // Rooms and corridors are buttons that cover most of the map, so a
+            // drag must be able to start on one. The pointer is only captured
+            // once the press moves far enough to be a pan: capturing on
+            // pointerdown retargeted plain clicks to the viewport and made
+            // rooms/crew/doors/robots look unclickable.
+            if (!isStationInteractiveTarget(event.target)) {
+                viewport.focus({ preventScroll: true });
             }
 
-            viewport.focus({ preventScroll: true });
             drag = {
                 id: event.pointerId,
                 startX: event.clientX,
@@ -343,19 +353,32 @@ window.overseerLayout = (() => {
                 lastY: event.clientY,
                 moved: false
             };
-            viewport.setPointerCapture?.(event.pointerId);
         });
 
         viewport.addEventListener("pointermove", event => {
             if (!drag || drag.id !== event.pointerId) return;
 
+            // Without early capture a release outside the viewport is never
+            // seen here, so drop a pending drag once the button is up.
+            if ((event.buttons & 1) === 0) {
+                endDrag(event);
+                return;
+            }
+
             const totalX = event.clientX - drag.startX;
             const totalY = event.clientY - drag.startY;
             if (!drag.moved && Math.hypot(totalX, totalY) < 4) return;
 
-            drag.moved = true;
-            drag.previousUserSelect = document.body.style.userSelect;
-            document.body.style.userSelect = "none";
+            if (!drag.moved) {
+                drag.moved = true;
+                drag.previousUserSelect = document.body.style.userSelect;
+                document.body.style.userSelect = "none";
+                try {
+                    viewport.setPointerCapture?.(event.pointerId);
+                } catch {
+                    // The pointer may already be released; panning still works.
+                }
+            }
             const dx = event.clientX - drag.lastX;
             const dy = event.clientY - drag.lastY;
             drag.lastX = event.clientX;
@@ -383,7 +406,18 @@ window.overseerLayout = (() => {
 
         viewport.addEventListener("pointerup", endDrag);
         viewport.addEventListener("pointercancel", endDrag);
-        viewport.addEventListener("lostpointercapture", endDrag);
+
+        // lostpointercapture bubbles. When a touch drag begins on a room, the
+        // browser's implicit capture on that button is handed to the viewport,
+        // and the button's lostpointercapture must not end the pan it started.
+        viewport.addEventListener("lostpointercapture", event => {
+            if (event.target === viewport) endDrag(event);
+        });
+
+        // A press released outside the map before it became a pan is never
+        // seen by the viewport; clear it so a later press cannot inherit it.
+        window.addEventListener("pointerup", endDrag);
+        window.addEventListener("pointercancel", endDrag);
 
         viewport.addEventListener("click", event => {
             if (!cameraState(viewport).suppressClick) return;

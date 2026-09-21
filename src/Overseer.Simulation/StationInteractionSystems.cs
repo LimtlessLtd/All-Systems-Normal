@@ -266,10 +266,37 @@ public sealed class CrewDoorInteractionSystem
     public static bool CanOpen(
         GameState state,
         Npc npc,
+        Door door) =>
+        IsAdjacent(npc, door)
+        && CanOpenOnceBeside(state, npc, door);
+
+    public static bool CanOpenForTraversal(
+        GameState state,
+        Npc npc,
+        Door door) =>
+        door.IsPassable
+        || (!door.IsOpen && CanOpen(state, npc, door));
+
+    /// <summary>
+    /// Route-planning view of a hatch: could this person get through it once
+    /// they physically reach it? Unlike <see cref="CanOpenForTraversal"/> this
+    /// does not require them to be standing beside it already, so a closed but
+    /// ordinary hatch several rooms away is not mistaken for a wall. The
+    /// crossing itself still revalidates the live door state at the portal.
+    /// </summary>
+    public static bool CanTraverseWhenReached(
+        GameState state,
+        Npc npc,
+        Door door) =>
+        door.IsPassable
+        || (!door.IsOpen && CanOpenOnceBeside(state, npc, door));
+
+    private static bool CanOpenOnceBeside(
+        GameState state,
+        Npc npc,
         Door door)
     {
-        if (!IsAdjacent(npc, door)
-            || !npc.IsAlive
+        if (!npc.IsAlive
             || !npc.IsPresent
             || !door.IsPowered
             || door.IsLocked
@@ -283,13 +310,6 @@ public sealed class CrewDoorInteractionSystem
             opening: true,
             out _);
     }
-
-    public static bool CanOpenForTraversal(
-        GameState state,
-        Npc npc,
-        Door door) =>
-        door.IsPassable
-        || (!door.IsOpen && CanOpen(state, npc, door));
 
     public bool TryOpenForTraversal(
         GameState state,
