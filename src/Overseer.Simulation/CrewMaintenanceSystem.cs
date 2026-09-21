@@ -238,6 +238,7 @@ public sealed class CrewMaintenanceSystem
                 {
                     door.IsDamaged = false;
                     door.StructuralIntegrityPercent = (int)Math.Round(device.Condition);
+                    door.IsPowered = true;
                     door.IsAiControllable = true;
                 }
 
@@ -287,7 +288,11 @@ public sealed class CrewMaintenanceSystem
 
     private bool CanReach(GameState state, Npc npc, StationDevice device) =>
         npc.CurrentRoomId.Equals(device.RoomId, StringComparison.OrdinalIgnoreCase)
-        || _navigation.FindPath(state.Facility, npc.CurrentRoomId, device.RoomId).Count > 0;
+        || _navigation.FindPathForCrew(
+            state,
+            npc,
+            npc.CurrentRoomId,
+            device.RoomId).Count > 0;
 
     private static void Release(Npc npc)
     {
