@@ -7011,3 +7011,43 @@ button.turret-token {
         animation: none !important;
     }
 }
+
+
+.station-authority-layer .room-node.has-fire::after {
+    content: "";
+    position: absolute;
+    inset: 3%;
+    z-index: 6;
+    border-radius: 6px;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse at 28% 72%, rgba(255, 203, 84, .72) 0 3%, rgba(245, 102, 42, .58) 4% 7%, transparent 10%),
+        radial-gradient(ellipse at 67% 38%, rgba(255, 226, 121, .68) 0 2%, rgba(229, 72, 35, .48) 4% 8%, transparent 11%),
+        radial-gradient(ellipse at 54% 78%, rgba(255, 157, 60, .55) 0 3%, transparent 10%),
+        linear-gradient(rgba(91, 19, 7, .08), rgba(55, 12, 5, .20));
+    box-shadow: inset 0 0 18px rgba(205, 62, 24, .28);
+    animation: compartment-fire-flicker .8s ease-in-out infinite alternate;
+}
+
+.station-authority-layer .room-node.has-smoke::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse at 25% 30%, rgba(63, 70, 73, .24), transparent 38%),
+        radial-gradient(ellipse at 75% 65%, rgba(41, 47, 50, .25), transparent 42%);
+}
+
+@keyframes compartment-fire-flicker {
+    from { opacity: .58; filter: brightness(.92); }
+    to { opacity: .86; filter: brightness(1.12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .station-authority-layer .room-node.has-fire::after {
+        animation: none !important;
+    }
+}
