@@ -403,7 +403,9 @@ public sealed class StationUpkeepSystem
             Condition = Math.Round(condition, 1),
             RatedOutputKilowatts = template.RatedOutputKilowatts,
             RatedDrawKilowatts = template.RatedDrawKilowatts,
-            StorageCapacityKwh = template.StorageCapacityKwh
+            StorageCapacityKwh = template.StorageCapacityKwh,
+            IsEnabled = template.IsEnabled,
+            IsAiControllable = template.IsAiControllable
         };
 
         state.Devices[device.Id] = device;
@@ -415,7 +417,7 @@ public sealed class StationUpkeepSystem
     {
         foreach (var device in state.Devices.Values)
         {
-            if (device.IsFailed)
+            if (!device.IsOperational)
             {
                 continue;
             }
@@ -468,7 +470,7 @@ public sealed class StationUpkeepSystem
             .Where(room => room.IsPowered)
             .Sum(Demand);
         var deviceDemand = state.Devices.Values
-            .Where(device => !device.IsFailed)
+            .Where(device => !!device.IsOperational)
             .Sum(device => DeviceDraw(state, device));
 
         var demand = roomDemand + deviceDemand;
@@ -478,7 +480,7 @@ public sealed class StationUpkeepSystem
         state.Power.BufferDischargeKilowatts = 0;
 
         var capacitor = Find(state, StationSystemKind.CapacitorBank);
-        state.Power.StorageCapacityKilowattHours = capacitor is null || capacitor.IsFailed
+        state.Power.StorageCapacityKilowattHours = capacitor is null || !capacitor.IsOperational
             ? 0
             : Math.Max(1, capacitor.StorageCapacityKwh)
                 * Math.Clamp(capacitor.Condition / 100d, 0.15, 1);
@@ -491,7 +493,7 @@ public sealed class StationUpkeepSystem
         var deficit = demand - supply;
         if (deficit > 0.01
             && state.Power.StoredKilowattHours > 0.01
-            && capacitor is { IsFailed: false })
+            && capacitor is { IsOperational: true })
         {
             var maxDischarge = 55d * Math.Clamp(capacitor.Condition / 100d, 0.2, 1);
             var energyLimitedKw = hours <= 0
@@ -504,7 +506,7 @@ public sealed class StationUpkeepSystem
                 state.Power.StoredKilowattHours - (discharge * hours));
         }
         else if (deficit < -0.01
-                 && capacitor is { IsFailed: false }
+                 && capacitor is { IsOperational: true }
                  && state.Power.StorageCapacityKilowattHours > state.Power.StoredKilowattHours)
         {
             var maxCharge = 35d * Math.Clamp(capacitor.Condition / 100d, 0.2, 1);
@@ -535,7 +537,7 @@ public sealed class StationUpkeepSystem
 
     private static double Output(GameState state, StationDevice device)
     {
-        if (device.IsFailed)
+        if (!device.IsOperational)
         {
             return 0;
         }
@@ -666,7 +668,7 @@ public sealed class StationUpkeepSystem
             var aPowered = state.Facility.Rooms.TryGetValue(door.RoomAId, out var a) && a.IsPowered;
             var bPowered = state.Facility.Rooms.TryGetValue(door.RoomBId, out var b) && b.IsPowered;
 
-            door.IsPowered = actuator is { IsFailed: false }
+            door.IsPowered = actuator is { IsOperational: true }
                 && aPowered
                 && bPowered
                 && state.Power.DistributionEfficiencyPercent >= 22;
@@ -680,18 +682,18 @@ public sealed class StationUpkeepSystem
         var water = Find(state, StationSystemKind.WaterRecycler);
 
         state.LifeSupport.OxygenGeneratorOnline =
-            engineeringPowered && oxygen is { IsFailed: false };
+            engineeringPowered && oxygen is { IsOperational: true };
         state.LifeSupport.CarbonScrubberOnline =
-            engineeringPowered && scrubber is { IsFailed: false };
+            engineeringPowered && scrubber is { IsOperational: true };
         state.LifeSupport.WaterRecyclerOnline =
-            engineeringPowered && water is { IsFailed: false };
+            engineeringPowered && water is { IsOperational: true };
 
         state.LifeSupport.ScrubberEfficiencyPercent = scrubber is null
             ? 0
             : Math.Clamp(scrubber.Condition, 0, 100);
 
         var utilitiesAvailable = engineeringPowered
-            && core is { IsFailed: false }
+            && core is { IsOperational: true }
             && state.Power.DistributionEfficiencyPercent >= 30;
 
         state.LifeSupport.IsAiControllable = utilitiesAvailable;
@@ -703,14 +705,14 @@ public sealed class StationUpkeepSystem
 
         var coolantReactor = state.Devices.GetValueOrDefault("coolant-pump:reactor");
         if (state.Facility.Rooms.TryGetValue("reactor", out var reactorRoom)
-            && coolantReactor is { IsFailed: true })
+            && coolantReactor is { IsOperational: false })
         {
             reactorRoom.TemperatureC = Math.Min(55, reactorRoom.TemperatureC + 0.25);
         }
 
         var coolantGenerator = state.Devices.GetValueOrDefault("coolant-pump:generator");
         if (state.Facility.Rooms.TryGetValue("generator", out var generatorRoom)
-            && coolantGenerator is { IsFailed: true })
+            && coolantGenerator is { IsOperational: false })
         {
             generatorRoom.TemperatureC = Math.Min(48, generatorRoom.TemperatureC + 0.16);
         }
@@ -761,7 +763,7 @@ public sealed class StationUpkeepSystem
 
                 case StationSystemKind.ClimateControl:
                     room.IsTemperatureAiControllable = !device.IsFailed;
-                    if (device.IsFailed)
+                    if (!device.IsOperational)
                     {
                         room.TemperatureControlOnline = false;
                     }
@@ -770,7 +772,7 @@ public sealed class StationUpkeepSystem
 
                 case StationSystemKind.Ventilation:
                     room.IsVentilationAiControllable = !device.IsFailed;
-                    if (device.IsFailed)
+                    if (!device.IsOperational)
                     {
                         room.VentilationEnabled = false;
                     }
@@ -791,7 +793,7 @@ public sealed class StationUpkeepSystem
 
                     // A dead actuator is a manual door. Overseer loses it until
                     // somebody gets a tool on it.
-                    if (device.IsFailed)
+                    if (!device.IsOperational)
                     {
                         door.IsAiControllable = false;
                     }
@@ -807,7 +809,7 @@ public sealed class StationUpkeepSystem
 
                     state.LifeSupport.IsAiControllable = !device.IsFailed;
 
-                    if (device.IsFailed)
+                    if (!device.IsOperational)
                     {
                         state.LifeSupport.IsOnline = false;
                     }
