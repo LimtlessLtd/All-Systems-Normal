@@ -19,18 +19,36 @@ public static class SeededCrewRosterGenerator
         if (count <= 0)
             return [];
 
-        return Enumerable.Range(0, count)
-            .Select(index => CreateCrew(seed, Roles[index % Roles.Length], index))
-            .ToList();
+        var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<Npc>(count);
+
+        for (var index = 0; index < count; index++)
+        {
+            var npc = CreateCrew(seed, Roles[index % Roles.Length], index, usedNames);
+            usedNames.Add(npc.Name);
+            result.Add(npc);
+        }
+
+        return result;
     }
 
-    private static Npc CreateCrew(int seed, CrewRole role, int roleIndex)
+    private static Npc CreateCrew(
+        int seed,
+        CrewRole role,
+        int roleIndex,
+        IReadOnlySet<string> usedNames)
     {
         var profile = ProfileFor(role);
+        var firstNameIndex = Pick(seed, roleIndex * 17 + 1, profile.Names.Count);
+        var name = Enumerable.Range(0, profile.Names.Count)
+            .Select(offset => profile.Names[(firstNameIndex + offset) % profile.Names.Count])
+            .FirstOrDefault(candidate => !usedNames.Contains(candidate))
+            ?? $"{profile.Names[firstNameIndex]} {roleIndex + 1}";
+
         var npc = new Npc
         {
             Id = DeterministicGuid(seed, roleIndex),
-            Name = profile.Names[Pick(seed, roleIndex * 17 + 1, profile.Names.Count)],
+            Name = name,
             Role = role,
             CurrentRoomId = profile.StartRoom,
             Personality = new Personality(
