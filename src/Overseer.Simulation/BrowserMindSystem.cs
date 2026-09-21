@@ -76,7 +76,8 @@ public sealed class BrowserMindSystem
             state,
             npc,
             Decide(npc, state),
-            npc.MissingPersonConcerns.Count > 0
+            npc.MissingPersonConcerns.Values.Any(concern =>
+                concern.Stage == MissingPersonConcernStage.Escalated)
                 || npc.ObservedUnsafeAirlocks.Count > 0
                 ? NpcBubbleKind.Alert
                 : NpcBubbleKind.Thought);
@@ -274,7 +275,7 @@ public sealed class BrowserMindSystem
                 searchRoom.Id,
                 $"Look for {missingConcern.PersonName} in {searchRoom.Name}.",
                 MissingConcernReason(state, missingConcern),
-                missingConcern.Stage == MissingPersonConcernStage.Escalated ? 88 : 76);
+                missingConcern.Stage == MissingPersonConcernStage.Escalated ? 80 : 52);
         }
 
         if (npc.PendingShutdownTeamInvitation is { } invitation
@@ -388,7 +389,7 @@ public sealed class BrowserMindSystem
 
         if (trusted is not null
             && npc.Personality.Sociability >= 50
-            && npc.SocialNeed >= 45)
+            && npc.SocialNeed >= 68)
         {
             return Create(
                 state,
@@ -661,6 +662,7 @@ public sealed class BrowserMindSystem
 
     private static MissingPersonConcern? MostPressingMissingConcern(Npc npc) =>
         npc.MissingPersonConcerns.Values
+            .Where(concern => concern.Stage != MissingPersonConcernStage.Concerned)
             .OrderByDescending(concern => concern.Stage)
             .ThenBy(concern => concern.FirstConcernAt)
             .FirstOrDefault();
