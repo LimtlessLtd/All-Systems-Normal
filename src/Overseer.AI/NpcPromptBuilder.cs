@@ -254,9 +254,13 @@ public static class NpcPromptBuilder
         builder.AppendLine($"CURRENT ROOM: {room.Id} ({room.Name})");
         builder.AppendLine($"ROOM STATE: power {(room.IsPowered ? "on" : "off")}, lights {(room.LightsOn ? "on" : "off")}, oxygen {room.OxygenPercent:0.00}%, CO2 {room.CarbonDioxidePercent:0.00}%, pressure {room.PressureKpa:0.0} kPa, temperature {room.TemperatureC:0.0}C, ventilation {(room.VentilationEnabled ? "open" : "isolated")}");
         builder.AppendLine($"STATION LIFE SUPPORT: {(state.LifeSupport.IsOnline ? "online" : "offline")}, oxygen reserve {state.LifeSupport.OxygenReservePercent:0.0}%, scrubbers {state.LifeSupport.ScrubberEfficiencyPercent:0}%");
-        if (SecurityMalwareSystem.HasMalwareEvidence(npc))
+        if (SecurityMalwareSystem.HasControllerDiagnostic(npc))
         {
             builder.AppendLine($"YOUR LOCAL SECURITY DIAGNOSTICS: MR/ST controller compromise {state.SecurityMalware.Stage}; flagged links {state.SecurityMalware.CompromisedAssetIds.Count}; controller room {SecurityMalwareSystem.ControllerRoomId}. This is personally grounded diagnostic knowledge.");
+        }
+        else if (SecurityMalwareSystem.HasMalwareEvidence(npc))
+        {
+            builder.AppendLine("YOUR LOCAL SECURITY DIAGNOSTICS: you witnessed suspicious MR/ST control behaviour, but you have NOT physically diagnosed the controller. Do not assume its scope or lifecycle; inspect the Control-room controller before attempting isolation or purge.");
         }
         else
         {
