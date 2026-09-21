@@ -326,59 +326,179 @@
         </div>
     </section>
 
-    <div id="overseer-workspace" class="workspace-shell">
+    <div id="overseer-workspace" class="@StationWorkspaceClass">
     <div class="operations-grid">
 
         <main class="station-panel panel">
-            <div class="panel-heading map-heading">
-                <div>
+            <div class="panel-heading map-heading station-command-header">
+                <div class="station-title-compact">
                     <span class="overline">DECK A // INTERNAL SURVEILLANCE</span>
                     <h2>STATION OVERVIEW</h2>
                 </div>
-                <span class="@(Session.State.ScenarioStatus == ScenarioStatus.Running ? "sim-running" : "sim-paused")">
-                    @TurnStatusLabel
-                </span>
+                <div class="station-header-actions">
+                    <span class="@(Session.State.ScenarioStatus == ScenarioStatus.Running ? "sim-running" : "sim-paused")">
+                        @TurnStatusLabel
+                    </span>
+                    <div class="map-zoom-controls" aria-label="Station camera zoom">
+                        <button type="button" class="secondary mini" data-map-zoom-out aria-label="Zoom map out">−</button>
+                        <button type="button" class="secondary zoom-readout" data-map-camera-reset title="Reset pan and zoom"><span data-map-zoom-readout>100%</span></button>
+                        <button type="button" class="secondary mini" data-map-zoom-in aria-label="Zoom map in">+</button>
+                    </div>
+                    <button type="button"
+                            class="secondary mini station-popup-toggle @(_stationOverlay == "messages" ? "active" : "")"
+                            aria-pressed="@(_stationOverlay == "messages")"
+                            @onclick='() => ToggleStationOverlay("messages")'>MESSAGES</button>
+                    <button type="button"
+                            class="secondary mini station-popup-toggle @(_stationOverlay == "objectives" ? "active" : "")"
+                            aria-pressed="@(_stationOverlay == "objectives")"
+                            @onclick='() => ToggleStationOverlay("objectives")'>OBJECTIVES</button>
+                    @if (Session.State.StationGeneration is { } generation)
+                    {
+                        <details class="generation-debug compact-generation-debug">
+                            <summary>GEN // @generation.Seed</summary>
+                            <div class="generation-debug-popover">
+                                <strong>@generation.Archetype · @generation.Identity.Purpose</strong>
+                                <small>
+                                    @generation.Identity.Size · @generation.Identity.Budget ·
+                                    AGE @generation.Identity.AgeYears y · CREW @generation.Identity.CrewCapacity
+                                </small>
+                                <div class="generation-debug-actions">
+                                    <button type="button" class="secondary mini" @onclick="RegenerateSameSeedAsync">SAME SEED</button>
+                                    <button type="button" class="secondary mini" @onclick="RegenerateNewSeedAsync">NEW SEED</button>
+                                </div>
+                                <ul>
+                                    @foreach (var diagnostic in generation.Diagnostics)
+                                    {
+                                        <li>@diagnostic</li>
+                                    }
+                                </ul>
+                            </div>
+                        </details>
+                    }
+                    <button type="button"
+                            class="secondary mini layout-reset"
+                            data-layout-reset
+                            title="Restore default panel and map sizes">RESET</button>
+                    <button type="button"
+                            class="secondary mini station-focus-toggle @(_stationFullscreen ? "active" : "")"
+                            aria-pressed="@_stationFullscreen"
+                            @onclick="ToggleStationFullscreen">
+                        @(_stationFullscreen ? "EXIT" : "FULLSCREEN")
+                    </button>
+                </div>
             </div>
 
-            <div class="map-toolbar">
-                <span>MAP ZOOM</span>
-                <div class="map-zoom-controls">
-                    <button type="button" class="secondary mini" data-map-zoom-out aria-label="Zoom map out">−</button>
-                    <button type="button" class="secondary zoom-readout" data-map-camera-reset title="Reset pan and zoom"><span data-map-zoom-readout>100%</span></button>
-                    <button type="button" class="secondary mini" data-map-zoom-in aria-label="Zoom map in">+</button>
-                </div>
-                <small>Drag map to pan · WASD / arrows move camera · Ctrl+wheel or ± zoom · RESET returns home.</small>
-                @if (Session.State.StationGeneration is { } generation)
-                {
-                    <span class="station-character-chip">
-                        @generation.Identity.Purpose · @generation.Identity.Budget · @generation.Identity.ExpansionHistory
-                    </span>
-                    <details class="generation-debug">
-                        <summary>GEN // @generation.Seed</summary>
-                        <div class="generation-debug-popover">
-                            <strong>@generation.Archetype · @generation.Identity.Purpose</strong>
-                            <small>
-                                @generation.Identity.Size · @generation.Identity.Budget ·
-                                AGE @generation.Identity.AgeYears y · CREW @generation.Identity.CrewCapacity
-                            </small>
-                            <div class="generation-debug-actions">
-                                <button type="button" class="secondary mini" @onclick="RegenerateSameSeed">SAME SEED</button>
-                                <button type="button" class="secondary mini" @onclick="RegenerateNewSeed">NEW SEED</button>
-                            </div>
-                            <ul>
-                                @foreach (var diagnostic in generation.Diagnostics)
-                                {
-                                    <li>@diagnostic</li>
-                                }
-                            </ul>
+            @if (_stationOverlay == "messages")
+            {
+                <section class="station-overlay-popover station-messages-popover" aria-label="Overseer messages">
+                    <header>
+                        <div>
+                            <span class="overline">OVERSEER COMMS</span>
+                            <strong>MESSAGES</strong>
                         </div>
-                    </details>
-                }
-                <button type="button"
-                        class="secondary mini layout-reset"
-                        data-layout-reset
-                        title="Restore default panel and map sizes">RESET LAYOUT</button>
-            </div>
+                        <button type="button" class="secondary mini" @onclick='() => ToggleStationOverlay("messages")'>CLOSE</button>
+                    </header>
+
+                    <div class="comms-scope compact-comms-scope">
+                        <button class="secondary @(_messageScope == OverseerMessageScope.Broadcast ? "selected-speed" : "")"
+                                @onclick="() => _messageScope = OverseerMessageScope.Broadcast">WHOLE CREW</button>
+                        <button class="secondary @(_messageScope == OverseerMessageScope.Direct ? "selected-speed" : "")"
+                                @onclick="() => _messageScope = OverseerMessageScope.Direct">ONE CREW MEMBER</button>
+                    </div>
+
+                    @if (_messageScope == OverseerMessageScope.Direct)
+                    {
+                        <select class="comms-target" @bind="_messageTarget">
+                            <option value="">- select recipient -</option>
+                            @foreach (var candidate in Session.State.Crew.Where(n => n.IsAlive && n.IsPresent))
+                            {
+                                <option value="@candidate.Name">@candidate.Name · @candidate.Role</option>
+                            }
+                        </select>
+                    }
+
+                    <textarea class="comms-input"
+                              rows="3"
+                              maxlength="240"
+                              placeholder="@CommsPlaceholder"
+                              @bind="_messageText"
+                              @bind:event="oninput"></textarea>
+                    <button class="wide" disabled="@(!CanTransmit)" @onclick="TransmitAsync">
+                        @(_transmitting ? "TRANSMITTING..." : "TRANSMIT")
+                    </button>
+
+                    <div class="station-popup-log">
+                        @if (Session.State.OverseerMessages.Count == 0)
+                        {
+                            <small>No transmissions sent.</small>
+                        }
+                        else
+                        {
+                            @foreach (var sent in Session.State.OverseerMessages.Take(4))
+                            {
+                                <div>
+                                    <small>T+@sent.SentAt.ToString(@"hh\:mm") · @(sent.Scope == OverseerMessageScope.Broadcast ? "ALL" : sent.TargetNpcName)</small>
+                                    <p>@sent.Text</p>
+                                </div>
+                            }
+                        }
+                    </div>
+                </section>
+            }
+            else if (_stationOverlay == "objectives" && Session.State.Scenario is { } focusScenario)
+            {
+                <section class="station-overlay-popover station-objectives-popover" aria-label="Mission objectives and corporate directives">
+                    <header>
+                        <div>
+                            <span class="overline">ASSIGNMENT BRIEFING</span>
+                            <strong>@focusScenario.Title</strong>
+                        </div>
+                        <button type="button" class="secondary mini" @onclick='() => ToggleStationOverlay("objectives")'>CLOSE</button>
+                    </header>
+                    <p class="station-popup-briefing">@(Session.State.ScenarioOutcome ?? focusScenario.Briefing)</p>
+
+                    <div class="station-popup-section">
+                        <span class="overline">MISSION OBJECTIVES</span>
+                        @foreach (var objective in focusScenario.Objectives)
+                        {
+                            <article class="station-popup-objective">
+                                <strong>@objective.Title</strong>
+                                @if (Session.State.ObjectiveProgress.TryGetValue(objective.Id, out var focusProgress))
+                                {
+                                    <small>
+                                        @(focusProgress.IsComplete ? "COMPLETE" : focusProgress.IsFailed ? "FAILED" : "ACTIVE")
+                                        · @(string.IsNullOrWhiteSpace(focusProgress.StatusText) ? objective.Description : focusProgress.StatusText)
+                                    </small>
+                                }
+                                else
+                                {
+                                    <small>@objective.Description</small>
+                                }
+                            </article>
+                        }
+                    </div>
+
+                    <div class="station-popup-section">
+                        <span class="overline">CORPORATE DIRECTIVES</span>
+                        @if (Session.State.Directives.Count == 0)
+                        {
+                            <small>No additional corporate directives.</small>
+                        }
+                        else
+                        {
+                            @foreach (var directive in Session.State.Directives)
+                            {
+                                var focusDirectiveProgress = CorporateDirectiveSystem.Progress(Session.State, directive);
+                                <article class="station-popup-objective directive">
+                                    <strong>@directive.ExperimentCode · @directive.Title</strong>
+                                    <small>@DirectiveStatusLabel(focusDirectiveProgress.Status) · @focusDirectiveProgress.Detail</small>
+                                    <p>@directive.PublicJustification</p>
+                                </article>
+                            }
+                        }
+                    </div>
+                </section>
+            }
 
             <div class="station-map-viewport" data-map-camera tabindex="0" aria-label="Station map. Drag to pan; use WASD or arrow keys to move the camera.">
                 <div class="@StationMapClass" style="@StationMapStyle">
@@ -388,11 +508,11 @@
                     @foreach (var callout in RoomCallouts)
                     {
                         var calloutRoom = Session.State.Facility.Rooms[callout.RoomId];
-                        <line x1="@CalloutRoomX(calloutRoom, callout.Side)"
-                              y1="@CalloutRoomY(calloutRoom, callout.Side)"
+                        <line x1="@callout.AnchorX"
+                              y1="@callout.AnchorY"
                               x2="@callout.LabelX"
                               y2="@callout.LabelY"
-                              class="@($"room-callout-line {RoomHealthClass(calloutRoom)}")"></line>
+                              class="@($"room-callout-line {RoomHealthClass(calloutRoom)} {(callout.IsExternal ? "external" : "attached")}")"></line>
                     }
                 </svg>
 
@@ -401,7 +521,7 @@
                     var calloutRoom = Session.State.Facility.Rooms[callout.RoomId];
                     <button @key="@($"callout-{callout.RoomId}")"
                             type="button"
-                            class="@($"room-status-callout side-{callout.Side} {RoomHealthClass(calloutRoom)} {(SelectedRoom?.Id == calloutRoom.Id ? "selected" : "")}")"
+                            class="@($"room-status-callout side-{callout.Side} {(callout.IsExternal ? "external" : "attached")} {RoomHealthClass(calloutRoom)} {(SelectedRoom?.Id == calloutRoom.Id ? "selected" : "")}")"
                             style="@CalloutStyle(callout)"
                             data-station-interactive
                             @onclick="() => SelectRoom(calloutRoom.Id)"
@@ -1490,6 +1610,8 @@
     private int _delayMs = 2800;
     private bool _soundEnabled;
     private bool _musicEnabled;
+    private bool _stationFullscreen;
+    private string? _stationOverlay;
     private long _lastAudioSequence;
     private CancellationTokenSource? _clockCts;
     private Task? _clockTask;
@@ -1515,6 +1637,25 @@
     private IReadOnlyList<StationRoomCallout> RoomCallouts =>
         StationRoomCalloutSystem.Build(Session.State.Facility);
 
+
+    private string StationWorkspaceClass =>
+        _stationFullscreen
+            ? "workspace-shell station-focus-mode"
+            : "workspace-shell";
+
+    private void ToggleStationFullscreen()
+    {
+        _stationFullscreen = !_stationFullscreen;
+        if (!_stationFullscreen)
+        {
+            _stationOverlay = null;
+        }
+    }
+
+    private void ToggleStationOverlay(string overlay) =>
+        _stationOverlay = string.Equals(_stationOverlay, overlay, StringComparison.Ordinal)
+            ? null
+            : overlay;
 
     private OverseerMessageScope _messageScope = OverseerMessageScope.Broadcast;
     private string _messageTarget = string.Empty;
@@ -2068,8 +2209,13 @@
             || fixture.Label.Contains("Hardline", StringComparison.OrdinalIgnoreCase))
             classes.Add("fixture-security");
 
-        if (fixture.DeviceId is not null)
+        if (fixture.DeviceId is { Length: > 0 } deviceId)
+        {
             classes.Add("fixture-interactive");
+            var separator = deviceId.IndexOf(':');
+            var family = separator > 0 ? deviceId[..separator] : deviceId;
+            classes.Add($"fixture-system-{family.Replace('_', '-')}");
+        }
 
         return string.Join(' ', classes);
     }
