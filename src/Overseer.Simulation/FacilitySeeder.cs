@@ -1055,6 +1055,17 @@ public static class FacilitySeeder
         AddFixture(facility, "hydroponics", FixtureType.Pipe, "Irrigation Manifold", 50, 91, 52, 6);
         AddFixture(facility, "hydroponics", FixtureType.Console, "Climate Supervisor", 91, 87, 14, 12, 91, 82);
 
+        // Secure containment is optional and only exists for constrained
+        // scenarios. Keep the centre aisle clear so guards, prisoners and
+        // emergency responders can physically move between cell-side fixtures.
+        AddFixture(facility, "containment", FixtureType.Bunk, "Cell Bunk A", 14, 20, 18, 18);
+        AddFixture(facility, "containment", FixtureType.Bunk, "Cell Bunk B", 14, 43, 18, 18);
+        AddFixture(facility, "containment", FixtureType.Bunk, "Cell Bunk C", 86, 20, 18, 18);
+        AddFixture(facility, "containment", FixtureType.Bunk, "Cell Bunk D", 86, 43, 18, 18);
+        AddFixture(facility, "containment", FixtureType.Locker, "Secure Property Locker", 14, 76, 16, 18);
+        AddFixture(facility, "containment", FixtureType.UtilityPanel, "Containment Interlock", 86, 76, 16, 18);
+        AddFixture(facility, "containment", FixtureType.Camera, "Containment Camera", 50, 10, 10, 10);
+
         // Medical.
         AddFixture(facility, "medical", FixtureType.MedicalBed, "Med Bed A", 27, 47, 28, 19, 27, 47, FixtureUsePose.Lie, 90);
         AddFixture(facility, "medical", FixtureType.MedicalBed, "Med Bed B", 73, 47, 28, 19, 73, 47, FixtureUsePose.Lie, 270);
