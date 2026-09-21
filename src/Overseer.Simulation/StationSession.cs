@@ -18,6 +18,8 @@ public abstract class StationSession
     private readonly EnvironmentSystem _environment = new();
     private readonly AirlockSafetySystem _airlockSafety = new();
     private readonly VacuumConsequenceSystem _vacuum = new();
+    private readonly StationHazardSystem _hazards = new();
+    private readonly CrewLifecycleAuditSystem _crewLifecycle = new();
     private readonly MissingPersonSystem _missingPeople = new();
     private readonly CrewCounterplaySystem _counterplay = new();
     private readonly RobotCountermeasureSystem _robotCountermeasures = new();
@@ -690,6 +692,7 @@ public abstract class StationSession
         _environment.Tick(State, turn);
         _airlockSafety.Tick(State, turn);
         _vacuum.Tick(State);
+        _hazards.Tick(State, turn);
         _simulation.Tick(State, turn);
         _medicalEvidence.Tick(State);
         _perception.Tick(State);
@@ -721,6 +724,7 @@ public abstract class StationSession
         _accountComparison.Tick(State);
         _suspicionDynamics.Tick(State, turn);
         _memoryRetention.Tick(State);
+        _crewLifecycle.Tick(State);
 
         // Directives are graded before the station layer decides the outcome, so
         // its win gate reads this tick's directive results rather than the
