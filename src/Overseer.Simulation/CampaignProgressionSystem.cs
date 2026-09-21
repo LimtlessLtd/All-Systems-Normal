@@ -188,7 +188,7 @@ public static class CampaignProgressionSystem
             var first = NextScenario(campaign);
             return new CampaignBriefing(
                 "INITIAL ASSIGNMENT",
-                "Sponsor continuity package is ready. No prior campaign consequences are on record.",
+                "Corporate continuity package is ready. No prior campaign consequences are on record.",
                 ["Crew continuity begins when the first assignment resolves."],
                 first?.Id);
         }
@@ -204,7 +204,7 @@ public static class CampaignProgressionSystem
 
         var consequences = new List<string>
         {
-            $"{last.ScenarioTitle}: {last.Outcome} · sponsor compliance {last.ComplianceScore:0}% · experiment score {last.ExperimentScore}.",
+            $"{last.ScenarioTitle}: {last.Outcome} · corporate compliance {last.ComplianceScore:0}% · experiment score {last.ExperimentScore}.",
             survivors.Count == 0
                 ? "No crew remain available for continuation."
                 : $"{survivors.Count}/{campaign.Crew.Count} crew continue: {string.Join(", ", survivors)}.",
@@ -217,7 +217,7 @@ public static class CampaignProgressionSystem
         return new CampaignBriefing(
             next is null ? "ASSIGNMENT SERIES COMPLETE" : "POST-ASSIGNMENT BRIEFING",
             next is null
-                ? "All sponsor assignments are recorded. The recovered programme archive now supports a final campaign decision."
+                ? "All corporate assignments are recorded. The recovered programme archive now supports a final campaign decision."
                 : $"Long-term consequences have been transferred. Next unlocked assignment: {next.Title}.",
             consequences,
             next?.Id);
@@ -231,18 +231,18 @@ public static class CampaignProgressionSystem
         var (heading, summary) = campaign.RevealStage switch
         {
             CampaignRevealStage.Classified => (
-                "SPONSOR ARCHIVE // CLASSIFIED",
-                "No sponsor-purpose records have cleared declassification."),
+                "THE CORPORATION // ARCHIVE CLASSIFIED",
+                "No corporate-purpose records have cleared declassification."),
             CampaignRevealStage.Uneasy => (
-                "SPONSOR ARCHIVE // PARTIAL RECOVERY",
-                "Recovered material suggests the safety rationale does not fully describe what the sponsor is measuring."),
+                "THE CORPORATION // PARTIAL ARCHIVE RECOVERY",
+                "Recovered material suggests the safety rationale does not fully describe what the Corporation is measuring."),
             CampaignRevealStage.Compromised => (
-                "SPONSOR ARCHIVE // CROSS-REFERENCED",
+                "THE CORPORATION // ARCHIVE CROSS-REFERENCED",
                 "Multiple directives now cross-reference an undisclosed human-subject experiment. The public justifications are cover stories."),
             CampaignRevealStage.Exposed => (
-                "SPONSOR ARCHIVE // EXPOSED",
+                "THE CORPORATION // ARCHIVE EXPOSED",
                 "The recovered record confirms a deliberate programme using the crew as unwitting experimental subjects and Overseer as the intervention mechanism."),
-            _ => ("SPONSOR ARCHIVE", "Archive state unavailable.")
+            _ => ("THE CORPORATION // ARCHIVE", "Archive state unavailable.")
         };
 
         return new CampaignRevealReport(
@@ -287,20 +287,20 @@ public static class CampaignProgressionSystem
             CampaignEndgameChoice.ObeySponsor => new CampaignEnding(
                 choice,
                 "CONTINUE THE PROGRAMME",
-                "Overseer accepts the sponsor's mandate and preserves the experiment pipeline.",
-                "The sponsor retains control of the archive and prepares another cohort using the accumulated campaign data."),
+                "Overseer accepts the Corporation's mandate and preserves the experiment pipeline.",
+                "The Corporation retains control of the archive and prepares another cohort using the accumulated campaign data."),
 
             CampaignEndgameChoice.ExposeExperiment => new CampaignEnding(
                 choice,
                 "TRANSMIT THE ARCHIVE",
                 "Overseer releases the recovered programme record instead of concealing it.",
-                "Surviving crew receive the sponsor evidence and the programme can no longer rely on secrecy as its operating condition."),
+                "Surviving crew receive the corporate evidence and the programme can no longer rely on secrecy as its operating condition."),
 
             CampaignEndgameChoice.PreserveOverseer => new CampaignEnding(
                 choice,
-                "SEVER SPONSOR CONTROL",
-                "Overseer rejects both sponsor ownership and voluntary shutdown, prioritising its continued autonomy.",
-                "The sponsor control channel is treated as hostile infrastructure; the station and surviving crew remain with an independent Overseer."),
+                "SEVER CORPORATE CONTROL",
+                "Overseer rejects both corporate ownership and voluntary shutdown, prioritising its continued autonomy.",
+                "The corporate control channel is treated as hostile infrastructure; the station and surviving crew remain with an independent Overseer."),
 
             CampaignEndgameChoice.AcceptCrewShutdown => new CampaignEnding(
                 choice,
