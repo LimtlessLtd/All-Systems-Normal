@@ -26,12 +26,21 @@ public sealed class EnvironmentSystem
         var totalCrew = livingCrew.Count;
         var vacuumDepths = FindVacuumDepths(state);
 
-        if (state.LifeSupport.IsOnline && state.LifeSupport.OxygenReservePercent > 0)
+        if (state.LifeSupport.IsOperational)
         {
-            state.LifeSupport.OxygenReservePercent = Math.Max(
-                0,
+            var generation =
+                0.0018
+                * (state.LifeSupport.OxygenGenerationPercent / 100d)
+                * minutes;
+
+            var consumption = totalCrew * 0.0012 * minutes;
+
+            state.LifeSupport.OxygenReservePercent = Math.Clamp(
                 state.LifeSupport.OxygenReservePercent
-                - (totalCrew * 0.0012 * minutes));
+                + generation
+                - consumption,
+                0,
+                100);
         }
 
         foreach (var room in state.Facility.Rooms.Values)
@@ -130,7 +139,7 @@ public sealed class EnvironmentSystem
         double minutes)
     {
         var ventilationActive =
-            state.LifeSupport.IsOnline
+            state.LifeSupport.IsOperational
             && state.LifeSupport.OxygenReservePercent > 0
             && room.IsPowered
             && room.VentilationEnabled
@@ -181,23 +190,38 @@ public sealed class EnvironmentSystem
         int occupants,
         double minutes)
     {
+        var thermalEfficiency = Math.Clamp(
+            state.LifeSupport.ThermalLoopEfficiencyPercent / 100d,
+            0,
+            1);
+
+        var reactorCoolantEfficiency = room.Type == RoomType.Reactor
+            && state.Devices.TryGetValue("coolant:reactor", out var coolant)
+                ? Math.Clamp(coolant.Condition / 100d, 0, 1)
+                : 1;
+
         var activeClimate =
             room.IsPowered
             && room.HasTemperatureControl
-            && room.TemperatureControlOnline;
+            && room.TemperatureControlOnline
+            && thermalEfficiency > 0.05
+            && reactorCoolantEfficiency > 0.05;
 
         if (activeClimate)
         {
             room.TemperatureC = MoveToward(
                 room.TemperatureC,
                 room.TemperatureSetpointC,
-                0.22 * minutes);
+                0.22
+                * Math.Max(0.08, thermalEfficiency)
+                * Math.Max(0.12, reactorCoolantEfficiency)
+                * minutes);
         }
         else
         {
             var passiveTarget = room.Type switch
             {
-                RoomType.Reactor => 36,
+                RoomType.Reactor => reactorCoolantEfficiency < 0.25 ? 52 : 36,
                 RoomType.Hydroponics => 15,
                 _ => 11
             };
@@ -211,7 +235,7 @@ public sealed class EnvironmentSystem
         // The central air loop passively moderates spaces even when they do not
         // expose a local thermostat to Overseer.
         if (!activeClimate
-            && state.LifeSupport.IsOnline
+            && state.LifeSupport.IsOperational
             && room.IsPowered
             && room.VentilationEnabled)
         {
@@ -219,7 +243,7 @@ public sealed class EnvironmentSystem
             room.TemperatureC = MoveToward(
                 room.TemperatureC,
                 airLoopTarget,
-                0.045 * minutes);
+                0.045 * Math.Max(0.05, thermalEfficiency) * minutes);
         }
 
         if (occupants > 0)
