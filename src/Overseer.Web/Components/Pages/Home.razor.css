@@ -7062,3 +7062,73 @@ button.sound-toggle.sound-on {
         animation: none !important;
     }
 }
+
+
+/* Keep the station workspace chrome in the same restrained aerospace palette. */
+.station-panel {
+    --panel: #eef1f2;
+    --panel-raised: #ffffff;
+    --text: #24292d;
+    --muted: #697076;
+    --line: #c1c6c9;
+    --line-bright: #9ca2a6;
+    --accent: #555d62;
+    --accent-soft: rgba(85,93,98,.09);
+    background: #eef1f2;
+    color: var(--text);
+    border-color: #bcc1c4;
+}
+
+.station-panel .panel-heading,
+.station-panel .map-toolbar,
+.station-panel .map-footer {
+    background: #f8f9f9;
+    color: #33393d;
+    border-color: #c7cccf;
+}
+
+.station-panel .overline,
+.station-panel .map-toolbar small,
+.station-panel .map-footer {
+    color: #6d7479;
+}
+
+.station-panel h2,
+.station-panel .zoom-readout {
+    color: #30363a;
+}
+
+.station-panel button.secondary,
+.station-panel .zoom-readout,
+.station-panel .map-zoom-controls button {
+    border-color: #b2b8bb;
+    background: #ffffff;
+    color: #3e4549;
+}
+
+.station-panel button.secondary:hover,
+.station-panel .map-zoom-controls button:hover {
+    border-color: #777e82;
+    background: #e7eaeb;
+}
+
+.station-panel .station-character-chip,
+.station-panel .generation-debug summary {
+    border-color: #b7bdc0;
+    background: #ffffff;
+    color: #596166;
+}
+
+.station-panel .generation-debug-popover {
+    border-color: #aeb4b7;
+    background: #f9fafa;
+    color: #30363a;
+}
+
+.station-panel .sim-running {
+    color: #3f7756;
+}
+
+.station-panel .sim-paused {
+    color: #a45b35;
+}
