@@ -128,6 +128,7 @@ public static class FacilitySeeder
 
         var seed = upkeepSeed ?? StableDerivedSeed(chosenStationSeed);
         StationUpkeepSystem.Register(state, seed);
+        NormalizeFixtureLayout(facility);
         CrewProvisioningSystem.Plant(state, seed);
 
         var identity = generation.Metadata.Identity;
@@ -459,6 +460,270 @@ public static class FacilitySeeder
             && firstRight > secondLeft
             && firstTop < secondBottom
             && firstBottom > secondTop;
+    }
+
+
+    private static void NormalizeFixtureLayout(Facility facility)
+    {
+        foreach (var room in facility.Rooms.Values
+                     .OrderBy(room => room.Id, StringComparer.OrdinalIgnoreCase))
+        {
+            if (room.Fixtures.Count < 2)
+            {
+                continue;
+            }
+
+            var original = room.Fixtures.ToList();
+            var placed = new List<RoomFixture>(original.Count);
+
+            foreach (var fixture in original
+                         .OrderByDescending(FixturePlacementPriority)
+                         .ThenByDescending(item => item.Width * item.Height)
+                         .ThenBy(item => item.Label, StringComparer.OrdinalIgnoreCase))
+            {
+                if (TryResolveFixturePlacement(fixture, placed, out var resolved))
+                {
+                    placed.Add(resolved);
+                    continue;
+                }
+
+                // Extremely crowded authored rooms still need every physical
+                // control/device to remain represented. Use a tiny deterministic
+                // service marker as the final fallback rather than overlap it.
+                var fallback = fixture with
+                {
+                    Width = Math.Min(fixture.Width, 7),
+                    Height = Math.Min(fixture.Height, 7)
+                };
+
+                if (TryDenseFixturePlacement(fallback, placed, out resolved))
+                {
+                    placed.Add(resolved);
+                }
+                else if (!fixture.Label.StartsWith("Generated ", StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException(
+                        $"Room '{room.Id}' cannot place fixture '{fixture.Label}' without overlap.");
+                }
+            }
+
+            room.Fixtures.Clear();
+            room.Fixtures.AddRange(placed);
+        }
+    }
+
+    private static int FixturePlacementPriority(RoomFixture fixture) =>
+        IsCentralFixture(fixture.Type)
+            ? 300
+            : IsWallFixture(fixture.Type)
+                ? 100
+                : 200;
+
+    private static bool IsCentralFixture(FixtureType type) =>
+        type is FixtureType.Generator
+            or FixtureType.ReactorCore
+            or FixtureType.GrowBed
+            or FixtureType.Bed
+            or FixtureType.MedicalBed
+            or FixtureType.OverseerShutdown
+            or FixtureType.AirlockDoor;
+
+    private static bool IsWallFixture(FixtureType type) =>
+        type is FixtureType.Pipe
+            or FixtureType.Window
+            or FixtureType.Vent
+            or FixtureType.Screen
+            or FixtureType.UtilityPanel
+            or FixtureType.Console
+            or FixtureType.RecreationConsole
+            or FixtureType.Camera
+            or FixtureType.DoorConsole
+            or FixtureType.PowerBus
+            or FixtureType.NetworkRack
+            or FixtureType.CapacitorBank
+            or FixtureType.CoolantPump
+            or FixtureType.WaterRecycler
+            or FixtureType.OxygenGenerator
+            or FixtureType.CarbonScrubber
+            or FixtureType.IrrigationTank
+            or FixtureType.Cabinet
+            or FixtureType.Locker
+            or FixtureType.SuitLocker
+            or FixtureType.ToolCabinet
+            or FixtureType.KitchenCounter;
+
+    private static bool TryResolveFixturePlacement(
+        RoomFixture fixture,
+        IReadOnlyList<RoomFixture> placed,
+        out RoomFixture resolved)
+    {
+        if (IsCentralFixture(fixture.Type)
+            && FitsFixture(fixture, placed, padding: 1.8))
+        {
+            resolved = fixture;
+            return true;
+        }
+
+        var scales = IsCentralFixture(fixture.Type)
+            ? new[] { 1d, .92, .84 }
+            : new[] { 1d, .92, .84, .76, .68 };
+
+        foreach (var scale in scales)
+        {
+            var width = fixture.Width * scale;
+            var height = fixture.Height * scale;
+
+            foreach (var candidate in IsWallFixture(fixture.Type)
+                         ? WallCandidates(width, height)
+                         : FloorCandidates(fixture.X, fixture.Y, width, height))
+            {
+                var moved = MoveFixture(
+                    fixture,
+                    candidate.X,
+                    candidate.Y,
+                    candidate.Width,
+                    candidate.Height);
+
+                if (FitsFixture(moved, placed, padding: 1.6))
+                {
+                    resolved = moved;
+                    return true;
+                }
+            }
+        }
+
+        resolved = fixture;
+        return false;
+    }
+
+    private static bool TryDenseFixturePlacement(
+        RoomFixture fixture,
+        IReadOnlyList<RoomFixture> placed,
+        out RoomFixture resolved)
+    {
+        for (var y = 5d; y <= 95; y += 4)
+        {
+            for (var x = 5d; x <= 95; x += 4)
+            {
+                var moved = MoveFixture(fixture, x, y, fixture.Width, fixture.Height);
+                if (FitsFixture(moved, placed, padding: .35))
+                {
+                    resolved = moved;
+                    return true;
+                }
+            }
+        }
+
+        resolved = fixture;
+        return false;
+    }
+
+    private static IEnumerable<(double X, double Y, double Width, double Height)> WallCandidates(
+        double width,
+        double height)
+    {
+        var horizontalMarginX = (width / 2) + 3;
+        var horizontalY = (height / 2) + 3;
+        var verticalWidth = height;
+        var verticalHeight = width;
+        var verticalX = (verticalWidth / 2) + 3;
+        var verticalMarginY = (verticalHeight / 2) + 3;
+
+        var slots = new[] { 10d, 20d, 30d, 40d, 50d, 60d, 70d, 80d, 90d };
+
+        foreach (var x in slots)
+        {
+            if (x >= horizontalMarginX && x <= 100 - horizontalMarginX)
+            {
+                yield return (x, horizontalY, width, height);
+                yield return (x, 100 - horizontalY, width, height);
+            }
+        }
+
+        foreach (var y in slots)
+        {
+            if (y >= verticalMarginY && y <= 100 - verticalMarginY)
+            {
+                yield return (verticalX, y, verticalWidth, verticalHeight);
+                yield return (100 - verticalX, y, verticalWidth, verticalHeight);
+            }
+        }
+    }
+
+    private static IEnumerable<(double X, double Y, double Width, double Height)> FloorCandidates(
+        double preferredX,
+        double preferredY,
+        double width,
+        double height)
+    {
+        yield return (preferredX, preferredY, width, height);
+
+        var xMargin = (width / 2) + 3;
+        var yMargin = (height / 2) + 3;
+        var slots = new[] { 14d, 26d, 38d, 50d, 62d, 74d, 86d };
+
+        foreach (var y in slots)
+        {
+            foreach (var x in slots)
+            {
+                if (x >= xMargin && x <= 100 - xMargin
+                    && y >= yMargin && y <= 100 - yMargin)
+                {
+                    yield return (x, y, width, height);
+                }
+            }
+        }
+    }
+
+    private static RoomFixture MoveFixture(
+        RoomFixture fixture,
+        double x,
+        double y,
+        double width,
+        double height)
+    {
+        var interactionX = fixture.InteractionX is { } oldInteractionX
+            ? Math.Clamp(x + (oldInteractionX - fixture.X), 5, 95)
+            : null;
+        var interactionY = fixture.InteractionY is { } oldInteractionY
+            ? Math.Clamp(y + (oldInteractionY - fixture.Y), 5, 95)
+            : null;
+
+        return fixture with
+        {
+            X = x,
+            Y = y,
+            Width = width,
+            Height = height,
+            InteractionX = interactionX,
+            InteractionY = interactionY
+        };
+    }
+
+    private static bool FitsFixture(
+        RoomFixture fixture,
+        IReadOnlyList<RoomFixture> placed,
+        double padding)
+    {
+        if (fixture.X - (fixture.Width / 2) < 1
+            || fixture.X + (fixture.Width / 2) > 99
+            || fixture.Y - (fixture.Height / 2) < 1
+            || fixture.Y + (fixture.Height / 2) > 99)
+        {
+            return false;
+        }
+
+        return !placed.Any(existing =>
+            FixtureRectanglesOverlap(
+                fixture.X,
+                fixture.Y,
+                fixture.Width,
+                fixture.Height,
+                existing.X,
+                existing.Y,
+                existing.Width,
+                existing.Height,
+                padding));
     }
 
     private static void EnsureValidCrewContainment(Facility facility, IEnumerable<Npc> crew)
