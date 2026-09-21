@@ -7,7 +7,7 @@ public sealed class LocalMovementSystem
     private const double SpeedPerMinute = 32;
     private const double DoorApproachMultiplier = 1.35;
     private const double FixtureClearance = 1.8;
-    private const double WaypointMargin = 1.1;
+    private const double WaypointMargin = .35;
     private readonly CrewDoorInteractionSystem _crewDoors = new();
 
     public void Tick(GameState state, TimeSpan delta)
@@ -662,18 +662,36 @@ public sealed class LocalMovementSystem
         {
             return nodes
                 .Skip(1)
-                .Where(node => !SegmentHitsFixture(room, startX, startY, node.X, node.Y))
+                .Where(node =>
+                    Distance(startX, startY, node.X, node.Y) > .25
+                    && !SegmentHitsFixture(room, startX, startY, node.X, node.Y))
                 .OrderBy(node =>
                     Distance(startX, startY, node.X, node.Y)
                     + Distance(node.X, node.Y, targetX, targetY))
                 .FirstOrDefault((targetX, targetY));
         }
 
+        // Reconstruct the source-to-target waypoint chain. A mover can land
+        // exactly on a graph node; returning that same node on the next tick
+        // would create a zero-length detour and permanently stall the actor.
+        var route = new List<int>();
         var waypoint = 0;
-        while (previous[waypoint] >= 0)
+        while (waypoint >= 0)
+        {
+            route.Add(waypoint);
             waypoint = previous[waypoint];
+        }
 
-        return nodes[waypoint];
+        route.Reverse();
+
+        foreach (var index in route)
+        {
+            var candidate = nodes[index];
+            if (Distance(startX, startY, candidate.X, candidate.Y) > .25)
+                return candidate;
+        }
+
+        return (targetX, targetY);
     }
 
     private static bool SegmentHitsFixture(
