@@ -1026,7 +1026,7 @@ public static class StationGenerator
 
         var shrink = attempt < 240
             ? 1d
-            : Math.Clamp(1d - ((attempt - 240) / 800d), 0.68, 1d);
+            : Math.Clamp(1d - ((attempt - 240) / 800d), 0.76, 1d);
 
         var width = random.NextDouble(profile.MinWidth, profile.MaxWidth) * scale * shrink;
         var height = random.NextDouble(profile.MinHeight, profile.MaxHeight) * scale * shrink;
@@ -1037,8 +1037,11 @@ public static class StationGenerator
             (width, height) = (height, width);
         }
 
-        width = Math.Clamp(width, 7.5, 24);
-        height = Math.Clamp(height, 8.5, 27);
+        // The default 100% map camera renders the authoritative 0..100 deck
+        // inside a 2560x2240px physical layer. These minima therefore guarantee
+        // every generated functional room is at least ~200px on both axes.
+        width = Math.Clamp(width, 8.0, 26);
+        height = Math.Clamp(height, 9.0, 29);
 
         var passageWidth = identity.Budget switch
         {
