@@ -3,7 +3,7 @@
 Repository: https://github.com/LimtlessLtd/All-Systems-Normal
 Playable Pages build: https://limtlessltd.github.io/All-Systems-Normal/
 
-**Current state:** V0.10C — Map Workspace, Cognition Telemetry + Crew Autonomy Tuning
+**Current state:** V0.10D — Large White/Grey Station Deck + External Telemetry
 **Next recommended milestone:** V0.11 — Contained Security-Network Malware & Crew Recovery
 
 This file is the authoritative technical handoff. Keep it concise and update sections in place; do not append milestone diaries.
@@ -143,17 +143,18 @@ Both UIs expose a compact GEN // seed inspector with same-seed/new-seed regenera
 
 Primary presentation helper: `src/Overseer.Simulation/StationPresentationSystem.cs`.
 
-- Both UIs derive the same station purpose/budget/age/maintenance/expansion CSS classes and bounds-based fit transform from authoritative `Facility` + `StationGenerationMetadata`.
-- `.station-world` transforms rooms, corridors, doors, fixtures, crew, robots and turrets together. Auto-fit must never move presentation objects independently of simulation geometry.
+- Both UIs derive the same station identity classes from authoritative `Facility` + `StationGenerationMetadata`, but **do not auto-fit the station back into the viewport**. V0.10D deliberately uses a large pannable virtual deck so physical rooms stay large at 100% zoom.
+- `.station-map-camera` is a 3200×2800px virtual deck at 100% zoom. Authoritative station geometry lives inside `.station-authority-layer` at the central 80% (2560×2240px); generated functional rooms are clamped to at least 8% × 9%, which is ~205×202px at default zoom.
+- `.station-world` keeps rooms, corridors, doors, fixtures, crew, robots and turrets in one coordinate system. Camera pan/zoom is presentation-only and must never alter simulation coordinates.
+- Drag/WASD/arrow panning plus mouse-wheel/± zoom must reach the full virtual deck. Scroll while hovering the station zooms directly; Ctrl/Cmd is not required.
+- Functional-room labels/status UI are **external callouts**, built by `StationRoomCalloutSystem`, placed only in the outer 10% deck margin and joined to rooms by leader lines. Callouts must not cover authoritative room/corridor geometry or one another. They always show full room name + power/temperature/O₂ health.
 - Hull mass is drawn only from real room/corridor footprints. Do not reintroduce decorative rails/links that imply nonexistent navigation.
-- `FacilitySeeder.ApplyIdentityDrivenDetails` adds deterministic room-aware presentation fixtures. Wall equipment is bulkhead-aligned; floor equipment uses collision-aware work bays; all generated fixtures stay inside their owning room.
-- The V0.10B cutaway layer uses room-specific deck patterns, embedded room plaques, dimensional fixture/machinery styling, service-corridor decking and restrained operational animation. Keep these cues presentation-only and mirrored in both UIs.
-- Purpose changes art direction; budget/age/maintenance/expansion change finish, wear and exposed services. Preserve the clean colourful cutaway style; do not apply a global brown/grime filter.
-- Room labels reduce information at wide zoom and regain detail when close. Small-room label density is presentation-only.
-- Browser and server `Home.razor` / `Home.razor.css` station rendering must remain visually mirrored. New room/fixture/purpose presentation rules should be added to both UIs unless moved into a future shared component/stylesheet.
-- The map camera is presentation-only: `.station-map-camera` applies player pan/zoom around the authoritative `.station-world` transform. Drag/WASD/arrow panning and JS camera zoom must never modify station/entity coordinates.
+- `FacilitySeeder.ApplyIdentityDrivenDetails` adds deterministic room-aware fixtures. Wall equipment is bulkhead-aligned; floor equipment uses collision-aware work bays; all generated fixtures stay inside their owning room.
+- V0.10D art direction is bright white/grey aerospace interiors with restrained green/orange/red status colour. Avoid neon cyan/blue, dark card-like rooms, global black/grey room fills, brown grime filters or UI labels painted over the physical room floor.
+- Room-specific interiors should be visually rich and active: consoles/screens, vents, irrigation, pipes, medical equipment, cameras, airlocks, generator/reactor machinery etc. Operational animation is presentation-only and should remain subtle enough not to become visual noise.
+- Browser and server `Home.razor` / `Home.razor.css` / `layout.js` must stay mirrored.
+- Robots are selectable map entities with a dedicated Inspector state and explicit machine silhouette; do not render them as generic dots/cards.
 - Desktop workspace is map-first. Facility Systems and Comms live in the right utility column; Inspector/Telemetry share a tabbed diagnostic panel. Do not restore a permanent left systems column or bottom Event Stream.
-- Functional room labels always show full room names plus colour-coded power/temperature/O₂ state.
 
 Visual invariants: never invent hull/corridor/door geometry, never offset one physical entity separately for aesthetics, and never let decorative fixtures become simulation-authoritative unless the domain contract is explicitly extended.
 
@@ -175,7 +176,10 @@ Current shared mechanics include:
 - ST-series fixed turret behaviour with compartment/range/ammo/heat authority in deterministic C#
 - five ordered campaign assignments, corporate directives, carry-over consequences and endings
 - browser-local campaign persistence
-- mirrored Pages/server station UI, resizable panels, zoom, audio/music, speech/thought bubbles and physical entity animation
+- mirrored Pages/server station UI, resizable panels, large pannable deck camera, wheel/WASD/drag zoom/pan, audio/music, speech/thought bubbles and physical entity animation
+- external room telemetry callouts with leader lines and no room/corridor overlap
+- bright white/grey spacecraft interior art direction with animated consoles/screens/vents/irrigation/pipes/medical/camera/airlock/machinery cues
+- selectable MR robots with dedicated Inspector telemetry; crew and friendly robots physically approach actual fixtures/equipment while working where an interaction point exists
 - transient cognition diagnostics via `CognitionTelemetrySystem`; Ollama traces retain prompt/raw response/validated intent, browser/rule-based minds emit the same decision shape
 - missing-person logic treats routine separation as normal: concern is measured in hours, Concerned-stage absence does not pre-empt work, and shared concern does not instantly interrupt the listener
 - server/Ollama already generates fresh six-person rosters with 1–3 mechanically meaningful traits for new non-continuing sessions; browser Pages remains model-free

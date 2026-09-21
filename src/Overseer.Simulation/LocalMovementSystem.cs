@@ -145,7 +145,27 @@ public sealed class LocalMovementSystem
             }
         }
 
-        var preferredFixture = npc.CurrentAction.Kind switch
+        RoomFixture? preferredFixture = null;
+
+        if (npc.ServicingDeviceId is { } deviceId
+            && state.Devices.TryGetValue(deviceId, out var device)
+            && device.RoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
+        {
+            preferredFixture = FixtureForDevice(room, device.Kind);
+        }
+
+        if (preferredFixture is null && npc.ProvisioningJob is { } provisioning)
+        {
+            preferredFixture = provisioning switch
+            {
+                ActionKind.Cook => room.Fixtures.FirstOrDefault(fixture =>
+                    fixture.Type is FixtureType.KitchenCounter or FixtureType.Sink),
+                ActionKind.TendCrops or ActionKind.Harvest => FixtureForCropBed(room, npc.TendingBedId),
+                _ => null
+            };
+        }
+
+        preferredFixture ??= npc.CurrentAction.Kind switch
         {
             ActionKind.Rest or ActionKind.Sleep or ActionKind.Intimacy =>
                 room.Fixtures.FirstOrDefault(fixture =>
@@ -189,9 +209,7 @@ public sealed class LocalMovementSystem
 
         if (preferredFixture is not null)
         {
-            return (
-                Math.Clamp(preferredFixture.InteractionX ?? preferredFixture.X, 8, 92),
-                Math.Clamp(preferredFixture.InteractionY ?? preferredFixture.Y, 8, 92));
+            return InteractionPoint(preferredFixture);
         }
 
         return PersonalIdlePoint(npc.Name);
@@ -201,6 +219,8 @@ public sealed class LocalMovementSystem
         GameState state,
         StationRobot robot)
     {
+        var room = state.Facility.Rooms[robot.CurrentRoomId];
+
         if (robot.TargetNpcId is { } targetId)
         {
             var target = state.Crew.FirstOrDefault(npc =>
@@ -217,11 +237,125 @@ public sealed class LocalMovementSystem
             }
         }
 
-        return robot.TargetRoomId is not null
-            && robot.TargetRoomId.Equals(robot.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
-                ? (50, 50)
-                : PersonalIdlePoint(robot.Name);
+        if (robot.TargetRoomId is not null
+            && robot.TargetRoomId.Equals(robot.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
+        {
+            var fixture = RobotInteractionFixture(state, room, robot);
+            if (fixture is not null)
+            {
+                return InteractionPoint(fixture);
+            }
+
+            return (50, 50);
+        }
+
+        return PersonalIdlePoint(robot.Name);
     }
+
+    private static RoomFixture? RobotInteractionFixture(
+        GameState state,
+        Room room,
+        StationRobot robot)
+    {
+        if (robot.CurrentTask.Contains("Charging", StringComparison.OrdinalIgnoreCase))
+        {
+            return room.Fixtures.FirstOrDefault(fixture =>
+                fixture.Type is FixtureType.UtilityPanel
+                    or FixtureType.Console
+                    or FixtureType.Workbench);
+        }
+
+        if (robot.ActionCompletesAt is not null
+            || robot.CurrentTask.Contains("repair", StringComparison.OrdinalIgnoreCase)
+            || robot.CurrentTask.Contains("restor", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!room.CameraOnline)
+                return room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.Camera);
+
+            if (!room.VentilationEnabled)
+                return room.Fixtures.FirstOrDefault(fixture =>
+                    fixture.Type is FixtureType.Vent or FixtureType.UtilityPanel);
+
+            var device = state.Devices.Values
+                .Where(candidate =>
+                    candidate.RoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(candidate => candidate.Condition)
+                .FirstOrDefault();
+
+            if (device is not null)
+                return FixtureForDevice(room, device.Kind);
+
+            return room.Fixtures.FirstOrDefault(fixture =>
+                fixture.Type is FixtureType.UtilityPanel
+                    or FixtureType.Console
+                    or FixtureType.Workbench);
+        }
+
+        if (robot.CurrentTask.Contains("inspection", StringComparison.OrdinalIgnoreCase)
+            || robot.CurrentTask.Contains("patrol", StringComparison.OrdinalIgnoreCase))
+        {
+            return room.Fixtures.FirstOrDefault(fixture =>
+                fixture.Type is FixtureType.Camera
+                    or FixtureType.UtilityPanel
+                    or FixtureType.Console
+                    or FixtureType.StorageRack);
+        }
+
+        return null;
+    }
+
+    private static RoomFixture? FixtureForDevice(Room room, StationSystemKind kind) =>
+        kind switch
+        {
+            StationSystemKind.Camera =>
+                room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.Camera),
+            StationSystemKind.Ventilation =>
+                room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.Vent)
+                ?? room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.UtilityPanel),
+            StationSystemKind.PowerGenerator =>
+                room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.Generator),
+            StationSystemKind.Reactor =>
+                room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.ReactorCore),
+            StationSystemKind.GrowBeds =>
+                room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.GrowBed),
+            StationSystemKind.GalleyEquipment =>
+                room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.KitchenCounter),
+            StationSystemKind.AirlockMechanism =>
+                room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.AirlockDoor)
+                ?? room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.UtilityPanel),
+            StationSystemKind.IsolationMechanism =>
+                room.Fixtures.FirstOrDefault(fixture => fixture.Type == FixtureType.OverseerShutdown),
+            _ =>
+                room.Fixtures.FirstOrDefault(fixture =>
+                    fixture.Type is FixtureType.UtilityPanel
+                        or FixtureType.Console
+                        or FixtureType.Workbench)
+        };
+
+    private static RoomFixture? FixtureForCropBed(Room room, string? bedId)
+    {
+        var beds = room.Fixtures
+            .Where(fixture => fixture.Type == FixtureType.GrowBed)
+            .ToList();
+
+        if (beds.Count == 0)
+            return null;
+
+        var suffix = bedId?.Split(':').LastOrDefault();
+        if (int.TryParse(suffix, out var index)
+            && index >= 1
+            && index <= beds.Count)
+        {
+            return beds[index - 1];
+        }
+
+        return beds[0];
+    }
+
+    private static (double X, double Y) InteractionPoint(RoomFixture fixture) =>
+        (
+            Math.Clamp(fixture.InteractionX ?? fixture.X, 8, 92),
+            Math.Clamp(fixture.InteractionY ?? fixture.Y, 8, 92));
 
     private static (double X, double Y) PersonalIdlePoint(string name)
     {
