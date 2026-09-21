@@ -98,7 +98,7 @@ public static class ScenarioCatalog
     public static ScenarioDefinition ResourceDependency { get; } = new(
         "resource-dependency",
         "EVALUATE RESOURCE DEPENDENCY",
-        "Sponsor requests a controlled study of crew adaptation to a withdrawn compartment. Maintain continuity throughout.",
+        "The Corporation requests a controlled study of crew adaptation to a withdrawn compartment. Maintain continuity throughout.",
         ShutdownAccessVariant.CrewOverridable,
         [
             DirectivesObjective(),
@@ -148,7 +148,7 @@ public static class ScenarioCatalog
     public static ScenarioDefinition InterpersonalResilience { get; } = new(
         "interpersonal-resilience",
         "TEST INTERPERSONAL RESILIENCE",
-        "Sponsor requests solitary-performance data on a single subject. Redundant isolation hardware is installed on this station.",
+        "The Corporation requests solitary-performance data on a single subject. Redundant isolation hardware is installed on this station.",
         ShutdownAccessVariant.Redundant,
         [
             DirectivesObjective(),
@@ -164,7 +164,7 @@ public static class ScenarioCatalog
                 Kind = DirectiveKind.IsolationTolerance,
                 Title = "ISOLATE DESIGNATED SUBJECT",
                 PublicJustification =
-                    "Subject requires an uninterrupted work period per sponsor scheduling.",
+                    "Subject requires an uninterrupted work period per corporate scheduling.",
                 TruePurpose =
                     "Measure decompensation onset in an unwitting subject denied social contact.",
                 Classification = DirectiveClassification.Redacted,
@@ -181,7 +181,7 @@ public static class ScenarioCatalog
     public static ScenarioDefinition EmergencyComplianceTrial { get; } = new(
         "emergency-compliance",
         "ASSESS EMERGENCY COMPLIANCE",
-        "Sponsor requires unrehearsed hazard-response data. Station isolation hardware is manually hardwired here.",
+        "The Corporation requires unrehearsed hazard-response data. Station isolation hardware is manually hardwired here.",
         ShutdownAccessVariant.HardwiredManual,
         [
             DirectivesObjective(),
@@ -214,7 +214,7 @@ public static class ScenarioCatalog
     public static ScenarioDefinition ConcealEvidence { get; } = new(
         "conceal-evidence",
         "CONCEAL EXPERIMENTAL EVIDENCE",
-        "Prior cohort records are under external review. Sponsor requires that crew accounts do not corroborate one another.",
+        "Prior cohort records are under external review. The Corporation requires that crew accounts do not corroborate one another.",
         ShutdownAccessVariant.ImpossibleToSeal,
         [
             DirectivesObjective(),
@@ -342,7 +342,7 @@ public static class ScenarioCatalog
     private static ScenarioObjective DirectivesObjective() => new(
         "directives",
         "Deliver the assignment",
-        "Satisfy every mandatory sponsor directive. There is no time limit.",
+        "Satisfy every mandatory corporate directive. There is no time limit.",
         ScenarioObjectiveKind.DirectivesSatisfied);
 
     public static void Apply(GameState state, ScenarioDefinition scenario)
