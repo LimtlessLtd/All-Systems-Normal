@@ -143,7 +143,8 @@ public sealed class StationUpkeepSystem
                         Discipline = MaintenanceDiscipline.Mechanical,
                         WearPerHour = 0,
                         DegradedAt = 50,
-                        ServiceDifficulty = 55
+                        ServiceDifficulty = 55,
+                        RatedOutputKilowatts = 95
                     });
                     break;
 
@@ -157,7 +158,8 @@ public sealed class StationUpkeepSystem
                         Discipline = MaintenanceDiscipline.Reactor,
                         WearPerHour = 0,
                         DegradedAt = 55,
-                        ServiceDifficulty = 65
+                        ServiceDifficulty = 65,
+                        RatedOutputKilowatts = 200
                     });
                     break;
 
