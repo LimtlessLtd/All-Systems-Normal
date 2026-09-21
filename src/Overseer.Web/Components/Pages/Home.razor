@@ -37,10 +37,13 @@
                 <span>LIFE SUPPORT</span>
                 <strong>@(Session.State.LifeSupport.IsOnline ? "ONLINE" : "OFFLINE")</strong>
             </button>
-            <div class="@(Session.State.Stores.Meals < 3 ? "has-alerts" : "")">
+            <button type="button"
+                    class="status-tile @(Session.State.Stores.Meals < 3 ? "has-alerts" : "")"
+                    data-station-interactive
+                    @onclick='() => SelectDevice("galley:kitchen")'>
                 <span class="overline">GALLEY</span>
                 <strong>@Session.State.Stores.Meals.ToString("0") meals</strong>
-            </div>
+            </button>
             <button type="button"
                     class="status-tile @(Session.State.Power.IsBrownedOut ? "has-alerts" : "")"
                     data-station-interactive
@@ -504,7 +507,7 @@
 
             <div class="map-footer">
                 <span>Drag / WASD to pan · mouse wheel or ± zoom · click rooms, machinery, doors, crew, robots or turrets to inspect.</span>
-                <span>Crew disappear from the map when a camera feed is lost.</span>
+                <span>Crew disappear from the map when a camera feed is lost. Space backdrop: JWST SMACS 0723 · NASA/ESA/CSA/STScI.</span>
             </div>
         </main>
 
