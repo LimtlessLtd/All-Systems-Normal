@@ -102,7 +102,7 @@ public sealed class BrowserMindSystem
                 continue;
             }
 
-            var saferRoom = FindSaferRoom(state, currentRoom);
+            var saferRoom = FindSaferRoom(state, npc, currentRoom);
             var blockingDoor = saferRoom is null
                 ? FindBlockingDoorTowardSaferRoom(state, npc, currentRoom)
                 : null;
@@ -157,7 +157,7 @@ public sealed class BrowserMindSystem
 
         if (CrewEnvironmentSafety.IsDangerous(currentRoom))
         {
-            var saferRoom = FindSaferRoom(state, currentRoom);
+            var saferRoom = FindSaferRoom(state, npc, currentRoom);
 
             if (saferRoom is not null)
             {
@@ -172,6 +172,7 @@ public sealed class BrowserMindSystem
 
             var blockingDoor = FindBlockingDoorTowardSaferRoom(
                 state,
+                npc,
                 currentRoom);
 
             if (blockingDoor is not null)
@@ -862,7 +863,7 @@ public sealed class BrowserMindSystem
             : null;
     }
 
-    private Room? FindSaferRoom(GameState state, Room currentRoom)
+    private Room? FindSaferRoom(GameState state, Npc npc, Room currentRoom)
     {
         var currentRisk = CrewEnvironmentSafety.RiskScore(currentRoom);
 
