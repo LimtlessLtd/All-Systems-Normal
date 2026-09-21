@@ -13,6 +13,18 @@ public sealed class CrewLifecycleAuditSystem
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        foreach (var npc in state.Crew.Where(npc => npc.IsAlive && !npc.IsPresent))
+        {
+            // There is currently no valid gameplay state where a living crew
+            // member silently ceases to be aboard. Vacuum ejection is fatal and
+            // records an explicit lost-to-space cause. Repair any orphaned
+            // presence flag rather than letting the token vanish with no log.
+            npc.IsPresent = true;
+            state.EventLog.Insert(
+                0,
+                $"T+{state.Elapsed:hh\\:mm}: WARNING: presence audit restored {npc.Name} to the station roster after an invalid disappearance.");
+        }
+
         foreach (var npc in state.Crew.Where(npc => !npc.IsAlive))
         {
             npc.CauseOfDeath ??= InferCause(state, npc);
