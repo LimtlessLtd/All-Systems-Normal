@@ -65,7 +65,7 @@ public sealed class BrowserMindSystemTests
     }
 
     [Fact]
-    public void MissingPersonConcern_TriggersImmediateSearchReconsideration()
+    public void EscalatedMissingPersonConcern_TriggersImmediateSearchReconsideration()
     {
         var state = FacilitySeeder.CreateDefault();
         var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
@@ -78,7 +78,7 @@ public sealed class BrowserMindSystemTests
             ExpectedRoomId = "quarters",
             FirstConcernAt = TimeSpan.FromMinutes(30),
             LastUpdatedAt = TimeSpan.FromMinutes(30),
-            Stage = MissingPersonConcernStage.Searching
+            Stage = MissingPersonConcernStage.Escalated
         };
         sarah.NeedsMindReconsideration = true;
         state.Elapsed = TimeSpan.FromMinutes(31);
@@ -90,6 +90,30 @@ public sealed class BrowserMindSystemTests
         Assert.Equal("quarters", sarah.Intent.TargetId);
         Assert.False(sarah.NeedsMindReconsideration);
         Assert.Equal(NpcBubbleKind.Alert, sarah.Bubble!.Kind);
+    }
+
+    [Fact]
+    public void ConcernedAbsence_DoesNotHijackRoutineCognition()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+
+        sarah.MissingPersonConcerns[marcus.Id] = new MissingPersonConcern
+        {
+            PersonId = marcus.Id,
+            PersonName = marcus.Name,
+            ExpectedRoomId = "quarters",
+            FirstConcernAt = TimeSpan.FromHours(4),
+            LastUpdatedAt = TimeSpan.FromHours(4),
+            Stage = MissingPersonConcernStage.Concerned
+        };
+        sarah.NeedsMindReconsideration = true;
+        state.Elapsed = TimeSpan.FromHours(4) + TimeSpan.FromMinutes(1);
+
+        new BrowserMindSystem().Tick(state);
+
+        Assert.True(sarah.Intent is null || sarah.Intent.Action != ActionKind.Investigate);
     }
 
     [Fact]
