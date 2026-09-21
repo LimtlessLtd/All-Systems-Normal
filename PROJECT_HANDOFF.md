@@ -3,7 +3,7 @@
 Repository: https://github.com/LimtlessLtd/All-Systems-Normal
 Playable Pages build: https://limtlessltd.github.io/All-Systems-Normal/
 
-**Current state:** V0.12 — Scenario Roster Policy
+**Current state:** V0.12 + Movement, Perception, Medical & Interaction Polish
 **Next recommended milestone:** V0.13 — Hazardous Transport Assignments
 
 This file is the authoritative technical handoff. Keep it concise and update sections in place; do not append milestone diaries.
@@ -147,7 +147,7 @@ Primary presentation helper: `src/Overseer.Simulation/StationPresentationSystem.
 - `.station-map-camera` is a 3200×2800px virtual deck at 100% zoom. Authoritative station geometry lives inside `.station-authority-layer` at the central 80% (2560×2240px); generated functional rooms are clamped to at least 8% × 9%, which is ~205×202px at default zoom.
 - `.station-world` keeps rooms, corridors, doors, fixtures, crew, robots and turrets in one coordinate system. Camera pan/zoom is presentation-only and must never alter simulation coordinates.
 - Drag/WASD/arrow panning plus mouse-wheel/± zoom must reach the full virtual deck. Scroll while hovering the station zooms directly; Ctrl/Cmd is not required.
-- Functional-room labels/status UI are **external callouts**, built by `StationRoomCalloutSystem`, placed only in the outer 10% deck margin and joined to rooms by leader lines. Callouts must not cover authoritative room/corridor geometry or one another. They always show full room name + power/temperature/O₂ health.
+- Functional-room status UI is built by `StationRoomCalloutSystem` and attaches directly to the selected top/bottom room edge. Keep it outside the physical floor, deterministic, and visually tied to its owning room; it shows full room name + power/temperature/O₂ health.
 - Hull mass is drawn only from real room/corridor footprints. Do not reintroduce decorative rails/links that imply nonexistent navigation.
 - `FacilitySeeder.ApplyIdentityDrivenDetails` adds deterministic room-aware fixtures. Wall equipment is bulkhead-aligned; floor equipment uses collision-aware work bays; all generated fixtures stay inside their owning room.
 - Current art direction uses bright white/grey aerospace hulls, walls and machinery around a dark black tiled deck floor in every functional room, with restrained green/orange/red status colour. Room hover/selection must never replace or hide the tiled floor. Avoid neon cyan/blue, brown grime filters or UI labels painted over the physical room floor.
@@ -166,7 +166,7 @@ Visual invariants: never invent hull/corridor/door geometry, never offset one ph
 
 Current shared mechanics include:
 
-- rooms/corridors/doors/fixtures and deterministic A* movement
+- rooms/corridors/doors/fixtures, deterministic strategic A* routing and collision-aware local movement around physical fixtures
 - door lock/open/manual override/bypass/damage/repair/weld/barricade counterplay
 - physical electrical/mechanical infrastructure: reactor/generator output, distribution bus efficiency, capacitor energy buffering, machine loads, load shedding, powered door actuators, coolant pumps, oxygen generation, CO₂ scrubbing, water recycling and control-network camera reachability
 - deterministic equipment wear/repair plus rare seeded unexpected fault events; qualified crew physically travel to and service degraded machinery
@@ -182,7 +182,7 @@ Current shared mechanics include:
 - five ordered campaign assignments, corporate directives, carry-over consequences and endings
 - browser-local campaign persistence
 - mirrored Pages/server station UI, resizable panels, large pannable deck camera, wheel/WASD/drag zoom/pan, audio/music, speech/thought bubbles, seamless physical entity animation and dotted green next-segment crew movement intent
-- room telemetry prefers short attached labels beside clear rooms; crowded cases use collision-free external callouts with prominent leader lines
+- room telemetry attaches directly to the owning room's top/bottom edge rather than floating elsewhere
 - bright white/grey spacecraft interior art direction with animated consoles/screens/vents/irrigation/pipes/medical/camera/airlock/machinery cues
 - one shared `StationSelection` / `StationInspectionSystem` contract drives the contextual Inspector for rooms, crew, doors, MR robots and ST turrets
 - the primary workspace is objectives/directives + full-width Overseer Comms + map/Inspector; the old permanent Facility Systems panel is removed
@@ -198,6 +198,9 @@ Current shared mechanics include:
 - transient cognition diagnostics via `CognitionTelemetrySystem`; Ollama traces retain prompt/raw response/validated intent, browser/rule-based minds emit the same decision shape
 - missing-person logic treats routine separation as normal: concern is measured in hours, Concerned-stage absence does not pre-empt work, and shared concern does not instantly interrupt the listener
 - scenario roster provenance is explicit: fresh scenarios use Ollama/server generation or deterministic seeded Pages generation; continuing scenarios reconstruct persisted campaign crew and never silently substitute a new roster
+- deterministic perception uses human forward-cone/open-door LOS and omnidirectional longer-range machine sensors; hostile assets cannot magically acquire unseen targets
+- medical treatment/resurrection is simulation-authoritative and resource/power/body gated; blood evidence persists physically until a capable actor cleans it
+- survival intents persist through real station traversal; local fixture avoidance must never stall an actor on a zero-length waypoint
 
 Useful subsystem anchors:
 
@@ -215,6 +218,11 @@ Useful subsystem anchors:
 - src/Overseer.Simulation/StationDeviceControlSystem.cs
 - src/Overseer.Simulation/StationInteractionSystems.cs
 - src/Overseer.Simulation/CrewProvisioningSystem.cs
+- src/Overseer.Simulation/LocalMovementSystem.cs
+- src/Overseer.Simulation/PerceptionSystem.cs
+- src/Overseer.Simulation/MedicalSystem.cs
+- src/Overseer.Simulation/MedicalEvidenceSystem.cs
+- src/Overseer.Simulation/IntentExecutionSystem.cs
 - src/Overseer.Simulation/BrowserMindSystem.cs
 - src/Overseer.AI/NpcPromptBuilder.cs
 - src/Overseer.AI/RuleBasedAiDecisionService.cs
@@ -252,59 +260,18 @@ Standard gate:
 
 ---
 
-## Completed V0.10E contracts
+## Current implementation contracts
 
-- Debug telemetry is isolated on `/debug`; no station map or player-critical controls live there.
-- The live workspace no longer carries the permanent Facility Systems panel.
-- Rooms, crew, doors, MR robots and ST turrets use one extensible Inspector selection contract.
-- Closed/unlocked powered doors are normal crew-traversable affordances: crew physically opens them at the portal, crossing revalidates live state, and traffic-driven auto-close is authoritative.
-- Engineer/Technician plus deterministic Security/Commander skill rules gate crew lock/unlock; existing damaged/manual/bypass/weld/barricade rules remain authoritative.
-- Ollama consumes a shared capability-oriented affordance catalog instead of a duplicated hardcoded menu; the model-free browser mind uses the same action contracts.
-- V0.10E regression coverage lives in `V010EInteractionTests.cs` plus existing navigation/browser-mind tests.
-
-## Completed V0.10F contracts
-
-- Station camera drag/pan no longer swallows clicks that begin on interactive station entities.
-- Physical machinery and overview status readouts select into the universal Inspector; there is no separate robot control panel.
-- Core machinery fixtures are simulation-backed and maintainable; corridor-clearance invariants remain intact.
-- Generation, distribution, capacitor storage, machine load, load shedding, door power and life-support utilities form one deterministic dependency chain.
-- New regression coverage protects click routing, universal Inspector exposure, device fixtures, power consequences, network visibility and door-layer animation.
-
-## Completed V0.11 contracts
-
-- `SecurityMalwareState` owns one contained MR/ST controller incident: Clean → Active → Isolated → Clean, with entry path, timestamps and affected asset IDs.
-- Deployment is a single high-level player action. C# requires the powered/operational `network:control` controller and affects only reachable MR/ST remote-control links; it changes policy/control state but never applies combat damage directly.
-- Compromised robot/turret links reject ordinary remote commands. Existing deterministic compartment/range/cadence/ammo/damage rules remain authoritative.
-- Evidence stays observer-local: nearby witnesses can observe abnormal asset behaviour, but full controller scope is revealed only by a skilled crew member physically diagnosing the Control-room controller.
-- Recovery is physical and timed: technical skill ≥55 + grounded controller diagnostics for a 2-minute isolation, then technical skill ≥65 for a 4-minute purge/reimage. Cleanup restores safe MR/ST defaults without delegating outcomes to an LLM.
-- BrowserMind, rule-based server fallback and Ollama prompting/validation share the same high-level recovery contracts. Both Inspectors expose controller state/deployment and compromised link status.
-- Regression coverage lives in `SecurityMalwareSystemTests.cs` and protects reachability, containment, evidence locality, skill/time recovery, remote-command blocking, physical-combat invariants and browser/server surface parity.
-
-### Latest playtest presentation contracts
-
-- Click/press feedback must not override transforms on `[data-station-interactive]`; this prevents the historical bottom-right teleport regression on fixtures, robots and other map entities.
-- Functional rooms retain the dark tiled deck floor through hover/selection; Station Overview uses light-grey window chrome to stay visually distinct from the station interior.
-- MR robots use a top-down silhouette. Walking crew use closed-cycle limb/body animation and a dotted green line for their immediate deterministic movement segment only.
-- Player-facing hierarchy is **Mission Directive / Mission Objectives** versus **The Corporation / Corporate Directives**. Do not reintroduce “Sponsor” as visible UI/campaign copy; internal compatibility identifiers may retain it.
-- Regression coverage for this pass lives in `PlaytestUiPolishTests.cs`.
-
-## Completed V0.12 contracts
-
-- `ScenarioRosterPolicy` is mandatory campaign metadata: Secure Continuity uses `FreshGenerated`; later assignments use `CampaignContinuing`.
-- Server/Ollama calls the crew generator only when the scenario policy is fresh. Continuing assignments require persisted campaign crew and fail instead of silently generating replacements.
-- Pages remains model-free. `SeededCrewRosterGenerator` produces repeatable six-person fresh rosters with unique names/roles, skills and 1–3 mechanical traits; same-seed station regeneration repeats the fresh roster.
-- Crew-specific carry-over is applied only to continuing rosters and matches by persisted identity, preventing fresh cohorts from inheriting old crew state by role.
-- Regression coverage lives in `ScenarioRosterPolicyTests.cs` and protects fresh/continuing policy, seeded repeatability/variation, roster quality, persistence authority and both runtime integration points.
-
-## Completed Station UI / Presentation Polish
-
-- Fixture layout is normalised after physical device binding: large central equipment keeps central priority, true wall controls/vents/cameras/door pads reserve bulkhead space, heavy infrastructure remains floor machinery, and fixture rectangles must stay in-bounds without overlap.
-- Optional generated bulkhead decoration is dropped rather than moved into the room when perimeter space is saturated. Physical device controls remain represented and accessible.
-- Physical machine presentation derives device-family classes from existing `RoomFixture.DeviceId` values; lighting, climate, ventilation, power, coolant, life-support, network, generator, reactor and hydroponics now have visibly distinct styling/status rhythms without changing simulation authority.
-- Station camera zoom is 15%–300% in 5% increments. Drag-panning suppresses text selection while preserving existing click/selection routing.
-- Room telemetry attaches near its room where station geometry permits; all labels remain collision-free and external fallbacks use stronger leader lines.
-- Station Overview now uses one compact command strip with Messages, Objectives and station-focus mode. Focus mode shows only Station Overview + Inspector; the popups reuse the authoritative existing comms, assignment/objective and Corporate Directive state.
-- Server/Ollama and static Pages implementations remain mirrored. Regression coverage lives in `StationUiPresentationPolishTests.cs` and the existing procedural-station presentation tests.
+- Universal Inspector, station-map click routing, physical machinery/device bindings, sliding doors, power/life-support dependencies, malware recovery, roster policy and campaign persistence remain authoritative shared systems.
+- Pages remains model/credential-free; server/Ollama and browser surfaces must preserve simulation parity. Mirrored station UI files stay synchronized.
+- `/debug` is a separate diagnostics surface and may contain cognition traces plus raw LLM request/response data; no player-critical control may depend on it.
+- Fixture collision is authoritative for mobile entities. Local navigation stays freeform visually but uses deterministic collision-aware routing internally. The current visibility-graph safety margin is deliberately small (`0.35`) because physical clearance is already enforced separately; fallbacks must never reselect the actor's current waypoint.
+- The seed-1 Storage regression (`Marcus Reed` at the formerly stuck door approach) protects the 24-hour provisioning/maintenance lifecycle from fixture-routing starvation regressions. Do not weaken the lifecycle assertions.
+- Human movement uses continuous local-motion state, faster door approach/traversal, contextual hand/arm animation only during actual hands-on actions, and correctly centred robot selection affordances.
+- Room status strips attach to the owning room's top/bottom edge. Reactor air-handler visuals must remain inside their machinery footprint. Station Overview exposes simulation speed controls.
+- Human LOS is directional and door/geometry aware; robot/turret sensor LOS is deterministic and cannot acquire targets through walls. Previously acquired hostile targets may continue to be pursued under the existing deterministic rules.
+- Medical care, resurrection and blood evidence are deterministic C# systems. Resurrection requires a powered medbay, resources/charge and a present recoverable body.
+- Movement/perception/medical regression coverage is concentrated in `MovementPerceptionMedicalPolishTests.cs` plus the existing lifecycle, robot, UI and procedural-generation suites.
 
 ## Next milestone — V0.13 Hazardous Transport Assignments
 

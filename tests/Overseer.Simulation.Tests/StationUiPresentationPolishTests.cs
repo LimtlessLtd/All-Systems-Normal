@@ -72,7 +72,7 @@ public sealed class StationUiPresentationPolishTests
     }
 
     [Fact]
-    public void RoomCallouts_AttachWhenClear_AndFallBackExternallyWhenCrowded()
+    public void RoomCallouts_AlwaysAttachToTopOrBottomEvenWhenCrowded()
     {
         var clear = new Facility();
         clear.Rooms["control"] = new Room
@@ -88,12 +88,13 @@ public sealed class StationUiPresentationPolishTests
 
         var attached = Assert.Single(StationRoomCalloutSystem.Build(clear));
         Assert.False(attached.IsExternal);
+        Assert.Contains(attached.Side, new[] { "top", "bottom" });
         Assert.InRange(
             Math.Sqrt(
                 Math.Pow(attached.LabelX - attached.AnchorX, 2)
                 + Math.Pow(attached.LabelY - attached.AnchorY, 2)),
-            2,
-            7);
+            .8,
+            3);
 
         var crowded = new Facility();
         crowded.Rooms["control"] = clear.Rooms["control"];
@@ -102,8 +103,9 @@ public sealed class StationUiPresentationPolishTests
         crowded.Rooms["top"] = Corridor("top", 50, 35, 24, 20);
         crowded.Rooms["bottom"] = Corridor("bottom", 50, 65, 24, 20);
 
-        var external = Assert.Single(StationRoomCalloutSystem.Build(crowded));
-        Assert.True(external.IsExternal);
+        var crowdedCallout = Assert.Single(StationRoomCalloutSystem.Build(crowded));
+        Assert.False(crowdedCallout.IsExternal);
+        Assert.Contains(crowdedCallout.Side, new[] { "top", "bottom" });
     }
 
     [Fact]
@@ -125,12 +127,20 @@ public sealed class StationUiPresentationPolishTests
             Assert.Contains("fixture-system-", home);
             Assert.Contains(">MESSAGES</button>", home);
             Assert.Contains(">OBJECTIVES</button>", home);
+            Assert.Contains("station-speed-controls", home);
+            Assert.Contains("BloodStyle(blood)", home);
+            Assert.Contains("hands-active", home);
+            Assert.Contains("IsLocallyMoving", home);
         }
 
         Assert.Contains(".workspace-shell.station-focus-mode", serverCss);
         Assert.Contains(".fixture-system-lighting", serverCss);
         Assert.Contains(".fixture-system-climate", serverCss);
         Assert.Contains(".fixture-system-ventilation", serverCss);
+        Assert.Contains(".fixture-resurrectionchamber", serverCss);
+        Assert.Contains(".blood-evidence", serverCss);
+        Assert.Contains(".station-speed-controls", serverCss);
+        Assert.Contains("selected::after", serverCss);
         Assert.Equal(serverCss, clientCss);
 
         foreach (var script in new[] { serverJs, clientJs })

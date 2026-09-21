@@ -6,6 +6,9 @@ namespace Overseer.Web.Client.Services;
 public sealed class GameSession
 {
     private readonly SimulationEngine _simulation = new();
+    private readonly PerceptionSystem _perception = new();
+    private readonly MedicalSystem _medical = new();
+    private readonly MedicalEvidenceSystem _medicalEvidence = new();
     private readonly EnvironmentSystem _environment = new();
     private readonly AirlockSafetySystem _airlockSafety = new();
     private readonly VacuumConsequenceSystem _vacuum = new();
@@ -775,6 +778,9 @@ public sealed class GameSession
         _airlockSafety.Tick(State, turn);
         _vacuum.Tick(State);
         _simulation.Tick(State, turn);
+        _medicalEvidence.Tick(State);
+        _perception.Tick(State);
+        _medical.Tick(State);
         _missingPeople.Tick(State);
         _malware.Tick(State);
         _browserMind.Tick(State);

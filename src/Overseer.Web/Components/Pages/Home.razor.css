@@ -8522,3 +8522,121 @@ button.turret-token {
         width: calc(100% - .6rem);
     }
 }
+
+
+/* Movement, perception and medical interaction polish. */
+.station-speed-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid #b2b8bc;
+    border-radius: 5px;
+    background: #e9ecee;
+}
+
+.station-speed-controls .selected-speed {
+    border-color: #555d62;
+    background: #fff;
+    box-shadow: inset 0 0 0 1px #777f84;
+}
+
+.room-status-callout {
+    width: clamp(150px, 7vw, 210px);
+    min-height: 48px;
+    padding: 6px 8px;
+    border-radius: 5px;
+}
+
+.station-authority-layer .robot-token:not(.turret-token).selected::after {
+    inset: auto;
+    left: 50%;
+    top: 50%;
+    width: 54px;
+    height: 54px;
+    transform: translate(-50%, -50%);
+    box-sizing: border-box;
+}
+
+.station-authority-layer .fixture-system-ventilation {
+    overflow: hidden;
+    isolation: isolate;
+    border-radius: 50% !important;
+}
+
+.station-authority-layer .fixture-system-ventilation::before {
+    inset: 24%;
+}
+
+.station-authority-layer .fixture-resurrectionchamber {
+    overflow: hidden;
+    border: 3px solid #777f84;
+    border-radius: 45% 45% 12px 12px;
+    background:
+        radial-gradient(ellipse at 50% 44%, rgba(229,248,250,.95) 0 12%, rgba(111,184,194,.65) 13% 23%, transparent 24%),
+        repeating-linear-gradient(90deg, #d5dadd 0 12%, #899196 13% 16%, #eef0f1 17% 29%),
+        #c7cdd0 !important;
+    box-shadow: inset 0 0 0 3px rgba(255,255,255,.72), 0 0 12px rgba(91,139,146,.24);
+}
+
+.station-authority-layer .fixture-resurrectionchamber::after {
+    content: "";
+    position: absolute;
+    left: 18%;
+    right: 18%;
+    bottom: 8%;
+    height: 7%;
+    border-radius: 999px;
+    background: repeating-linear-gradient(90deg, #5a8e75 0 12%, transparent 13% 24%);
+    animation: fixture-led-cool 1.2s steps(1, end) infinite;
+}
+
+.blood-evidence {
+    position: absolute;
+    z-index: 12;
+    width: var(--blood-size, 7px);
+    height: calc(var(--blood-size, 7px) * .72);
+    transform: translate(-50%, -50%) rotate(-18deg);
+    border-radius: 58% 42% 62% 38%;
+    background: rgba(112, 23, 27, .78);
+    box-shadow:
+        -4px 3px 0 -2px rgba(112, 23, 27, .52),
+        4px 2px 0 -3px rgba(112, 23, 27, .45);
+    pointer-events: none;
+}
+
+.crew-activity-label {
+    max-width: 58px;
+    overflow: hidden;
+    color: #555e63;
+    font: 800 7px/1 ui-sans-serif, system-ui, sans-serif;
+    font-style: normal;
+    letter-spacing: .035em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.crew-token.is-busy:not(.hands-active) .person-arm-right {
+    animation: none;
+    transform: rotate(-18deg);
+}
+
+.crew-token.hands-active:not(.is-walking) .person-arm-right {
+    animation: crew-work-arm .52s ease-in-out infinite alternate;
+}
+
+.crew-token:not(.is-walking) {
+    transition: none;
+}
+
+.crew-token.is-walking {
+    transition:
+        left calc(var(--crew-step-duration, 1.2s) * .92) linear,
+        top calc(var(--crew-step-duration, 1.2s) * .92) linear;
+}
+
+@media (max-width: 980px) {
+    .station-speed-controls {
+        display: none;
+    }
+}

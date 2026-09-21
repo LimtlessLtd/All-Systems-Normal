@@ -340,6 +340,11 @@
                     <span class="@(Session.State.ScenarioStatus == ScenarioStatus.Running ? "sim-running" : "sim-paused")">
                         @TurnStatusLabel
                     </span>
+                    <div class="station-speed-controls" aria-label="Simulation speed">
+                        <button type="button" class="secondary mini @(_delayMs == 2800 ? "selected-speed" : "")" @onclick="() => SetSpeed(2800)">1×</button>
+                        <button type="button" class="secondary mini @(_delayMs == 1600 ? "selected-speed" : "")" @onclick="() => SetSpeed(1600)">2×</button>
+                        <button type="button" class="secondary mini @(_delayMs == 850 ? "selected-speed" : "")" @onclick="() => SetSpeed(850)">4×</button>
+                    </div>
                     <div class="map-zoom-controls" aria-label="Station camera zoom">
                         <button type="button" class="secondary mini" data-map-zoom-out aria-label="Zoom map out">−</button>
                         <button type="button" class="secondary zoom-readout" data-map-camera-reset title="Reset pan and zoom"><span data-map-zoom-readout>100%</span></button>
@@ -610,6 +615,16 @@
                     }
                 </svg>
 
+                @foreach (var blood in Session.State.BloodEvidence.Where(e =>
+                    Session.State.Facility.Rooms.TryGetValue(e.RoomId, out var bloodRoom)
+                    && bloodRoom.HasVisualFeed))
+                {
+                    <span class="blood-evidence"
+                          style="@BloodStyle(blood)"
+                          title="Persistent blood evidence"
+                          aria-hidden="true"></span>
+                }
+
                 @foreach (var mapRobot in Session.State.Robots.Where(CanSee))
                 {
                     <button @key="mapRobot"
@@ -679,6 +694,7 @@
                             <span class="crew-nameplate">
                                 <span class="crew-initials">@Initials(npc.Name)</span>
                                 <i class="crew-motion-dot"></i>
+                                <em class="crew-activity-label">@CrewActivityLabel(npc)</em>
                             </span>
                         }
                         else
@@ -2098,7 +2114,7 @@
                 : robot.Policy.ToString().ToLowerInvariant()
         };
 
-        if (robot.Movement is not null)
+        if (robot.Movement is not null || robot.IsLocallyMoving)
             classes.Add("is-moving");
         if (robot.ActionCompletesAt is not null
             || robot.CurrentTask.Contains("repair", StringComparison.OrdinalIgnoreCase)
@@ -2134,7 +2150,7 @@
 
         if (!npc.IsAlive)
             classes.Add("deceased");
-        else if (npc.Movement is not null)
+        else if (npc.Movement is not null || npc.IsLocallyMoving)
             classes.Add("is-walking");
         else if (npc.CurrentAction.Kind is ActionKind.Talk
                  or ActionKind.Socialize
@@ -2148,7 +2164,48 @@
         else
             classes.Add("is-idle");
 
+        if (npc.CurrentAction.Kind is
+            ActionKind.Work
+            or ActionKind.Repair
+            or ActionKind.InspectEquipment
+            or ActionKind.TendCrops
+            or ActionKind.Harvest
+            or ActionKind.Cook
+            or ActionKind.MedicalCheckup
+            or ActionKind.TreatInjury
+            or ActionKind.AdministerMedication
+            or ActionKind.CleanBlood
+            or ActionKind.ResurrectCrew
+            or ActionKind.OpenDoor
+            or ActionKind.CloseDoor
+            or ActionKind.LockDoor
+            or ActionKind.UnlockDoor)
+        {
+            classes.Add("hands-active");
+        }
+
+        classes.Add($"activity-{npc.CurrentAction.Kind.ToString().ToLowerInvariant()}");
         return string.Join(' ', classes);
+    }
+
+    private static string CrewActivityLabel(Npc npc)
+    {
+        if (!npc.IsAlive) return "DECEASED";
+        if (npc.Movement is not null || npc.IsLocallyMoving) return "WALK";
+        return npc.CurrentAction.Kind switch
+        {
+            ActionKind.Idle => "IDLE",
+            ActionKind.TreatInjury => "TREAT",
+            ActionKind.AdministerMedication => "MEDS",
+            ActionKind.MedicalCheckup => "CHECK",
+            ActionKind.ResurrectCrew => "REVIVE",
+            ActionKind.CleanBlood => "CLEAN",
+            ActionKind.Repair => "REPAIR",
+            ActionKind.Work => "WORK",
+            ActionKind.Talk or ActionKind.Socialize or ActionKind.Argue => "TALK",
+            ActionKind.Sleep or ActionKind.Rest => "REST",
+            _ => npc.CurrentAction.Kind.ToString().ToUpperInvariant()
+        };
     }
 
     private static string RoomGlyph(RoomType type) => type switch
@@ -2180,22 +2237,8 @@
         _ => "•"
     };
 
-    private static double CrewFacingAngle(Npc npc)
-    {
-        if (npc.Movement is not { } movement)
-            return 0;
-
-        var dx = movement.ExitX - npc.PositionX;
-        var dy = movement.ExitY - npc.PositionY;
-
-        if (Math.Abs(dx) < .01 && Math.Abs(dy) < .01)
-        {
-            dx = movement.EntryX - movement.ExitX;
-            dy = movement.EntryY - movement.ExitY;
-        }
-
-        return (Math.Atan2(dy, dx) * 180 / Math.PI) + 90;
-    }
+    private static double CrewFacingAngle(Npc npc) =>
+        npc.FacingDegrees + 90;
 
     private static string FixtureClass(RoomFixture fixture)
     {
@@ -2363,6 +2406,17 @@
             $"left:{CrewMapX(npc)}%;top:{CrewMapY(npc)}%;--crew-facing:{facing:0.##}deg;");
     }
 
+    private string BloodStyle(BloodEvidence evidence)
+    {
+        var room = Session.State.Facility.Rooms[evidence.RoomId];
+        var mapX = room.MapX + (((evidence.X - 50) / 100) * room.MapWidth);
+        var mapY = room.MapY + (((evidence.Y - 50) / 100) * room.MapHeight);
+        var size = 5 + (evidence.Severity * 6);
+
+        return FormattableString.Invariant(
+            $"left:{mapX:0.###}%;top:{mapY:0.###}%;--blood-size:{size:0.#}px;");
+    }
+
     private string RobotStyle(StationRobot robot)
     {
         var room = Session.State.Facility.Rooms[robot.CurrentRoomId];
@@ -2376,22 +2430,8 @@
             $"left:{mapX}%;top:{mapY}%;--robot-facing:{facing:0.##}deg;");
     }
 
-    private static double RobotFacingAngle(StationRobot robot)
-    {
-        if (robot.Movement is not { } movement)
-            return 0;
-
-        var dx = movement.ExitX - robot.PositionX;
-        var dy = movement.ExitY - robot.PositionY;
-
-        if (Math.Abs(dx) < .01 && Math.Abs(dy) < .01)
-        {
-            dx = movement.EntryX - movement.ExitX;
-            dy = movement.EntryY - movement.ExitY;
-        }
-
-        return (Math.Atan2(dy, dx) * 180 / Math.PI) + 90;
-    }
+    private static double RobotFacingAngle(StationRobot robot) =>
+        robot.FacingDegrees + 90;
 
     private string TurretStyle(SecurityTurret turret)
     {

@@ -475,11 +475,8 @@ public sealed class ProceduralStationGenerationTests
     }
 
     [Fact]
-    public void ExternalRoomCalloutsNeverCoverAuthoritativeStationGeometry()
+    public void RoomStatusCalloutsStayAttachedToOwningRoomEdgesAcrossSeeds()
     {
-        const double labelHalfWidth = 4.1;
-        const double labelHalfHeight = 1.35;
-
         foreach (var seed in Enumerable.Range(0, 16).Select(index => 920_000 + index))
         {
             var state = FacilitySeeder.CreateDefault(stationSeed: seed);
@@ -492,42 +489,19 @@ public sealed class ProceduralStationGenerationTests
 
             foreach (var callout in callouts)
             {
-                var labelLeft = callout.LabelX - labelHalfWidth;
-                var labelRight = callout.LabelX + labelHalfWidth;
-                var labelTop = callout.LabelY - labelHalfHeight;
-                var labelBottom = callout.LabelY + labelHalfHeight;
+                var room = state.Facility.Rooms[callout.RoomId];
+                Assert.False(callout.IsExternal);
+                Assert.Contains(callout.Side, new[] { "top", "bottom" });
+                Assert.Equal(StationRoomCalloutSystem.ToDeck(room.MapX), callout.AnchorX, 6);
+                Assert.Equal(callout.AnchorX, callout.LabelX, 6);
 
-                foreach (var room in state.Facility.Rooms.Values)
-                {
-                    var left = StationRoomCalloutSystem.ToDeck(room.MapX - (room.MapWidth / 2));
-                    var right = StationRoomCalloutSystem.ToDeck(room.MapX + (room.MapWidth / 2));
-                    var top = StationRoomCalloutSystem.ToDeck(room.MapY - (room.MapHeight / 2));
-                    var bottom = StationRoomCalloutSystem.ToDeck(room.MapY + (room.MapHeight / 2));
+                var expectedEdgeY = StationRoomCalloutSystem.ToDeck(
+                    callout.Side == "top"
+                        ? room.MapY - (room.MapHeight / 2)
+                        : room.MapY + (room.MapHeight / 2));
 
-                    var overlaps = labelLeft < right
-                        && labelRight > left
-                        && labelTop < bottom
-                        && labelBottom > top;
-
-                    Assert.False(
-                        overlaps,
-                        $"Seed {seed}: callout {callout.RoomId} overlaps room {room.Id}.");
-                }
-            }
-
-            for (var first = 0; first < callouts.Count; first++)
-            {
-                for (var second = first + 1; second < callouts.Count; second++)
-                {
-                    var a = callouts[first];
-                    var b = callouts[second];
-                    var overlaps = Math.Abs(a.LabelX - b.LabelX) < labelHalfWidth * 2
-                        && Math.Abs(a.LabelY - b.LabelY) < labelHalfHeight * 2;
-
-                    Assert.False(
-                        overlaps,
-                        $"Seed {seed}: callouts {a.RoomId} and {b.RoomId} overlap.");
-                }
+                Assert.Equal(expectedEdgeY, callout.AnchorY, 6);
+                Assert.InRange(Math.Abs(callout.LabelY - callout.AnchorY), .8, 2.5);
             }
         }
     }

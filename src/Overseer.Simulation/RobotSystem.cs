@@ -238,6 +238,7 @@ public sealed class RobotSystem
         robot.ActionCompletesAt = null;
         var target = state.Crew
             .Where(npc => npc.IsAlive && npc.IsPresent)
+            .Where(npc => robot.TargetNpcId == npc.Id || PerceptionSystem.CanSee(state, robot, npc))
             .Select(npc => new
             {
                 Npc = npc,

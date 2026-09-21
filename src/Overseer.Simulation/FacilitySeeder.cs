@@ -549,6 +549,7 @@ public static class FacilitySeeder
     private static bool IsCentralFixture(FixtureType type) =>
         type is FixtureType.Generator
             or FixtureType.ReactorCore
+            or FixtureType.ResurrectionChamber
             or FixtureType.GrowBed
             or FixtureType.Bed
             or FixtureType.MedicalBed
@@ -578,7 +579,7 @@ public static class FacilitySeeder
         out RoomFixture resolved)
     {
         if (IsCentralFixture(fixture.Type)
-            && FitsFixture(fixture, placed, padding: 1.8))
+            && FitsFixture(fixture, placed, padding: 3.0))
         {
             resolved = fixture;
             return true;
@@ -606,7 +607,7 @@ public static class FacilitySeeder
                     candidate.Width,
                     candidate.Height);
 
-                var padding = IsWallFixture(fixture.Type) ? .75 : 1.6;
+                var padding = IsWallFixture(fixture.Type) ? 1.15 : 3.0;
                 if (FitsFixture(moved, placed, padding))
                 {
                     resolved = moved;
@@ -636,7 +637,7 @@ public static class FacilitySeeder
                 candidate.Width,
                 candidate.Height);
 
-            if (FitsFixture(moved, placed, padding: .2))
+            if (FitsFixture(moved, placed, padding: .55))
             {
                 resolved = moved;
                 return true;
@@ -657,7 +658,7 @@ public static class FacilitySeeder
             for (var x = 5d; x <= 95; x += 4)
             {
                 var moved = MoveFixture(fixture, x, y, fixture.Width, fixture.Height);
-                if (FitsFixture(moved, placed, padding: .35))
+                if (FitsFixture(moved, placed, padding: .7))
                 {
                     resolved = moved;
                     return true;
@@ -1045,6 +1046,7 @@ public static class FacilitySeeder
         AddFixture(facility, "medical", FixtureType.MedicalBed, "Med Bed A", 27, 47, 28, 19, 27, 47, FixtureUsePose.Lie, 90);
         AddFixture(facility, "medical", FixtureType.MedicalBed, "Med Bed B", 73, 47, 28, 19, 73, 47, FixtureUsePose.Lie, 270);
         AddFixture(facility, "medical", FixtureType.TreatmentUnit, "Treatment Gantry", 50, 25, 30, 14);
+        AddFixture(facility, "medical", FixtureType.ResurrectionChamber, "High-Power Resurrection Chamber", 50, 49, 14, 20, 50, 64);
         AddFixture(facility, "medical", FixtureType.Console, "Diagnostics", 50, 79, 34, 12, 50, 79);
         AddFixture(facility, "medical", FixtureType.Cabinet, "Medical Stores", 13, 80, 12, 20);
         AddFixture(facility, "medical", FixtureType.Cabinet, "Sterile Stores", 87, 80, 12, 20);

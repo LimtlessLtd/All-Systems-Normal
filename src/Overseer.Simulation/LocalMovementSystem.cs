@@ -4,7 +4,10 @@ namespace Overseer.Simulation;
 
 public sealed class LocalMovementSystem
 {
-    private const double SpeedPerMinute = 28;
+    private const double SpeedPerMinute = 32;
+    private const double DoorApproachMultiplier = 1.35;
+    private const double FixtureClearance = 1.8;
+    private const double WaypointMargin = .35;
     private readonly CrewDoorInteractionSystem _crewDoors = new();
 
     public void Tick(GameState state, TimeSpan delta)
@@ -22,18 +25,21 @@ public sealed class LocalMovementSystem
 
         foreach (var npc in state.Crew.Where(npc => npc.IsAlive))
         {
+            npc.IsLocallyMoving = false;
             if (npc.Movement is { } movement)
             {
                 AdvanceDoorMovement(state, npc, npc.Name, movement, maxDistance);
                 continue;
             }
 
+            var room = state.Facility.Rooms[npc.CurrentRoomId];
             var destination = GetLocalDestination(state, npc);
-            MoveTowards(npc, destination.X, destination.Y, maxDistance);
+            MoveTowards(room, npc, destination.X, destination.Y, maxDistance);
         }
 
         foreach (var robot in state.Robots.Where(robot => !robot.IsDestroyed))
         {
+            robot.IsLocallyMoving = false;
             if (robot.Movement is { } movement)
             {
                 AdvanceDoorMovement(state, robot, robot.Name, movement, maxDistance);
@@ -45,8 +51,9 @@ public sealed class LocalMovementSystem
                 continue;
             }
 
+            var room = state.Facility.Rooms[robot.CurrentRoomId];
             var destination = GetRobotDestination(state, robot);
-            MoveTowards(robot, destination.X, destination.Y, maxDistance);
+            MoveTowards(room, robot, destination.X, destination.Y, maxDistance);
         }
     }
 
@@ -65,11 +72,13 @@ public sealed class LocalMovementSystem
             return;
         }
 
+        var fromRoom = state.Facility.Rooms[movement.FromRoomId];
         var reachedDoor = MoveTowards(
+            fromRoom,
             entity,
             movement.ExitX,
             movement.ExitY,
-            maxDistance);
+            maxDistance * DoorApproachMultiplier);
 
         if (!reachedDoor)
         {
@@ -102,12 +111,21 @@ public sealed class LocalMovementSystem
             return;
         }
 
-        var fromRoom = state.Facility.Rooms[movement.FromRoomId];
         var toRoom = state.Facility.Rooms[movement.ToRoomId];
+        var entry = FindWalkablePoint(
+            toRoom,
+            Math.Clamp(
+                movement.EntryX + (Math.Sign(50 - movement.EntryX) * 4),
+                2,
+                98),
+            Math.Clamp(
+                movement.EntryY + (Math.Sign(50 - movement.EntryY) * 4),
+                2,
+                98));
 
         entity.CurrentRoomId = movement.ToRoomId;
-        entity.PositionX = movement.EntryX;
-        entity.PositionY = movement.EntryY;
+        entity.PositionX = entry.X;
+        entity.PositionY = entry.Y;
         entity.Movement = null;
 
         Log(
@@ -236,10 +254,10 @@ public sealed class LocalMovementSystem
 
         if (preferredFixture is not null)
         {
-            return InteractionPoint(preferredFixture);
+            return InteractionPoint(room, preferredFixture);
         }
 
-        return PersonalIdlePoint(npc.Name);
+        return PersonalIdlePoint(room, npc.Name);
     }
 
     private static (double X, double Y) GetRobotDestination(
@@ -270,13 +288,13 @@ public sealed class LocalMovementSystem
             var fixture = RobotInteractionFixture(state, room, robot);
             if (fixture is not null)
             {
-                return InteractionPoint(fixture);
+                return InteractionPoint(room, fixture);
             }
 
             return (50, 50);
         }
 
-        return PersonalIdlePoint(robot.Name);
+        return PersonalIdlePoint(room, robot.Name);
     }
 
     private static RoomFixture? RobotInteractionFixture(
@@ -379,12 +397,29 @@ public sealed class LocalMovementSystem
         return beds[0];
     }
 
-    private static (double X, double Y) InteractionPoint(RoomFixture fixture) =>
-        (
-            Math.Clamp(fixture.InteractionX ?? fixture.X, 8, 92),
-            Math.Clamp(fixture.InteractionY ?? fixture.Y, 8, 92));
+    private static (double X, double Y) InteractionPoint(Room room, RoomFixture fixture)
+    {
+        if (fixture.InteractionX is { } interactionX
+            && fixture.InteractionY is { } interactionY)
+        {
+            return FindWalkablePoint(room, interactionX, interactionY);
+        }
 
-    private static (double X, double Y) PersonalIdlePoint(string name)
+        var candidates = new[]
+        {
+            (X: fixture.X, Y: fixture.Y + (fixture.Height / 2) + 5),
+            (X: fixture.X, Y: fixture.Y - (fixture.Height / 2) - 5),
+            (X: fixture.X + (fixture.Width / 2) + 5, Y: fixture.Y),
+            (X: fixture.X - (fixture.Width / 2) - 5, Y: fixture.Y)
+        };
+
+        return candidates
+            .Select(point => FindWalkablePoint(room, point.X, point.Y))
+            .OrderBy(point => Distance(point.X, point.Y, fixture.X, fixture.Y))
+            .First();
+    }
+
+    private static (double X, double Y) PersonalIdlePoint(Room room, string name)
     {
         var slots = new (double X, double Y)[]
         {
@@ -406,31 +441,325 @@ public sealed class LocalMovementSystem
                 hash *= 16777619;
             }
 
-            return slots[hash % (uint)slots.Length];
+            var point = slots[hash % (uint)slots.Length];
+            return FindWalkablePoint(room, point.X, point.Y);
         }
     }
 
     private static bool MoveTowards(
-        IStationMobileEntity npc,
+        Room room,
+        IStationMobileEntity entity,
         double targetX,
         double targetY,
         double maxDistance)
     {
-        var dx = targetX - npc.PositionX;
-        var dy = targetY - npc.PositionY;
+        // Generated fixtures can move between station seeds, while crew/robot
+        // starting coordinates are intentionally simple. If an entity happens
+        // to begin inside newly-solid equipment, recover it to the nearest
+        // walkable point before routing rather than trapping it forever.
+        if (!IsWalkable(room, entity.PositionX, entity.PositionY))
+        {
+            var recovered = FindWalkablePoint(room, entity.PositionX, entity.PositionY);
+            entity.PositionX = recovered.X;
+            entity.PositionY = recovered.Y;
+        }
+
+        var destination = FindWalkablePoint(room, targetX, targetY);
+        var dx = destination.X - entity.PositionX;
+        var dy = destination.Y - entity.PositionY;
         var distance = Math.Sqrt((dx * dx) + (dy * dy));
+
+        SetFacing(entity, dx, dy);
 
         if (distance <= maxDistance || distance <= 0.001)
         {
-            npc.PositionX = targetX;
-            npc.PositionY = targetY;
+            if (distance > .05)
+                MarkLocallyMoving(entity);
+            entity.PositionX = destination.X;
+            entity.PositionY = destination.Y;
             return true;
         }
 
         var scale = maxDistance / distance;
-        npc.PositionX += dx * scale;
-        npc.PositionY += dy * scale;
+        var nextX = entity.PositionX + (dx * scale);
+        var nextY = entity.PositionY + (dy * scale);
+
+        if (SegmentHitsFixture(room, entity.PositionX, entity.PositionY, nextX, nextY))
+        {
+            var detour = DetourPoint(room, entity.PositionX, entity.PositionY, destination.X, destination.Y);
+            var detourDx = detour.X - entity.PositionX;
+            var detourDy = detour.Y - entity.PositionY;
+            var detourDistance = Math.Sqrt((detourDx * detourDx) + (detourDy * detourDy));
+
+            if (detourDistance <= 0.001)
+                return false;
+
+            var detourScale = Math.Min(1, maxDistance / detourDistance);
+            nextX = entity.PositionX + (detourDx * detourScale);
+            nextY = entity.PositionY + (detourDy * detourScale);
+            SetFacing(entity, detourDx, detourDy);
+
+            if (SegmentHitsFixture(room, entity.PositionX, entity.PositionY, nextX, nextY))
+                return false;
+        }
+
+        MarkLocallyMoving(entity);
+        entity.PositionX = Math.Clamp(nextX, 2, 98);
+        entity.PositionY = Math.Clamp(nextY, 2, 98);
         return false;
+    }
+
+    private static void MarkLocallyMoving(IStationMobileEntity entity)
+    {
+        if (entity is Npc npc)
+            npc.IsLocallyMoving = true;
+        else if (entity is StationRobot robot)
+            robot.IsLocallyMoving = true;
+    }
+
+    internal static bool IsWalkable(Room room, double x, double y) =>
+        x >= 2 && x <= 98 && y >= 2 && y <= 98
+        && !room.Fixtures.Any(fixture =>
+            IsCollisionFixture(fixture)
+            && PointInside(fixture, x, y, FixtureClearance));
+
+    private static (double X, double Y) FindWalkablePoint(Room room, double x, double y)
+    {
+        x = Math.Clamp(x, 4, 96);
+        y = Math.Clamp(y, 4, 96);
+
+        if (IsWalkable(room, x, y))
+            return (x, y);
+
+        for (var radius = 4d; radius <= 28; radius += 4)
+        {
+            var candidates = new[]
+            {
+                (x + radius, y), (x - radius, y), (x, y + radius), (x, y - radius),
+                (x + radius, y + radius), (x - radius, y + radius),
+                (x + radius, y - radius), (x - radius, y - radius)
+            };
+
+            foreach (var candidate in candidates
+                         .Select(point => (
+                             X: Math.Clamp(point.Item1, 4, 96),
+                             Y: Math.Clamp(point.Item2, 4, 96)))
+                         .OrderBy(point => Distance(point.X, point.Y, x, y)))
+            {
+                if (IsWalkable(room, candidate.X, candidate.Y))
+                    return candidate;
+            }
+        }
+
+        return (Math.Clamp(x, 4, 96), Math.Clamp(y, 4, 96));
+    }
+
+    private static (double X, double Y) DetourPoint(
+        Room room,
+        double startX,
+        double startY,
+        double targetX,
+        double targetY)
+    {
+        if (!SegmentHitsFixture(room, startX, startY, targetX, targetY))
+            return (targetX, targetY);
+
+        // Build a tiny deterministic visibility graph from the corners of the
+        // physical fixtures. This is internal navigation only: rendering stays
+        // completely freeform while actors can reliably walk around machinery
+        // instead of oscillating at the first blocked straight-line segment.
+        var nodes = new List<(double X, double Y)> { (targetX, targetY) };
+
+        foreach (var fixture in room.Fixtures
+                     .Where(IsCollisionFixture)
+                     .OrderBy(item => item.Label, StringComparer.OrdinalIgnoreCase))
+        {
+            var offsetX = (fixture.Width / 2) + FixtureClearance + WaypointMargin;
+            var offsetY = (fixture.Height / 2) + FixtureClearance + WaypointMargin;
+
+            foreach (var point in new[]
+                     {
+                         (X: fixture.X - offsetX, Y: fixture.Y - offsetY),
+                         (X: fixture.X + offsetX, Y: fixture.Y - offsetY),
+                         (X: fixture.X - offsetX, Y: fixture.Y + offsetY),
+                         (X: fixture.X + offsetX, Y: fixture.Y + offsetY)
+                     })
+            {
+                var candidate = (
+                    X: Math.Clamp(point.X, 3, 97),
+                    Y: Math.Clamp(point.Y, 3, 97));
+
+                if (IsWalkable(room, candidate.X, candidate.Y)
+                    && !nodes.Any(existing =>
+                        Distance(existing.X, existing.Y, candidate.X, candidate.Y) < .25))
+                {
+                    nodes.Add(candidate);
+                }
+            }
+        }
+
+        if (nodes.Count == 1)
+            return (targetX, targetY);
+
+        var distance = Enumerable.Repeat(double.PositiveInfinity, nodes.Count).ToArray();
+        var previous = Enumerable.Repeat(-2, nodes.Count).ToArray();
+        var visited = new bool[nodes.Count];
+
+        // The moving actor is an implicit source node. Seed every waypoint
+        // directly visible from its current position.
+        for (var index = 0; index < nodes.Count; index++)
+        {
+            var node = nodes[index];
+            if (SegmentHitsFixture(room, startX, startY, node.X, node.Y))
+                continue;
+
+            distance[index] = Distance(startX, startY, node.X, node.Y);
+            previous[index] = -1;
+        }
+
+        while (true)
+        {
+            var current = -1;
+            var best = double.PositiveInfinity;
+
+            for (var index = 0; index < nodes.Count; index++)
+            {
+                if (!visited[index] && distance[index] < best)
+                {
+                    best = distance[index];
+                    current = index;
+                }
+            }
+
+            if (current < 0 || current == 0)
+                break;
+
+            visited[current] = true;
+
+            for (var next = 0; next < nodes.Count; next++)
+            {
+                if (next == current || visited[next])
+                    continue;
+
+                var from = nodes[current];
+                var to = nodes[next];
+
+                if (SegmentHitsFixture(room, from.X, from.Y, to.X, to.Y))
+                    continue;
+
+                var proposed = distance[current]
+                    + Distance(from.X, from.Y, to.X, to.Y);
+
+                if (proposed + .001 >= distance[next])
+                    continue;
+
+                distance[next] = proposed;
+                previous[next] = current;
+            }
+        }
+
+        if (double.IsPositiveInfinity(distance[0]))
+        {
+            return nodes
+                .Skip(1)
+                .Where(node =>
+                    Distance(startX, startY, node.X, node.Y) > .25
+                    && !SegmentHitsFixture(room, startX, startY, node.X, node.Y))
+                .OrderBy(node =>
+                    Distance(startX, startY, node.X, node.Y)
+                    + Distance(node.X, node.Y, targetX, targetY))
+                .FirstOrDefault((targetX, targetY));
+        }
+
+        // Reconstruct the source-to-target waypoint chain. A mover can land
+        // exactly on a graph node; returning that same node on the next tick
+        // would create a zero-length detour and permanently stall the actor.
+        var route = new List<int>();
+        var waypoint = 0;
+        while (waypoint >= 0)
+        {
+            route.Add(waypoint);
+            waypoint = previous[waypoint];
+        }
+
+        route.Reverse();
+
+        foreach (var index in route)
+        {
+            var candidate = nodes[index];
+            if (Distance(startX, startY, candidate.X, candidate.Y) > .25)
+                return candidate;
+        }
+
+        return (targetX, targetY);
+    }
+
+    private static bool SegmentHitsFixture(
+        Room room,
+        double startX,
+        double startY,
+        double endX,
+        double endY) =>
+        room.Fixtures.Any(fixture =>
+            IsCollisionFixture(fixture)
+            && SegmentIntersectsInflatedFixture(
+                fixture, startX, startY, endX, endY, FixtureClearance));
+
+    private static bool SegmentIntersectsInflatedFixture(
+        RoomFixture fixture,
+        double startX,
+        double startY,
+        double endX,
+        double endY,
+        double clearance)
+    {
+        var distance = Distance(startX, startY, endX, endY);
+        var steps = Math.Max(1, (int)Math.Ceiling(distance / 1.5));
+
+        for (var index = 1; index <= steps; index++)
+        {
+            var t = index / (double)steps;
+            var x = startX + ((endX - startX) * t);
+            var y = startY + ((endY - startY) * t);
+            if (PointInside(fixture, x, y, clearance))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool PointInside(RoomFixture fixture, double x, double y, double clearance) =>
+        x >= fixture.X - (fixture.Width / 2) - clearance
+        && x <= fixture.X + (fixture.Width / 2) + clearance
+        && y >= fixture.Y - (fixture.Height / 2) - clearance
+        && y <= fixture.Y + (fixture.Height / 2) + clearance;
+
+    private static bool IsCollisionFixture(RoomFixture fixture) =>
+        fixture.Type is not FixtureType.Camera
+            and not FixtureType.Window
+            and not FixtureType.Screen
+            and not FixtureType.Mirror
+            and not FixtureType.Pipe
+            and not FixtureType.AirlockDoor;
+
+    private static double Distance(double firstX, double firstY, double secondX, double secondY)
+    {
+        var dx = firstX - secondX;
+        var dy = firstY - secondY;
+        return Math.Sqrt((dx * dx) + (dy * dy));
+    }
+
+    private static void SetFacing(IStationMobileEntity entity, double dx, double dy)
+    {
+        if (Math.Abs(dx) < .001 && Math.Abs(dy) < .001)
+            return;
+
+        var facing = Math.Atan2(dy, dx) * 180 / Math.PI;
+
+        if (entity is Npc npc)
+            npc.FacingDegrees = facing;
+        else if (entity is StationRobot robot)
+            robot.FacingDegrees = facing;
     }
 
     private static void Log(GameState state, string message)

@@ -13,7 +13,7 @@ public sealed class IntentExecutionSystem
         {
             var intent = npc.Intent!;
 
-            if (state.Elapsed - intent.CreatedAt > TimeSpan.FromMinutes(20))
+            if (state.Elapsed - intent.CreatedAt > IntentLifetime(intent))
             {
                 npc.Intent = null;
                 npc.CurrentAction = new NpcAction(
@@ -60,6 +60,37 @@ public sealed class IntentExecutionSystem
                 case ActionKind.Harvest:
                 case ActionKind.Cook:
                     ExecuteRoomIntent(state, npc, intent);
+                    break;
+
+                case ActionKind.MedicalCheckup:
+                case ActionKind.TreatInjury:
+                case ActionKind.AdministerMedication:
+                case ActionKind.ResurrectCrew:
+                    // Clinical outcomes are simulation-authoritative. A model may
+                    // express the intent, but MedicalSystem owns eligibility,
+                    // timing, supplies, power and health mutation.
+                    npc.CurrentAction = new NpcAction(
+                        ActionKind.Idle,
+                        intent.TargetId,
+                        "Clinical request noted; medbay protocols determine the outcome.");
+                    npc.Intent = null;
+                    break;
+
+                case ActionKind.CleanBlood:
+                    var cleaningRoom = ResolveRoom(state, intent.TargetId)
+                        ?? state.Facility.Rooms[npc.CurrentRoomId];
+                    if (!npc.CurrentRoomId.Equals(cleaningRoom.Id, StringComparison.OrdinalIgnoreCase))
+                    {
+                        MoveTowardRoom(state, npc, intent, cleaningRoom.Id);
+                    }
+                    else
+                    {
+                        npc.CurrentAction = new NpcAction(
+                            ActionKind.CleanBlood,
+                            cleaningRoom.Id,
+                            intent.Reason);
+                        npc.Intent = null;
+                    }
                     break;
 
                 case ActionKind.Talk:
@@ -151,6 +182,25 @@ public sealed class IntentExecutionSystem
                     break;
             }
         }
+    }
+
+    private static TimeSpan IntentLifetime(NpcIntent intent)
+    {
+        // Ordinary deliberative goals remain deliberately short-lived so the
+        // mind can reconsider. Survival needs and critical safety goals must
+        // persist long enough to traverse a now-physical, collision-aware
+        // station rather than being forgotten halfway to food or safety.
+        if (intent.Urgency >= 90)
+            return TimeSpan.FromMinutes(90);
+
+        return intent.Action switch
+        {
+            ActionKind.Eat => TimeSpan.FromMinutes(75),
+            ActionKind.Sleep or ActionKind.Rest => TimeSpan.FromMinutes(60),
+            ActionKind.UseToilet => TimeSpan.FromMinutes(45),
+            ActionKind.SeekSafety => TimeSpan.FromMinutes(90),
+            _ => TimeSpan.FromMinutes(20)
+        };
     }
 
     private void ExecuteRobotCountermeasureIntent(

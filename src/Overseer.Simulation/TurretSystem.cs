@@ -242,6 +242,7 @@ public sealed class TurretSystem
 
     private static Npc? SelectTarget(GameState state, SecurityTurret turret) =>
         state.Crew
+            .Where(npc => PerceptionSystem.CanSee(state, turret, npc))
             .Where(npc => IsEligibleTarget(turret, npc))
             .OrderBy(npc => Distance(turret, npc))
             .ThenBy(npc => npc.Name)
