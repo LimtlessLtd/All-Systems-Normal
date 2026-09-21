@@ -336,7 +336,8 @@ public enum StationSelectionKind
     Crew,
     Door,
     Robot,
-    Turret
+    Turret,
+    Device
 }
 
 /// <summary>
