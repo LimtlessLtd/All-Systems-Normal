@@ -24,6 +24,7 @@ public sealed class LocalMovementSystem
 
         foreach (var npc in state.Crew.Where(npc => npc.IsAlive))
         {
+            npc.IsLocallyMoving = false;
             if (npc.Movement is { } movement)
             {
                 AdvanceDoorMovement(state, npc, npc.Name, movement, maxDistance);
@@ -37,6 +38,7 @@ public sealed class LocalMovementSystem
 
         foreach (var robot in state.Robots.Where(robot => !robot.IsDestroyed))
         {
+            robot.IsLocallyMoving = false;
             if (robot.Movement is { } movement)
             {
                 AdvanceDoorMovement(state, robot, robot.Name, movement, maxDistance);
@@ -455,6 +457,8 @@ public sealed class LocalMovementSystem
 
         if (distance <= maxDistance || distance <= 0.001)
         {
+            if (distance > .05)
+                MarkLocallyMoving(entity);
             entity.PositionX = destination.X;
             entity.PositionY = destination.Y;
             return true;
@@ -483,9 +487,18 @@ public sealed class LocalMovementSystem
                 return false;
         }
 
+        MarkLocallyMoving(entity);
         entity.PositionX = Math.Clamp(nextX, 2, 98);
         entity.PositionY = Math.Clamp(nextY, 2, 98);
         return false;
+    }
+
+    private static void MarkLocallyMoving(IStationMobileEntity entity)
+    {
+        if (entity is Npc npc)
+            npc.IsLocallyMoving = true;
+        else if (entity is StationRobot robot)
+            robot.IsLocallyMoving = true;
     }
 
     internal static bool IsWalkable(Room room, double x, double y) =>

@@ -74,14 +74,14 @@
                             @if (!string.IsNullOrWhiteSpace(trace.RawResponse))
                             {
                                 <details>
-                                    <summary>RAW MODEL RESPONSE</summary>
+                                    <summary>LLM RESPONSE // RAW MODEL OUTPUT</summary>
                                     <pre>@trace.RawResponse</pre>
                                 </details>
                             }
                             @if (!string.IsNullOrWhiteSpace(trace.Prompt))
                             {
                                 <details>
-                                    <summary>PROMPT / AFFORDANCES / OBSERVATIONS</summary>
+                                    <summary>LLM REQUEST // PROMPT + AFFORDANCES + OBSERVATIONS</summary>
                                     <pre>@trace.Prompt</pre>
                                 </details>
                             }

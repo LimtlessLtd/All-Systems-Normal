@@ -530,6 +530,7 @@ public sealed class StationRobot : IStationMobileEntity
     public double PositionX { get; set; } = 50;
     public double PositionY { get; set; } = 50;
     public double FacingDegrees { get; set; }
+    public bool IsLocallyMoving { get; set; }
     public NpcMovement? Movement { get; set; }
 
     public RobotPolicy Policy { get; set; } = RobotPolicy.Friendly;
@@ -660,6 +661,7 @@ public sealed class Npc : IStationMobileEntity
     public double PositionX { get; set; } = 50;
     public double PositionY { get; set; } = 50;
     public double FacingDegrees { get; set; }
+    public bool IsLocallyMoving { get; set; }
     public NpcMovement? Movement { get; set; }
 
     public double Health { get; set; } = 100;
