@@ -2106,7 +2106,7 @@
 
     private static string CalloutStyle(StationRoomCallout callout) =>
         FormattableString.Invariant(
-            $"left:{callout.LabelX:0.###}%;top:{callout.LabelY:0.###}%;");
+            $"left:{callout.LabelX:0.###}%;top:{callout.LabelY:0.###}%;width:{callout.LabelWidth:0.###}%;");
 
     private static double CalloutRoomX(Room room, string side) =>
         StationRoomCalloutSystem.ToDeck(
