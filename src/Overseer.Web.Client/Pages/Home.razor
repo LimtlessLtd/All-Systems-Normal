@@ -50,10 +50,14 @@
                 <span class="overline">GRID</span>
                 <strong>@((Session.State.Power.SupplyKilowatts + Session.State.Power.BufferDischargeKilowatts).ToString("0"))/@Session.State.Power.DemandKilowatts.ToString("0") kW</strong>
             </button>
-            <div class="@(Session.AlertCount > 0 ? "has-alerts" : "")">
+            <button type="button"
+                    class="status-tile @(Session.AlertCount > 0 ? "has-alerts" : "")"
+                    data-station-interactive
+                    title="Show what the alerts are"
+                    @onclick="ShowAlertsAsync">
                 <span>ALERTS</span>
                 <strong>@Session.AlertCount</strong>
-            </div>
+            </button>
         </div>
 
         <div class="time-controls">
@@ -347,10 +351,11 @@
                           title="Mission time">
                         T+@Session.State.Elapsed.ToString(@"hh\:mm") · @TurnStatusLabel
                     </span>
-                    @if (Session.AlertCount > 0)
-                    {
-                        <span class="station-alerts" title="Active station alerts">@Session.AlertCount ALERT@(Session.AlertCount == 1 ? "" : "S")</span>
-                    }
+                    <button type="button"
+                            class="mini station-alerts station-popup-toggle @(Session.AlertCount > 0 ? "has-alerts" : "no-alerts") @(_stationOverlay == "alerts" ? "active" : "")"
+                            aria-pressed="@(_stationOverlay == "alerts")"
+                            title="Show what the alerts are"
+                            @onclick='() => ToggleStationOverlay("alerts")'>@Session.AlertCount ALERT@(Session.AlertCount == 1 ? "" : "S")</button>
                     <button type="button"
                             class="secondary mini pause-toggle @(_paused ? "is-paused" : "")"
                             aria-pressed="@_paused"
@@ -564,6 +569,40 @@
                         }
                     </div>
                     <small class="crew-roster-legend">Bars: health · stress · suspicion of Overseer. Location and activity need a live camera feed.</small>
+                </section>
+            }
+
+            @if (_stationOverlay == "alerts")
+            {
+                var alerts = Session.Alerts;
+                <section class="station-overlay-popover station-alerts-popover" aria-label="Station alerts">
+                    <header>
+                        <div>
+                            <span class="overline">STATION ALERTS</span>
+                            <strong>@(alerts.Count == 0 ? "ALL SYSTEMS NORMAL" : $"{alerts.Count} ACTIVE")</strong>
+                        </div>
+                        <button type="button" class="secondary mini" @onclick='() => ToggleStationOverlay("alerts")'>CLOSE</button>
+                    </header>
+                    @if (alerts.Count == 0)
+                    {
+                        <p class="station-popup-briefing">Nothing on the station currently needs attention.</p>
+                    }
+                    else
+                    {
+                        <p class="station-popup-briefing">Most serious first. Click an alert to inspect what it refers to.</p>
+                        <div class="station-alert-list">
+                            @foreach (var alert in alerts)
+                            {
+                                <button type="button"
+                                        class="station-alert-entry @(alert.Severity == StationAlertSeverity.Critical ? "critical" : "warning")"
+                                        disabled="@(alert.Target is null)"
+                                        @onclick="() => InspectAlert(alert)">
+                                    <b>@(alert.Severity == StationAlertSeverity.Critical ? "CRITICAL" : "WARNING")</b>
+                                    <span>@alert.Message</span>
+                                </button>
+                            }
+                        </div>
+                    }
                 </section>
             }
 
@@ -1843,6 +1882,26 @@
 
         _confirmingReset = false;
         await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ShowAlertsAsync()
+    {
+        _stationOverlay = "alerts";
+
+        // The alert list lives on the station panel, which the full console
+        // shows below the objectives; bring it into view.
+        if (!_stationFullscreen)
+        {
+            await JS.InvokeVoidAsync("overseerLayout.revealStationPanel");
+        }
+    }
+
+    private void InspectAlert(StationAlert alert)
+    {
+        if (alert.Target is not null)
+        {
+            _selection = alert.Target;
+        }
     }
 
     private async Task FocusCrewAsync(Npc member)

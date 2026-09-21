@@ -8800,6 +8800,61 @@ button.turret-token {
     font-weight: 700;
 }
 
+.station-header-actions .station-alerts.no-alerts {
+    border-color: rgba(60, 154, 107, .55);
+    color: #2b6f4c;
+    background: rgba(60, 154, 107, .1);
+}
+
+.station-alert-list {
+    display: grid;
+    gap: .3rem;
+    margin-top: .5rem;
+}
+
+.station-overlay-popover .station-alert-entry {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    align-items: center;
+    gap: .5rem;
+    min-height: 0;
+    padding: .4rem .55rem;
+    border: 1px solid #d0d5d8;
+    border-left: 4px solid #d08a2e;
+    border-radius: 4px;
+    background: #fff;
+    color: #252b2f;
+    font-weight: 500;
+    text-align: left;
+}
+
+.station-overlay-popover .station-alert-entry.critical {
+    border-left-color: #c0484f;
+}
+
+.station-overlay-popover .station-alert-entry:disabled {
+    cursor: default;
+    opacity: .85;
+}
+
+.station-alert-entry b {
+    font-size: .55rem;
+    letter-spacing: .08em;
+}
+
+.station-alert-entry.warning b {
+    color: #9a5f00;
+}
+
+.station-alert-entry.critical b {
+    color: #a3343b;
+}
+
+.station-alert-entry span {
+    font-size: .68rem;
+    line-height: 1.35;
+}
+
 .station-menu-actions {
     display: flex;
     flex-wrap: wrap;
