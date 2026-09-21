@@ -7,7 +7,8 @@ public enum CrewRole
     Security,
     Doctor,
     Technician,
-    Scientist
+    Scientist,
+    Prisoner
 }
 
 public enum RoomType
