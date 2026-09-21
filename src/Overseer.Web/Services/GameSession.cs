@@ -43,11 +43,18 @@ public sealed class GameSession(
     {
         var continuingCrew = CampaignProgressionSystem.CreateCrewForScenario(Campaign, scenario);
 
+        IReadOnlyList<Npc> baseCrew;
         if (continuingCrew is not null)
-            return continuingCrew;
+        {
+            baseCrew = continuingCrew;
+        }
+        else
+        {
+            var generated = await _crewGenerator.GenerateAsync(cancellationToken);
+            baseCrew = CrewRosterScalingSystem.EnsureTargetSize(generated, scenario.Id);
+        }
 
-        var generated = await _crewGenerator.GenerateAsync(cancellationToken);
-        return CrewRosterScalingSystem.EnsureTargetSize(generated, scenario.Id);
+        return PrisonerRosterSystem.Compose(baseCrew, scenario);
     }
 
     public override async Task ResetAsync(
