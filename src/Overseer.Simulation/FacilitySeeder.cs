@@ -494,6 +494,15 @@ public static class FacilitySeeder
                     continue;
                 }
 
+                if (IsWallFixture(fixture.Type)
+                    && fixture.DeviceId is null
+                    && fixture.Label.StartsWith("Generated ", StringComparison.Ordinal))
+                {
+                    // Identity decoration is optional. Never violate the wall
+                    // contract by pushing a decorative bulkhead detail inward.
+                    continue;
+                }
+
                 // Extremely crowded authored rooms still need every physical
                 // control/device to remain represented. Use a tiny deterministic
                 // service marker as the final fallback rather than overlap it.
@@ -522,9 +531,20 @@ public static class FacilitySeeder
     private static int FixturePlacementPriority(RoomFixture fixture) =>
         IsCentralFixture(fixture.Type)
             ? 300
-            : IsWallFixture(fixture.Type)
-                ? 250
-                : 200;
+            : IsCriticalWallFixture(fixture.Type)
+                ? 275
+                : IsWallFixture(fixture.Type)
+                    ? 240
+                    : 200;
+
+    private static bool IsCriticalWallFixture(FixtureType type) =>
+        type is FixtureType.Pipe
+            or FixtureType.Window
+            or FixtureType.Vent
+            or FixtureType.Screen
+            or FixtureType.UtilityPanel
+            or FixtureType.Camera
+            or FixtureType.DoorConsole;
 
     private static bool IsCentralFixture(FixtureType type) =>
         type is FixtureType.Generator
@@ -545,13 +565,6 @@ public static class FacilitySeeder
             or FixtureType.RecreationConsole
             or FixtureType.Camera
             or FixtureType.DoorConsole
-            or FixtureType.PowerBus
-            or FixtureType.NetworkRack
-            or FixtureType.CapacitorBank
-            or FixtureType.CoolantPump
-            or FixtureType.WaterRecycler
-            or FixtureType.OxygenGenerator
-            or FixtureType.CarbonScrubber
             or FixtureType.IrrigationTank
             or FixtureType.Cabinet
             or FixtureType.Locker
