@@ -5,6 +5,7 @@ namespace Overseer.Simulation;
 public sealed class LocalMovementSystem
 {
     private const double SpeedPerMinute = 28;
+    private readonly CrewDoorInteractionSystem _crewDoors = new();
 
     public void Tick(GameState state, TimeSpan delta)
     {
@@ -49,7 +50,7 @@ public sealed class LocalMovementSystem
         }
     }
 
-    private static void AdvanceDoorMovement(
+    private void AdvanceDoorMovement(
         GameState state,
         IStationMobileEntity entity,
         string displayName,
@@ -79,26 +80,25 @@ public sealed class LocalMovementSystem
             candidate.Id.Equals(movement.DoorId, StringComparison.OrdinalIgnoreCase));
 
         if (door is null
-            || !door.Connects(movement.FromRoomId, movement.ToRoomId)
-            || !door.IsPassable)
+            || !door.Connects(movement.FromRoomId, movement.ToRoomId))
         {
-            entity.Movement = null;
+            BlockAtDoor(state, entity, displayName, movement);
+            return;
+        }
 
-            if (entity is Npc npc)
-            {
-                npc.CurrentAction = new NpcAction(
-                    ActionKind.Idle,
-                    movement.ToRoomId,
-                    $"Reached {movement.DoorId}, but it is now sealed.");
-            }
-            else if (entity is StationRobot robot)
-            {
-                robot.CurrentTask = $"Route blocked at {movement.DoorId}.";
-            }
+        if (!door.IsPassable
+            && entity is Npc crew
+            && CrewDoorInteractionSystem.CanOpenForTraversal(state, crew, door))
+        {
+            _crewDoors.TryOpenForTraversal(state, crew, door, out _);
+        }
 
-            Log(
-                state,
-                $"{displayName} reaches {movement.DoorId} but cannot cross because it is sealed.");
+        // Revalidate the live authoritative door state at the actual crossing.
+        // A lock, weld, barricade, power loss or airlock interlock can still
+        // stop somebody even if route planning originally allowed the trip.
+        if (!door.IsPassable)
+        {
+            BlockAtDoor(state, entity, displayName, movement);
             return;
         }
 
@@ -113,6 +113,33 @@ public sealed class LocalMovementSystem
         Log(
             state,
             $"{displayName} crosses {door.Id} from {fromRoom.Name} to {toRoom.Name}.");
+    }
+
+
+    private static void BlockAtDoor(
+        GameState state,
+        IStationMobileEntity entity,
+        string displayName,
+        NpcMovement movement)
+    {
+        entity.Movement = null;
+
+        if (entity is Npc npc)
+        {
+            npc.CurrentAction = new NpcAction(
+                ActionKind.Idle,
+                movement.ToRoomId,
+                $"Reached {movement.DoorId}, but it is now sealed.");
+            npc.NeedsMindReconsideration = true;
+        }
+        else if (entity is StationRobot robot)
+        {
+            robot.CurrentTask = $"Route blocked at {movement.DoorId}.";
+        }
+
+        Log(
+            state,
+            $"{displayName} reaches {movement.DoorId} but cannot cross because it is sealed.");
     }
 
     private static (double X, double Y) GetLocalDestination(
