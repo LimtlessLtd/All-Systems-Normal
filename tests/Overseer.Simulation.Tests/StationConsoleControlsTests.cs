@@ -99,6 +99,19 @@ public sealed class StationConsoleControlsTests
         Assert.Contains("event.code === \"Space\"", source);
     }
 
+    [Fact]
+    public void StationHeader_WrapsControlsInsteadOfCoveringTheTitle()
+    {
+        var root = FindRepositoryRoot();
+        var css = File.ReadAllText(Path.Combine(root, "src/Overseer.Web.UI/Pages/Home.razor.css"));
+
+        // Right-aligned controls on a line that cannot wrap slide over the
+        // title whenever they do not fit (most widths below ~1650px).
+        Assert.Contains(".station-command-header {\n    flex-wrap: wrap;", css.Replace("\r\n", "\n"));
+        Assert.Contains(".station-command-header .station-title-compact {\n    flex: 0 0 auto;", css.Replace("\r\n", "\n"));
+        Assert.Contains(".station-command-header .station-header-actions {\n    flex: 1 1 340px;\n    flex-wrap: wrap;", css.Replace("\r\n", "\n"));
+    }
+
     private static string FindRepositoryRoot()
     {
         var current = new DirectoryInfo(AppContext.BaseDirectory);
