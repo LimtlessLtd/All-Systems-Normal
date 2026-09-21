@@ -48,6 +48,10 @@ public sealed class IntentExecutionSystem
                 case ActionKind.Investigate:
                 case ActionKind.Repair:
                 case ActionKind.Work:
+                case ActionKind.InspectEquipment:
+                case ActionKind.VerifyClaim:
+                case ActionKind.StandGuard:
+                case ActionKind.SeekSafety:
 
                 // Provisioning work happens at a place, so getting there is the
                 // same problem as any other room intent. CrewProvisioningSystem
@@ -62,6 +66,12 @@ public sealed class IntentExecutionSystem
                 case ActionKind.Socialize:
                 case ActionKind.Argue:
                 case ActionKind.RequestHelp:
+                case ActionKind.CheckOnCrew:
+                case ActionKind.AssistCrew:
+                case ActionKind.CoordinateWork:
+                case ActionKind.ReassureCrew:
+                case ActionKind.MisleadCrew:
+                case ActionKind.ReportConcern:
                 case ActionKind.RecruitShutdownAlly:
                     ExecuteSocialIntent(state, npc, intent);
                     break;
@@ -72,6 +82,13 @@ public sealed class IntentExecutionSystem
 
                 case ActionKind.ShutdownOverseer:
                     ExecuteShutdownIntent(state, npc, intent);
+                    break;
+
+                case ActionKind.OpenDoor:
+                case ActionKind.CloseDoor:
+                case ActionKind.LockDoor:
+                case ActionKind.UnlockDoor:
+                    ExecuteCrewDoorOperationIntent(state, npc, intent);
                     break;
 
                 case ActionKind.ForceDoor:
@@ -244,6 +261,30 @@ public sealed class IntentExecutionSystem
             new NpcAction(intent.Action, door.Id, intent.Reason), out _);
     }
 
+
+    private void ExecuteCrewDoorOperationIntent(
+        GameState state,
+        Npc npc,
+        NpcIntent intent)
+    {
+        var door = state.Facility.Doors.FirstOrDefault(candidate =>
+            candidate.Id.Equals(intent.TargetId, StringComparison.OrdinalIgnoreCase));
+
+        if (door is null || !CrewDoorInteractionSystem.IsAdjacent(npc, door))
+        {
+            FailIntent(npc, "I need to be beside that hatch to operate it.");
+            return;
+        }
+
+        _actions.TryApply(
+            state,
+            npc.Id,
+            new NpcAction(intent.Action, door.Id, intent.Reason),
+            out _);
+
+        npc.Intent = null;
+    }
+
     private void ExecuteForceDoorIntent(
         GameState state,
         Npc npc,
@@ -411,8 +452,9 @@ public sealed class IntentExecutionSystem
             return;
         }
 
-        var path = _navigation.FindPath(
-            state.Facility,
+        var path = _navigation.FindPathForCrew(
+            state,
+            npc,
             npc.CurrentRoomId,
             mechanism.RoomId);
 
@@ -629,8 +671,9 @@ public sealed class IntentExecutionSystem
         NpcIntent intent,
         string targetRoomId)
     {
-        var path = _navigation.FindPath(
-            state.Facility,
+        var path = _navigation.FindPathForCrew(
+            state,
+            npc,
             npc.CurrentRoomId,
             targetRoomId);
 
@@ -709,8 +752,9 @@ public sealed class IntentExecutionSystem
             return;
         }
 
-        var path = _navigation.FindPath(
-            state.Facility,
+        var path = _navigation.FindPathForCrew(
+            state,
+            npc,
             npc.CurrentRoomId,
             target.CurrentRoomId);
 

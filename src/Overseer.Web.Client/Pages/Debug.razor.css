@@ -1,0 +1,195 @@
+.debug-shell {
+    min-height: 100vh;
+    padding: 1rem;
+    background: #050d12;
+    color: #d7e6e8;
+    font-family: "Cascadia Code", Consolas, monospace;
+}
+
+.debug-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+    padding: 1rem 1.2rem;
+    border: 1px solid #2d4b58;
+    background: #0a171f;
+}
+
+.debug-header h1 {
+    margin: .2rem 0;
+    font-size: clamp(1.15rem, 2vw, 1.9rem);
+}
+
+.debug-header p {
+    max-width: 760px;
+    margin: .3rem 0 0;
+    color: #8ba7ae;
+    font-size: .68rem;
+    line-height: 1.45;
+}
+
+.overline {
+    color: #6f929b;
+    font-size: .62rem;
+    letter-spacing: .12em;
+}
+
+.debug-return {
+    padding: .55rem .75rem;
+    border: 1px solid #62e5d5;
+    color: #62e5d5;
+    text-decoration: none;
+    font-size: .65rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.debug-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
+    gap: 1px;
+    margin-top: .75rem;
+    border: 1px solid #28434f;
+    background: #28434f;
+}
+
+.debug-summary > div {
+    padding: .7rem;
+    background: #0b1921;
+}
+
+.debug-summary span,
+.debug-summary strong {
+    display: block;
+}
+
+.debug-summary span {
+    color: #76969e;
+    font-size: .55rem;
+    letter-spacing: .08em;
+}
+
+.debug-summary strong {
+    margin-top: .2rem;
+    color: #62e5d5;
+    font-size: .85rem;
+}
+
+.debug-grid {
+    display: grid;
+    grid-template-columns: minmax(480px, 1.7fr) minmax(300px, .8fr);
+    gap: .75rem;
+    margin-top: .75rem;
+    align-items: start;
+}
+
+.debug-grid > aside {
+    display: grid;
+    gap: .75rem;
+}
+
+.debug-panel {
+    min-width: 0;
+    padding: .8rem;
+    border: 1px solid #28434f;
+    background: #09151c;
+}
+
+.debug-panel h2 {
+    margin: 0 0 .65rem;
+    color: #a9c8ce;
+    font-size: .72rem;
+    letter-spacing: .08em;
+}
+
+.debug-entry {
+    margin-bottom: .6rem;
+    padding: .65rem;
+    border: 1px solid #263f49;
+    border-left: 3px solid #4fbeb2;
+    background: #061016;
+}
+
+.debug-entry header {
+    display: flex;
+    justify-content: space-between;
+    gap: .5rem;
+    color: #c6e0e3;
+    font-size: .6rem;
+}
+
+.debug-entry header span,
+.debug-entry p,
+.debug-log,
+.debug-empty {
+    color: #8eaab0;
+    font-size: .61rem;
+    line-height: 1.45;
+}
+
+.debug-entry p {
+    margin: .35rem 0 0;
+}
+
+.debug-entry b,
+.debug-entry strong {
+    color: #d9eeee;
+}
+
+.debug-note {
+    color: #f0be6b !important;
+}
+
+.debug-entry details {
+    margin-top: .45rem;
+}
+
+.debug-entry summary {
+    cursor: pointer;
+    color: #81bec4;
+    font-size: .57rem;
+}
+
+.debug-entry pre {
+    max-height: 430px;
+    overflow: auto;
+    margin: .45rem 0 0;
+    padding: .6rem;
+    border: 1px solid #1f3640;
+    background: #02080c;
+    color: #b9d5d9;
+    font: .55rem/1.45 "Cascadia Code", Consolas, monospace;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.debug-log {
+    margin: .25rem 0;
+    padding: .25rem .35rem;
+    border-left: 2px solid #203842;
+}
+
+@media (max-width: 900px) {
+    .debug-header {
+        display: block;
+    }
+
+    .debug-return {
+        display: inline-block;
+        margin-top: .75rem;
+    }
+
+    .debug-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .debug-grid {
+        display: block;
+    }
+
+    .debug-grid > aside,
+    .debug-grid > .debug-panel {
+        margin-top: .75rem;
+    }
+}

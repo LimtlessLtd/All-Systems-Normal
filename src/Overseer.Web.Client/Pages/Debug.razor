@@ -1,0 +1,120 @@
+@page "/debug"
+@using Overseer.Simulation
+@inject GameSession Session
+
+<PageTitle>All Systems Normal · Debug Telemetry</PageTitle>
+
+<div class="debug-shell">
+    <header class="debug-header">
+        <div>
+            <span class="overline">DEVELOPER DIAGNOSTICS // NON-GAMEPLAY</span>
+            <h1>COGNITION TELEMETRY</h1>
+            <p>This screen is intentionally separate from the station workspace and contains no player-critical controls.</p>
+        </div>
+        <a class="debug-return" href="">RETURN TO STATION</a>
+    </header>
+
+    @if (!DebugTelemetrySystem.UiEnabled)
+    {
+        <section class="debug-panel">
+            <h2>DEBUG UI DISABLED</h2>
+            <p>Telemetry capture does not affect simulation state.</p>
+        </section>
+    }
+    else
+    {
+        var snapshot = DebugTelemetrySystem.Capture(Session.State);
+
+        <section class="debug-summary">
+            <div><span>MIND CALLS</span><strong>@snapshot.Cognition.Count</strong></div>
+            <div><span>EVENTS</span><strong>@snapshot.Events.Count</strong></div>
+            <div><span>MISSION</span><strong>T+@Session.State.Elapsed.ToString(@"hh\:mm")</strong></div>
+            <div><span>MODE</span><strong>@(DebugTelemetrySystem.IsGameplayCritical ? "GAMEPLAY" : "DEBUG ONLY")</strong></div>
+        </section>
+
+        <div class="debug-grid">
+            <section class="debug-panel">
+                <h2>VALIDATED COGNITION</h2>
+                @if (snapshot.Cognition.Count == 0)
+                {
+                    <p class="debug-empty">No cognition calls recorded yet.</p>
+                }
+                else
+                {
+                    @foreach (var trace in snapshot.Cognition.Take(100))
+                    {
+                        <article class="debug-entry">
+                            <header>
+                                <strong>T+@trace.CreatedAt.ToString(@"hh\:mm") · @trace.NpcName</strong>
+                                <span>@trace.Source</span>
+                            </header>
+                            <p>
+                                <b>@(trace.Action?.ToString() ?? "REJECTED")</b>
+                                @if (!string.IsNullOrWhiteSpace(trace.TargetId))
+                                {
+                                    <text> → @trace.TargetId</text>
+                                }
+                                @if (trace.Urgency is { } urgency)
+                                {
+                                    <text> · urgency @urgency/100</text>
+                                }
+                            </p>
+                            @if (!string.IsNullOrWhiteSpace(trace.Goal))
+                            {
+                                <p><strong>Goal:</strong> @trace.Goal</p>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(trace.Reason))
+                            {
+                                <p><strong>Reason:</strong> @trace.Reason</p>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(trace.Note))
+                            {
+                                <p class="debug-note">@trace.Note</p>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(trace.RawResponse))
+                            {
+                                <details>
+                                    <summary>RAW MODEL RESPONSE</summary>
+                                    <pre>@trace.RawResponse</pre>
+                                </details>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(trace.Prompt))
+                            {
+                                <details>
+                                    <summary>PROMPT / AFFORDANCES / OBSERVATIONS</summary>
+                                    <pre>@trace.Prompt</pre>
+                                </details>
+                            }
+                        </article>
+                    }
+                }
+            </section>
+
+            <aside>
+                <section class="debug-panel">
+                    <h2>GENERATOR DIAGNOSTICS</h2>
+                    @if (snapshot.GenerationDiagnostics.Count == 0)
+                    {
+                        <p class="debug-empty">No generator diagnostics.</p>
+                    }
+                    else
+                    {
+                        @foreach (var diagnostic in snapshot.GenerationDiagnostics)
+                        {
+                            <p class="debug-log">@diagnostic</p>
+                        }
+                    }
+                </section>
+
+                <section class="debug-panel">
+                    <h2>SIMULATION EVENTS</h2>
+                    @foreach (var entry in snapshot.Events.Take(160))
+                    {
+                        <p class="debug-log">@entry</p>
+                    }
+                </section>
+            </aside>
+        </div>
+    }
+</div>
+

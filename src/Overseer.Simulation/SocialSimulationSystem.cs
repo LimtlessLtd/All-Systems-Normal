@@ -64,6 +64,24 @@ public sealed class SocialSimulationSystem
             return false;
         }
 
+        if (TryDirectedAffordance(
+                state,
+                first,
+                second,
+                firstToSecond,
+                secondToFirst,
+                minute)
+            || TryDirectedAffordance(
+                state,
+                second,
+                first,
+                secondToFirst,
+                firstToSecond,
+                minute))
+        {
+            return true;
+        }
+
         if (TryIntimacy(
                 state,
                 first,
@@ -94,8 +112,20 @@ public sealed class SocialSimulationSystem
         var wantsCompany =
             first.SocialNeed >= 34
             || second.SocialNeed >= 34
-            || first.CurrentAction.Kind is ActionKind.Talk or ActionKind.Socialize
-            || second.CurrentAction.Kind is ActionKind.Talk or ActionKind.Socialize
+            || first.CurrentAction.Kind is ActionKind.Talk
+                or ActionKind.Socialize
+                or ActionKind.CheckOnCrew
+                or ActionKind.AssistCrew
+                or ActionKind.CoordinateWork
+                or ActionKind.ReassureCrew
+                or ActionKind.ReportConcern
+            || second.CurrentAction.Kind is ActionKind.Talk
+                or ActionKind.Socialize
+                or ActionKind.CheckOnCrew
+                or ActionKind.AssistCrew
+                or ActionKind.CoordinateWork
+                or ActionKind.ReassureCrew
+                or ActionKind.ReportConcern
             || state.Facility.Rooms[first.CurrentRoomId].Type == RoomType.Recreation;
 
         var socialChance = Math.Clamp(
@@ -112,6 +142,108 @@ public sealed class SocialSimulationSystem
         }
 
         return false;
+    }
+
+
+    private static bool TryDirectedAffordance(
+        GameState state,
+        Npc actor,
+        Npc target,
+        Relationship actorToTarget,
+        Relationship targetToActor,
+        int minute)
+    {
+        if (!target.Name.Equals(
+                actor.CurrentAction.TargetId,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var kind = actor.CurrentAction.Kind;
+        if (kind is not (ActionKind.CheckOnCrew
+            or ActionKind.AssistCrew
+            or ActionKind.CoordinateWork
+            or ActionKind.ReassureCrew
+            or ActionKind.MisleadCrew
+            or ActionKind.ReportConcern))
+        {
+            return false;
+        }
+
+        switch (kind)
+        {
+            case ActionKind.CheckOnCrew:
+                target.Stress = Clamp(target.Stress - 1.5);
+                actorToTarget.Affinity = Clamp(actorToTarget.Affinity + 0.4);
+                targetToActor.Trust = Clamp(targetToActor.Trust + 0.5);
+                QueueSpeech(actor, "You doing okay?", state.Elapsed, 2);
+                QueueSpeech(target, "I'm managing.", state.Elapsed + TimeSpan.FromMinutes(1), 2);
+                break;
+
+            case ActionKind.AssistCrew:
+                actorToTarget.Trust = Clamp(actorToTarget.Trust + 0.6);
+                targetToActor.Trust = Clamp(targetToActor.Trust + 0.9);
+                target.Stress = Clamp(target.Stress - 1);
+                QueueSpeech(actor, "Need another pair of hands?", state.Elapsed, 2);
+                break;
+
+            case ActionKind.CoordinateWork:
+                actorToTarget.Trust = Clamp(actorToTarget.Trust + 0.5);
+                targetToActor.Trust = Clamp(targetToActor.Trust + 0.5);
+                QueueSpeech(actor, "Let's coordinate this properly.", state.Elapsed, 2);
+                break;
+
+            case ActionKind.ReassureCrew:
+                target.Fear = Clamp(target.Fear - 2.5);
+                target.Stress = Clamp(target.Stress - 2);
+                targetToActor.Trust = Clamp(targetToActor.Trust + 0.7);
+                QueueSpeech(actor, "We'll handle it. Stay with me.", state.Elapsed, 2);
+                break;
+
+            case ActionKind.ReportConcern:
+                target.Memories.Add(new Memory(
+                    $"{actor.Name} shared a concern: {actor.CurrentAction.Reason}",
+                    state.Elapsed,
+                    0.38));
+                target.NeedsMindReconsideration = true;
+                targetToActor.Trust = Clamp(targetToActor.Trust + 0.25);
+                QueueSpeech(actor, "Something's bothering me. Hear me out.", state.Elapsed, 2);
+                break;
+
+            case ActionKind.MisleadCrew:
+                // Deception is an attempt, not a magic belief edit. The target
+                // remembers the interaction; later evidence/account comparison
+                // determines what they actually believe.
+                target.Memories.Add(new Memory(
+                    $"{actor.Name} tried to steer me away from a subject: {actor.CurrentAction.Reason}",
+                    state.Elapsed,
+                    0.42));
+                var noticed = StableRoll(
+                    minute,
+                    actor.Name,
+                    target.Name,
+                    319) < Math.Clamp(
+                        (target.Personality.Empathy + targetToActor.Resentment) / 180d,
+                        0.18,
+                        0.78);
+                if (noticed)
+                {
+                    targetToActor.Trust = Clamp(targetToActor.Trust - 2.2);
+                    targetToActor.Resentment = Clamp(targetToActor.Resentment + 1.3);
+                    QueueSpeech(target, "Why are you trying to steer me away from this?", state.Elapsed + TimeSpan.FromMinutes(1), 2);
+                }
+                else
+                {
+                    QueueSpeech(actor, "Honestly, it's probably nothing. Focus somewhere else.", state.Elapsed, 2);
+                }
+                break;
+        }
+
+        actor.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(3);
+        SetConversationCooldown(state, actor, target, minute, 321, 5, 9);
+        Log(state, $"{actor.Name} acts on a {kind} intention involving {target.Name}.");
+        return true;
     }
 
     private static bool TryIntimacy(

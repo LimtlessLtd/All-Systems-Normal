@@ -30,6 +30,7 @@ public sealed class GameSession(
     private readonly ScenarioProgressSystem _scenarioProgress = new();
     private readonly NavigationSystem _navigation = new();
     private readonly LocalMovementSystem _movement = new();
+    private readonly CrewDoorInteractionSystem _crewDoors = new();
     private readonly SuspicionSystem _suspicion = new();
     private readonly ShutdownSystem _shutdown = new();
     private readonly CorporateDirectiveSystem _directives = new();
@@ -786,6 +787,7 @@ public sealed class GameSession(
         _robots.Tick(State, turn);
         _turrets.Tick(State, turn);
         _movement.Tick(State, TimeSpan.FromMinutes(1));
+        _crewDoors.Tick(State);
         _shutdown.Tick(State);
         _provisioning.Tick(State, turn);
         _maintenance.Tick(State);
@@ -949,8 +951,9 @@ public sealed class GameSession(
             return false;
         }
 
-        return _navigation.FindPath(
-            State.Facility,
+        return _navigation.FindPathForCrew(
+            State,
+            npc,
             currentRoom.Id,
             targetRoom.Id).Count >= 2;
     }

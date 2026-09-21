@@ -102,9 +102,9 @@ public sealed class BrowserMindSystem
                 continue;
             }
 
-            var saferRoom = FindSaferRoom(state, currentRoom);
+            var saferRoom = FindSaferRoom(state, npc, currentRoom);
             var blockingDoor = saferRoom is null
-                ? FindBlockingDoorTowardSaferRoom(state, currentRoom)
+                ? FindBlockingDoorTowardSaferRoom(state, npc, currentRoom)
                 : null;
 
             if (saferRoom is null
@@ -157,7 +157,7 @@ public sealed class BrowserMindSystem
 
         if (CrewEnvironmentSafety.IsDangerous(currentRoom))
         {
-            var saferRoom = FindSaferRoom(state, currentRoom);
+            var saferRoom = FindSaferRoom(state, npc, currentRoom);
 
             if (saferRoom is not null)
             {
@@ -172,6 +172,7 @@ public sealed class BrowserMindSystem
 
             var blockingDoor = FindBlockingDoorTowardSaferRoom(
                 state,
+                npc,
                 currentRoom);
 
             if (blockingDoor is not null)
@@ -400,6 +401,78 @@ public sealed class BrowserMindSystem
                 45);
         }
 
+        // Browser fallback exercises the same broader affordance contract as
+        // Ollama. Choices are deterministic but deliberately varied by traits,
+        // relationships and role so the static build is not a scripted demo.
+        if (trusted is not null
+            && npc.OverseerSuspicion >= 48
+            && npc.Relationships.TryGetValue(trusted.PersonName, out var trustedRelation))
+        {
+            return Create(
+                state,
+                ActionKind.ReportConcern,
+                trusted.PersonName,
+                $"Compare concerns with {trusted.PersonName}.",
+                "I want another human perspective before deciding what the station AI is doing.",
+                54);
+        }
+
+        if (tense is { Resentment: >= 30 }
+            && npc.Personality.Empathy < 35)
+        {
+            return Create(
+                state,
+                ActionKind.MisleadCrew,
+                tense.PersonName,
+                $"Keep {tense.PersonName} away from what I am doing.",
+                "I do not trust them and would rather steer them elsewhere than cooperate.",
+                41);
+        }
+
+        var colleague = state.Crew
+            .Where(other => other.IsAlive && other.IsPresent && other.Id != npc.Id)
+            .OrderBy(other => other.Name)
+            .FirstOrDefault();
+
+        if (colleague is not null
+            && npc.Personality.Empathy >= 65
+            && colleague.Stress >= 55)
+        {
+            return Create(
+                state,
+                ActionKind.CheckOnCrew,
+                colleague.Name,
+                $"Check on {colleague.Name}.",
+                "They look stressed enough that I want to make sure they are all right.",
+                43);
+        }
+
+        if (npc.Role is CrewRole.Engineer or CrewRole.Technician
+            && state.Devices.Values.Any(device =>
+                device.RoomId.Equals(currentRoom.Id, StringComparison.OrdinalIgnoreCase)))
+        {
+            return Create(
+                state,
+                ActionKind.InspectEquipment,
+                currentRoom.Id,
+                $"Inspect equipment in {currentRoom.Name}.",
+                "A quiet moment is a good chance to check local machinery before it becomes a fault.",
+                28);
+        }
+
+        if (npc.Role == CrewRole.Security
+            && state.Facility.Doors.Any(door =>
+                CrewDoorInteractionSystem.IsAdjacent(npc, door)))
+        {
+            return Create(
+                state,
+                ActionKind.StandGuard,
+                currentRoom.Id,
+                $"Watch access through {currentRoom.Name}.",
+                "Nothing is immediately wrong, but monitoring movement is part of my job.",
+                25);
+        }
+
         // Leaving this as Idle intentionally hands low-pressure time back to
         // CrewRoutineSystem, whose broad role routes make people circulate.
         return Create(
@@ -596,8 +669,9 @@ public sealed class BrowserMindSystem
                 lead.Stage == InvestigationLeadStage.Open
                 && state.Facility.Rooms.ContainsKey(lead.RoomId)
                 && (npc.CurrentRoomId.Equals(lead.RoomId, StringComparison.OrdinalIgnoreCase)
-                    || _navigation.FindPath(
-                        state.Facility,
+                    || _navigation.FindPathForCrew(
+                        state,
+                        npc,
                         npc.CurrentRoomId,
                         lead.RoomId).Count >= 2))
             .OrderByDescending(lead =>
@@ -728,7 +802,7 @@ public sealed class BrowserMindSystem
             return true;
         }
 
-        if (npc.Intent is not { Action: ActionKind.Move, TargetId: { } targetId }
+        if (npc.Intent is not { Action: ActionKind.Move or ActionKind.SeekSafety, TargetId: { } targetId }
             || !state.Facility.Rooms.TryGetValue(targetId, out var targetRoom))
         {
             return false;
@@ -740,14 +814,16 @@ public sealed class BrowserMindSystem
             return false;
         }
 
-        return _navigation.FindPath(
-            state.Facility,
+        return _navigation.FindPathForCrew(
+            state,
+            npc,
             currentRoom.Id,
             targetRoom.Id).Count >= 2;
     }
 
     private Door? FindBlockingDoorTowardSaferRoom(
         GameState state,
+        Npc npc,
         Room currentRoom)
     {
         var currentRisk = CrewEnvironmentSafety.RiskScore(currentRoom);
@@ -782,11 +858,12 @@ public sealed class BrowserMindSystem
             candidate.Path[1]);
 
         return door is { IsPassable: false, CanBeForced: true }
+            && !CrewDoorInteractionSystem.CanOpenForTraversal(state, npc, door)
             ? door
             : null;
     }
 
-    private Room? FindSaferRoom(GameState state, Room currentRoom)
+    private Room? FindSaferRoom(GameState state, Npc npc, Room currentRoom)
     {
         var currentRisk = CrewEnvironmentSafety.RiskScore(currentRoom);
 
@@ -798,8 +875,9 @@ public sealed class BrowserMindSystem
             {
                 Room = room,
                 Risk = CrewEnvironmentSafety.RiskScore(room),
-                Path = _navigation.FindPath(
-                    state.Facility,
+                Path = _navigation.FindPathForCrew(
+                    state,
+                    npc,
                     currentRoom.Id,
                     room.Id)
             })

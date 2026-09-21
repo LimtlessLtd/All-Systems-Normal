@@ -45,6 +45,10 @@ public sealed class ActionResolver
             ActionKind.UseToilet => TryInRoomType(
                 state, npc, action, RoomType.Washroom, "use the toilet", "uses the toilet", out message),
             ActionKind.Work => SetAction(state, npc, action, "gets on with their work", out message),
+            ActionKind.InspectEquipment => SetAction(state, npc, action, "inspects local equipment", out message),
+            ActionKind.VerifyClaim => SetAction(state, npc, action, "checks the room for evidence", out message),
+            ActionKind.StandGuard => SetAction(state, npc, action, "takes up a watch position", out message),
+            ActionKind.SeekSafety => SetAction(state, npc, action, "moves toward safer conditions", out message),
             ActionKind.Intimacy => TryIntimacy(state, npc, action, out message),
             ActionKind.Investigate => SetAction(state, npc, action, "starts investigating", out message),
             ActionKind.Repair => SetAction(state, npc, action, "starts a repair attempt", out message),
@@ -53,10 +57,21 @@ public sealed class ActionResolver
             ActionKind.Argue => TrySocialAction(state, npc, action, "argues", out message),
             ActionKind.Attack => SetAction(state, npc, action, "attacks", out message),
             ActionKind.RequestHelp => TrySocialAction(state, npc, action, "requests help", out message),
+            ActionKind.CheckOnCrew => TrySocialAction(state, npc, action, "checks on", out message),
+            ActionKind.AssistCrew => TrySocialAction(state, npc, action, "offers practical help to", out message),
+            ActionKind.CoordinateWork => TrySocialAction(state, npc, action, "coordinates work with", out message),
+            ActionKind.ReassureCrew => TrySocialAction(state, npc, action, "reassures", out message),
+            ActionKind.MisleadCrew => TrySocialAction(state, npc, action, "tries to misdirect", out message),
+            ActionKind.ReportConcern => TrySocialAction(state, npc, action, "reports a concern to", out message),
             ActionKind.RecruitShutdownAlly => TrySocialAction(state, npc, action, "asks for help with an Overseer isolation plan", out message),
             ActionKind.JoinShutdownTeam => TryJoinShutdownTeam(state, npc, action, out message),
             ActionKind.ShutdownOverseer => TryShutdown(state, npc, action, out message),
             ActionKind.OverrideDoor => TryOverrideDoor(state, npc, action, out message),
+            ActionKind.OpenDoor
+                or ActionKind.CloseDoor
+                or ActionKind.LockDoor
+                or ActionKind.UnlockDoor
+                => TryCrewDoorOperation(state, npc, action, out message),
             ActionKind.ForceDoor => TryForceDoor(state, npc, action, out message),
             ActionKind.RestoreSystem => TryRestoreSystem(state, npc, action, out message),
             ActionKind.SecureAirlock => TrySecureAirlock(state, npc, action, out message),
@@ -281,7 +296,8 @@ public sealed class ActionResolver
             return false;
         }
 
-        if (!door.IsPassable)
+        if (!door.IsPassable
+            && !CrewDoorInteractionSystem.CanOpenForTraversal(state, npc, door))
         {
             message = $"{npc.Name} is blocked by {door.Id}.";
             return false;
@@ -392,6 +408,30 @@ public sealed class ActionResolver
         message = $"{npc.Name} spends private time with {partner.Name}.";
         Log(state, message);
         return true;
+    }
+
+
+    private static bool TryCrewDoorOperation(
+        GameState state,
+        Npc npc,
+        NpcAction action,
+        out string message)
+    {
+        var door = state.Facility.Doors.FirstOrDefault(candidate =>
+            candidate.Id.Equals(action.TargetId, StringComparison.OrdinalIgnoreCase));
+
+        if (door is null)
+        {
+            message = "Target hatch does not exist.";
+            return false;
+        }
+
+        return new CrewDoorInteractionSystem().TryOperate(
+            state,
+            npc,
+            door,
+            action.Kind,
+            out message);
     }
 
     private static bool TryOverrideDoor(

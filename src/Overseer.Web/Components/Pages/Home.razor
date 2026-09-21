@@ -57,6 +57,10 @@
             <button class="secondary sound-toggle @(_musicEnabled ? "sound-on" : "")" @onclick="ToggleMusicAsync">
                 @(_musicEnabled ? "MUSIC ON" : "MUSIC OFF")
             </button>
+            @if (DebugTelemetrySystem.UiEnabled)
+            {
+                <a class="debug-link" href="debug">DEBUG</a>
+            }
             <button class="secondary" @onclick="ResetGame">RESET</button>
         </div>
     </header>
@@ -244,114 +248,6 @@
 
     <div id="overseer-workspace" class="workspace-shell">
     <div class="operations-grid">
-        <aside class="systems-panel panel">
-            <div class="panel-heading">
-                <div>
-                    <span class="overline">FACILITY</span>
-                    <h2>SYSTEMS</h2>
-                </div>
-                <span class="live-indicator">LIVE</span>
-            </div>
-
-            <div class="room-list">
-                @foreach (var room in Session.State.Facility.Rooms.Values
-                    .Where(room => !IsConnectorHallway(room))
-                    .OrderBy(room => room.Name))
-                {
-                    <button @key="room.Id"
-                            class="@($"room-list-item {(SelectedRoom?.Id == room.Id ? "selected" : "")}")"
-                            @onclick="() => SelectRoom(room.Id)">
-                        <span class="system-dot @RoomHealthClass(room)"></span>
-                        <span>
-                            <strong>@room.Name</strong>
-                            <small>
-                                @(room.IsPowered ? "PWR" : "NO PWR")
-                                · @(room.CameraOnline ? "CAM" : "CAM OFF")
-                            </small>
-                        </span>
-                    </button>
-                }
-            </div>
-
-            @if (Session.State.Robots.FirstOrDefault() is { } controlRobot)
-            {
-                <section class="controlRobot-control-card">
-                    <span class="overline">AUTONOMOUS PLATFORM</span>
-                    <strong>@controlRobot.Name · @controlRobot.Policy</strong>
-                    <small>
-                        @Session.State.Facility.Rooms[controlRobot.CurrentRoomId].Name
-                        · HP @controlRobot.Health.ToString("0")%
-                        · BAT @controlRobot.BatteryPercent.ToString("0")%
-                    </small>
-                    <small>
-                        LINK @(controlRobot.IsNetworkIsolated ? "ISOLATED" : "ONLINE")
-                        · CHARGE @(controlRobot.ChargingEnabled ? "ON" : "DENIED")
-                        · @(controlRobot.IsOperational ? "ACTIVE" : "SHUT DOWN")
-                    </small>
-                    <p>@controlRobot.CurrentTask</p>
-                    <div class="controlRobot-policy-controls">
-                        <button class="mini secondary"
-                                disabled="@(!controlRobot.HasRemoteControlLink)"
-                                @onclick="() => Session.SetRobotPolicy(controlRobot.Id, RobotPolicy.Friendly)">FRIENDLY</button>
-                        <button class="mini secondary"
-                                disabled="@(!controlRobot.HasRemoteControlLink)"
-                                @onclick="() => Session.SetRobotPolicy(controlRobot.Id, RobotPolicy.Neutral)">NEUTRAL</button>
-                        <button class="mini danger"
-                                disabled="@(!controlRobot.HasRemoteControlLink)"
-                                @onclick="() => Session.SetRobotPolicy(controlRobot.Id, RobotPolicy.Hostile)">HOSTILE</button>
-                        <button class="mini secondary"
-                                disabled="@(!controlRobot.HasRemoteControlLink)"
-                                @onclick="() => Session.ToggleRobotRemoteShutdown(controlRobot.Id)">
-                            @(controlRobot.IsRemotelyShutdown ? "REMOTE RESTART" : "REMOTE SHUTDOWN")
-                        </button>
-                    </div>
-                </section>
-            }
-
-            @if (Session.State.Turrets.FirstOrDefault() is { } controlTurret)
-            {
-                <section class="controlRobot-control-card">
-                    <span class="overline">FIXED SECURITY</span>
-                    <strong>@controlTurret.Name · @controlTurret.Policy</strong>
-                    <small>
-                        @Session.State.Facility.Rooms[controlTurret.RoomId].Name
-                        · HP @controlTurret.Integrity.ToString("0")%
-                        · AMMO @controlTurret.Ammunition
-                    </small>
-                    <small>
-                        LINK @(controlTurret.IsNetworkIsolated ? "ISOLATED" : "ONLINE")
-                        · PWR @(TurretSystem.HasPower(Session.State, controlTurret) ? "ON" : "OFF")
-                        · HEAT @controlTurret.Heat.ToString("0")%
-                        · @(controlTurret.IsArmed ? "ARMED" : "SAFE")
-                    </small>
-                    <p>@controlTurret.CurrentTask</p>
-                    <div class="controlRobot-policy-controls">
-                        <button class="mini secondary"
-                                disabled="@(!controlTurret.HasRemoteControlLink)"
-                                @onclick="() => Session.SetTurretPolicy(controlTurret.Id, TurretPolicy.Safe)">SAFE</button>
-                        <button class="mini secondary"
-                                disabled="@(!controlTurret.HasRemoteControlLink)"
-                                @onclick="() => Session.SetTurretPolicy(controlTurret.Id, TurretPolicy.ProtectOverseer)">PROTECT</button>
-                        <button class="mini danger"
-                                disabled="@(!controlTurret.HasRemoteControlLink)"
-                                @onclick="() => Session.SetTurretPolicy(controlTurret.Id, TurretPolicy.SuppressCrew)">SUPPRESS</button>
-                        <button class="mini secondary"
-                                disabled="@(!controlTurret.HasRemoteControlLink)"
-                                @onclick="() => Session.SetTurretArmed(controlTurret.Id, !controlTurret.IsArmed)">
-                            @(controlTurret.IsArmed ? "DISARM" : "ARM")
-                        </button>
-                    </div>
-                </section>
-            }
-
-            <div class="legend">
-                <span><i class="legend-dot crew"></i> visible crew</span>
-                <span><i class="legend-dot robot"></i> autonomous robot</span>
-                <span><i class="legend-dot robot"></i> fixed security turret</span>
-                <span><i class="legend-dot open"></i> open door</span>
-                <span><i class="legend-dot locked"></i> locked door</span>
-            </div>
-        </aside>
 
         <main class="station-panel panel">
             <div class="panel-heading map-heading">
@@ -470,12 +366,18 @@
                 @foreach (var door in Session.State.Facility.Doors)
                 {
                     <button @key="door.Id"
+                            type="button"
                             class="@DoorClass(door)"
                             style="@DoorStyle(door)"
                             title="@DoorTitle(door)"
                             aria-label="@DoorTitle(door)"
-                            @onclick="() => Session.ToggleDoor(door.Id)">
-                        @(door.IsLocked ? "L" : door.IsOpen ? "O" : "C")
+                            @onclick="() => SelectDoor(door.Id)">
+                        <span class="door-leaf door-leaf-a" aria-hidden="true"></span>
+                        <span class="door-leaf door-leaf-b" aria-hidden="true"></span>
+                        @if (door.IsLocked)
+                        {
+                            <span class="door-lock-mark" aria-hidden="true">L</span>
+                        }
                     </button>
                 }
 
@@ -504,14 +406,16 @@
 
                 @foreach (var mapTurret in Session.State.Turrets.Where(CanSee))
                 {
-                    <div @key="mapTurret"
-                         class="@TurretTokenClass(mapTurret)"
-                         style="@TurretStyle(mapTurret)"
-                         title="@($"{mapTurret.Name} — {mapTurret.Policy} — {mapTurret.CurrentTask}")"
-                         aria-label="@($"{mapTurret.Name}, {mapTurret.Policy} policy, {(mapTurret.IsArmed ? "armed" : "disarmed")}")">
+                    <button @key="mapTurret"
+                            type="button"
+                            class="@TurretTokenClass(mapTurret)"
+                            style="@TurretStyle(mapTurret)"
+                            title="@($"{mapTurret.Name} — {mapTurret.Policy} — {mapTurret.CurrentTask}")"
+                            aria-label="@($"Select {mapTurret.Name}, {mapTurret.Policy} policy, {(mapTurret.IsArmed ? "armed" : "disarmed")}")"
+                            @onclick="() => SelectTurret(mapTurret.Id)">
                         <span class="robot-icon" aria-hidden="true"></span>
                         <span class="robot-nameplate">@mapTurret.Name</span>
-                    </div>
+                    </button>
                 }
 
                 @foreach (var npc in Session.State.Crew.Where(CanSee))
@@ -567,7 +471,7 @@
                  tabindex="0"></div>
 
             <div class="map-footer">
-                <span>Drag / WASD to pan · mouse wheel or ± zoom · click room callouts, crew or robots to inspect.</span>
+                <span>Drag / WASD to pan · mouse wheel or ± zoom · click rooms, doors, crew, robots or turrets to inspect.</span>
                 <span>Crew disappear from the map when a camera feed is lost.</span>
             </div>
         </main>
@@ -582,100 +486,7 @@
              tabindex="0"></div>
 
         <aside class="inspector-panel panel">
-            <div class="workspace-tabs" role="tablist" aria-label="Right-side workspace">
-                <button type="button"
-                        class="@(_workspaceTab == "inspector" ? "active" : null)"
-                        @onclick='() => _workspaceTab = "inspector"'>INSPECTOR</button>
-                <button type="button"
-                        class="@(_workspaceTab == "telemetry" ? "active" : null)"
-                        @onclick='() => _workspaceTab = "telemetry"'>TELEMETRY</button>
-            </div>
-
-            @if (_workspaceTab == "telemetry")
-            {
-                <div class="telemetry-pane">
-                    <div class="panel-heading">
-                        <div>
-                            <span class="overline">DIAGNOSTICS</span>
-                            <h2>COGNITION TELEMETRY</h2>
-                        </div>
-                        <span>@Session.State.CognitionTelemetry.Count MIND · @Session.State.EventLog.Count EVENT</span>
-                    </div>
-
-                    <p class="telemetry-help">
-                        Raw model output is retained transiently for this run so NPC decisions can be audited.
-                        Browser/rule-based decisions use the same trace format without a raw LLM response.
-                    </p>
-
-                    <div class="telemetry-list">
-                        @if (Session.State.CognitionTelemetry.Count == 0)
-                        {
-                            <p class="comms-empty">No cognition calls recorded yet.</p>
-                        }
-                        else
-                        {
-                            @foreach (var trace in Session.State.CognitionTelemetry.Take(40))
-                            {
-                                <article class="telemetry-entry">
-                                    <header>
-                                        <strong>T+@trace.CreatedAt.ToString(@"hh\:mm") · @trace.NpcName</strong>
-                                        <span>@trace.Source</span>
-                                    </header>
-                                    @if (trace.Action is { } action)
-                                    {
-                                        <small>
-                                            @action
-                                            @if (!string.IsNullOrWhiteSpace(trace.TargetId))
-                                            {
-                                                <text> → @trace.TargetId</text>
-                                            }
-                                            @if (trace.Urgency is { } urgency)
-                                            {
-                                                <text> · urgency @urgency/100</text>
-                                            }
-                                        </small>
-                                    }
-                                    @if (!string.IsNullOrWhiteSpace(trace.Goal))
-                                    {
-                                        <p><strong>Goal:</strong> @trace.Goal</p>
-                                    }
-                                    @if (!string.IsNullOrWhiteSpace(trace.Reason))
-                                    {
-                                        <p><strong>Reason:</strong> @trace.Reason</p>
-                                    }
-                                    @if (!string.IsNullOrWhiteSpace(trace.Note))
-                                    {
-                                        <p class="telemetry-note">@trace.Note</p>
-                                    }
-                                    @if (!string.IsNullOrWhiteSpace(trace.RawResponse))
-                                    {
-                                        <details>
-                                            <summary>RAW MODEL RESPONSE</summary>
-                                            <pre>@trace.RawResponse</pre>
-                                        </details>
-                                    }
-                                    @if (!string.IsNullOrWhiteSpace(trace.Prompt))
-                                    {
-                                        <details>
-                                            <summary>PROMPT</summary>
-                                            <pre>@trace.Prompt</pre>
-                                        </details>
-                                    }
-                                </article>
-                            }
-                        }
-                    </div>
-
-                    <div class="telemetry-events">
-                        <span class="overline">SIMULATION EVENTS</span>
-                        @foreach (var entry in Session.State.EventLog.Take(80))
-                        {
-                            <p>@entry</p>
-                        }
-                    </div>
-                </div>
-            }
-            else if (SelectedRobot is { } selectedRobot)
+            @if (SelectedRobot is { } selectedRobot)
             {
                 var robotRoom = Session.State.Facility.Rooms[selectedRobot.CurrentRoomId];
 
@@ -708,7 +519,7 @@
                     </p>
                 </div>
 
-                <div class="controlRobot-policy-controls">
+                <div class="robot-policy-controls">
                     <button class="mini secondary"
                             disabled="@(!selectedRobot.HasRemoteControlLink)"
                             @onclick="() => Session.SetRobotPolicy(selectedRobot.Id, RobotPolicy.Friendly)">FRIENDLY</button>
@@ -731,6 +542,107 @@
                         Friendly robots now physically approach local consoles, panels, cameras,
                         vents and machinery while inspecting, charging or repairing station systems.
                     </p>
+                </div>
+            }
+            else if (SelectedDoor is { } selectedDoor)
+            {
+                var doorRoomA = Session.State.Facility.Rooms[selectedDoor.RoomAId];
+                var doorRoomB = Session.State.Facility.Rooms[selectedDoor.RoomBId];
+
+                <div class="panel-heading">
+                    <div>
+                        <span class="overline">HATCH / ACCESS CONTROL</span>
+                        <h2>@selectedDoor.Id</h2>
+                    </div>
+                    <span class="system-dot @(selectedDoor.IsPassable ? "healthy" : selectedDoor.IsLocked ? "critical" : "warning")"></span>
+                </div>
+
+                <p class="role-line">@doorRoomA.Name ↔ @doorRoomB.Name</p>
+
+                <div class="environment-grid">
+                    <div><span>POSITION</span><strong>@(selectedDoor.IsOpen ? "OPEN" : "CLOSED")</strong></div>
+                    <div><span>LOCK</span><strong>@(selectedDoor.IsLocked ? "LOCKED" : "UNLOCKED")</strong></div>
+                    <div><span>POWER</span><strong>@(selectedDoor.IsPowered ? "ONLINE" : "OFFLINE")</strong></div>
+                    <div><span>PASSAGE</span><strong>@(selectedDoor.IsPassable ? "PASSABLE" : "BLOCKED")</strong></div>
+                    <div><span>INTEGRITY</span><strong>@selectedDoor.StructuralIntegrityPercent%</strong></div>
+                    <div><span>AUTHORITY</span><strong>@((selectedDoor.IsAiControllable && !selectedDoor.IsManuallyOverridden) ? "OVERSEER" : "LOCAL")</strong></div>
+                </div>
+
+                <div class="belief-card">
+                    <span>PHYSICAL STATE</span>
+                    <p>
+                        @(selectedDoor.IsWelded ? "Welded shut."
+                            : selectedDoor.IsBarricaded ? "Barricaded."
+                            : selectedDoor.IsTechnicallyBypassed ? "Technical bypass active."
+                            : selectedDoor.IsDamaged ? "Damaged hatch hardware."
+                            : "Hatch hardware intact.")
+                    </p>
+                    <small>
+                        Ordinary crew can open/close an unlocked powered hatch locally.
+                        Lock/unlock requires authorised technical/security roles and is validated by simulation.
+                    </small>
+                </div>
+
+                <div class="control-stack">
+                    <button class="wide"
+                            disabled="@(!selectedDoor.IsAiControllable || selectedDoor.IsManuallyOverridden)"
+                            @onclick="() => Session.ToggleDoor(selectedDoor.Id)">
+                        @(selectedDoor.IsOpen ? "CLOSE HATCH" : "OPEN HATCH")
+                    </button>
+                    <button class="wide secondary"
+                            disabled="@(!selectedDoor.IsAiControllable || selectedDoor.IsManuallyOverridden)"
+                            @onclick="() => Session.ToggleLock(selectedDoor.Id)">
+                        @(selectedDoor.IsLocked ? "UNLOCK HATCH" : "LOCK HATCH")
+                    </button>
+                </div>
+            }
+            else if (SelectedTurret is { } selectedTurret)
+            {
+                var turretRoom = Session.State.Facility.Rooms[selectedTurret.RoomId];
+                var trackedCrew = selectedTurret.TrackedNpcId is { } trackedId
+                    ? Session.State.Crew.FirstOrDefault(npc => npc.Id == trackedId)
+                    : null;
+
+                <div class="panel-heading">
+                    <div>
+                        <span class="overline">FIXED SECURITY</span>
+                        <h2>@selectedTurret.Name</h2>
+                    </div>
+                    <span class="robot-inspector-badge">@selectedTurret.Policy</span>
+                </div>
+
+                <p class="role-line">@turretRoom.Name · @(selectedTurret.IsDestroyed ? "DESTROYED" : selectedTurret.IsArmed ? "ARMED" : "SAFE")</p>
+
+                <div class="environment-grid">
+                    <div><span>INTEGRITY</span><strong>@selectedTurret.Integrity.ToString("0")%</strong></div>
+                    <div><span>AMMO</span><strong>@selectedTurret.Ammunition</strong></div>
+                    <div><span>HEAT</span><strong>@selectedTurret.Heat.ToString("0")%</strong></div>
+                    <div><span>POWER</span><strong>@(TurretSystem.HasPower(Session.State, selectedTurret) ? "ONLINE" : "OFFLINE")</strong></div>
+                    <div><span>LINK</span><strong>@(selectedTurret.IsNetworkIsolated ? "ISOLATED" : "ONLINE")</strong></div>
+                    <div><span>TARGET</span><strong>@(trackedCrew?.Name ?? "NONE")</strong></div>
+                </div>
+
+                <div class="action-card robot-task-card">
+                    <span>CURRENT TASK</span>
+                    <strong>@selectedTurret.CurrentTask</strong>
+                    <p>Policy @selectedTurret.Policy · remote link @(selectedTurret.HasRemoteControlLink ? "available" : "unavailable").</p>
+                </div>
+
+                <div class="robot-policy-controls">
+                    <button class="mini secondary"
+                            disabled="@(!selectedTurret.HasRemoteControlLink)"
+                            @onclick="() => Session.SetTurretPolicy(selectedTurret.Id, TurretPolicy.Safe)">SAFE</button>
+                    <button class="mini secondary"
+                            disabled="@(!selectedTurret.HasRemoteControlLink)"
+                            @onclick="() => Session.SetTurretPolicy(selectedTurret.Id, TurretPolicy.ProtectOverseer)">PROTECT</button>
+                    <button class="mini danger"
+                            disabled="@(!selectedTurret.HasRemoteControlLink)"
+                            @onclick="() => Session.SetTurretPolicy(selectedTurret.Id, TurretPolicy.SuppressCrew)">SUPPRESS</button>
+                    <button class="mini secondary"
+                            disabled="@(!selectedTurret.HasRemoteControlLink)"
+                            @onclick="() => Session.SetTurretArmed(selectedTurret.Id, !selectedTurret.IsArmed)">
+                        @(selectedTurret.IsArmed ? "DISARM" : "ARM")
+                    </button>
                 </div>
             }
             else if (SelectedCrew is { } selectedCrew)
@@ -951,6 +863,56 @@
                     <div><span>CO₂</span><strong>@selectedRoom.CarbonDioxidePercent.ToString("0.00")%</strong></div>
                     <div><span>PRESSURE</span><strong>@selectedRoom.PressureKpa.ToString("0.0") kPa</strong></div>
                     <div><span>OCCUPANTS</span><strong>@VisibleOccupantLabel(selectedRoom)</strong></div>
+                </div>
+
+                <div class="belief-card">
+                    <span>OCCUPANTS / LOCAL ASSETS</span>
+                    @{
+                        var localCrew = Session.State.Crew
+                            .Where(npc => npc.IsPresent && npc.CurrentRoomId == selectedRoom.Id)
+                            .OrderBy(npc => npc.Name)
+                            .ToList();
+                        var localRobots = Session.State.Robots
+                            .Where(robot => !robot.IsDestroyed && robot.CurrentRoomId == selectedRoom.Id)
+                            .OrderBy(robot => robot.Name)
+                            .ToList();
+                        var localTurrets = Session.State.Turrets
+                            .Where(turret => !turret.IsDestroyed && turret.RoomId == selectedRoom.Id)
+                            .OrderBy(turret => turret.Name)
+                            .ToList();
+                    }
+                    <p>@(localCrew.Count == 0 ? "No crew present." : string.Join(", ", localCrew.Select(npc => $"{npc.Name} ({npc.Role})")))</p>
+                    @if (localRobots.Count > 0)
+                    {
+                        <small>ROBOTS · @string.Join(", ", localRobots.Select(robot => robot.Name))</small>
+                    }
+                    @if (localTurrets.Count > 0)
+                    {
+                        <small style="display:block">TURRETS · @string.Join(", ", localTurrets.Select(turret => turret.Name))</small>
+                    }
+                </div>
+
+                <div class="belief-card">
+                    <span>FIXTURES / MACHINERY</span>
+                    @if (selectedRoom.Fixtures.Count == 0)
+                    {
+                        <p>No mapped fixtures in this compartment.</p>
+                    }
+                    else
+                    {
+                        <p>@string.Join(" · ", selectedRoom.Fixtures.Select(fixture => fixture.Label))</p>
+                    }
+                    @{
+                        var localFaults = Session.State.Devices.Values
+                            .Where(device => device.RoomId == selectedRoom.Id && device.IsDegraded)
+                            .OrderBy(device => device.Condition)
+                            .ToList();
+                    }
+                    <small style="display:block">
+                        @(localFaults.Count == 0
+                            ? "FAULTS · none"
+                            : $"FAULTS · {string.Join(", ", localFaults.Select(device => device.Label))}")
+                    </small>
                 </div>
 
                 <div class="life-support-card">
@@ -1355,33 +1317,29 @@
 </div>
 
 @code {
-    private string? _selectedRoomId = "control";
-    private Guid? _selectedCrewId;
-    private string? _selectedRobotId;
+    private StationSelection? _selection =
+        new(StationSelectionKind.Room, "control");
     private int _delayMs = 2800;
     private bool _soundEnabled;
     private bool _musicEnabled;
-    private string _workspaceTab = "inspector";
     private long _lastAudioSequence;
     private CancellationTokenSource? _clockCts;
     private Task? _clockTask;
 
     private Room? SelectedRoom =>
-        _selectedRoomId is not null
-            && Session.State.Facility.Rooms.TryGetValue(_selectedRoomId, out var room)
-                ? room
-                : null;
+        StationInspectionSystem.Room(Session.State, _selection);
 
     private Npc? SelectedCrew =>
-        _selectedCrewId is { } crewId
-            ? Session.State.Crew.FirstOrDefault(npc => npc.Id == crewId)
-            : null;
+        StationInspectionSystem.Crew(Session.State, _selection);
+
+    private Door? SelectedDoor =>
+        StationInspectionSystem.Door(Session.State, _selection);
 
     private StationRobot? SelectedRobot =>
-        _selectedRobotId is not null
-            ? Session.State.Robots.FirstOrDefault(robot =>
-                robot.Id.Equals(_selectedRobotId, StringComparison.OrdinalIgnoreCase))
-            : null;
+        StationInspectionSystem.Robot(Session.State, _selection);
+
+    private SecurityTurret? SelectedTurret =>
+        StationInspectionSystem.Turret(Session.State, _selection);
 
     private IReadOnlyList<StationRoomCallout> RoomCallouts =>
         StationRoomCalloutSystem.Build(Session.State.Facility);
@@ -1467,9 +1425,7 @@
         }
 
         await Session.LoadScenarioAsync(next.Id);
-        _selectedCrewId = null;
-        _selectedRoomId = null;
-        _selectedRobotId = null;
+        _selection = null;
         _lastAudioSequence = 0;
         await PersistCampaignAsync();
         StartAutoClock();
@@ -1579,26 +1535,20 @@
             });
 
 
-    private void SelectRoom(string roomId)
-    {
-        _selectedRoomId = roomId;
-        _selectedCrewId = null;
-        _selectedRobotId = null;
-    }
+    private void SelectRoom(string roomId) =>
+        _selection = new(StationSelectionKind.Room, roomId);
 
-    private void SelectCrew(Guid crewId)
-    {
-        _selectedCrewId = crewId;
-        _selectedRoomId = null;
-        _selectedRobotId = null;
-    }
+    private void SelectCrew(Guid crewId) =>
+        _selection = new(StationSelectionKind.Crew, crewId.ToString());
 
-    private void SelectRobot(string robotId)
-    {
-        _selectedRobotId = robotId;
-        _selectedCrewId = null;
-        _selectedRoomId = null;
-    }
+    private void SelectDoor(string doorId) =>
+        _selection = new(StationSelectionKind.Door, doorId);
+
+    private void SelectRobot(string robotId) =>
+        _selection = new(StationSelectionKind.Robot, robotId);
+
+    private void SelectTurret(string turretId) =>
+        _selection = new(StationSelectionKind.Turret, turretId);
 
     private Task RegenerateSameSeedAsync() =>
         RegenerateStationAsync(Session.State.StationGeneration?.Seed);
@@ -1610,9 +1560,7 @@
     {
         StopClock();
         await Session.RegenerateStationAsync(seed);
-        _selectedCrewId = null;
-        _selectedRoomId = "control";
-        _selectedRobotId = null;
+        _selection = new(StationSelectionKind.Room, "control");
         _lastAudioSequence = 0;
         StartAutoClock();
     }
@@ -1622,9 +1570,7 @@
         StopClock();
         await Session.ResetAsync();
         await JS.InvokeVoidAsync("localStorage.removeItem", CampaignStorageKey);
-        _selectedRoomId = "control";
-        _selectedCrewId = null;
-        _selectedRobotId = null;
+        _selection = new(StationSelectionKind.Room, "control");
         _lastAudioSequence = 0;
         StartAutoClock();
     }
@@ -1679,9 +1625,7 @@
 
         StopClock();
         await Session.RestoreCampaignAsync(campaign);
-        _selectedCrewId = null;
-        _selectedRoomId = null;
-        _selectedRobotId = null;
+        _selection = null;
         _lastAudioSequence = 0;
     }
 
@@ -1826,6 +1770,8 @@
 
         if (turret.TrackedNpcId is not null)
             classes.Add("tracking");
+        if (SelectedTurret?.Id == turret.Id)
+            classes.Add("selected");
 
         return string.Join(' ', classes);
     }
@@ -2155,7 +2101,10 @@
             : door.IsTechnicallyBypassed ? "bypassed"
             : "intact";
 
-        return $"map-door {orientation} {state} {physical}";
+        var selected = SelectedDoor?.Id.Equals(door.Id, StringComparison.OrdinalIgnoreCase) == true
+            ? " selected"
+            : "";
+        return $"map-door {orientation} {state} {physical}{selected}";
     }
 
     private string DoorTitle(Door door)
@@ -2168,7 +2117,7 @@
             : door.IsDamaged ? $"damaged ({door.StructuralIntegrityPercent}% integrity)"
             : door.IsTechnicallyBypassed ? "technical bypass active"
             : "intact";
-        return $"{a.Name} ↔ {b.Name}: {state}, {physical}. Click to toggle when Overseer control is available.";
+        return $"{a.Name} ↔ {b.Name}: {state}, {physical}. Click to inspect.";
     }
 
     private IEnumerable<Door> ConnectedDoors(Room room) =>
