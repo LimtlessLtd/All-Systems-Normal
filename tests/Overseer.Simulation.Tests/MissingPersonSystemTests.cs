@@ -16,7 +16,7 @@ public sealed class MissingPersonSystemTests
         marcus.IsPresent = false;
         marcus.CauseOfDeath = "Lost to space; no body remains aboard.";
         nadia.CurrentRoomId = "medical";
-        state.Elapsed = TimeSpan.FromMinutes(30);
+        state.Elapsed = TimeSpan.FromMinutes(360);
 
         new MissingPersonSystem().Tick(state);
 
@@ -25,7 +25,29 @@ public sealed class MissingPersonSystemTests
     }
 
     [Fact]
-    public void MissingExpectedDuty_CreatesConcernWithoutKnowingDeathTruth()
+    public void OrdinarySeparation_ForNinetyMinutes_DoesNotCreateConcern()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var nadia = state.Crew.Single(npc => npc.Name == "Nadia Okafor");
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var system = new MissingPersonSystem();
+
+        nadia.CurrentRoomId = "medical";
+        marcus.CurrentRoomId = "storage";
+        state.Elapsed = TimeSpan.Zero;
+        system.Tick(state);
+
+        state.Elapsed = TimeSpan.FromMinutes(90);
+        var expected = CrewDutySchedule.ExpectedDutyRoomId(marcus.Role, state.Elapsed);
+        nadia.CurrentRoomId = expected;
+        system.Tick(state);
+
+        Assert.DoesNotContain(marcus.Id, nadia.MissingPersonConcerns.Keys);
+        Assert.False(nadia.NeedsMindReconsideration);
+    }
+
+    [Fact]
+    public void LongMissedExpectedDuty_CreatesConcernWithoutKnowingDeathTruth()
     {
         var state = FacilitySeeder.CreateDefault();
         var nadia = state.Crew.Single(npc => npc.Name == "Nadia Okafor");
@@ -34,7 +56,7 @@ public sealed class MissingPersonSystemTests
         marcus.Health = 0;
         marcus.IsPresent = false;
         marcus.CauseOfDeath = "Lost to space; no body remains aboard.";
-        state.Elapsed = TimeSpan.FromMinutes(30);
+        state.Elapsed = TimeSpan.FromMinutes(360);
 
         var expected = CrewDutySchedule.ExpectedDutyRoomId(marcus.Role, state.Elapsed);
         nadia.CurrentRoomId = expected;
@@ -49,7 +71,7 @@ public sealed class MissingPersonSystemTests
         Assert.DoesNotContain(
             nadia.Memories,
             memory => memory.Description.Contains("space", StringComparison.OrdinalIgnoreCase));
-        Assert.True(nadia.NeedsMindReconsideration);
+        Assert.False(nadia.NeedsMindReconsideration);
     }
 
     [Fact]
@@ -62,8 +84,8 @@ public sealed class MissingPersonSystemTests
 
         nadia.CurrentRoomId = "storage";
         marcus.CurrentRoomId = "storage";
-        // Record the last direct sighting at the start of the shift so the
-        // 30-minute missed-duty threshold is reached exactly at T+00:30.
+        // Record a direct sighting at the start of the shift. Ordinary separation
+        // is allowed for hours before a missed-duty absence becomes notable.
         state.Elapsed = TimeSpan.Zero;
         system.Tick(state);
 
@@ -71,12 +93,12 @@ public sealed class MissingPersonSystemTests
         marcus.IsPresent = false;
         marcus.CauseOfDeath = "Lost to space; no body remains aboard.";
 
-        state.Elapsed = TimeSpan.FromMinutes(30);
+        state.Elapsed = TimeSpan.FromMinutes(360);
         var expected = CrewDutySchedule.ExpectedDutyRoomId(marcus.Role, state.Elapsed);
         nadia.CurrentRoomId = expected;
         system.Tick(state);
 
-        state.Elapsed = TimeSpan.FromMinutes(35);
+        state.Elapsed = TimeSpan.FromMinutes(365);
         system.Tick(state);
 
         var concern = nadia.MissingPersonConcerns[marcus.Id];
@@ -84,7 +106,7 @@ public sealed class MissingPersonSystemTests
         Assert.Contains(expected, concern.CheckedRoomIds);
 
         nadia.CurrentRoomId = "storage";
-        state.Elapsed = TimeSpan.FromMinutes(40);
+        state.Elapsed = TimeSpan.FromMinutes(370);
         system.Tick(state);
 
         Assert.Equal(MissingPersonConcernStage.Escalated, concern.Stage);
@@ -103,7 +125,7 @@ public sealed class MissingPersonSystemTests
 
         marcus.Health = 0;
         marcus.IsPresent = false;
-        state.Elapsed = TimeSpan.FromMinutes(30);
+        state.Elapsed = TimeSpan.FromMinutes(360);
 
         var expected = CrewDutySchedule.ExpectedDutyRoomId(marcus.Role, state.Elapsed);
         nadia.CurrentRoomId = expected;
@@ -198,7 +220,7 @@ public sealed class MissingPersonSystemTests
         state.Elapsed = TimeSpan.FromMinutes(25);
         system.Tick(state);
         nadia.CurrentRoomId = "storage";
-        state.Elapsed = TimeSpan.FromMinutes(30);
+        state.Elapsed = TimeSpan.FromMinutes(360);
         system.Tick(state);
 
         Assert.Contains(
