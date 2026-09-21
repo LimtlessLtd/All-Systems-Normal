@@ -148,7 +148,8 @@ public sealed class MissingPersonSystemTests
         system.Tick(state);
 
         var shared = Assert.Single(
-            sarah.MissingPersonConcerns.Where(pair => pair.Key == marcus.Id)).Value;
+            sarah.MissingPersonConcerns,
+            pair => pair.Key == marcus.Id).Value;
         Assert.Equal(nadia.Name, shared.SourceNpcName);
     }
 
