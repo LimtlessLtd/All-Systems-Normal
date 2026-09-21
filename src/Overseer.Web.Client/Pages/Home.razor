@@ -19,26 +19,34 @@
                 <span>MISSION</span>
                 <strong>T+@Session.State.Elapsed.ToString(@"hh\:mm")</strong>
             </div>
-            <div>
+            <button type="button" class="status-tile" data-station-interactive
+                    @onclick="() => SelectDevice("power-bus:engineering")">
                 <span>POWER</span>
                 <strong>@Session.PoweredRoomCount/@Session.State.Facility.Rooms.Count</strong>
-            </div>
-            <div>
+            </button>
+            <button type="button" class="status-tile" data-station-interactive
+                    @onclick="() => SelectDevice("network:control")">
                 <span>CAMERAS</span>
                 <strong>@Session.CameraCount/@Session.State.Facility.Rooms.Count</strong>
-            </div>
-            <div class="@(!Session.State.LifeSupport.IsOnline ? "has-alerts" : "")">
+            </button>
+            <button type="button"
+                    class="status-tile @(!Session.State.LifeSupport.IsOnline ? "has-alerts" : "")"
+                    data-station-interactive
+                    @onclick="() => SelectDevice("life-support:station")">
                 <span>LIFE SUPPORT</span>
                 <strong>@(Session.State.LifeSupport.IsOnline ? "ONLINE" : "OFFLINE")</strong>
-            </div>
+            </button>
             <div class="@(Session.State.Stores.Meals < 3 ? "has-alerts" : "")">
                 <span class="overline">GALLEY</span>
                 <strong>@Session.State.Stores.Meals.ToString("0") meals</strong>
             </div>
-            <div class="@(Session.State.Power.IsBrownedOut ? "has-alerts" : "")">
+            <button type="button"
+                    class="status-tile @(Session.State.Power.IsBrownedOut ? "has-alerts" : "")"
+                    data-station-interactive
+                    @onclick="() => SelectDevice("power-bus:engineering")">
                 <span class="overline">GRID</span>
-                <strong>@Session.State.Power.SupplyKilowatts.ToString("0")/@Session.State.Power.DemandKilowatts.ToString("0") kW</strong>
-            </div>
+                <strong>@(Session.State.Power.SupplyKilowatts + Session.State.Power.BufferDischargeKilowatts).ToString("0")/@Session.State.Power.DemandKilowatts.ToString("0") kW</strong>
+            </button>
             <div class="@(Session.AlertCount > 0 ? "has-alerts" : "")">
                 <span>ALERTS</span>
                 <strong>@Session.AlertCount</strong>
@@ -322,6 +330,7 @@
                             type="button"
                             class="@($"room-status-callout side-{callout.Side} {RoomHealthClass(calloutRoom)} {(SelectedRoom?.Id == calloutRoom.Id ? "selected" : "")}")"
                             style="@CalloutStyle(callout)"
+                            data-station-interactive
                             @onclick="() => SelectRoom(calloutRoom.Id)"
                             aria-label="@($"Inspect {calloutRoom.Name}")">
                         <span class="callout-name">@calloutRoom.Name</span>
@@ -336,18 +345,37 @@
                 <div class="station-authority-layer">
                 @foreach (var room in Session.State.Facility.Rooms.Values)
                 {
-                    <button @key="room.Id"
-                            class="@RoomClass(room)"
-                            style="@RoomStyle(room)"
-                            aria-label="@($"Select {room.Name}")"
-                            @onclick="() => SelectRoom(room.Id)">
-                        <span class="fixture-layer" aria-hidden="true">
+                    <div @key="room.Id"
+                         class="@RoomClass(room)"
+                         style="@RoomStyle(room)"
+                         role="button"
+                         tabindex="0"
+                         data-station-interactive
+                         aria-label="@($"Select {room.Name}")"
+                         @onclick="() => SelectRoom(room.Id)">
+                        <span class="fixture-layer">
                             @foreach (var fixture in room.Fixtures)
                             {
-                                <i @key="fixture"
-                                   class="@FixtureClass(fixture)"
-                                   style="@FixtureStyle(fixture)"
-                                   title="@fixture.Label"></i>
+                                @if (fixture.DeviceId is { } deviceId)
+                                {
+                                    <button @key="fixture"
+                                            type="button"
+                                            class="@FixtureClass(fixture)"
+                                            style="@FixtureStyle(fixture)"
+                                            title="@fixture.Label"
+                                            aria-label="@($"Inspect {fixture.Label}")"
+                                            data-station-interactive
+                                            @onclick:stopPropagation="true"
+                                            @onclick="() => SelectDevice(deviceId)"></button>
+                                }
+                                else
+                                {
+                                    <i @key="fixture"
+                                       class="@FixtureClass(fixture)"
+                                       style="@FixtureStyle(fixture)"
+                                       title="@fixture.Label"
+                                       aria-hidden="true"></i>
+                                }
                             }
                         </span>
 
@@ -359,7 +387,7 @@
                         {
                             <span class="lights-out">LIGHTS OFF</span>
                         }
-                    </button>
+                    </div>
                 }
 
                 @foreach (var door in Session.State.Facility.Doors)
@@ -370,6 +398,7 @@
                             style="@DoorStyle(door)"
                             title="@DoorTitle(door)"
                             aria-label="@DoorTitle(door)"
+                            data-station-interactive
                             @onclick="() => SelectDoor(door.Id)">
                         <span class="door-leaf door-leaf-a" aria-hidden="true"></span>
                         <span class="door-leaf door-leaf-b" aria-hidden="true"></span>
@@ -388,6 +417,7 @@
                             style="@RobotStyle(mapRobot)"
                             title="@($"{mapRobot.Name} — {mapRobot.Policy} — {mapRobot.CurrentTask}")"
                             aria-label="@($"Select {mapRobot.Name}, {mapRobot.Policy} policy")"
+                            data-station-interactive
                             @onclick="() => SelectRobot(mapRobot.Id)">
                         <span class="robot-shadow" aria-hidden="true"></span>
                         <span class="robot-machine" aria-hidden="true">
@@ -411,6 +441,7 @@
                             style="@TurretStyle(mapTurret)"
                             title="@($"{mapTurret.Name} — {mapTurret.Policy} — {mapTurret.CurrentTask}")"
                             aria-label="@($"Select {mapTurret.Name}, {mapTurret.Policy} policy, {(mapTurret.IsArmed ? "armed" : "disarmed")}")"
+                            data-station-interactive
                             @onclick="() => SelectTurret(mapTurret.Id)">
                         <span class="robot-icon" aria-hidden="true"></span>
                         <span class="robot-nameplate">@mapTurret.Name</span>
@@ -424,6 +455,7 @@
                             style="@CrewStyle(npc)"
                             title="@($"{npc.Name} — {npc.Role}{(!npc.IsAlive ? " — DECEASED" : "")}")"
                             aria-label="@($"Select {npc.Name}")"
+                            data-station-interactive
                             @onclick="() => SelectCrew(npc.Id)">
                         @if (npc.IsAlive)
                         {
@@ -470,7 +502,7 @@
                  tabindex="0"></div>
 
             <div class="map-footer">
-                <span>Drag / WASD to pan · mouse wheel or ± zoom · click rooms, doors, crew, robots or turrets to inspect.</span>
+                <span>Drag / WASD to pan · mouse wheel or ± zoom · click rooms, machinery, doors, crew, robots or turrets to inspect.</span>
                 <span>Crew disappear from the map when a camera feed is lost.</span>
             </div>
         </main>
@@ -485,7 +517,90 @@
              tabindex="0"></div>
 
         <aside class="inspector-panel panel">
-            @if (SelectedRobot is { } selectedRobot)
+            @if (SelectedDevice is { } selectedDevice)
+            {
+                var deviceRoom = Session.State.Facility.Rooms[selectedDevice.RoomId];
+                var serviceNpc = selectedDevice.ServicedByNpcId is { } serviceId
+                    ? Session.State.Crew.FirstOrDefault(npc => npc.Id == serviceId)
+                    : null;
+
+                <div class="panel-heading">
+                    <div>
+                        <span class="overline">PHYSICAL STATION MACHINERY</span>
+                        <h2>@selectedDevice.Label</h2>
+                    </div>
+                    <span class="system-dot @(selectedDevice.IsFailed ? "critical" : selectedDevice.IsDegraded ? "warning" : "healthy")"></span>
+                </div>
+
+                <p class="role-line">@selectedDevice.Kind · @deviceRoom.Name</p>
+
+                <div class="environment-grid">
+                    <div><span>CONDITION</span><strong>@selectedDevice.Condition.ToString("0")%</strong></div>
+                    <div><span>STATE</span><strong>@(selectedDevice.IsFailed ? "FAILED" : selectedDevice.IsEnabled ? "ENABLED" : "DISABLED")</strong></div>
+                    <div><span>DISCIPLINE</span><strong>@selectedDevice.Discipline</strong></div>
+                    <div><span>SERVICE</span><strong>@(serviceNpc?.Name ?? "UNASSIGNED")</strong></div>
+                    <div><span>DRAW</span><strong>@selectedDevice.RatedDrawKilowatts.ToString("0.#") kW</strong></div>
+                    <div><span>OUTPUT</span><strong>@selectedDevice.RatedOutputKilowatts.ToString("0.#") kW</strong></div>
+                </div>
+
+                @if (selectedDevice.Kind == StationSystemKind.CapacitorBank)
+                {
+                    <div class="belief-card">
+                        <span>TRANSIENT ENERGY BUFFER</span>
+                        <p>@Session.State.Power.StoredKilowattHours.ToString("0.0") / @Session.State.Power.StorageCapacityKilowattHours.ToString("0.0") kWh stored.</p>
+                        <small>Currently discharging @Session.State.Power.BufferDischargeKilowatts.ToString("0.0") kW.</small>
+                    </div>
+                }
+                else if (selectedDevice.Kind == StationSystemKind.PowerDistributionBus)
+                {
+                    <div class="belief-card">
+                        <span>GRID DISTRIBUTION</span>
+                        <p>@Session.State.Power.DistributionEfficiencyPercent.ToString("0")% bus efficiency.</p>
+                        <small>Supply @(Session.State.Power.SupplyKilowatts + Session.State.Power.BufferDischargeKilowatts).ToString("0") kW · demand @Session.State.Power.DemandKilowatts.ToString("0") kW.</small>
+                    </div>
+                }
+                else if (selectedDevice.Kind == StationSystemKind.LifeSupport)
+                {
+                    <div class="belief-card">
+                        <span>LIFE-SUPPORT CHAIN</span>
+                        <p>O₂ generator @(Session.State.LifeSupport.OxygenGeneratorOnline ? "ONLINE" : "OFFLINE") · CO₂ scrubber @(Session.State.LifeSupport.CarbonScrubberOnline ? "ONLINE" : "OFFLINE") · water recycler @(Session.State.LifeSupport.WaterRecyclerOnline ? "ONLINE" : "OFFLINE").</p>
+                        <small>O₂ reserve @Session.State.LifeSupport.OxygenReservePercent.ToString("0.0")% · water @Session.State.LifeSupport.WaterReservePercent.ToString("0.0")%.</small>
+                    </div>
+                }
+
+                @if (selectedDevice.DoorId is { } controlledDoorId)
+                {
+                    var controlledDoor = Session.State.Facility.Doors.FirstOrDefault(door =>
+                        door.Id.Equals(controlledDoorId, StringComparison.OrdinalIgnoreCase));
+                    <div class="belief-card">
+                        <span>CONTROLLED HATCH</span>
+                        <p>@controlledDoorId · @(controlledDoor?.IsPowered == true ? "POWERED" : "NO POWER") · @(controlledDoor?.IsOpen == true ? "OPEN" : "CLOSED")</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="control-stack">
+                        <button class="wide @(selectedDevice.IsEnabled ? "danger" : "secondary")"
+                                disabled="@(!selectedDevice.IsAiControllable || selectedDevice.IsFailed)"
+                                @onclick="() => Session.ToggleDevice(selectedDevice.Id)">
+                            @(selectedDevice.IsEnabled ? "DISABLE MACHINE" : "ENABLE MACHINE")
+                        </button>
+                    </div>
+                }
+
+                <div class="belief-card">
+                    <span>MAINTENANCE</span>
+                    <p>
+                        @(selectedDevice.IsFailed
+                            ? "This machine has failed and requires a physical crew service visit."
+                            : selectedDevice.IsDegraded
+                                ? "This machine is degraded. Crew maintenance will prioritise it as condition worsens."
+                                : "Machine is within service tolerance.")
+                    </p>
+                    <small>Service threshold @selectedDevice.DegradedAt.ToString("0")% · difficulty @selectedDevice.ServiceDifficulty.</small>
+                </div>
+            }
+            else if (SelectedRobot is { } selectedRobot)
             {
                 var robotRoom = Session.State.Facility.Rooms[selectedRobot.CurrentRoomId];
 
@@ -912,6 +1027,18 @@
                             ? "FAULTS · none"
                             : $"FAULTS · {string.Join(", ", localFaults.Select(device => device.Label))}")
                     </small>
+                    <div class="local-machine-list">
+                        @foreach (var localDevice in Session.State.Devices.Values
+                            .Where(device => device.RoomId == selectedRoom.Id)
+                            .OrderBy(device => device.Label))
+                        {
+                            <button type="button"
+                                    class="mini secondary"
+                                    @onclick="() => SelectDevice(localDevice.Id)">
+                                @localDevice.Label · @localDevice.Condition.ToString("0")%
+                            </button>
+                        }
+                    </div>
                 </div>
 
                 <div class="life-support-card">
@@ -1340,6 +1467,9 @@
     private SecurityTurret? SelectedTurret =>
         StationInspectionSystem.Turret(Session.State, _selection);
 
+    private StationDevice? SelectedDevice =>
+        StationInspectionSystem.Device(Session.State, _selection);
+
     private IReadOnlyList<StationRoomCallout> RoomCallouts =>
         StationRoomCalloutSystem.Build(Session.State.Facility);
 
@@ -1548,6 +1678,9 @@
 
     private void SelectTurret(string turretId) =>
         _selection = new(StationSelectionKind.Turret, turretId);
+
+    private void SelectDevice(string deviceId) =>
+        _selection = new(StationSelectionKind.Device, deviceId);
 
     private void RegenerateSameSeed() =>
         RegenerateStation(Session.State.StationGeneration?.Seed);
@@ -1892,6 +2025,9 @@
         if (fixture.Label.Contains("Security", StringComparison.OrdinalIgnoreCase)
             || fixture.Label.Contains("Hardline", StringComparison.OrdinalIgnoreCase))
             classes.Add("fixture-security");
+
+        if (fixture.DeviceId is not null)
+            classes.Add("fixture-interactive");
 
         return string.Join(' ', classes);
     }
