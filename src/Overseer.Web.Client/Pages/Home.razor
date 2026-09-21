@@ -20,19 +20,19 @@
                 <strong>T+@Session.State.Elapsed.ToString(@"hh\:mm")</strong>
             </div>
             <button type="button" class="status-tile" data-station-interactive
-                    @onclick="() => SelectDevice("power-bus:engineering")">
+                    @onclick='() => SelectDevice("power-bus:engineering")'>
                 <span>POWER</span>
                 <strong>@Session.PoweredRoomCount/@Session.State.Facility.Rooms.Count</strong>
             </button>
             <button type="button" class="status-tile" data-station-interactive
-                    @onclick="() => SelectDevice("network:control")">
+                    @onclick='() => SelectDevice("network:control")'>
                 <span>CAMERAS</span>
                 <strong>@Session.CameraCount/@Session.State.Facility.Rooms.Count</strong>
             </button>
             <button type="button"
                     class="status-tile @(!Session.State.LifeSupport.IsOnline ? "has-alerts" : "")"
                     data-station-interactive
-                    @onclick="() => SelectDevice("life-support:station")">
+                    @onclick='() => SelectDevice("life-support:station")'>
                 <span>LIFE SUPPORT</span>
                 <strong>@(Session.State.LifeSupport.IsOnline ? "ONLINE" : "OFFLINE")</strong>
             </button>
@@ -43,7 +43,7 @@
             <button type="button"
                     class="status-tile @(Session.State.Power.IsBrownedOut ? "has-alerts" : "")"
                     data-station-interactive
-                    @onclick="() => SelectDevice("power-bus:engineering")">
+                    @onclick='() => SelectDevice("power-bus:engineering")'>
                 <span class="overline">GRID</span>
                 <strong>@(Session.State.Power.SupplyKilowatts + Session.State.Power.BufferDischargeKilowatts).ToString("0")/@Session.State.Power.DemandKilowatts.ToString("0") kW</strong>
             </button>
