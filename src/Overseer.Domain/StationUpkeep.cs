@@ -80,6 +80,11 @@ public sealed class StationDevice
     /// <summary>Set while a crew member is part-way through servicing it.</summary>
     public Guid? ServicedByNpcId { get; set; }
 
+    /// <summary>Operator command state. A healthy device can still be deliberately stopped.</summary>
+    public bool IsEnabled { get; set; } = true;
+
+    public bool IsAiControllable { get; init; } = true;
+
     /// <summary>Nominal electrical output while healthy.</summary>
     public double RatedOutputKilowatts { get; init; }
 
@@ -91,6 +96,7 @@ public sealed class StationDevice
 
     public bool IsFailed => Condition <= 0.01;
     public bool IsDegraded => Condition < DegradedAt;
+    public bool IsOperational => IsEnabled && !IsFailed;
 
     /// <summary>
     /// Crew notice and prioritise the worst equipment first. Failed units score
