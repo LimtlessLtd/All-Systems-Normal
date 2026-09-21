@@ -7677,10 +7677,6 @@ button.turret-token {
 /* Station entities use transform for authoritative map positioning. Never let
    generic button press feedback replace that transform and visually teleport
    interactive machinery, robots, turrets, doors, rooms or crew. */
-button[data-station-interactive]:active:not(:disabled) {
-    transform: var(--station-active-transform, translate(-50%, -50%));
-}
-
 /* The map is a physical white/grey hull around a dark tiled deck. Selection
    changes the rim, never the floor, so hover cannot make the deck disappear. */
 .station-authority-layer > .room-node:not(.hallway):not(.main-corridor) {
@@ -7865,12 +7861,10 @@ button[data-station-interactive]:active:not(:disabled) {
     height: 52px;
     min-width: 52px;
     min-height: 52px;
-    --station-active-transform: translate(-50%, -50%);
 }
 
 .station-authority-layer .robot-token:not(.turret-token):hover,
 .station-authority-layer .robot-token:not(.turret-token).selected {
-    --station-active-transform: translate(-50%, -50%) scale(1.08);
 }
 
 .station-authority-layer .robot-machine {
