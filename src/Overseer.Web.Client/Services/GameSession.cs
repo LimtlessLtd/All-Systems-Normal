@@ -224,9 +224,9 @@ public sealed class GameSession
             return;
         }
 
-        if (!door.IsPowered)
+        if (!door.IsPowered || !door.GridPowerAvailable)
         {
-            Log($"{door.Id} refused OPEN/CLOSE command: NO POWER.");
+            Log($"{door.Id} refused OPEN/CLOSE command: ACTUATOR BUS HAS NO POWER.");
             return;
         }
 
@@ -286,9 +286,9 @@ public sealed class GameSession
             return;
         }
 
-        if (!door.IsPowered)
+        if (!door.IsPowered || !door.GridPowerAvailable)
         {
-            Log($"{door.Id} refused LOCK command: NO POWER.");
+            Log($"{door.Id} refused LOCK command: ACTUATOR BUS HAS NO POWER.");
             return;
         }
 
@@ -349,9 +349,9 @@ public sealed class GameSession
     {
         var room = State.Facility.Rooms[roomId];
 
-        if (!room.IsPowered)
+        if (!room.IsPowered || !room.LightingPowerAvailable)
         {
-            Log($"{room.Name} lighting command refused: NO POWER.");
+            Log($"{room.Name} lighting command refused: LIGHTING BUS HAS NO POWER.");
             return;
         }
 
@@ -380,9 +380,9 @@ public sealed class GameSession
     {
         var room = State.Facility.Rooms[roomId];
 
-        if (!room.IsPowered)
+        if (!room.IsPowered || !room.CameraPowerAvailable)
         {
-            Log($"{room.Name} camera command refused: NO POWER.");
+            Log($"{room.Name} camera command refused: CAMERA BUS HAS NO POWER.");
             return;
         }
 
