@@ -7978,3 +7978,547 @@ button.turret-token {
     }
 }
 
+
+
+/* Station UI / presentation polish — compact command surface, focus mode,
+   attached room telemetry and machine-specific physical identity. */
+.station-panel {
+    position: relative;
+}
+
+.station-command-header {
+    min-height: 38px;
+    padding: .28rem .48rem;
+    gap: .45rem;
+    align-items: center;
+}
+
+.station-title-compact {
+    display: flex;
+    align-items: baseline;
+    gap: .45rem;
+    min-width: 0;
+}
+
+.station-title-compact .overline {
+    font-size: .44rem;
+    white-space: nowrap;
+}
+
+.station-title-compact h2 {
+    margin: 0;
+    font-size: .78rem;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.station-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: .22rem;
+    min-width: 0;
+    margin-left: auto;
+}
+
+.station-header-actions .mini,
+.station-header-actions .zoom-readout,
+.station-header-actions summary {
+    min-height: 25px;
+    padding: .24rem .42rem;
+    font-size: .5rem;
+    line-height: 1;
+}
+
+.station-header-actions .zoom-readout {
+    min-width: 48px;
+}
+
+.station-header-actions .sim-running,
+.station-header-actions .sim-paused {
+    padding: .2rem .35rem;
+    font-size: .48rem;
+    white-space: nowrap;
+}
+
+.station-popup-toggle.active,
+.station-focus-toggle.active {
+    box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.compact-generation-debug {
+    margin: 0;
+}
+
+.compact-generation-debug summary {
+    white-space: nowrap;
+}
+
+.station-overlay-popover {
+    position: absolute;
+    z-index: 180;
+    top: 44px;
+    right: .55rem;
+    width: min(560px, calc(100% - 1.1rem));
+    max-height: min(72vh, 680px);
+    overflow: auto;
+    padding: .7rem;
+    border: 1px solid #9da5aa;
+    border-radius: 6px;
+    background: rgba(244, 246, 247, .985);
+    color: #252b2f;
+    box-shadow: 0 18px 54px rgba(0, 0, 0, .42);
+}
+
+.station-overlay-popover > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .65rem;
+    padding-bottom: .55rem;
+    margin-bottom: .6rem;
+    border-bottom: 1px solid #c4c9cc;
+}
+
+.station-overlay-popover .overline,
+.station-overlay-popover small {
+    color: #626b70;
+}
+
+.station-overlay-popover .secondary {
+    border-color: #aab1b5;
+    background: #e7eaec;
+    color: #30363a;
+}
+
+.compact-comms-scope {
+    margin-bottom: .5rem;
+}
+
+.station-overlay-popover .comms-target,
+.station-overlay-popover .comms-input {
+    width: 100%;
+    border-color: #abb3b7;
+    background: #fff;
+    color: #1e2529;
+}
+
+.station-popup-log {
+    display: grid;
+    gap: .35rem;
+    margin-top: .55rem;
+}
+
+.station-popup-log > div,
+.station-popup-objective {
+    padding: .48rem .55rem;
+    border: 1px solid #d0d5d8;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.station-popup-log p,
+.station-popup-objective p,
+.station-popup-briefing {
+    margin: .2rem 0 0;
+    font-size: .68rem;
+    line-height: 1.45;
+}
+
+.station-popup-section {
+    display: grid;
+    gap: .38rem;
+    margin-top: .7rem;
+}
+
+.station-popup-objective {
+    display: grid;
+    gap: .18rem;
+}
+
+.station-popup-objective.directive {
+    border-left: 3px solid #778c81;
+}
+
+/* Focus mode deliberately keeps only the station overview and Inspector. */
+.workspace-shell.station-focus-mode {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    margin: 0;
+    padding: .38rem;
+    background: #080d10;
+}
+
+.workspace-shell.station-focus-mode .operations-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 8px clamp(310px, var(--inspector-width), 560px) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    gap: 0 !important;
+    height: 100%;
+    min-height: 0;
+}
+
+.workspace-shell.station-focus-mode .station-panel {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+}
+
+.workspace-shell.station-focus-mode .layout-splitter-vertical {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    display: block;
+}
+
+.workspace-shell.station-focus-mode .inspector-panel {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    margin: 0;
+    overflow: auto;
+}
+
+.workspace-shell.station-focus-mode .station-map-viewport {
+    flex: 1 1 auto;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+}
+
+.workspace-shell.station-focus-mode .map-splitter,
+.workspace-shell.station-focus-mode .map-footer {
+    display: none !important;
+}
+
+.workspace-shell.station-focus-mode .station-overlay-popover {
+    max-height: calc(100vh - 56px);
+}
+
+/* Panning owns selection even if the pointer leaves the viewport. JS mirrors
+   this onto body during an active drag; this class handles the local surface. */
+.station-map-viewport,
+.station-map-camera {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.station-map-viewport input,
+.station-map-viewport textarea,
+.station-map-viewport select {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+/* Attached callouts use short quiet stems; true external fallbacks are
+   deliberately stronger so the room-label relationship remains unmistakable. */
+.room-callout-line {
+    stroke-width: 1px;
+    opacity: .76;
+}
+
+.room-callout-line.attached {
+    stroke-width: .8px;
+    opacity: .62;
+}
+
+.room-callout-line.external {
+    stroke-width: 1.8px;
+    opacity: .96;
+}
+
+.room-status-callout.attached {
+    width: 250px;
+    min-height: 56px;
+}
+
+.room-status-callout.external {
+    box-shadow: 0 0 0 1px rgba(154, 160, 164, .22), 0 6px 18px rgba(0,0,0,.28);
+}
+
+/* Physical machine identity. Simulation/device kinds remain authoritative;
+   these classes are derived from fixture DeviceId families in both UIs. */
+.fixture-interactive {
+    overflow: hidden;
+    box-shadow:
+        0 2px 5px rgba(0,0,0,.34),
+        inset 0 0 0 1px rgba(255,255,255,.08);
+}
+
+.fixture-system-lighting {
+    border-radius: 4px;
+    border-color: rgba(245, 226, 146, .78) !important;
+    background:
+        radial-gradient(circle at 24% 34%, #fff7c4 0 7%, transparent 8%),
+        radial-gradient(circle at 50% 34%, #fff7c4 0 7%, transparent 8%),
+        radial-gradient(circle at 76% 34%, #fff7c4 0 7%, transparent 8%),
+        linear-gradient(180deg, #4f5149 0 48%, #222a2e 49% 100%) !important;
+}
+
+.fixture-system-lighting::after {
+    content: "";
+    position: absolute;
+    left: 16%;
+    right: 16%;
+    bottom: 15%;
+    height: 12%;
+    border-radius: 999px;
+    background: repeating-linear-gradient(90deg, #f4df71 0 10%, transparent 10% 24%);
+    animation: fixture-led-warm 2.2s steps(1, end) infinite;
+}
+
+.fixture-system-climate {
+    border-radius: 6px;
+    border-color: rgba(122, 200, 225, .72) !important;
+    background:
+        linear-gradient(90deg, rgba(76,170,214,.55) 0 44%, #1d2b32 45% 55%, rgba(225,133,77,.50) 56% 100%),
+        #22323a !important;
+}
+
+.fixture-system-climate::before {
+    content: "";
+    position: absolute;
+    inset: 18% 36%;
+    border: 1px solid rgba(220,244,250,.7);
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(111,212,242,.8), rgba(239,139,84,.8));
+}
+
+.fixture-system-climate::after {
+    content: "";
+    position: absolute;
+    right: 9%;
+    bottom: 10%;
+    width: 8%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: #72d7ef;
+    box-shadow: -12px 0 0 #eaa064;
+    animation: fixture-led-climate 3.1s ease-in-out infinite;
+}
+
+.fixture-system-ventilation {
+    border-radius: 50% !important;
+    border-color: rgba(167, 207, 216, .65) !important;
+    background: radial-gradient(circle, #17242a 0 22%, #647b82 23% 30%, #25363c 31% 100%) !important;
+}
+
+.fixture-system-ventilation::before {
+    content: "";
+    position: absolute;
+    inset: 15%;
+    border-radius: 50%;
+    background: conic-gradient(from 12deg, transparent 0 12%, rgba(190,220,226,.72) 13% 23%, transparent 24% 37%, rgba(190,220,226,.72) 38% 48%, transparent 49% 62%, rgba(190,220,226,.72) 63% 73%, transparent 74% 87%, rgba(190,220,226,.72) 88% 98%);
+    animation: fixture-fan-spin 2.8s linear infinite;
+}
+
+.fixture-system-ventilation::after {
+    content: "";
+    position: absolute;
+    right: 4%;
+    bottom: 4%;
+    width: 12%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: #79dfb2;
+    animation: fixture-led-cool 1.65s steps(1, end) infinite;
+}
+
+.fixture-powerbus,
+.fixture-system-power-bus {
+    border-radius: 2px;
+    background:
+        repeating-linear-gradient(90deg, #332f24 0 8%, #d4a83d 9% 12%, #20282c 13% 25%) !important;
+}
+
+.fixture-capacitorbank {
+    border-radius: 4px;
+    background:
+        repeating-linear-gradient(90deg, #1e2f37 0 18%, #587783 19% 24%, #18242a 25% 31%) !important;
+}
+
+.fixture-capacitorbank::after {
+    content: "";
+    position: absolute;
+    left: 9%;
+    right: 9%;
+    bottom: 9%;
+    height: 8%;
+    background: repeating-linear-gradient(90deg, #79dbff 0 8%, transparent 9% 18%);
+    animation: fixture-led-cool 2.4s steps(1, end) infinite;
+}
+
+.fixture-coolantpump {
+    border-radius: 50% 18% 18% 50%;
+    background:
+        radial-gradient(circle at 35% 50%, #83b9c5 0 12%, #263b42 13% 32%, transparent 33%),
+        linear-gradient(90deg, #304b54, #16252b) !important;
+}
+
+.fixture-waterrecycler {
+    border-radius: 10px;
+    background:
+        linear-gradient(90deg, transparent 0 18%, rgba(88,181,202,.45) 19% 31%, transparent 32% 67%, rgba(88,181,202,.45) 68% 80%, transparent 81%),
+        linear-gradient(#273a41, #17272d) !important;
+}
+
+.fixture-oxygengenerator {
+    border-radius: 7px;
+    background:
+        radial-gradient(circle at 28% 35%, rgba(145,223,236,.7) 0 8%, transparent 9%),
+        radial-gradient(circle at 72% 35%, rgba(145,223,236,.7) 0 8%, transparent 9%),
+        linear-gradient(#30474f, #1a292f) !important;
+}
+
+.fixture-carbonscrubber {
+    border-radius: 3px;
+    background:
+        repeating-linear-gradient(0deg, #26383e 0 14%, #60747a 15% 18%, #17252a 19% 26%) !important;
+}
+
+.fixture-networkrack {
+    border-radius: 3px;
+    background:
+        repeating-linear-gradient(0deg, #16232b 0 10%, #334b58 11% 16%, #0f171c 17% 23%) !important;
+}
+
+.fixture-networkrack::after {
+    content: "";
+    position: absolute;
+    right: 8%;
+    top: 10%;
+    width: 5%;
+    height: 78%;
+    background: repeating-linear-gradient(0deg, #86e19d 0 4%, transparent 5% 11%, #e7bd61 12% 15%, transparent 16% 23%);
+    animation: fixture-led-network 2.9s steps(1, end) infinite;
+}
+
+.fixture-doorconsole {
+    border-radius: 3px;
+    background:
+        linear-gradient(180deg, rgba(111,224,211,.55) 0 30%, #17272d 31% 58%, #49575d 59% 100%) !important;
+}
+
+.fixture-generator {
+    background:
+        radial-gradient(circle at 50% 48%, #10191d 0 12%, #d6a84c 13% 18%, #3d4648 19% 31%, #151f23 32% 44%, transparent 45%),
+        repeating-conic-gradient(from 0deg at 50% 48%, rgba(231,184,76,.48) 0 5deg, transparent 6deg 22deg),
+        linear-gradient(145deg, #424a4a, #1b2427) !important;
+}
+
+.fixture-generator::after {
+    content: "";
+    position: absolute;
+    left: 18%;
+    right: 18%;
+    bottom: 9%;
+    height: 5%;
+    border-radius: 999px;
+    background: repeating-linear-gradient(90deg, #e8b84e 0 8%, transparent 9% 17%);
+    animation: fixture-led-warm 1.8s steps(1, end) infinite;
+}
+
+.fixture-reactorcore {
+    background:
+        radial-gradient(circle, rgba(255,233,185,.92) 0 7%, rgba(245,126,93,.75) 8% 16%, #263136 17% 25%, rgba(239,111,82,.36) 26% 30%, #172126 31% 46%, transparent 47%),
+        repeating-conic-gradient(from 8deg, rgba(235,124,92,.58) 0 5deg, transparent 6deg 20deg),
+        #263137 !important;
+    animation: fixture-reactor-breathe 3.6s ease-in-out infinite;
+}
+
+.fixture-growbed {
+    background:
+        repeating-linear-gradient(90deg, #1d4933 0 12%, #62bd70 13% 17%, #183526 18% 29%),
+        linear-gradient(#20372d, #14261f) !important;
+}
+
+.fixture-growbed::after {
+    content: "";
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    bottom: 5%;
+    height: 4%;
+    background: repeating-linear-gradient(90deg, #6ce5a0 0 6%, transparent 7% 14%);
+    animation: fixture-led-grow 4s steps(1, end) infinite;
+}
+
+@keyframes fixture-fan-spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes fixture-led-warm {
+    0%, 26%, 54%, 100% { opacity: .95; }
+    27%, 53% { opacity: .28; }
+}
+
+@keyframes fixture-led-climate {
+    0%, 100% { opacity: .4; }
+    45%, 70% { opacity: 1; }
+}
+
+@keyframes fixture-led-cool {
+    0%, 38%, 72%, 100% { opacity: 1; }
+    39%, 71% { opacity: .22; }
+}
+
+@keyframes fixture-led-network {
+    0%, 18%, 43%, 74%, 100% { opacity: 1; }
+    19%, 42%, 75%, 88% { opacity: .32; }
+}
+
+@keyframes fixture-led-grow {
+    0%, 65%, 100% { opacity: .82; }
+    66%, 78% { opacity: .25; }
+}
+
+@keyframes fixture-reactor-breathe {
+    0%, 100% { filter: saturate(1.05) brightness(.96); }
+    50% { filter: saturate(1.28) brightness(1.08); }
+}
+
+@media (max-width: 1000px) {
+    .station-command-header {
+        align-items: flex-start;
+    }
+
+    .station-header-actions {
+        flex-wrap: wrap;
+    }
+
+    .station-title-compact .overline {
+        display: none;
+    }
+}
+
+@media (max-width: 760px) {
+    .workspace-shell.station-focus-mode .operations-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .workspace-shell.station-focus-mode .layout-splitter-vertical {
+        display: none !important;
+    }
+
+    .workspace-shell.station-focus-mode .inspector-panel {
+        position: absolute;
+        z-index: 220;
+        right: .45rem;
+        bottom: .45rem;
+        width: min(380px, calc(100vw - .9rem));
+        height: min(44vh, 460px);
+        border: 1px solid #aab1b5;
+        box-shadow: 0 12px 34px rgba(0,0,0,.42);
+    }
+
+    .station-overlay-popover {
+        right: .3rem;
+        width: calc(100% - .6rem);
+    }
+}

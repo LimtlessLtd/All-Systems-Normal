@@ -11,9 +11,9 @@ window.overseerLayout = (() => {
     };
 
     const cameraLimits = {
-        minZoom: 0.65,
+        minZoom: 0.15,
         maxZoom: 3.0,
-        zoomStep: 0.2,
+        zoomStep: 0.05,
         keyboardStep: 42
     };
 
@@ -354,6 +354,8 @@ window.overseerLayout = (() => {
             if (!drag.moved && Math.hypot(totalX, totalY) < 4) return;
 
             drag.moved = true;
+            drag.previousUserSelect = document.body.style.userSelect;
+            document.body.style.userSelect = "none";
             const dx = event.clientX - drag.lastX;
             const dy = event.clientY - drag.lastY;
             drag.lastX = event.clientX;
@@ -373,6 +375,9 @@ window.overseerLayout = (() => {
                 }, 0);
             }
             viewport.classList.remove("is-panning");
+            if (drag.previousUserSelect !== undefined) {
+                document.body.style.userSelect = drag.previousUserSelect;
+            }
             drag = null;
         };
 
