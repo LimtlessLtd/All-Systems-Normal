@@ -179,7 +179,7 @@ Current shared mechanics include:
 - physical airlocks, pressure cycling and decompression
 - hydroponics with typed visible crops (tomato, potato, apple, grape, banana, tobacco, wheat), provisions, cooked meals, raw-food fallback, food preferences and mood/stress consequences
 - deterministic daily routines with day/night shifts, scheduled sleep, sleep debt, fatigue-driven movement slowdown and cognitive skill penalties
-- fresh scenarios scale to roughly 12 crew while preserving campaign-continuing roster provenance
+- fresh scenarios scale to roughly 12 crew while preserving campaign-continuing roster provenance; Ollama may generate the six specialist roles first and deterministic supplementation fills the larger roster, while `Prisoner` is scenario-composed and never part of the generated-role contract
 - spontaneous social conflict pressure can escalate into deterministic fights from stress, personality, relationships, grievances and circumstances
 - deterministic fire/smoke hazards expose composable crew affordances (fight fire, evacuate, seal, vent) rather than scripted response trees; LLM/browser cognition chooses desired responses and C# validates reachability, equipment, pressure and outcomes
 - prisoner/containment foundations include prisoner roles, danger levels, violence bias, secure containment rooms and a standalone containment-transfer scenario hook
