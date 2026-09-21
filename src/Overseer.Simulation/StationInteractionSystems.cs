@@ -221,7 +221,8 @@ public sealed class CrewDoorInteractionSystem
                 || door.IsLocked
                 || door.IsManuallyOverridden
                 || door.HasPhysicalSecuring
-                || !door.IsPowered)
+                || !door.IsPowered
+                || !door.GridPowerAvailable)
                 continue;
 
             door.IsOpen = false;
@@ -250,12 +251,14 @@ public sealed class CrewDoorInteractionSystem
         IsAdjacent(npc, door)
         && HasLockAuthority(npc)
         && door.IsPowered
+        && door.GridPowerAvailable
         && !door.IsManuallyOverridden
         && !door.HasPhysicalSecuring;
 
     public static bool CanClose(Npc npc, Door door) =>
         IsAdjacent(npc, door)
         && door.IsPowered
+        && door.GridPowerAvailable
         && door.IsOpen
         && !door.IsLocked
         && !door.IsManuallyOverridden
