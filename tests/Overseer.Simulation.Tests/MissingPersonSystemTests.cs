@@ -143,11 +143,16 @@ public sealed class MissingPersonSystemTests
 
         Assert.DoesNotContain(marcus.Id, sarah.MissingPersonConcerns.Keys);
 
-        // Meet somewhere that is not Marcus' expected duty room so Sarah
-        // cannot independently infer the absence before Nadia tells her.
+        // A Concerned-stage absence is not broadcast. Nadia first checks the
+        // expected duty area; only the resulting active search can spread socially.
+        state.Elapsed = TimeSpan.FromMinutes(365);
+        nadia.CurrentRoomId = expected;
+        system.Tick(state);
+        Assert.DoesNotContain(marcus.Id, sarah.MissingPersonConcerns.Keys);
+
         nadia.CurrentRoomId = "control";
         sarah.CurrentRoomId = "control";
-        state.Elapsed = TimeSpan.FromMinutes(35);
+        state.Elapsed = TimeSpan.FromMinutes(370);
         system.Tick(state);
 
         Assert.Contains(marcus.Id, sarah.MissingPersonConcerns.Keys);
@@ -220,7 +225,7 @@ public sealed class MissingPersonSystemTests
         state.Elapsed = TimeSpan.FromMinutes(25);
         system.Tick(state);
         nadia.CurrentRoomId = "storage";
-        state.Elapsed = TimeSpan.FromMinutes(360);
+        state.Elapsed = TimeSpan.FromMinutes(30);
         system.Tick(state);
 
         Assert.Contains(
