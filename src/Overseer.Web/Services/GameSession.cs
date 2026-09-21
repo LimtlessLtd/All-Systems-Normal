@@ -22,6 +22,7 @@ public sealed class GameSession(
     private readonly RobotSystem _robots = new();
     private readonly TurretCountermeasureSystem _turretCountermeasures = new();
     private readonly TurretSystem _turrets = new();
+    private readonly SecurityMalwareSystem _malware = new();
     private readonly CrewRoutineSystem _crewRoutines = new();
     private readonly SocialSimulationSystem _social = new();
     private readonly IntentExecutionSystem _intentExecution = new();
@@ -88,7 +89,8 @@ public sealed class GameSession(
             turret.IsDestroyed
             || (turret.IsArmed && turret.Policy != TurretPolicy.Safe)
             || turret.IsNetworkIsolated
-            || !turret.PowerFeedEnabled);
+            || !turret.PowerFeedEnabled)
+        + (State.SecurityMalware.IsActive ? 1 : 0);
 
     public async Task InitializeAsync(
         CancellationToken cancellationToken = default)
@@ -732,6 +734,20 @@ public sealed class GameSession(
         return false;
     }
 
+    public bool DeploySecurityMalware()
+    {
+        if (_malware.TryDeploy(State, out var message))
+        {
+            AudioCueSystem.Emit(State, AudioCueKind.Warning, roomId: SecurityMalwareSystem.ControllerRoomId);
+            Log(message);
+            return true;
+        }
+
+        Log(message);
+        AudioCueSystem.Emit(State, AudioCueKind.Warning, roomId: SecurityMalwareSystem.ControllerRoomId);
+        return false;
+    }
+
     public bool SetRobotPolicy(string robotId, RobotPolicy policy)
     {
         if (_robots.TrySetPolicy(State, robotId, policy, out var message))
@@ -790,6 +806,7 @@ public sealed class GameSession(
         _vacuum.Tick(State);
         _simulation.Tick(State, turn);
         _missingPeople.Tick(State);
+        _malware.Tick(State);
 
         await ThinkIfDueAsync(cancellationToken);
 
