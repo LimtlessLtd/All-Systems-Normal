@@ -3,8 +3,8 @@
 Repository: https://github.com/LimtlessLtd/All-Systems-Normal
 Playable Pages build: https://limtlessltd.github.io/All-Systems-Normal/
 
-**Current state:** V0.12 + Movement, Perception, Medical & Interaction Polish
-**Next recommended milestone:** V0.13 — Hazardous Transport Assignments
+**Current state:** V0.13 foundations — Emergent Routines, Hazards, Containment & Station Polish
+**Next recommended milestone:** V0.13 — Complete Hazardous Transport Assignments
 
 This file is the authoritative technical handoff. Keep it concise and update sections in place; do not append milestone diaries.
 
@@ -177,7 +177,12 @@ Current shared mechanics include:
 - deterministic equipment wear/repair plus rare seeded unexpected fault events; qualified crew physically travel to and service degraded machinery
 - life support and environmental propagation depend on the actual powered utility chain rather than a standalone boolean
 - physical airlocks, pressure cycling and decompression
-- hydroponics, provisions, cooking, eating and human routines
+- hydroponics with typed visible crops (tomato, potato, apple, grape, banana, tobacco, wheat), provisions, cooked meals, raw-food fallback, food preferences and mood/stress consequences
+- deterministic daily routines with day/night shifts, scheduled sleep, sleep debt, fatigue-driven movement slowdown and cognitive skill penalties
+- fresh scenarios scale to roughly 12 crew while preserving campaign-continuing roster provenance
+- spontaneous social conflict pressure can escalate into deterministic fights from stress, personality, relationships, grievances and circumstances
+- deterministic fire/smoke hazards expose composable crew affordances (fight fire, evacuate, seal, vent) rather than scripted response trees; LLM/browser cognition chooses desired responses and C# validates reachability, equipment, pressure and outcomes
+- prisoner/containment foundations include prisoner roles, danger levels, violence bias, secure containment rooms and a standalone containment-transfer scenario hook
 - autonomous crew with skills, traits, relationships, beliefs, memories and persistent intents
 - memory fades: `MemorySalience` scores importance × a half-life that grows with importance (trivia fades in hours, defining moments last about a day); prompts use the most salient memories now, and `MemoryRetentionSystem` caps each crew member at 40 memories every 30 minutes and forgets faded trivia older than a day. Campaign carry-over still keeps the most important memories.
 - conversations carry content via `ConversationTopicSystem`: doubts about Overseer, gossip about a third crew member (nudges the listener's view of them by trust; friends of the subject push back), passing on recent notable memories (never news about the listener), wellbeing and small talk. Arguments name a cause (Overseer disagreement, grievance). Informative talk leaves listener memories and appears in the player LOG; Overseer beliefs remain evidence-driven. Social rolls include the station seed and pairing order rotates.
@@ -188,8 +193,8 @@ Current shared mechanics include:
 - contained MR/ST security-controller malware lifecycle with deterministic reachability, observer-local diagnostics, physical isolation and timed purge/reimage recovery
 - five ordered campaign assignments, corporate directives, carry-over consequences and endings
 - browser-local campaign persistence
-- one shared Pages/server station UI, resizable panels, large pannable deck camera, wheel/WASD/drag zoom/pan, audio/music, speech/thought bubbles, seamless physical entity animation and dotted green next-segment crew movement intent
-- room telemetry attaches directly to the owning room's top/bottom edge rather than floating elsewhere
+- one shared Pages/server station UI, resizable panels, large pannable deck camera, wheel/WASD/drag zoom/pan, audio/music, speech/thought bubbles, seamless physical entity animation and selected-unit destination/route visualization
+- room telemetry attaches directly to a generation-owned top/bottom edge reservation; procedural packing treats the status-plate strip as occupied geometry so plates cannot overlap rooms, corridors or each other
 - bright white/grey spacecraft interior art direction with animated consoles/screens/vents/irrigation/pipes/medical/camera/airlock/machinery cues
 - one shared `StationSelection` / `StationInspectionSystem` contract drives the contextual Inspector for rooms, crew, doors, MR robots and ST turrets
 - the default workspace is the station focus view with pause, crew roster, notable-event log and menu overlays; CONSOLE shows objectives/directives + full-width Overseer Comms + map/Inspector; the old permanent Facility Systems panel is removed
@@ -198,12 +203,14 @@ Current shared mechanics include:
 - maintainable machinery is bound to physical room fixtures via `RoomFixture.DeviceId`; door entities carry visible local control pads without cluttering corridor fixture geometry
 - `/debug` is a separate full-screen non-gameplay diagnostics surface; it contains cognition traces, raw Ollama prompt/response data, event logs and generation diagnostics and can be disabled without changing simulation authority
 - authoritative sliding doors animate from `Door.IsOpen`; leaves retract fully clear of the walking line, mobile entities render above the hatch plane, ordinary crew automatically open traversable closed/unlocked hatches and they auto-close after traffic, while deterministic role/skill rules gate lock/unlock
-- the station exterior uses a dark-space fallback plus NASA/ESA/CSA/STScI JWST SMACS 0723 imagery; bright white/grey styling is reserved for the spacecraft itself
+- the station exterior uses a darker astronomical backdrop with restrained animated glow/twinkle; bright white/grey styling is reserved for the spacecraft itself
 - `CrewAffordanceSystem` is the shared capability catalog for Ollama and browser fallback; deterministic systems still validate knowledge, targets, routes, skills, permissions and outcomes
 - expanded grounded crew agency includes cooperative, investigative, deceptive, safety and local door intentions; deception never directly edits another NPC's beliefs
 - selectable MR robots with dedicated Inspector telemetry; crew and friendly robots physically approach actual fixtures/equipment while working where an interaction point exists
 - transient cognition diagnostics via `CognitionTelemetrySystem`; Ollama traces retain prompt/raw response/validated intent, browser/rule-based minds emit the same decision shape
 - missing-person logic treats routine separation as normal: concern is measured in hours, Concerned-stage absence does not pre-empt work, and shared concern does not instantly interrupt the listener
+- CrewLifecycleAuditSystem guarantees crew death/removal transitions are logged and bodies/presence state remain explainable instead of silently disappearing
+- Station alerts retain recent actionable history; hover shows the last five and clicking an alert selects/navigates to its related crew member, room, robot, turret or device
 - scenario roster provenance is explicit: fresh scenarios use Ollama/server generation or deterministic seeded Pages generation; continuing scenarios reconstruct persisted campaign crew and never silently substitute a new roster
 - deterministic perception uses human forward-cone/open-door LOS and omnidirectional longer-range machine sensors; hostile assets cannot magically acquire unseen targets
 - medical treatment/resurrection is simulation-authoritative and resource/power/body gated; blood evidence persists physically until a capable actor cleans it
@@ -275,15 +282,16 @@ Standard gate:
 - Fixture collision is authoritative for mobile entities. Local navigation stays freeform visually but uses deterministic collision-aware routing internally. The current visibility-graph safety margin is deliberately small (`0.35`) because physical clearance is already enforced separately; fallbacks must never reselect the actor's current waypoint.
 - The seed-1 Storage regression (`Marcus Reed` at the formerly stuck door approach) protects the 24-hour provisioning/maintenance lifecycle from fixture-routing starvation regressions. Do not weaken the lifecycle assertions.
 - Human movement uses continuous local-motion state, faster door approach/traversal, contextual hand/arm animation only during actual hands-on actions, and correctly centred robot selection affordances.
-- Room status strips attach to the owning room's top/bottom edge. Reactor air-handler visuals must remain inside their machinery footprint. Station Overview exposes simulation speed controls.
+- Room status strips use `Room.StatusPlateSide` chosen during generation; `StationGenerator` reserves and validates their external envelopes against all station geometry and other plates. Normal generation prefers larger organised rooms but must retain deterministic late-attempt packing fallback for cramped seeds. Reactor air-handler visuals must remain inside their machinery footprint. Station Overview exposes simulation speed controls.
 - Human LOS is directional and door/geometry aware, and light-dependent: if either end of the sightline is unpowered or unlit, human range drops to 35% (sightings, blood evidence and violence attribution all follow). Witnesses of violence in the same compartment identify the attacker by distance and light rather than facing; otherwise they only hear a struggle. Robot/turret sensor LOS is deterministic, light-independent and cannot acquire targets through walls. Previously acquired hostile targets may continue to be pursued under the existing deterministic rules.
 - Medical care, resurrection and blood evidence are deterministic C# systems. Resurrection requires a powered medbay, resources/charge and a present recoverable body.
 - The procedure in progress lives in `Npc.MedicalActionKind` (never read back from `CurrentAction`, which other systems rewrite). A doctor mid-procedure and a patient waiting in a medbay that can treat them are protected from routine errands; leaving the medbay abandons the procedure. A patient waiting in the medbay calls the doctor in as medical duty. Injured crew are only routed to the medbay when a doctor, supplies and a safe medbay exist; an existing trip is kept rather than recreated, and plans with urgency ≥ 97 are never overridden. Witnesses rethink once per injury (`Npc.NoticedInjuredCrewIds`), not every minute.
-- Movement/perception/medical regression coverage is concentrated in `MovementPerceptionMedicalPolishTests.cs` plus the existing lifecycle, robot, UI and procedural-generation suites.
+- Movement/perception/medical regression coverage is concentrated in `MovementPerceptionMedicalPolishTests.cs`; emergent routines/hazards/containment coverage is in `EmergentWorldSystemsTests.cs` plus the existing lifecycle, robot, UI and procedural-generation suites.
+- LLM freedom direction: keep expanding deterministic affordances and world-state observability rather than scripted plans; converge browser/server fallback cognition onto one utility scorer; let the model compose multi-step intentions from atomic actions; record failed intentions/frustration as memories; replace omniscient target locations with last-seen/search knowledge; allow hazard-response coordination via shared claims/messages while C# remains sole authority over physics, access, resources, damage and death.
 
-## Next milestone — V0.13 Hazardous Transport Assignments
+## Next milestone — V0.13 Complete Hazardous Transport Assignments
 
-Add scenario-defined missions carrying a hardened prisoner, hostile organism or other contained threat. Keep containment, protocols, escape state, combat, damage and lethality deterministic; crew cognition may decide responses, and Overseer may help or hinder those responses without owning physical outcomes.
+Promote the containment-transfer foundation into a complete scenario/campaign assignment: hardened prisoners or hostile organisms, explicit transport/containment protocols, deterministic escape/recapture/combat/damage/lethality, richer prisoner goals and relationships, and player-facing objectives/end states. Crew cognition may invent responses from available affordances; deterministic C# remains sole authority over what can happen.
 
 Keep unrelated simulation expansion out of this pass.
 
