@@ -5415,24 +5415,49 @@ button.turret-token {
 
 
 /* Station-overview interaction + physical systems pass.
-   Exterior background: NASA/ESA/CSA/STScI Webb First Deep Field (SMACS 0723).
-   The spacecraft remains bright white/grey; only the surrounding void is dark. */
+   Exterior background: NASA/ESA Hubble eXtreme Deep Field (XDF). Its very dark
+   field keeps the station readable while leaving real galaxies visible. */
 .station-map-viewport {
     background:
-        radial-gradient(circle at 50% 45%, rgba(22,38,54,.18), transparent 46%),
+        radial-gradient(circle at 50% 45%, rgba(16,30,48,.14), transparent 46%),
         #010207;
     scrollbar-color: #47525c #05070b;
 }
 
 .station-map {
     background:
-        linear-gradient(rgba(0,4,11,.14), rgba(0,3,9,.30)),
-        url("https://assets.science.nasa.gov/dynamicimage/assets/science/missions/webb/science/2022/07/STScI-01G8H1K2BCNATEZSKVRN9Z69SR.png?crop=faces%2Cfocalpoint&fit=clip&h=2000&w=1960")
+        linear-gradient(rgba(0,3,10,.44), rgba(0,2,8,.64)),
+        url("https://science.nasa.gov/wp-content/uploads/2023/04/xlarge_web_0-jpg.webp")
             center / cover no-repeat,
         #010207;
     box-shadow:
-        inset 0 0 120px rgba(0,0,0,.48),
+        inset 0 0 150px rgba(0,0,0,.66),
         inset 0 0 0 1px rgba(186,206,216,.12);
+}
+
+/* A deliberately restrained synthetic sparkle layer. It never moves station
+   geometry and is disabled with reduced-motion. */
+.station-map::before {
+    content: "";
+    display: block;
+    position: absolute;
+    inset: -3%;
+    z-index: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 18% 22%, rgba(218,238,255,.75) 0 1px, transparent 1.7px),
+        radial-gradient(circle at 74% 31%, rgba(255,230,190,.62) 0 1px, transparent 1.8px),
+        radial-gradient(circle at 38% 78%, rgba(196,224,255,.64) 0 1px, transparent 1.7px),
+        radial-gradient(circle at 86% 71%, rgba(240,247,255,.55) 0 1px, transparent 1.8px);
+    background-size: 290px 240px, 360px 310px, 420px 360px, 510px 430px;
+    opacity: .16;
+    animation: station-space-twinkle 8.5s ease-in-out infinite alternate;
+}
+
+@keyframes station-space-twinkle {
+    0% { opacity: .10; transform: scale(1); }
+    45% { opacity: .22; }
+    100% { opacity: .14; transform: scale(1.006); }
 }
 
 .status-strip .status-tile {
@@ -6899,4 +6924,90 @@ button.turret-token {
     font-size: .7rem;
     font-weight: 800;
     text-decoration: none;
+}
+
+
+/* Emergent-routine / hazard / route presentation. */
+.crew-route-lines .selected-route-path {
+    fill: none;
+    stroke: rgba(94, 220, 255, .92);
+    stroke-width: .42;
+    stroke-dasharray: 1.45 1.0;
+    vector-effect: non-scaling-stroke;
+    filter: drop-shadow(0 0 2px rgba(73, 200, 244, .72));
+    animation: selected-route-flow 1.25s linear infinite;
+}
+
+.crew-route-lines .selected-route-destination {
+    fill: rgba(230, 251, 255, .92);
+    stroke: rgba(37, 160, 207, .95);
+    stroke-width: .42;
+    vector-effect: non-scaling-stroke;
+    filter: drop-shadow(0 0 3px rgba(80, 211, 255, .85));
+}
+
+.crew-route-lines .selected-route-label {
+    fill: #dff8ff;
+    stroke: rgba(0, 10, 17, .92);
+    stroke-width: .22;
+    paint-order: stroke fill;
+    font: 800 2px/1 "Cascadia Code", Consolas, monospace;
+    text-anchor: middle;
+    letter-spacing: .04em;
+}
+
+@keyframes selected-route-flow {
+    to { stroke-dashoffset: -4.9; }
+}
+
+/* The model and its selection ring share exactly the same center. */
+.station-authority-layer .robot-token:not(.turret-token) {
+    display: block;
+    box-sizing: border-box;
+}
+
+.station-authority-layer .robot-token:not(.turret-token) .robot-machine,
+.station-authority-layer .robot-token:not(.turret-token).selected::after {
+    left: 50%;
+    top: 50%;
+    right: auto;
+    bottom: auto;
+    margin: 0;
+    transform-origin: 50% 50%;
+}
+
+.station-authority-layer .robot-token:not(.turret-token).selected::after {
+    width: 48px;
+    height: 48px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+/* Each visible hydroponic bed announces the crop it actually contains. */
+.station-authority-layer .fixture-growbed[data-crop]:not([data-crop=""])::before {
+    content: attr(data-crop);
+    position: absolute;
+    z-index: 3;
+    left: 50%;
+    top: 50%;
+    max-width: 90%;
+    transform: translate(-50%, -50%);
+    padding: 2px 4px;
+    border: 1px solid rgba(196, 231, 204, .72);
+    border-radius: 3px;
+    background: rgba(5, 27, 17, .78);
+    color: #d7f4df;
+    font: 800 7px/1 "Cascadia Code", Consolas, monospace;
+    letter-spacing: .03em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .station-map::before,
+    .crew-route-lines .selected-route-path {
+        animation: none !important;
+    }
 }
