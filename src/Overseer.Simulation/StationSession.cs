@@ -49,6 +49,9 @@ public abstract class StationSession
     private readonly ConversationPacingSystem _conversationPacing = new();
     private readonly MemoryRetentionSystem _memoryRetention = new();
     private readonly SimulationClock _clock = new();
+    private readonly List<StationAlert> _recentAlerts = [];
+    private readonly HashSet<string> _activeAlertKeys = new(StringComparer.Ordinal);
+    private GameState? _alertHistoryState;
 
     protected StationSession(
         IOverseerMessageInterpreter messageInterpreter,
@@ -74,10 +77,54 @@ public abstract class StationSession
     public int LivingCrewCount =>
         State.Crew.Count(npc => npc.IsAlive);
 
-    public IReadOnlyList<StationAlert> Alerts =>
-        StationAlertSystem.Build(State);
+    public IReadOnlyList<StationAlert> Alerts => BuildAndTrackAlerts();
+
+    public IReadOnlyList<StationAlert> RecentAlerts
+    {
+        get
+        {
+            _ = BuildAndTrackAlerts();
+            return _recentAlerts.Take(5).ToList();
+        }
+    }
 
     public int AlertCount => Alerts.Count;
+
+    private IReadOnlyList<StationAlert> BuildAndTrackAlerts()
+    {
+        if (!ReferenceEquals(_alertHistoryState, State))
+        {
+            _alertHistoryState = State;
+            _recentAlerts.Clear();
+            _activeAlertKeys.Clear();
+        }
+
+        var current = StationAlertSystem.Build(State);
+        var currentKeys = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var alert in current)
+        {
+            var targetKey = alert.Target is null
+                ? "none"
+                : $"{alert.Target.Kind}:{alert.Target.Id}";
+            var key = $"{alert.Severity}|{targetKey}|{alert.Message}";
+            currentKeys.Add(key);
+
+            if (_activeAlertKeys.Contains(key))
+                continue;
+
+            _recentAlerts.Insert(0, alert);
+        }
+
+        _activeAlertKeys.Clear();
+        foreach (var key in currentKeys)
+            _activeAlertKeys.Add(key);
+
+        if (_recentAlerts.Count > 30)
+            _recentAlerts.RemoveRange(30, _recentAlerts.Count - 30);
+
+        return current;
+    }
 
     /// <summary>Prepares the first station; runtimes that need async setup override it.</summary>
     public virtual Task InitializeAsync(CancellationToken cancellationToken = default) =>
