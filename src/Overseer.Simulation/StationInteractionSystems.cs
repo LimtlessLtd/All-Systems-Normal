@@ -429,6 +429,8 @@ public static class StationInspectionSystem
             StationSelectionKind.Turret =>
                 state.Turrets.Any(turret =>
                     turret.Id.Equals(selection.Id, StringComparison.OrdinalIgnoreCase)),
+            StationSelectionKind.Device =>
+                state.Devices.ContainsKey(selection.Id),
             _ => false
         };
 
@@ -460,6 +462,12 @@ public static class StationInspectionSystem
         selection is { Kind: StationSelectionKind.Turret }
             ? state.Turrets.FirstOrDefault(turret =>
                 turret.Id.Equals(selection.Id, StringComparison.OrdinalIgnoreCase))
+            : null;
+
+    public static StationDevice? Device(GameState state, StationSelection? selection) =>
+        selection is { Kind: StationSelectionKind.Device }
+        && state.Devices.TryGetValue(selection.Id, out var device)
+            ? device
             : null;
 }
 
