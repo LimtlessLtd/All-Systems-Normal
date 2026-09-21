@@ -179,6 +179,23 @@ public sealed class LocalMovementSystem
             && device.RoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
         {
             preferredFixture = FixtureForDevice(room, device);
+
+            if (preferredFixture is null
+                && device.Kind == StationSystemKind.Door
+                && device.DoorId is { } servicedDoorId)
+            {
+                var servicedDoor = state.Facility.Doors.FirstOrDefault(candidate =>
+                    candidate.Id.Equals(
+                        servicedDoorId,
+                        StringComparison.OrdinalIgnoreCase));
+
+                if (servicedDoor is not null
+                    && (servicedDoor.RoomAId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)
+                        || servicedDoor.RoomBId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return DoorServicePoint(state, room, servicedDoor);
+                }
+            }
         }
 
         if (preferredFixture is null && npc.ProvisioningJob is { } provisioning)
@@ -415,6 +432,31 @@ public sealed class LocalMovementSystem
         }
 
         return beds[0];
+    }
+
+    private static (double X, double Y) DoorServicePoint(
+        GameState state,
+        Room room,
+        Door door)
+    {
+        var otherRoomId = door.RoomAId.Equals(
+            room.Id,
+            StringComparison.OrdinalIgnoreCase)
+                ? door.RoomBId
+                : door.RoomAId;
+        var other = state.Facility.Rooms[otherRoomId];
+        var portal = StationGeometry.FindSharedPortal(room, other);
+
+        var localX = Math.Clamp(
+            50 + (((portal.X - room.MapX) / Math.Max(room.MapWidth, 0.001)) * 100),
+            8,
+            92);
+        var localY = Math.Clamp(
+            50 + (((portal.Y - room.MapY) / Math.Max(room.MapHeight, 0.001)) * 100),
+            8,
+            92);
+
+        return (localX, localY);
     }
 
     private static (double X, double Y) InteractionPoint(RoomFixture fixture) =>
