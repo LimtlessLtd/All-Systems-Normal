@@ -165,6 +165,7 @@ public sealed class CrewMaintenanceSystemTests
                         $"hunger={marcus.Hunger:0.0}, action={marcus.CurrentAction.Kind}/{marcus.CurrentAction.Reason}, " +
                         $"intent={marcus.Intent?.Action}/{marcus.Intent?.TargetId}/u{marcus.Intent?.Urgency}/age={(marcus.Intent is null ? 0 : (state.Elapsed - marcus.Intent.CreatedAt).TotalMinutes):0}, " +
                         $"movement={marcus.Movement?.FromRoomId}->{marcus.Movement?.ToRoomId}/{marcus.Movement?.DoorId}, " +
+                        $"pos={marcus.PositionX:0.0},{marcus.PositionY:0.0}, exit={marcus.Movement?.ExitX:0.0},{marcus.Movement?.ExitY:0.0}, " +
                         $"routineUntil={marcus.RoutineUntil.TotalMinutes:0}, service={marcus.ServicingDeviceId}, " +
                         $"provisioning={marcus.ProvisioningJob}, meals={state.Stores.Meals:0.0}";
                 }
