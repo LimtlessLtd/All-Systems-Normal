@@ -253,7 +253,7 @@ public sealed class CrewRoutineSystem
                 30);
         }
 
-        if (npc.SocialNeed >= 52)
+        if (npc.SocialNeed >= 70)
         {
             var companion = BestCompanion(state, npc);
 
@@ -287,7 +287,7 @@ public sealed class CrewRoutineSystem
     private static Npc? BestCompanion(GameState state, Npc npc)
     {
         return state.Crew
-            .Where(other => other.IsAlive && other.Id != npc.Id)
+            .Where(other => other.IsAlive && other.IsPresent && other.Id != npc.Id)
             .OrderByDescending(other =>
             {
                 var relationship = npc.Relationships[other.Name];

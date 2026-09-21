@@ -1,17 +1,25 @@
 window.overseerLayout = (() => {
-    const storageKey = "all-systems-normal.workspace-layout.v1";
+    const storageKey = "all-systems-normal.workspace-layout.v2";
     const desktopQuery = window.matchMedia("(min-width: 1181px)");
     const roots = new Set();
+    const cameraStates = new WeakMap();
     const limits = {
-        systems: { min: 165, max: 360 },
-        inspector: { min: 250, max: 470 },
-        events: { min: 140, max: 700 },
-        map: { min: 360, max: 900 },
-        mapMinimumWidth: 480,
-        splitterWidth: 24
+        inspector: { min: 300, max: 560 },
+        map: { min: 420, max: 980 },
+        mapMinimumWidth: 680,
+        splitterWidth: 12
+    };
+
+    const cameraLimits = {
+        minZoom: 0.65,
+        maxZoom: 3.0,
+        zoomStep: 0.2,
+        keyboardStep: 42
     };
 
     let resizeListenerInstalled = false;
+    let keyboardListenerInstalled = false;
+    let lastActiveCamera = null;
 
     function clamp(value, min, max) {
         return Math.min(Math.max(value, min), max);
@@ -31,9 +39,7 @@ window.overseerLayout = (() => {
     function writeStored(state) {
         try {
             localStorage.setItem(storageKey, JSON.stringify({
-                systemsWidth: Math.round(state.systemsWidth),
                 inspectorWidth: Math.round(state.inspectorWidth),
-                eventHeight: Math.round(state.eventHeight),
                 mapHeight: Math.round(state.mapHeight)
             }));
         } catch {
@@ -43,78 +49,57 @@ window.overseerLayout = (() => {
 
     function defaultState() {
         return {
-            systemsWidth: 220,
-            inspectorWidth: 320,
-            eventHeight: 220,
-            mapHeight: clamp(Math.round(window.innerHeight * 0.62), 460, 820)
+            inspectorWidth: 360,
+            mapHeight: clamp(Math.round(window.innerHeight * 0.72), 520, 900)
         };
     }
 
     function currentState(root) {
-        const systems = root.querySelector(".systems-panel");
         const inspector = root.querySelector(".inspector-panel");
-        const events = root.querySelector(".event-panel");
         const map = root.querySelector(".station-map-viewport");
         const defaults = defaultState();
 
         return {
-            systemsWidth: systems?.getBoundingClientRect().width || defaults.systemsWidth,
             inspectorWidth: inspector?.getBoundingClientRect().width || defaults.inspectorWidth,
-            eventHeight: events?.getBoundingClientRect().height || defaults.eventHeight,
             mapHeight: map?.getBoundingClientRect().height || defaults.mapHeight
         };
     }
 
-    function dynamicSideMaximum(root, side, state) {
+    function dynamicInspectorMaximum(root) {
         const grid = root.querySelector(".operations-grid");
-        if (!grid) return limits[side].max;
+        if (!grid) return limits.inspector.max;
 
-        const otherWidth = side === "systems" ? state.inspectorWidth : state.systemsWidth;
         const available = grid.getBoundingClientRect().width
-            - otherWidth
             - limits.mapMinimumWidth
             - limits.splitterWidth;
 
-        return Math.max(limits[side].min, Math.min(limits[side].max, available));
+        return Math.max(
+            limits.inspector.min,
+            Math.min(limits.inspector.max, available));
     }
 
     function normalize(root, state) {
         const normalized = { ...state };
-
-        normalized.systemsWidth = clamp(
-            Number(normalized.systemsWidth) || 220,
-            limits.systems.min,
-            limits.systems.max);
-
         normalized.inspectorWidth = clamp(
-            Number(normalized.inspectorWidth) || 320,
+            Number(normalized.inspectorWidth) || defaultState().inspectorWidth,
             limits.inspector.min,
-            limits.inspector.max);
+            dynamicInspectorMaximum(root));
 
-        normalized.systemsWidth = clamp(
-            normalized.systemsWidth,
-            limits.systems.min,
-            dynamicSideMaximum(root, "systems", normalized));
+        const viewportMapMax = Math.max(
+            limits.map.min,
+            Math.min(limits.map.max, Math.floor(window.innerHeight * 0.9)));
 
-        normalized.inspectorWidth = clamp(
-            normalized.inspectorWidth,
-            limits.inspector.min,
-            dynamicSideMaximum(root, "inspector", normalized));
-
-        const viewportEventMax = Math.max(limits.events.min, Math.min(limits.events.max, Math.floor(window.innerHeight * 0.58)));
-        const viewportMapMax = Math.max(limits.map.min, Math.min(limits.map.max, Math.floor(window.innerHeight * 0.86)));
-
-        normalized.eventHeight = clamp(Number(normalized.eventHeight) || 220, limits.events.min, viewportEventMax);
-        normalized.mapHeight = clamp(Number(normalized.mapHeight) || defaultState().mapHeight, limits.map.min, viewportMapMax);
+        normalized.mapHeight = clamp(
+            Number(normalized.mapHeight) || defaultState().mapHeight,
+            limits.map.min,
+            viewportMapMax);
 
         return normalized;
     }
 
     function updateAria(root, state) {
         const values = {
-            systems: state.systemsWidth,
             inspector: state.inspectorWidth,
-            events: state.eventHeight,
             map: state.mapHeight
         };
 
@@ -131,9 +116,7 @@ window.overseerLayout = (() => {
         if (!root?.isConnected) return state;
 
         const normalized = normalize(root, state);
-        root.style.setProperty("--systems-width", `${normalized.systemsWidth}px`);
         root.style.setProperty("--inspector-width", `${normalized.inspectorWidth}px`);
-        root.style.setProperty("--event-height", `${normalized.eventHeight}px`);
         root.style.setProperty("--map-height", `${normalized.mapHeight}px`);
         updateAria(root, normalized);
 
@@ -147,19 +130,18 @@ window.overseerLayout = (() => {
 
         if (!kind) {
             apply(root, defaults, true);
+            root.querySelectorAll("[data-map-camera]").forEach(resetCamera);
             return;
         }
 
-        if (kind === "systems") state.systemsWidth = defaults.systemsWidth;
         if (kind === "inspector") state.inspectorWidth = defaults.inspectorWidth;
-        if (kind === "events") state.eventHeight = defaults.eventHeight;
         if (kind === "map") state.mapHeight = defaults.mapHeight;
 
         apply(root, state, true);
     }
 
     function cursorFor(kind) {
-        return kind === "systems" || kind === "inspector" ? "col-resize" : "row-resize";
+        return kind === "inspector" ? "col-resize" : "row-resize";
     }
 
     function beginDrag(root, splitter, event) {
@@ -183,9 +165,7 @@ window.overseerLayout = (() => {
             const deltaX = moveEvent.clientX - startX;
             const deltaY = moveEvent.clientY - startY;
 
-            if (kind === "systems") next.systemsWidth = start.systemsWidth + deltaX;
             if (kind === "inspector") next.inspectorWidth = start.inspectorWidth - deltaX;
-            if (kind === "events") next.eventHeight = start.eventHeight - deltaY;
             if (kind === "map") next.mapHeight = start.mapHeight + deltaY;
 
             apply(root, next, false);
@@ -211,7 +191,7 @@ window.overseerLayout = (() => {
         if (!desktopQuery.matches) return;
 
         const kind = splitter.dataset.splitter;
-        const horizontal = kind === "systems" || kind === "inspector";
+        const horizontal = kind === "inspector";
         const step = event.shiftKey ? (horizontal ? 48 : 72) : (horizontal ? 16 : 24);
         const state = currentState(root);
         let handled = true;
@@ -219,34 +199,18 @@ window.overseerLayout = (() => {
         if (event.key === "Enter") {
             reset(root, kind);
         } else if (event.key === "Home") {
-            if (kind === "systems") state.systemsWidth = limits.systems.min;
-            else if (kind === "inspector") state.inspectorWidth = limits.inspector.min;
-            else if (kind === "events") state.eventHeight = limits.events.min;
+            if (kind === "inspector") state.inspectorWidth = limits.inspector.min;
             else if (kind === "map") state.mapHeight = limits.map.min;
             apply(root, state, true);
         } else if (event.key === "End") {
-            if (kind === "systems") state.systemsWidth = limits.systems.max;
-            else if (kind === "inspector") state.inspectorWidth = limits.inspector.max;
-            else if (kind === "events") state.eventHeight = Math.min(limits.events.max, window.innerHeight * 0.58);
-            else if (kind === "map") state.mapHeight = Math.min(limits.map.max, window.innerHeight * 0.86);
-            apply(root, state, true);
-        } else if (kind === "systems" && event.key === "ArrowLeft") {
-            state.systemsWidth -= step;
-            apply(root, state, true);
-        } else if (kind === "systems" && event.key === "ArrowRight") {
-            state.systemsWidth += step;
+            if (kind === "inspector") state.inspectorWidth = limits.inspector.max;
+            else if (kind === "map") state.mapHeight = Math.min(limits.map.max, window.innerHeight * 0.9);
             apply(root, state, true);
         } else if (kind === "inspector" && event.key === "ArrowLeft") {
             state.inspectorWidth += step;
             apply(root, state, true);
         } else if (kind === "inspector" && event.key === "ArrowRight") {
             state.inspectorWidth -= step;
-            apply(root, state, true);
-        } else if (kind === "events" && event.key === "ArrowUp") {
-            state.eventHeight += step;
-            apply(root, state, true);
-        } else if (kind === "events" && event.key === "ArrowDown") {
-            state.eventHeight -= step;
             apply(root, state, true);
         } else if (kind === "map" && event.key === "ArrowUp") {
             state.mapHeight -= step;
@@ -261,28 +225,236 @@ window.overseerLayout = (() => {
         if (handled) event.preventDefault();
     }
 
-    function bindRoot(root) {
-        if (!root || root.dataset.layoutSplittersReady === "true") return;
+    function cameraState(viewport) {
+        let state = cameraStates.get(viewport);
+        if (!state) {
+            state = { x: 0, y: 0, zoom: 1, suppressClick: false };
+            cameraStates.set(viewport, state);
+        }
+        return state;
+    }
 
-        root.dataset.layoutSplittersReady = "true";
+    function applyCamera(viewport) {
+        if (!viewport?.isConnected) return;
+
+        const state = cameraState(viewport);
+        const content = viewport.querySelector("[data-map-camera-content]");
+        if (!content) return;
+
+        const rect = viewport.getBoundingClientRect();
+        const maxX = Math.max(120, rect.width * Math.max(0.8, state.zoom));
+        const maxY = Math.max(100, rect.height * Math.max(0.8, state.zoom));
+        state.x = clamp(state.x, -maxX, maxX);
+        state.y = clamp(state.y, -maxY, maxY);
+        state.zoom = clamp(state.zoom, cameraLimits.minZoom, cameraLimits.maxZoom);
+
+        content.style.transform =
+            `translate3d(${state.x.toFixed(1)}px, ${state.y.toFixed(1)}px, 0) scale(${state.zoom.toFixed(2)})`;
+
+        const map = content.closest(".station-map");
+        if (map) {
+            map.classList.toggle("zoom-wide", state.zoom < 0.9);
+            map.classList.toggle("zoom-normal", state.zoom >= 0.9 && state.zoom < 1.35);
+            map.classList.toggle("zoom-close", state.zoom >= 1.35);
+        }
+
+        viewport.querySelectorAll("[data-map-zoom-readout]").forEach(readout => {
+            readout.textContent = `${Math.round(state.zoom * 100)}%`;
+        });
+
+        viewport.closest(".station-panel")?.querySelectorAll("[data-map-zoom-out]").forEach(button => {
+            button.disabled = state.zoom <= cameraLimits.minZoom + 0.001;
+        });
+        viewport.closest(".station-panel")?.querySelectorAll("[data-map-zoom-in]").forEach(button => {
+            button.disabled = state.zoom >= cameraLimits.maxZoom - 0.001;
+        });
+    }
+
+    function panCamera(viewport, dx, dy) {
+        const state = cameraState(viewport);
+        state.x += dx;
+        state.y += dy;
+        applyCamera(viewport);
+    }
+
+    function zoomCamera(viewport, delta) {
+        const state = cameraState(viewport);
+        state.zoom = clamp(
+            Math.round((state.zoom + delta) * 100) / 100,
+            cameraLimits.minZoom,
+            cameraLimits.maxZoom);
+        applyCamera(viewport);
+    }
+
+    function resetCamera(viewport) {
+        const state = cameraState(viewport);
+        state.x = 0;
+        state.y = 0;
+        state.zoom = 1;
+        state.suppressClick = false;
+        applyCamera(viewport);
+    }
+
+    function bindMapCamera(viewport) {
+        if (!viewport || viewport.dataset.mapCameraReady === "true") {
+            if (viewport) applyCamera(viewport);
+            return;
+        }
+
+        viewport.dataset.mapCameraReady = "true";
+        viewport.tabIndex = viewport.tabIndex >= 0 ? viewport.tabIndex : 0;
+        lastActiveCamera = lastActiveCamera?.isConnected ? lastActiveCamera : viewport;
+        applyCamera(viewport);
+
+        let drag = null;
+
+        viewport.addEventListener("pointerdown", event => {
+            if (event.button !== 0) return;
+            lastActiveCamera = viewport;
+            viewport.focus({ preventScroll: true });
+            drag = {
+                id: event.pointerId,
+                startX: event.clientX,
+                startY: event.clientY,
+                lastX: event.clientX,
+                lastY: event.clientY,
+                moved: false
+            };
+            viewport.setPointerCapture?.(event.pointerId);
+        });
+
+        viewport.addEventListener("pointermove", event => {
+            if (!drag || drag.id !== event.pointerId) return;
+
+            const totalX = event.clientX - drag.startX;
+            const totalY = event.clientY - drag.startY;
+            if (!drag.moved && Math.hypot(totalX, totalY) < 4) return;
+
+            drag.moved = true;
+            const dx = event.clientX - drag.lastX;
+            const dy = event.clientY - drag.lastY;
+            drag.lastX = event.clientX;
+            drag.lastY = event.clientY;
+            viewport.classList.add("is-panning");
+            panCamera(viewport, dx, dy);
+            event.preventDefault();
+        });
+
+        const endDrag = event => {
+            if (!drag || (event.pointerId != null && drag.id !== event.pointerId)) return;
+            if (drag.moved) {
+                const state = cameraState(viewport);
+                state.suppressClick = true;
+                window.setTimeout(() => {
+                    state.suppressClick = false;
+                }, 0);
+            }
+            viewport.classList.remove("is-panning");
+            drag = null;
+        };
+
+        viewport.addEventListener("pointerup", endDrag);
+        viewport.addEventListener("pointercancel", endDrag);
+        viewport.addEventListener("lostpointercapture", endDrag);
+
+        viewport.addEventListener("click", event => {
+            if (!cameraState(viewport).suppressClick) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }, true);
+
+        viewport.addEventListener("wheel", event => {
+            if (!event.ctrlKey && !event.metaKey) return;
+            event.preventDefault();
+            lastActiveCamera = viewport;
+            zoomCamera(viewport, event.deltaY < 0 ? cameraLimits.zoomStep : -cameraLimits.zoomStep);
+        }, { passive: false });
+
+        const panel = viewport.closest(".station-panel");
+        panel?.querySelector("[data-map-zoom-in]")?.addEventListener("click", event => {
+            event.preventDefault();
+            lastActiveCamera = viewport;
+            zoomCamera(viewport, cameraLimits.zoomStep);
+        });
+        panel?.querySelector("[data-map-zoom-out]")?.addEventListener("click", event => {
+            event.preventDefault();
+            lastActiveCamera = viewport;
+            zoomCamera(viewport, -cameraLimits.zoomStep);
+        });
+        panel?.querySelector("[data-map-camera-reset]")?.addEventListener("click", event => {
+            event.preventDefault();
+            lastActiveCamera = viewport;
+            resetCamera(viewport);
+        });
+    }
+
+    function bindMapCameras(root) {
+        root.querySelectorAll("[data-map-camera]").forEach(bindMapCamera);
+    }
+
+    function isTypingTarget(target) {
+        return target instanceof HTMLElement
+            && (target.matches("input, textarea, select")
+                || target.isContentEditable);
+    }
+
+    function installKeyboardListener() {
+        if (keyboardListenerInstalled) return;
+        keyboardListenerInstalled = true;
+
+        document.addEventListener("keydown", event => {
+            if (event.defaultPrevented
+                || event.ctrlKey
+                || event.metaKey
+                || event.altKey
+                || isTypingTarget(event.target)
+                || !lastActiveCamera?.isConnected) {
+                return;
+            }
+
+            const step = cameraLimits.keyboardStep * (event.shiftKey ? 2 : 1);
+            const key = event.key.toLowerCase();
+            let dx = 0;
+            let dy = 0;
+
+            if (key === "w" || key === "arrowup") dy = step;
+            else if (key === "s" || key === "arrowdown") dy = -step;
+            else if (key === "a" || key === "arrowleft") dx = step;
+            else if (key === "d" || key === "arrowright") dx = -step;
+            else return;
+
+            event.preventDefault();
+            panCamera(lastActiveCamera, dx, dy);
+        });
+    }
+
+    function bindRoot(root) {
+        if (!root) return;
+
         roots.add(root);
 
-        const stored = readStored();
-        apply(root, { ...defaultState(), ...stored }, false);
+        if (root.dataset.layoutSplittersReady !== "true") {
+            root.dataset.layoutSplittersReady = "true";
+            const stored = readStored();
+            apply(root, { ...defaultState(), ...stored }, false);
 
-        root.querySelectorAll("[data-splitter]").forEach(splitter => {
-            splitter.addEventListener("pointerdown", event => beginDrag(root, splitter, event));
-            splitter.addEventListener("keydown", event => nudge(root, splitter, event));
-            splitter.addEventListener("dblclick", event => {
-                event.preventDefault();
-                reset(root, splitter.dataset.splitter);
+            root.querySelectorAll("[data-splitter]").forEach(splitter => {
+                splitter.addEventListener("pointerdown", event => beginDrag(root, splitter, event));
+                splitter.addEventListener("keydown", event => nudge(root, splitter, event));
+                splitter.addEventListener("dblclick", event => {
+                    event.preventDefault();
+                    reset(root, splitter.dataset.splitter);
+                });
             });
-        });
 
-        root.querySelector("[data-layout-reset]")?.addEventListener("click", event => {
-            event.preventDefault();
-            reset(root);
-        });
+            root.querySelector("[data-layout-reset]")?.addEventListener("click", event => {
+                event.preventDefault();
+                reset(root);
+            });
+        }
+
+        bindMapCameras(root);
+        installKeyboardListener();
     }
 
     function init(selector = "#overseer-workspace") {
@@ -303,6 +475,9 @@ window.overseerLayout = (() => {
                     if (desktopQuery.matches) {
                         apply(candidate, currentState(candidate), false);
                     }
+
+                    bindMapCameras(candidate);
+                    candidate.querySelectorAll("[data-map-camera]").forEach(applyCamera);
                 }
             });
         }

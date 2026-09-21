@@ -39,7 +39,33 @@ public static class FacilitySeeder
     {
         stationConstraints ??= ScenarioCatalog.SecureContinuity.StationConstraints;
         var chosenStationSeed = stationSeed ?? upkeepSeed ?? Random.Shared.Next();
-        var generation = StationGenerator.Generate(chosenStationSeed, stationConstraints);
+        StationGenerationResult generation;
+
+        if (stationSeed is not null || upkeepSeed is not null)
+        {
+            // Explicit seeds are an exact reproducibility contract. If one cannot
+            // satisfy the constraints, surface that deterministic failure.
+            generation = StationGenerator.Generate(chosenStationSeed, stationConstraints);
+        }
+        else
+        {
+            // A random new-session seed is not a contract. Spatial packing is
+            // allowed to reject candidate seeds, so retry another seed rather
+            // than turning a valid rejection into a game-startup crash.
+            for (var attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    generation = StationGenerator.Generate(chosenStationSeed, stationConstraints);
+                    break;
+                }
+                catch (StationGenerationException) when (attempt < 7)
+                {
+                    chosenStationSeed = Random.Shared.Next();
+                }
+            }
+        }
+
         var facility = generation.Facility;
 
         AddFixtures(facility);

@@ -9,7 +9,7 @@ namespace Overseer.Simulation;
 public sealed class MissingPersonSystem
 {
     private static readonly TimeSpan ScanInterval = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan ShareCooldown = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan ShareCooldown = TimeSpan.FromMinutes(30);
 
     public void Tick(GameState state)
     {
@@ -123,7 +123,7 @@ public sealed class MissingPersonSystem
 
             var missedExpectedCheckIn =
                 ShouldExpectCheckIn(observer, target)
-                && unseenFor >= threshold + TimeSpan.FromMinutes(30);
+                && unseenFor >= threshold + TimeSpan.FromMinutes(120);
 
             if (!personallyNoticedMissedDuty && !missedExpectedCheckIn)
                 continue;
@@ -161,9 +161,9 @@ public sealed class MissingPersonSystem
         };
 
         observer.MissingPersonConcerns[target.Id] = concern;
-        observer.NeedsMindReconsideration = true;
-        observer.Stress = Math.Clamp(observer.Stress + 3, 0, 100);
-        observer.Fear = Math.Clamp(observer.Fear + 2, 0, 100);
+        // Ordinary absence is information, not an emergency. A person can be
+        // elsewhere for hours without this pre-empting work, meals or repairs.
+        observer.Stress = Math.Clamp(observer.Stress + 1, 0, 100);
 
         var expectedRoom = state.Facility.Rooms[expectedRoomId].Name;
         var statement = personallyNoticedMissedDuty
@@ -174,9 +174,9 @@ public sealed class MissingPersonSystem
         observer.Memories.Add(new Memory(statement, state.Elapsed, .58));
         observer.Bubble = new NpcBubble(
             $"Has anyone seen {FirstName(target.Name)}?",
-            NpcBubbleKind.Alert,
+            NpcBubbleKind.Speech,
             state.Elapsed,
-            state.Elapsed + TimeSpan.FromMinutes(4));
+            state.Elapsed + TimeSpan.FromMinutes(3));
 
         AudioCueSystem.Emit(
             state,
@@ -247,7 +247,7 @@ public sealed class MissingPersonSystem
 
             if (concern.Stage != MissingPersonConcernStage.Escalated
                 && concern.CheckedRoomIds.Count > 0
-                && state.Elapsed - concern.FirstConcernAt >= TimeSpan.FromMinutes(20))
+                && state.Elapsed - concern.FirstConcernAt >= TimeSpan.FromMinutes(90))
             {
                 concern.Stage = MissingPersonConcernStage.Escalated;
                 concern.LastUpdatedAt = state.Elapsed;
@@ -315,6 +315,7 @@ public sealed class MissingPersonSystem
                     .FirstOrDefault();
 
                 if (concern is null
+                    || concern.Stage == MissingPersonConcernStage.Concerned
                     || (concern.LastSharedAt is { } sharedAt
                         && state.Elapsed - sharedAt < ShareCooldown))
                 {
@@ -353,7 +354,6 @@ public sealed class MissingPersonSystem
                     };
 
                 concern.LastSharedAt = state.Elapsed;
-                listener.NeedsMindReconsideration = true;
                 listener.Memories.Add(new Memory(
                     $"{source.Name} told me they cannot find {concern.PersonName}.",
                     state.Elapsed,
@@ -384,25 +384,27 @@ public sealed class MissingPersonSystem
 
     private static int ConcernThresholdMinutes(Npc observer, Npc target)
     {
-        var minutes = 30;
+        // Crewmates are not expected to visually check on one another every few
+        // minutes. Routine separation can last most of a shift without concern.
+        var minutes = 240;
 
         if (observer.Role == CrewRole.Commander)
-            minutes -= 6;
+            minutes -= 60;
         else if (observer.Role == CrewRole.Security)
-            minutes -= 4;
+            minutes -= 45;
 
         if (target.Role == CrewRole.Commander)
-            minutes -= 3;
+            minutes -= 30;
 
         if (observer.Relationships.TryGetValue(target.Name, out var relationship))
         {
             if (relationship.Trust >= 65)
-                minutes -= 3;
+                minutes -= 30;
             if (relationship.Affinity >= 65)
-                minutes -= 3;
+                minutes -= 30;
         }
 
-        return Math.Clamp(minutes, 18, 38);
+        return Math.Clamp(minutes, 120, 300);
     }
 
     private static bool ShouldExpectCheckIn(Npc observer, Npc target)
