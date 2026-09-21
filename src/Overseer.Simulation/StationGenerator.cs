@@ -30,7 +30,7 @@ public static class StationGenerator
     private const double CanvasMin = 2;
     private const double CanvasMax = 98;
     private const double OverlapTolerance = 0.000001;
-    private const double StatusPlateReserveHeight = 3.45;
+    private const double StatusPlateReserveHeight = 2.4;
     private const double StatusPlateReserveWidth = 10.4;
 
     private sealed record RoomProfile(
@@ -66,20 +66,20 @@ public static class StationGenerator
     private static readonly IReadOnlyDictionary<string, RoomProfile> CanonicalProfiles =
         new Dictionary<string, RoomProfile>(StringComparer.OrdinalIgnoreCase)
         {
-            // Defaults are deliberately roomier than the pre-V0.13 generator, but
-            // not so large that the hard status-plate envelopes make established
-            // deterministic seeds impossible to pack.
-            ["quarters"] = new("quarters", "Crew Quarters", RoomType.CrewQuarters, 13, 20, 15, 23, 100),
-            ["kitchen"] = new("kitchen", "Kitchen", RoomType.Kitchen, 10, 15, 12, 18, 70),
-            ["lounge"] = new("lounge", "Recreation Lounge", RoomType.Recreation, 11, 18, 13, 21, 55),
-            ["hydroponics"] = new("hydroponics", "Hydroponics Bay", RoomType.Hydroponics, 12, 20, 15, 24, 70),
-            ["medical"] = new("medical", "Medical", RoomType.Medical, 10, 16, 12, 19, 80),
-            ["control"] = new("control", "Control Room", RoomType.ControlRoom, 12, 19, 13, 21, 100),
-            ["washroom"] = new("washroom", "Washroom", RoomType.Washroom, 9, 13, 11, 17, 45),
-            ["storage"] = new("storage", "Storage", RoomType.Storage, 10, 17, 12, 21, 55),
-            ["engineering"] = new("engineering", "Engineering", RoomType.Engineering, 13, 21, 15, 24, 100),
-            ["generator"] = new("generator", "Generator", RoomType.Generator, 12, 19, 15, 23, 90),
-            ["reactor"] = new("reactor", "Reactor", RoomType.Reactor, 15, 24, 17, 28, 100),
+            // Preserve the proven minimum footprints so crowded deterministic
+            // seeds remain packable, while lifting maxima so ordinary stations
+            // trend larger and less fixture-dense than before.
+            ["quarters"] = new("quarters", "Crew Quarters", RoomType.CrewQuarters, 12, 20, 14, 23, 100),
+            ["kitchen"] = new("kitchen", "Kitchen", RoomType.Kitchen, 9, 15, 11, 18, 70),
+            ["lounge"] = new("lounge", "Recreation Lounge", RoomType.Recreation, 10, 18, 12, 21, 55),
+            ["hydroponics"] = new("hydroponics", "Hydroponics Bay", RoomType.Hydroponics, 11, 20, 14, 24, 70),
+            ["medical"] = new("medical", "Medical", RoomType.Medical, 9, 16, 11, 19, 80),
+            ["control"] = new("control", "Control Room", RoomType.ControlRoom, 11, 19, 12, 21, 100),
+            ["washroom"] = new("washroom", "Washroom", RoomType.Washroom, 8, 13, 10, 17, 45),
+            ["storage"] = new("storage", "Storage", RoomType.Storage, 9, 17, 11, 21, 55),
+            ["engineering"] = new("engineering", "Engineering", RoomType.Engineering, 12, 21, 14, 24, 100),
+            ["generator"] = new("generator", "Generator", RoomType.Generator, 11, 19, 14, 23, 90),
+            ["reactor"] = new("reactor", "Reactor", RoomType.Reactor, 14, 24, 16, 28, 100),
             ["airlock"] = new("airlock", "Airlock", RoomType.Airlock, 8, 12, 10, 14, 100),
             ["containment"] = new("containment", "Secure Containment", RoomType.Containment, 14, 22, 16, 24, 90),
             ["isolation"] = new("isolation", "Overseer Isolation", RoomType.ControlRoom, 8, 12, 10, 16, 100)
