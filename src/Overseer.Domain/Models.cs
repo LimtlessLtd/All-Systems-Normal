@@ -763,6 +763,7 @@ public sealed class Npc : IStationMobileEntity
         new(StringComparer.OrdinalIgnoreCase);
 
     public string? CauseOfDeath { get; set; }
+    public TimeSpan? LastDeathAnnouncementAt { get; set; }
     public bool IsPresent { get; set; } = true;
     public bool IsPrisoner { get; set; }
     public PrisonerDangerLevel PrisonerDangerLevel { get; set; } = PrisonerDangerLevel.Low;
