@@ -56,9 +56,12 @@ public sealed class OllamaAiDecisionService(
         GameState state,
         CancellationToken cancellationToken = default)
     {
+        string? prompt = null;
+        string? rawResponse = null;
+
         try
         {
-            var prompt = NpcPromptBuilder.Build(npc, state);
+            prompt = NpcPromptBuilder.Build(npc, state);
 
             var response = await _chatClient.GetResponseAsync<NpcMindDecision>(
                 prompt,
@@ -70,11 +73,12 @@ public sealed class OllamaAiDecisionService(
                 useJsonSchemaResponseFormat: true,
                 cancellationToken: cancellationToken);
 
+            rawResponse = response.Text;
             NpcMindDecision? decision = null;
 
             if (!response.TryGetResult(out decision) || decision is null)
             {
-                decision = TryParse(response.Text);
+                decision = TryParse(rawResponse);
             }
 
             if (decision is null)
@@ -83,14 +87,37 @@ public sealed class OllamaAiDecisionService(
                     "The model did not return a valid structured decision.");
             }
 
-            return Validate(npc, state, decision);
+            if (string.IsNullOrWhiteSpace(rawResponse))
+            {
+                rawResponse = JsonSerializer.Serialize(decision);
+            }
+
+            var intent = Validate(npc, state, decision);
+            CognitionTelemetrySystem.Record(
+                state,
+                npc,
+                "Ollama",
+                intent,
+                prompt,
+                rawResponse);
+
+            return intent;
         }
         catch (OperationCanceledException)
         {
             throw;
         }
-        catch
+        catch (Exception exception)
         {
+            CognitionTelemetrySystem.Record(
+                state,
+                npc,
+                "Ollama",
+                intent: null,
+                prompt,
+                rawResponse,
+                $"MODEL/FALLBACK: {exception.GetType().Name}: {exception.Message}");
+
             return await _fallback.DecideAsync(npc, state, cancellationToken);
         }
     }
