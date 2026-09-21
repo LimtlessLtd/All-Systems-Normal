@@ -126,7 +126,7 @@ public sealed class BrowserMindSystem
             var intent = saferRoom is not null
                 ? Create(
                     state,
-                    ActionKind.SeekSafety,
+                    ActionKind.Move,
                     saferRoom.Id,
                     $"Get to {saferRoom.Name} now.",
                     $"The environment in {currentRoom.Name} is dangerous; {saferRoom.Name} is safer.",
@@ -163,7 +163,7 @@ public sealed class BrowserMindSystem
             {
                 return Create(
                     state,
-                    ActionKind.SeekSafety,
+                    ActionKind.Move,
                     saferRoom.Id,
                     $"Get to {saferRoom.Name}.",
                     "The atmosphere or temperature here is becoming dangerous.",
