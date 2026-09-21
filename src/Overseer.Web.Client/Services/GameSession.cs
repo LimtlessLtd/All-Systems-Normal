@@ -41,9 +41,33 @@ public sealed class GameSession
     private readonly ConversationPacingSystem _conversationPacing = new();
     private readonly SimulationClock _clock = new();
 
-    public GameState State { get; private set; } = FacilitySeeder.CreateDefault();
+    public GameState State { get; private set; }
 
     public CampaignState Campaign { get; private set; } = new();
+
+    public GameSession()
+    {
+        State = CreateStateForScenario(
+            ScenarioCatalog.SecureContinuity,
+            Random.Shared.Next());
+    }
+
+    private GameState CreateStateForScenario(
+        ScenarioDefinition scenario,
+        int rosterSeed,
+        int? stationSeed = null)
+    {
+        var continuingCrew = CampaignProgressionSystem.CreateCrewForScenario(Campaign, scenario);
+        var crew = continuingCrew ?? SeededCrewRosterGenerator.Generate(rosterSeed);
+        var state = FacilitySeeder.CreateDefault(
+            crew,
+            stationSeed: stationSeed,
+            stationConstraints: scenario.StationConstraints);
+
+        ScenarioCatalog.Apply(state, scenario);
+        CampaignProgressionSystem.ApplyCarryOver(Campaign, state);
+        return state;
+    }
 
     public bool IsRunning => _clock.IsRunning;
 
@@ -123,7 +147,9 @@ public sealed class GameSession
     {
         _clock.Pause();
         Campaign = new CampaignState();
-        State = FacilitySeeder.CreateDefault();
+        State = CreateStateForScenario(
+            ScenarioCatalog.SecureContinuity,
+            Random.Shared.Next());
     }
 
     public void RegenerateStation(int? seed = null)
@@ -131,11 +157,11 @@ public sealed class GameSession
         _clock.Pause();
 
         var scenario = State.Scenario ?? ScenarioCatalog.SecureContinuity;
-        State = FacilitySeeder.CreateDefault(
-            stationSeed: seed,
-            stationConstraints: scenario.StationConstraints);
-        ScenarioCatalog.Apply(State, scenario);
-        CampaignProgressionSystem.ApplyCarryOver(Campaign, State);
+        var rosterSeed = seed ?? Random.Shared.Next();
+        State = CreateStateForScenario(
+            scenario,
+            rosterSeed,
+            stationSeed: seed);
         Campaign.CurrentScenarioId = scenario.Id;
     }
 
@@ -152,33 +178,25 @@ public sealed class GameSession
         _clock.Pause();
         Campaign = campaign;
 
-        var continuingCrew = CampaignProgressionSystem.CreateContinuingCrew(Campaign);
-
         var next = CampaignProgressionSystem.NextScenario(Campaign);
         var last = Campaign.MissionHistory.LastOrDefault();
         var scenario = next
-            ?? (last is null ? null : ScenarioCatalog.Find(last.ScenarioId));
+            ?? (last is null ? null : ScenarioCatalog.Find(last.ScenarioId))
+            ?? throw new InvalidOperationException(
+                "Campaign state does not identify a valid scenario roster policy.");
 
-        State = continuingCrew is null
-            ? FacilitySeeder.CreateDefault(stationConstraints: scenario?.StationConstraints)
-            : FacilitySeeder.CreateDefault(
-                continuingCrew,
-                stationConstraints: scenario?.StationConstraints);
+        State = CreateStateForScenario(
+            scenario,
+            Random.Shared.Next());
 
-        if (scenario is not null)
+        if (next is null)
         {
-            ScenarioCatalog.Apply(State, scenario);
-
-            if (next is null)
-            {
-                State.ScenarioStatus = last?.Outcome ?? ScenarioStatus.Won;
-                State.ScenarioOutcome = Campaign.Ending?.Summary
-                    ?? "All campaign assignments are recorded. Awaiting final Overseer decision.";
-            }
+            State.ScenarioStatus = last?.Outcome ?? ScenarioStatus.Won;
+            State.ScenarioOutcome = Campaign.Ending?.Summary
+                ?? "All campaign assignments are recorded. Awaiting final Overseer decision.";
         }
 
-        CampaignProgressionSystem.ApplyCarryOver(Campaign, State);
-        Campaign.CurrentScenarioId = scenario?.Id;
+        Campaign.CurrentScenarioId = scenario.Id;
     }
 
     /// <summary>
@@ -203,15 +221,9 @@ public sealed class GameSession
             return;
         }
 
-        var continuingCrew = CampaignProgressionSystem.CreateContinuingCrew(Campaign);
-        State = continuingCrew is null
-            ? FacilitySeeder.CreateDefault(stationConstraints: scenario.StationConstraints)
-            : FacilitySeeder.CreateDefault(
-                continuingCrew,
-                stationConstraints: scenario.StationConstraints);
-
-        ScenarioCatalog.Apply(State, scenario);
-        CampaignProgressionSystem.ApplyCarryOver(Campaign, State);
+        State = CreateStateForScenario(
+            scenario,
+            Random.Shared.Next());
         Campaign.CurrentScenarioId = scenario.Id;
 
         Log($"DIRECTIVE PACKAGE LOADED — {scenario.Title}.");

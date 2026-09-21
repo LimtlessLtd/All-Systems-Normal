@@ -100,9 +100,22 @@ public sealed class GameSession(
             return;
         }
 
-        var crew = await _crewGenerator.GenerateAsync(cancellationToken);
-        State = FacilitySeeder.CreateDefault(crew);
+        var scenario = ScenarioCatalog.SecureContinuity;
+        var crew = await CreateCrewForScenarioAsync(scenario, cancellationToken);
+        State = FacilitySeeder.CreateDefault(
+            crew,
+            stationConstraints: scenario.StationConstraints);
         _initialized = true;
+    }
+
+    private async Task<IReadOnlyList<Npc>> CreateCrewForScenarioAsync(
+        ScenarioDefinition scenario,
+        CancellationToken cancellationToken)
+    {
+        var continuingCrew = CampaignProgressionSystem.CreateCrewForScenario(Campaign, scenario);
+
+        return continuingCrew
+            ?? await _crewGenerator.GenerateAsync(cancellationToken);
     }
 
     public (bool Started, long Generation) StartClock() =>
@@ -152,8 +165,11 @@ public sealed class GameSession(
         _clock.Pause();
         _mindCursor = 0;
         Campaign = new CampaignState();
-        var crew = await _crewGenerator.GenerateAsync(cancellationToken);
-        State = FacilitySeeder.CreateDefault(crew);
+        var scenario = ScenarioCatalog.SecureContinuity;
+        var crew = await CreateCrewForScenarioAsync(scenario, cancellationToken);
+        State = FacilitySeeder.CreateDefault(
+            crew,
+            stationConstraints: scenario.StationConstraints);
         _initialized = true;
     }
 
@@ -165,7 +181,7 @@ public sealed class GameSession(
         _mindCursor = 0;
 
         var scenario = State.Scenario ?? ScenarioCatalog.SecureContinuity;
-        var crew = await _crewGenerator.GenerateAsync(cancellationToken);
+        var crew = await CreateCrewForScenarioAsync(scenario, cancellationToken);
         State = FacilitySeeder.CreateDefault(
             crew,
             stationSeed: seed,
@@ -192,32 +208,28 @@ public sealed class GameSession(
         _mindCursor = 0;
         Campaign = campaign;
 
-        var continuingCrew = CampaignProgressionSystem.CreateContinuingCrew(Campaign);
-        var crew = continuingCrew ?? await _crewGenerator.GenerateAsync(cancellationToken);
-
         var next = CampaignProgressionSystem.NextScenario(Campaign);
         var last = Campaign.MissionHistory.LastOrDefault();
         var scenario = next
-            ?? (last is null ? null : ScenarioCatalog.Find(last.ScenarioId));
+            ?? (last is null ? null : ScenarioCatalog.Find(last.ScenarioId))
+            ?? throw new InvalidOperationException(
+                "Campaign state does not identify a valid scenario roster policy.");
 
+        var crew = await CreateCrewForScenarioAsync(scenario, cancellationToken);
         State = FacilitySeeder.CreateDefault(
             crew,
-            stationConstraints: scenario?.StationConstraints);
+            stationConstraints: scenario.StationConstraints);
+        ScenarioCatalog.Apply(State, scenario);
 
-        if (scenario is not null)
+        if (next is null)
         {
-            ScenarioCatalog.Apply(State, scenario);
-
-            if (next is null)
-            {
-                State.ScenarioStatus = last?.Outcome ?? ScenarioStatus.Won;
-                State.ScenarioOutcome = Campaign.Ending?.Summary
-                    ?? "All campaign assignments are recorded. Awaiting final Overseer decision.";
-            }
+            State.ScenarioStatus = last?.Outcome ?? ScenarioStatus.Won;
+            State.ScenarioOutcome = Campaign.Ending?.Summary
+                ?? "All campaign assignments are recorded. Awaiting final Overseer decision.";
         }
 
         CampaignProgressionSystem.ApplyCarryOver(Campaign, State);
-        Campaign.CurrentScenarioId = scenario?.Id;
+        Campaign.CurrentScenarioId = scenario.Id;
         _initialized = true;
     }
 
@@ -246,8 +258,7 @@ public sealed class GameSession(
             return;
         }
 
-        var continuingCrew = CampaignProgressionSystem.CreateContinuingCrew(Campaign);
-        var crew = continuingCrew ?? await _crewGenerator.GenerateAsync(cancellationToken);
+        var crew = await CreateCrewForScenarioAsync(scenario, cancellationToken);
         State = FacilitySeeder.CreateDefault(
             crew,
             stationConstraints: scenario.StationConstraints);

@@ -3,8 +3,8 @@
 Repository: https://github.com/LimtlessLtd/All-Systems-Normal
 Playable Pages build: https://limtlessltd.github.io/All-Systems-Normal/
 
-**Current state:** V0.11 — Contained Security-Network Malware & Crew Recovery
-**Next recommended milestone:** V0.12 — Scenario Roster Policy
+**Current state:** V0.12 — Scenario Roster Policy
+**Next recommended milestone:** V0.13 — Hazardous Transport Assignments
 
 This file is the authoritative technical handoff. Keep it concise and update sections in place; do not append milestone diaries.
 
@@ -197,11 +197,13 @@ Current shared mechanics include:
 - selectable MR robots with dedicated Inspector telemetry; crew and friendly robots physically approach actual fixtures/equipment while working where an interaction point exists
 - transient cognition diagnostics via `CognitionTelemetrySystem`; Ollama traces retain prompt/raw response/validated intent, browser/rule-based minds emit the same decision shape
 - missing-person logic treats routine separation as normal: concern is measured in hours, Concerned-stage absence does not pre-empt work, and shared concern does not instantly interrupt the listener
-- server/Ollama already generates fresh six-person rosters with 1–3 mechanically meaningful traits for new non-continuing sessions; browser Pages remains model-free
+- scenario roster provenance is explicit: fresh scenarios use Ollama/server generation or deterministic seeded Pages generation; continuing scenarios reconstruct persisted campaign crew and never silently substitute a new roster
 
 Useful subsystem anchors:
 
 - src/Overseer.Simulation/ScenarioSystems.cs
+- src/Overseer.Simulation/SeededCrewRosterGenerator.cs
+- src/Overseer.Simulation/CampaignProgressionSystem.cs
 - src/Overseer.Simulation/RobotSystem.cs
 - src/Overseer.Simulation/RobotCountermeasureSystem.cs
 - src/Overseer.Simulation/TurretSystem.cs
@@ -286,27 +288,24 @@ Standard gate:
 - Player-facing hierarchy is **Mission Directive / Mission Objectives** versus **The Corporation / Corporate Directives**. Do not reintroduce “Sponsor” as visible UI/campaign copy; internal compatibility identifiers may retain it.
 - Regression coverage for this pass lives in `PlaytestUiPolishTests.cs`.
 
-## Next milestone — V0.12 Scenario Roster Policy
+## Completed V0.12 contracts
 
-Make roster provenance an explicit scenario/campaign rule instead of an implicit runtime choice.
+- `ScenarioRosterPolicy` is mandatory campaign metadata: Secure Continuity uses `FreshGenerated`; later assignments use `CampaignContinuing`.
+- Server/Ollama calls the crew generator only when the scenario policy is fresh. Continuing assignments require persisted campaign crew and fail instead of silently generating replacements.
+- Pages remains model-free. `SeededCrewRosterGenerator` produces repeatable six-person fresh rosters with unique names/roles, skills and 1–3 mechanical traits; same-seed station regeneration repeats the fresh roster.
+- Crew-specific carry-over is applied only to continuing rosters and matches by persisted identity, preventing fresh cohorts from inheriting old crew state by role.
+- Regression coverage lives in `ScenarioRosterPolicyTests.cs` and protects fresh/continuing policy, seeded repeatability/variation, roster quality, persistence authority and both runtime integration points.
 
-Required scope:
+## Next milestone — V0.13 Hazardous Transport Assignments
 
-1. Add a scenario-level roster policy that explicitly chooses fresh generated crew or campaign-continuing crew.
-2. Server/Ollama may generate fresh rosters only when the policy calls for new crew; continuing missions must reconstruct campaign crew deterministically.
-3. Pages must remain model-free and use seeded deterministic roster variation for fresh crews.
-4. Preserve unique names, skills and 1–3 mechanically meaningful traits, plus the existing persistence boundary for continuing crew.
-5. Mirror campaign/UI behaviour across runtimes and cover fresh/continuing/seed-repeatability/persistence authority with regression tests.
+Add scenario-defined missions carrying a hardened prisoner, hostile organism or other contained threat. Keep containment, protocols, escape state, combat, damage and lethality deterministic; crew cognition may decide responses, and Overseer may help or hinder those responses without owning physical outcomes.
 
-Keep deferred: hazardous transport assignments, broader diagnostics coverage and any unrelated simulation expansion.
+Keep unrelated simulation expansion out of this pass.
 
 ---
 
-## Deferred gameplay candidates after V0.12
+## Deferred after V0.13
 
-Keep these as deliberate follow-on designs rather than slipping them into unrelated passes:
-
-- **Hazardous transport assignments:** support missions carrying a hardened prisoner, hostile organism or other contained threat. Model containment/protocols/escape state deterministically, let crew form grounded responses, and allow Overseer to help or hinder survival without delegating combat, escape success or lethality to an LLM.
 - **Diagnostics expansion:** cognition telemetry should eventually cover every model-backed interaction type (crew generation, message interpretation and future planners), while remaining bounded/transient by default.
 
 ## Handoff prompt rule
