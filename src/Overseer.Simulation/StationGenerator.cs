@@ -30,6 +30,8 @@ public static class StationGenerator
     private const double CanvasMin = 2;
     private const double CanvasMax = 98;
     private const double OverlapTolerance = 0.000001;
+    private const double StatusPlateReserveHeight = 2.4;
+    private const double StatusPlateReserveWidth = 10.4;
 
     private sealed record RoomProfile(
         string Id,
@@ -64,18 +66,22 @@ public static class StationGenerator
     private static readonly IReadOnlyDictionary<string, RoomProfile> CanonicalProfiles =
         new Dictionary<string, RoomProfile>(StringComparer.OrdinalIgnoreCase)
         {
-            ["quarters"] = new("quarters", "Crew Quarters", RoomType.CrewQuarters, 12, 19, 14, 22, 100),
-            ["kitchen"] = new("kitchen", "Kitchen", RoomType.Kitchen, 9, 14, 11, 17, 70),
-            ["lounge"] = new("lounge", "Recreation Lounge", RoomType.Recreation, 10, 17, 12, 20, 55),
-            ["hydroponics"] = new("hydroponics", "Hydroponics Bay", RoomType.Hydroponics, 11, 19, 14, 23, 70),
-            ["medical"] = new("medical", "Medical", RoomType.Medical, 9, 15, 11, 18, 80),
-            ["control"] = new("control", "Control Room", RoomType.ControlRoom, 11, 18, 12, 20, 100),
-            ["washroom"] = new("washroom", "Washroom", RoomType.Washroom, 8, 12, 10, 16, 45),
-            ["storage"] = new("storage", "Storage", RoomType.Storage, 9, 16, 11, 20, 55),
-            ["engineering"] = new("engineering", "Engineering", RoomType.Engineering, 12, 20, 14, 23, 100),
-            ["generator"] = new("generator", "Generator", RoomType.Generator, 11, 18, 14, 22, 90),
-            ["reactor"] = new("reactor", "Reactor", RoomType.Reactor, 14, 23, 16, 27, 100),
+            // Preserve the proven minimum footprints so crowded deterministic
+            // seeds remain packable, while lifting maxima so ordinary stations
+            // trend larger and less fixture-dense than before.
+            ["quarters"] = new("quarters", "Crew Quarters", RoomType.CrewQuarters, 12, 20, 14, 23, 100),
+            ["kitchen"] = new("kitchen", "Kitchen", RoomType.Kitchen, 9, 15, 11, 18, 70),
+            ["lounge"] = new("lounge", "Recreation Lounge", RoomType.Recreation, 10, 18, 12, 21, 55),
+            ["hydroponics"] = new("hydroponics", "Hydroponics Bay", RoomType.Hydroponics, 11, 20, 14, 24, 70),
+            ["medical"] = new("medical", "Medical", RoomType.Medical, 9, 16, 11, 19, 80),
+            ["control"] = new("control", "Control Room", RoomType.ControlRoom, 11, 19, 12, 21, 100),
+            ["washroom"] = new("washroom", "Washroom", RoomType.Washroom, 8, 13, 10, 17, 45),
+            ["storage"] = new("storage", "Storage", RoomType.Storage, 9, 17, 11, 21, 55),
+            ["engineering"] = new("engineering", "Engineering", RoomType.Engineering, 12, 21, 14, 24, 100),
+            ["generator"] = new("generator", "Generator", RoomType.Generator, 11, 19, 14, 23, 90),
+            ["reactor"] = new("reactor", "Reactor", RoomType.Reactor, 14, 24, 16, 28, 100),
             ["airlock"] = new("airlock", "Airlock", RoomType.Airlock, 8, 12, 10, 14, 100),
+            ["containment"] = new("containment", "Secure Containment", RoomType.Containment, 14, 22, 16, 24, 90),
             ["isolation"] = new("isolation", "Overseer Isolation", RoomType.ControlRoom, 8, 12, 10, 16, 100)
         };
 
@@ -445,6 +451,8 @@ public static class StationGenerator
     {
         var profiles = CanonicalProfiles.Values
             .Where(profile => !constraints.ForbiddenRoomIds.Contains(profile.Id))
+            .Where(profile => !profile.Id.Equals("containment", StringComparison.OrdinalIgnoreCase)
+                || constraints.RequiredRoomIds.Contains("containment"))
             .ToDictionary(profile => profile.Id, StringComparer.OrdinalIgnoreCase);
 
         foreach (var authored in constraints.AuthoredRooms)
@@ -1024,9 +1032,13 @@ public static class StationGenerator
             scale *= 0.9 + (identity.IndustrialIntensity / 500d);
         }
 
-        var shrink = attempt < 240
+        // Prefer the deliberately larger profiles, but progressively relax them
+        // on crowded deterministic seeds. Status-plate reservations are hard
+        // geometry now, so late packing needs enough headroom to avoid turning
+        // valid legacy seeds into generation failures.
+        var shrink = attempt < 260
             ? 1d
-            : Math.Clamp(1d - ((attempt - 240) / 800d), 0.76, 1d);
+            : Math.Clamp(1d - ((attempt - 260) / 820d), 0.76, 1d);
 
         var width = random.NextDouble(profile.MinWidth, profile.MaxWidth) * scale * shrink;
         var height = random.NextDouble(profile.MinHeight, profile.MaxHeight) * scale * shrink;
@@ -1040,12 +1052,12 @@ public static class StationGenerator
         // The default 100% map camera renders the authoritative 0..100 deck
         // inside a 2560x2240px physical layer. These minima therefore guarantee
         // every generated functional room is at least ~200px on both axes.
-        width = Math.Clamp(width, 8.0, 26);
-        // Status telemetry is physically attached just outside the selected
-        // top/bottom hull edge by StationRoomCalloutSystem. It does not enlarge
-        // authoritative collision geometry, so procedural packing remains
-        // stable across existing deterministic seeds.
-        height = Math.Clamp(height, 9.0, 29);
+        width = Math.Clamp(width, 8.0, 27);
+        // Room status telemetry owns real generation space. Keep normal rooms
+        // larger than the old generator, while allowing a bounded late fallback
+        // for compact/retrofit seeds where the reserved plate strip is the
+        // difference between a valid layout and no layout at all.
+        height = Math.Clamp(height, 9.0, 30);
 
         var passageWidth = identity.Budget switch
         {
@@ -1165,6 +1177,13 @@ public static class StationGenerator
                 throw new ArgumentOutOfRangeException(nameof(side));
         }
 
+        var statusSide = side switch
+        {
+            AttachmentSide.North => RoomStatusPlateSide.Top,
+            AttachmentSide.South => RoomStatusPlateSide.Bottom,
+            _ => roomY < 50 ? RoomStatusPlateSide.Top : RoomStatusPlateSide.Bottom
+        };
+
         var room = new Room
         {
             Id = profile.Id,
@@ -1173,7 +1192,8 @@ public static class StationGenerator
             MapX = roomX,
             MapY = roomY,
             MapWidth = width,
-            MapHeight = height
+            MapHeight = height,
+            StatusPlateSide = statusSide
         };
 
         var hallway = new Room
@@ -1187,7 +1207,8 @@ public static class StationGenerator
             MapHeight = hallHeight
         };
 
-        if (!InsideCanvas(room) || !InsideCanvas(hallway))
+        var statusPlate = CreateStatusPlateEnvelope(room);
+        if (!InsideCanvas(room) || !InsideCanvas(hallway) || !InsideCanvas(statusPlate))
         {
             return null;
         }
@@ -1204,9 +1225,26 @@ public static class StationGenerator
             {
                 return null;
             }
+
+            if (StationGeometry.InteriorOverlapArea(statusPlate, existing) > OverlapTolerance)
+            {
+                return null;
+            }
+
+            if (existing.StatusPlateSide is not null)
+            {
+                var existingPlate = CreateStatusPlateEnvelope(existing);
+                if (StationGeometry.InteriorOverlapArea(room, existingPlate) > OverlapTolerance
+                    || StationGeometry.InteriorOverlapArea(hallway, existingPlate) > OverlapTolerance
+                    || StationGeometry.InteriorOverlapArea(statusPlate, existingPlate) > OverlapTolerance)
+                {
+                    return null;
+                }
+            }
         }
 
-        if (StationGeometry.InteriorOverlapArea(room, hallway) > OverlapTolerance)
+        if (StationGeometry.InteriorOverlapArea(room, hallway) > OverlapTolerance
+            || StationGeometry.InteriorOverlapArea(statusPlate, hallway) > OverlapTolerance)
         {
             return null;
         }
@@ -1277,6 +1315,28 @@ public static class StationGenerator
         }
 
         return new PlacementCandidate(room, hallway, corridor.Id, score);
+    }
+
+    private static Room CreateStatusPlateEnvelope(Room room)
+    {
+        var side = room.StatusPlateSide ?? RoomStatusPlateSide.Top;
+        var edgeY = side == RoomStatusPlateSide.Top
+            ? room.MapY - (room.MapHeight / 2)
+            : room.MapY + (room.MapHeight / 2);
+        var centerY = edgeY + (side == RoomStatusPlateSide.Top
+            ? -(StatusPlateReserveHeight / 2)
+            : StatusPlateReserveHeight / 2);
+
+        return new Room
+        {
+            Id = $"status-plate:{room.Id}",
+            Name = $"{room.Name} Status Plate Reserve",
+            Type = RoomType.Corridor,
+            MapX = room.MapX,
+            MapY = centerY,
+            MapWidth = Math.Min(StatusPlateReserveWidth, room.MapWidth),
+            MapHeight = StatusPlateReserveHeight
+        };
     }
 
     private static double LayoutIdentityScore(
@@ -1391,6 +1451,42 @@ public static class StationGenerator
                 if (overlap > OverlapTolerance)
                 {
                     errors.Add($"{rooms[firstIndex].Id} overlaps {rooms[secondIndex].Id} by {overlap:0.###}.");
+                }
+            }
+        }
+
+        var reservedPlates = rooms
+            .Where(room => room.Type != RoomType.Corridor && room.StatusPlateSide is not null)
+            .Select(room => (Owner: room, Envelope: CreateStatusPlateEnvelope(room)))
+            .ToList();
+
+        foreach (var plate in reservedPlates)
+        {
+            if (!InsideCanvas(plate.Envelope))
+                errors.Add($"{plate.Owner.Id} status plate reserve lies outside the station canvas.");
+
+            foreach (var other in rooms.Where(room => room.Id != plate.Owner.Id))
+            {
+                var overlap = StationGeometry.InteriorOverlapArea(plate.Envelope, other);
+                if (overlap > OverlapTolerance)
+                {
+                    errors.Add(
+                        $"{plate.Owner.Id} status plate reserve overlaps {other.Id} by {overlap:0.###}.");
+                }
+            }
+        }
+
+        for (var firstIndex = 0; firstIndex < reservedPlates.Count; firstIndex++)
+        {
+            for (var secondIndex = firstIndex + 1; secondIndex < reservedPlates.Count; secondIndex++)
+            {
+                var overlap = StationGeometry.InteriorOverlapArea(
+                    reservedPlates[firstIndex].Envelope,
+                    reservedPlates[secondIndex].Envelope);
+                if (overlap > OverlapTolerance)
+                {
+                    errors.Add(
+                        $"{reservedPlates[firstIndex].Owner.Id} and {reservedPlates[secondIndex].Owner.Id} status plate reserves overlap by {overlap:0.###}.");
                 }
             }
         }

@@ -20,7 +20,7 @@ public sealed class CrewRoutineSystem
 
         CoordinateMutualIntimacy(state);
 
-        foreach (var npc in state.Crew.Where(npc => npc.IsAlive))
+        foreach (var npc in state.Crew.Where(npc => npc.IsAlive && npc.IsPresent))
         {
             if (npc.Intent is not null
                 || npc.Movement is not null
@@ -49,6 +49,7 @@ public sealed class CrewRoutineSystem
                 continue;
             }
 
+            npc.PlannedDestinationRoomId = plan.TargetRoomId;
             var path = _navigation.FindPathForCrew(
                 state,
                 npc,
@@ -57,6 +58,7 @@ public sealed class CrewRoutineSystem
 
             if (path.Count < 2)
             {
+                npc.PlannedDestinationRoomId = null;
                 npc.CurrentAction = new NpcAction(
                     ActionKind.Idle,
                     plan.TargetRoomId,
@@ -225,16 +227,35 @@ public sealed class CrewRoutineSystem
                 18);
         }
 
+        if (CrewDutySchedule.IsSleepWindow(npc, state.Elapsed))
+        {
+            var sleepRoom = npc.IsPrisoner
+                && state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var current)
+                && current.Type == RoomType.Containment
+                    ? current.Id
+                    : "quarters";
+            return new(
+                sleepRoom,
+                ActionKind.Sleep,
+                null,
+                $"Going to {state.Facility.Rooms[sleepRoom].Name} for scheduled sleep.",
+                npc.SleepDebtMinutes >= 60
+                    ? "I've missed too much sleep. I need to get my head down."
+                    : "My sleep period has started.",
+                "Time to sleep.",
+                Math.Clamp(CrewDutySchedule.MinutesUntilWake(npc, state.Elapsed), 15, 480));
+        }
+
         if (npc.Fatigue >= 72)
         {
             return new(
-                "quarters",
+                npc.IsPrisoner ? npc.CurrentRoomId : "quarters",
                 ActionKind.Sleep,
                 null,
-                "Going to crew quarters to sleep.",
+                "Going to sleep before exhaustion gets worse.",
                 "I really need some sleep.",
                 "I'm going to sleep.",
-                90);
+                120);
         }
 
         if (npc.BladderNeed >= 70)
@@ -302,6 +323,18 @@ public sealed class CrewRoutineSystem
             }
         }
 
+        if (npc.IsPrisoner)
+        {
+            return new(
+                npc.CurrentRoomId,
+                ActionKind.Idle,
+                null,
+                "Remaining in assigned containment.",
+                "I'll stay put for now.",
+                "Waiting.",
+                30);
+        }
+
         var target = CrewDutySchedule.ExpectedDutyRoomId(
             npc.Role,
             state.Elapsed);
@@ -337,6 +370,7 @@ public sealed class CrewRoutineSystem
         RoutinePlan plan)
     {
         var targetId = plan.PersonTargetId ?? plan.TargetRoomId;
+        npc.PlannedDestinationRoomId = null;
 
         if (!_actions.TryApply(
                 state,

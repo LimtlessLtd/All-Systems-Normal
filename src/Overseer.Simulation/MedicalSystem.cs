@@ -367,6 +367,8 @@ public sealed class MedicalSystem
                 patient.Health = 35;
                 patient.LastHealthSnapshot = 35;
                 patient.CauseOfDeath = null;
+                patient.LastDeathAnnouncementAt = null;
+                patient.IsPresent = true;
                 patient.Intent = null;
                 patient.Movement = null;
                 patient.CurrentAction = new NpcAction(

@@ -54,17 +54,25 @@ public sealed class CrewProvisioningSystem
         state.CropBeds.Clear();
         var random = new Random(seed);
 
+        var crops = Enum.GetValues<CropKind>();
+
         foreach (var room in state.Facility.Rooms.Values
                      .Where(r => r.Type == RoomType.Hydroponics)
                      .OrderBy(r => r.Id, StringComparer.Ordinal))
         {
-            for (var index = 1; index <= 4; index++)
+            var cropOrder = crops
+                .OrderBy(_ => random.Next())
+                .ToArray();
+
+            for (var index = 1; index <= cropOrder.Length; index++)
             {
+                var crop = cropOrder[index - 1];
                 state.CropBeds.Add(new CropBed
                 {
                     Id = $"bed:{room.Id}:{index}",
                     RoomId = room.Id,
-                    Label = $"{room.Name} bed {index}",
+                    Label = $"{crop} crop",
+                    Crop = crop,
                     Growth = Math.Round(random.NextDouble() * 85, 1),
                     Water = Math.Round(45 + (random.NextDouble() * 55), 1),
                     Nutrients = Math.Round(45 + (random.NextDouble() * 55), 1)
@@ -329,10 +337,11 @@ public sealed class CrewProvisioningSystem
         }
 
         state.Stores.Produce += StationProvisionRules.YieldPerHarvest;
+        state.Stores.RawCrops[bed.Crop] += StationProvisionRules.YieldPerHarvest;
         bed.Growth = 0;
 
         npc.CurrentAction = new NpcAction(ActionKind.Idle, null, $"Brought in {bed.Label}.");
-        Log(state, $"{npc.Name} harvests {bed.Label}. Produce store now {state.Stores.Produce:0}.");
+        Log(state, $"{npc.Name} harvests {bed.Label}. {bed.Crop} stock {state.Stores.RawCrops[bed.Crop]:0}; total produce {state.Stores.Produce:0}.");
     }
 
     private static void CompleteCooking(GameState state, Npc npc)
@@ -360,6 +369,7 @@ public sealed class CrewProvisioningSystem
         }
 
         state.Stores.Produce -= StationProvisionRules.ProducePerCookingSession;
+        ConsumeTypedProduce(state.Stores, StationProvisionRules.ProducePerCookingSession);
         state.Stores.Meals += StationProvisionRules.MealsPerCookingSession;
 
         npc.CurrentAction = new NpcAction(ActionKind.Idle, null, "Meal service is up.");
@@ -395,6 +405,22 @@ public sealed class CrewProvisioningSystem
         }
 
         npc.CurrentAction = new NpcAction(ActionKind.Idle, null, $"Tended {bed.Label}.");
+    }
+
+    private static void ConsumeTypedProduce(StationStores stores, double amount)
+    {
+        var remaining = amount;
+        foreach (var crop in stores.RawCrops
+                     .Where(pair => pair.Key != CropKind.Tobacco && pair.Value > 0)
+                     .OrderBy(pair => pair.Key)
+                     .Select(pair => pair.Key)
+                     .ToList())
+        {
+            if (remaining <= 0) break;
+            var used = Math.Min(remaining, stores.RawCrops[crop]);
+            stores.RawCrops[crop] -= used;
+            remaining -= used;
+        }
     }
 
     private static bool Qualified(Npc npc, MaintenanceDiscipline discipline) =>

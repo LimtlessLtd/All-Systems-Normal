@@ -19,6 +19,10 @@ public static class CrewAffordanceSystem
         new(ActionKind.Idle, "none", "Wait, observe, or reconsider."),
         new(ActionKind.Move, "room", "Travel to a known room."),
         new(ActionKind.SeekSafety, "room", "Move toward a safer compartment when threatened."),
+        new(ActionKind.FightFire, "room", "Attempt to suppress an active compartment fire using local emergency equipment."),
+        new(ActionKind.EvacuateHazard, "room", "Evacuate toward a specifically chosen safer compartment."),
+        new(ActionKind.SealHazardRoom, "room", "Close operable hatches around a hazardous compartment to contain it."),
+        new(ActionKind.VentHazardRoom, "room", "Vent a smoky/burning compartment, trading pressure and oxygen for fire/smoke reduction."),
         new(ActionKind.Investigate, "room", "Investigate a room or anomaly."),
         new(ActionKind.VerifyClaim, "room", "Go verify a claim against physical evidence."),
         new(ActionKind.InspectEquipment, "room", "Inspect machinery, consoles or fixtures."),
@@ -75,6 +79,10 @@ public static class CrewAffordanceSystem
     public static bool IsRoomTarget(ActionKind action) =>
         action is ActionKind.Move
             or ActionKind.SeekSafety
+            or ActionKind.FightFire
+            or ActionKind.EvacuateHazard
+            or ActionKind.SealHazardRoom
+            or ActionKind.VentHazardRoom
             or ActionKind.Investigate
             or ActionKind.VerifyClaim
             or ActionKind.InspectEquipment
@@ -123,10 +131,17 @@ public static class CrewAffordanceSystem
                 || !state.Facility.Rooms.TryGetValue(requested, out var room))
                 return false;
 
-            if (action == ActionKind.SeekSafety
+            if (action is ActionKind.SeekSafety or ActionKind.EvacuateHazard
                 && CrewEnvironmentSafety.RiskScore(room)
                     >= CrewEnvironmentSafety.RiskScore(
                         state.Facility.Rooms[npc.CurrentRoomId]))
+                return false;
+
+            if (action == ActionKind.FightFire && room.FireIntensity <= 0)
+                return false;
+
+            if (action is ActionKind.SealHazardRoom or ActionKind.VentHazardRoom
+                && room.FireIntensity <= 0 && room.SmokePercent < 8)
                 return false;
 
             normalizedTarget = room.Id;

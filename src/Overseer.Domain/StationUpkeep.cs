@@ -139,10 +139,12 @@ public static class StationUpkeepRules
             .DefaultIfEmpty(0)
             .Max();
 
-        return Math.Clamp(
-            best + CrewTraitMath.Modifier(npc, TraitEffectKind.Repair),
-            0,
-            120);
+        return CrewConditionRules.EffectiveSkill(
+            npc,
+            Math.Clamp(
+                best + CrewTraitMath.Modifier(npc, TraitEffectKind.Repair),
+                0,
+                120));
     }
 
     /// <summary>Properly qualified to service this unit.</summary>

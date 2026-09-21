@@ -98,6 +98,7 @@ public static class FacilitySeeder
 
         foreach (var npc in state.Crew)
         {
+            FoodPreferenceRules.EnsureDefaults(npc);
             npc.Beliefs.Add(new Belief(
                 "Overseer",
                 "The facility AI is responsible for keeping the crew alive.",
@@ -292,7 +293,13 @@ public static class FacilitySeeder
             or FixtureType.Window
             or FixtureType.Vent
             or FixtureType.Screen
-            or FixtureType.UtilityPanel;
+            or FixtureType.UtilityPanel
+            or FixtureType.Workbench
+            or FixtureType.StorageRack
+            or FixtureType.Crate
+            or FixtureType.ToolCabinet
+            or FixtureType.Cabinet
+            or FixtureType.Locker;
 
         // Presentation fixtures use a loose installation grid rather than pure
         // random scatter. Wall equipment hugs bulkheads; floor equipment prefers
@@ -1007,12 +1014,12 @@ public static class FacilitySeeder
     {
         // Crew Quarters — six real bunks and personal storage leave a clear
         // central aisle. Interaction anchors are future-proofed for lying/sitting.
-        AddFixture(facility, "quarters", FixtureType.Bed, "Bunk A", 18, 25, 20, 13, 18, 25, FixtureUsePose.Lie, 90);
-        AddFixture(facility, "quarters", FixtureType.Bed, "Bunk B", 50, 25, 20, 13, 50, 25, FixtureUsePose.Lie, 90);
-        AddFixture(facility, "quarters", FixtureType.Bed, "Bunk C", 82, 25, 20, 13, 82, 25, FixtureUsePose.Lie, 90);
-        AddFixture(facility, "quarters", FixtureType.Bed, "Bunk D", 18, 72, 20, 13, 18, 72, FixtureUsePose.Lie, 270);
-        AddFixture(facility, "quarters", FixtureType.Bed, "Bunk E", 50, 72, 20, 13, 50, 72, FixtureUsePose.Lie, 270);
-        AddFixture(facility, "quarters", FixtureType.Bed, "Bunk F", 82, 72, 20, 13, 82, 72, FixtureUsePose.Lie, 270);
+        AddFixture(facility, "quarters", FixtureType.Bed, "Double Bunk A", 18, 25, 20, 13, 18, 25, FixtureUsePose.Lie, 90);
+        AddFixture(facility, "quarters", FixtureType.Bed, "Double Bunk B", 50, 25, 20, 13, 50, 25, FixtureUsePose.Lie, 90);
+        AddFixture(facility, "quarters", FixtureType.Bed, "Double Bunk C", 82, 25, 20, 13, 82, 25, FixtureUsePose.Lie, 90);
+        AddFixture(facility, "quarters", FixtureType.Bed, "Double Bunk D", 18, 72, 20, 13, 18, 72, FixtureUsePose.Lie, 270);
+        AddFixture(facility, "quarters", FixtureType.Bed, "Double Bunk E", 50, 72, 20, 13, 50, 72, FixtureUsePose.Lie, 270);
+        AddFixture(facility, "quarters", FixtureType.Bed, "Double Bunk F", 82, 72, 20, 13, 82, 72, FixtureUsePose.Lie, 270);
         AddFixture(facility, "quarters", FixtureType.Locker, "Personal Lockers", 10, 49, 12, 25);
         AddFixture(facility, "quarters", FixtureType.Cabinet, "Personal Shelves", 90, 49, 10, 25);
         AddFixture(facility, "quarters", FixtureType.Table, "Writing Desk", 50, 49, 24, 13, 50, 57, FixtureUsePose.Sit);
@@ -1035,13 +1042,29 @@ public static class FacilitySeeder
         AddFixture(facility, "lounge", FixtureType.Table, "Low Table", 50, 62, 22, 16);
         AddFixture(facility, "lounge", FixtureType.Chair, "Reading Chair", 50, 82, 12, 12, 50, 82, FixtureUsePose.Sit, 0);
 
-        // Hydroponics.
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed A", 23, 45, 18, 50);
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed B", 50, 45, 18, 50);
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed C", 77, 45, 18, 50);
-        AddFixture(facility, "hydroponics", FixtureType.IrrigationTank, "Nutrient Tank", 13, 80, 16, 18);
-        AddFixture(facility, "hydroponics", FixtureType.Pipe, "Irrigation Manifold", 50, 74, 56, 7);
-        AddFixture(facility, "hydroponics", FixtureType.Console, "Climate Supervisor", 82, 81, 24, 12, 82, 81);
+        // Hydroponics — seven crop beds in two clean banks with a broad centre
+        // aisle. Each logical CropBed maps to one visible fixture by ordinal.
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed A", 14, 29, 15, 23);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed B", 38, 29, 15, 23);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed C", 62, 29, 15, 23);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed D", 86, 29, 15, 23);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed E", 26, 69, 16, 23);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed F", 50, 69, 16, 23);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed G", 74, 69, 16, 23);
+        AddFixture(facility, "hydroponics", FixtureType.IrrigationTank, "Nutrient Tank", 8, 87, 12, 14);
+        AddFixture(facility, "hydroponics", FixtureType.Pipe, "Irrigation Manifold", 50, 91, 52, 6);
+        AddFixture(facility, "hydroponics", FixtureType.Console, "Climate Supervisor", 91, 87, 14, 12, 91, 82);
+
+        // Secure containment is optional and only exists for constrained
+        // scenarios. Keep the centre aisle clear so guards, prisoners and
+        // emergency responders can physically move between cell-side fixtures.
+        AddFixture(facility, "containment", FixtureType.Bed, "Cell Bunk A", 14, 20, 18, 18);
+        AddFixture(facility, "containment", FixtureType.Bed, "Cell Bunk B", 14, 43, 18, 18);
+        AddFixture(facility, "containment", FixtureType.Bed, "Cell Bunk C", 86, 20, 18, 18);
+        AddFixture(facility, "containment", FixtureType.Bed, "Cell Bunk D", 86, 43, 18, 18);
+        AddFixture(facility, "containment", FixtureType.Locker, "Secure Property Locker", 14, 76, 16, 18);
+        AddFixture(facility, "containment", FixtureType.UtilityPanel, "Containment Interlock", 86, 76, 16, 18);
+        AddFixture(facility, "containment", FixtureType.Camera, "Containment Camera", 50, 10, 10, 10);
 
         // Medical.
         AddFixture(facility, "medical", FixtureType.MedicalBed, "Med Bed A", 27, 47, 28, 19, 27, 47, FixtureUsePose.Lie, 90);

@@ -44,6 +44,7 @@ public sealed class IntentExecutionSystem
                     MoveOrActInRoom(state, npc, intent, "washroom", intent.Action);
                     break;
 
+                case ActionKind.EvacuateHazard:
                 case ActionKind.Move:
                 case ActionKind.Investigate:
                 case ActionKind.Repair:
@@ -74,6 +75,12 @@ public sealed class IntentExecutionSystem
                         intent.TargetId,
                         "Clinical request noted; medbay protocols determine the outcome.");
                     npc.Intent = null;
+                    break;
+
+                case ActionKind.FightFire:
+                case ActionKind.SealHazardRoom:
+                case ActionKind.VentHazardRoom:
+                    ExecuteHazardIntent(state, npc, intent);
                     break;
 
                 case ActionKind.CleanBlood:
@@ -601,6 +608,37 @@ public sealed class IntentExecutionSystem
             $"The route to {mechanism.Label} is sealed and I cannot override {blockingDoor.Id}.");
     }
 
+    private void ExecuteHazardIntent(GameState state, Npc npc, NpcIntent intent)
+    {
+        var room = ResolveRoom(state, intent.TargetId);
+        if (room is null)
+        {
+            FailIntent(npc, "I cannot identify the hazard compartment.");
+            return;
+        }
+
+        if (!npc.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+        {
+            MoveTowardRoom(state, npc, intent, room.Id);
+            return;
+        }
+
+        if (!StationHazardSystem.TryExecuteCrewAction(
+                state,
+                npc,
+                intent.Action,
+                room,
+                out var message))
+        {
+            FailIntent(npc, message);
+            return;
+        }
+
+        npc.CurrentAction = new NpcAction(intent.Action, room.Id, message);
+        npc.Intent = null;
+        npc.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(4);
+    }
+
     private void ExecuteRoomIntent(GameState state, Npc npc, NpcIntent intent)
     {
         var room = ResolveRoom(state, intent.TargetId);
@@ -623,6 +661,7 @@ public sealed class IntentExecutionSystem
     {
         if (npc.CurrentRoomId.Equals(targetRoomId, StringComparison.OrdinalIgnoreCase))
         {
+            npc.PlannedDestinationRoomId = null;
             _actions.TryApply(
                 state,
                 npc.Id,
@@ -637,6 +676,7 @@ public sealed class IntentExecutionSystem
             return;
         }
 
+        npc.PlannedDestinationRoomId = targetRoomId;
         var path = _navigation.FindPathForCrew(
             state,
             npc,
@@ -645,6 +685,7 @@ public sealed class IntentExecutionSystem
 
         if (path.Count < 2)
         {
+            npc.PlannedDestinationRoomId = null;
             npc.CurrentAction = new NpcAction(
                 ActionKind.Idle,
                 targetRoomId,
@@ -725,6 +766,7 @@ public sealed class IntentExecutionSystem
         NpcIntent intent,
         string targetRoomId)
     {
+        npc.PlannedDestinationRoomId = targetRoomId;
         var path = _navigation.FindPathForCrew(
             state,
             npc,
@@ -733,6 +775,7 @@ public sealed class IntentExecutionSystem
 
         if (path.Count < 2)
         {
+            npc.PlannedDestinationRoomId = null;
             npc.CurrentAction = new NpcAction(
                 ActionKind.Idle,
                 targetRoomId,
@@ -806,6 +849,7 @@ public sealed class IntentExecutionSystem
             return;
         }
 
+        npc.PlannedDestinationRoomId = target.CurrentRoomId;
         var path = _navigation.FindPathForCrew(
             state,
             npc,
@@ -814,6 +858,7 @@ public sealed class IntentExecutionSystem
 
         if (path.Count < 2)
         {
+            npc.PlannedDestinationRoomId = null;
             npc.CurrentAction = new NpcAction(
                 ActionKind.Idle,
                 target.Name,
@@ -851,5 +896,6 @@ public sealed class IntentExecutionSystem
     {
         npc.CurrentAction = new NpcAction(ActionKind.Idle, null, reason);
         npc.Intent = null;
+        npc.PlannedDestinationRoomId = null;
     }
 }

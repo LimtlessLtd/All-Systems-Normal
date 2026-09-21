@@ -43,8 +43,18 @@ public sealed class GameSession(
     {
         var continuingCrew = CampaignProgressionSystem.CreateCrewForScenario(Campaign, scenario);
 
-        return continuingCrew
-            ?? await _crewGenerator.GenerateAsync(cancellationToken);
+        IReadOnlyList<Npc> baseCrew;
+        if (continuingCrew is not null)
+        {
+            baseCrew = continuingCrew;
+        }
+        else
+        {
+            var generated = await _crewGenerator.GenerateAsync(cancellationToken);
+            baseCrew = CrewRosterScalingSystem.EnsureTargetSize(generated, scenario.Id);
+        }
+
+        return PrisonerRosterSystem.Compose(baseCrew, scenario);
     }
 
     public override async Task ResetAsync(
@@ -202,7 +212,10 @@ public sealed class GameSession(
         var eventNpc = living
             .Where(npc =>
                 npc.NeedsMindReconsideration
-                && (npc.Intent is null || npc.Intent.Urgency < 85))
+                && (npc.Intent is null
+                    || npc.Intent.Urgency < 85
+                    || npc.Hunger >= 72
+                    || npc.Fatigue >= 86))
             .OrderByDescending(npc =>
                 npc.MissingPersonConcerns.Values.Any(concern =>
                     concern.Stage == MissingPersonConcernStage.Escalated))

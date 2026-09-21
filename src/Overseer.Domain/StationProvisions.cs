@@ -1,5 +1,73 @@
 namespace Overseer.Domain;
 
+public enum CropKind
+{
+    Tomato,
+    Potato,
+    Apple,
+    Grape,
+    Banana,
+    Tobacco,
+    Wheat
+}
+
+public static class CropRules
+{
+    public static bool IsEdibleRaw(CropKind crop) => crop is not CropKind.Tobacco;
+
+    public static double RawHungerReliefPerMinute(CropKind crop) => crop switch
+    {
+        CropKind.Potato or CropKind.Wheat => 0.58,
+        CropKind.Tomato or CropKind.Grape => 0.68,
+        CropKind.Apple or CropKind.Banana => 0.78,
+        _ => 0
+    };
+}
+
+public static class FoodPreferenceRules
+{
+    public static void EnsureDefaults(Npc npc)
+    {
+        ArgumentNullException.ThrowIfNull(npc);
+        if (npc.FoodLikes.Count > 0 || npc.FoodDislikes.Count > 0)
+            return;
+
+        var edible = Enum.GetValues<CropKind>().Where(CropRules.IsEdibleRaw).ToArray();
+        var first = StablePick(npc.Name, edible.Length, 17);
+        var second = StablePick(npc.Name, edible.Length, 43);
+        if (second == first) second = (second + 1) % edible.Length;
+        var dislike = StablePick(npc.Name, edible.Length, 89);
+        while (dislike == first || dislike == second)
+            dislike = (dislike + 1) % edible.Length;
+
+        npc.FoodLikes.Add(edible[first]);
+        npc.FoodLikes.Add(edible[second]);
+        npc.FoodDislikes.Add(edible[dislike]);
+    }
+
+    public static int PreferenceScore(Npc npc, CropKind crop)
+    {
+        EnsureDefaults(npc);
+        if (npc.FoodLikes.Contains(crop)) return 2;
+        if (npc.FoodDislikes.Contains(crop)) return -2;
+        return 0;
+    }
+
+    private static int StablePick(string value, int count, int salt)
+    {
+        unchecked
+        {
+            uint hash = 2166136261u + (uint)salt;
+            foreach (var ch in value)
+            {
+                hash ^= ch;
+                hash *= 16777619;
+            }
+            return (int)(hash % (uint)count);
+        }
+    }
+}
+
 /// <summary>
 /// One planted bed in the hydroponics bay. Crops need water and nutrients to
 /// grow, both of which drain and have to be topped up by somebody.
@@ -9,6 +77,7 @@ public sealed class CropBed
     public required string Id { get; init; }
     public required string RoomId { get; init; }
     public required string Label { get; init; }
+    public CropKind Crop { get; init; } = CropKind.Wheat;
 
     /// <summary>0..100. At 100 the bed is ready to harvest.</summary>
     public double Growth { get; set; }
@@ -36,8 +105,15 @@ public sealed class CropBed
 /// </summary>
 public sealed class StationStores
 {
-    /// <summary>Harvested but uncooked. Useless until somebody cooks it.</summary>
+    /// <summary>Harvested produce available to the galley.</summary>
     public double Produce { get; set; } = 6;
+
+    /// <summary>
+    /// Typed harvested crops. This drives raw eating and crop-specific UI while
+    /// Produce remains the galley's aggregate cooking stock for compatibility.
+    /// </summary>
+    public Dictionary<CropKind, double> RawCrops { get; } =
+        Enum.GetValues<CropKind>().ToDictionary(crop => crop, _ => 0d);
 
     /// <summary>Ready to eat.</summary>
     public double Meals { get; set; } = 10;
@@ -69,6 +145,13 @@ public static class StationProvisionRules
 
     /// <summary>Hunger relieved by one meal.</summary>
     public const double HungerPerMeal = 42;
+
+    /// <summary>
+    /// Raw crops are emergency food: they are consumed more slowly, relieve
+    /// substantially less hunger and usually make morale/stress worse.
+    /// </summary>
+    public const double RawCropUnitsPerMinute = 0.045;
+    public const double RawFoodStressPerMinute = 0.24;
 
     /// <summary>Hunger above which somebody goes looking for food.</summary>
     public const double HungryAt = 45;

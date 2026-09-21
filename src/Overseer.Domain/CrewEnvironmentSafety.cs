@@ -19,14 +19,18 @@ public static class CrewEnvironmentSafety
         room.OxygenPercent < 19.0
         || room.CarbonDioxidePercent > 1.25
         || room.PressureKpa < 90
-        || room.TemperatureC is < 6 or > 38;
+        || room.TemperatureC is < 6 or > 38
+        || room.FireIntensity >= 12
+        || room.SmokePercent >= 35;
 
     public static bool IsHabitable(Room room) =>
         room.IsPowered
         && room.OxygenPercent >= 19.5
         && room.CarbonDioxidePercent <= 0.8
         && room.PressureKpa >= 95
-        && room.TemperatureC is >= 16 and <= 28;
+        && room.TemperatureC is >= 16 and <= 28
+        && room.FireIntensity <= 0
+        && room.SmokePercent < 8;
 
     public static double RiskScore(Room room)
     {
@@ -44,6 +48,9 @@ public static class CrewEnvironmentSafety
         {
             score += (room.TemperatureC - 28) * 0.65;
         }
+
+        score += room.FireIntensity * .18;
+        score += room.SmokePercent * .08;
 
         if (!room.IsPowered)
         {

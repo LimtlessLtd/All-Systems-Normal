@@ -43,10 +43,10 @@ public sealed class ScenarioRosterPolicyTests
     {
         var crew = SeededCrewRosterGenerator.Generate(7429);
 
-        Assert.Equal(6, crew.Count);
+        Assert.Equal(12, crew.Count);
         Assert.Equal(6, crew.Select(npc => npc.Role).Distinct().Count());
         Assert.Equal(
-            6,
+            12,
             crew.Select(npc => npc.Name)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Count());
@@ -109,10 +109,10 @@ public sealed class ScenarioRosterPolicyTests
     public void FreshRosterDoesNotReceiveCrewSpecificCarryOverByRole()
     {
         var campaign = CaptureOpeningMission(330);
-        campaign.Crew.Single(snapshot => snapshot.Role == CrewRole.Engineer)
-            .OverseerSuspicion = 94;
-        campaign.Crew.Single(snapshot => snapshot.Role == CrewRole.Engineer)
-            .OverseerCredibility = 12;
+        var carriedEngineer = campaign.Crew
+            .First(snapshot => snapshot.Role == CrewRole.Engineer);
+        carriedEngineer.OverseerSuspicion = 94;
+        carriedEngineer.OverseerCredibility = 12;
 
         var freshCrew = SeededCrewRosterGenerator.Generate(331);
         var state = FacilitySeeder.CreateDefault(freshCrew);
@@ -120,9 +120,13 @@ public sealed class ScenarioRosterPolicyTests
 
         CampaignProgressionSystem.ApplyCarryOver(campaign, state);
 
-        var engineer = state.Crew.Single(npc => npc.Role == CrewRole.Engineer);
-        Assert.Equal(0, engineer.OverseerSuspicion);
-        Assert.Equal(70, engineer.OverseerCredibility);
+        Assert.All(
+            state.Crew.Where(npc => npc.Role == CrewRole.Engineer),
+            engineer =>
+            {
+                Assert.Equal(0, engineer.OverseerSuspicion);
+                Assert.Equal(70, engineer.OverseerCredibility);
+            });
     }
 
     [Fact]
@@ -185,7 +189,10 @@ public sealed class ScenarioRosterPolicyTests
         var state = FacilitySeeder.CreateDefault(crew);
         ScenarioCatalog.Apply(state, ScenarioCatalog.SecureContinuity);
 
-        var engineer = state.Crew.Single(npc => npc.Role == CrewRole.Engineer);
+        var engineer = state.Crew
+            .Where(npc => npc.Role == CrewRole.Engineer)
+            .OrderBy(npc => npc.Name, StringComparer.Ordinal)
+            .First();
         engineer.Skills["Engineering"] = 99;
         engineer.Memories.Add(new Memory(
             "Opening assignment continuity memory.",

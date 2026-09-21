@@ -4,23 +4,51 @@ namespace Overseer.Simulation;
 
 /// <summary>
 /// Model-free fresh-roster generation for the static browser runtime.
-/// The same seed always produces the same six people, including IDs,
-/// names, personality values, skills and one-to-three mechanical traits.
+/// Fresh stations target twelve people by default. The same seed always
+/// produces the same roster, including IDs, names, personality, skills and
+/// mechanical traits.
 /// </summary>
 public static class SeededCrewRosterGenerator
 {
-    private static readonly CrewRole[] Roles = Enum.GetValues<CrewRole>();
+    private static readonly CrewRole[] Roles = Enum.GetValues<CrewRole>()
+        .Where(role => role != CrewRole.Prisoner)
+        .ToArray();
 
-    public static IReadOnlyList<Npc> Generate(int seed) =>
-        Roles.Select((role, index) => CreateCrew(seed, role, index)).ToList();
+    public static IReadOnlyList<Npc> Generate(int seed, int count = 12)
+    {
+        if (count <= 0)
+            return [];
 
-    private static Npc CreateCrew(int seed, CrewRole role, int roleIndex)
+        var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<Npc>(count);
+
+        for (var index = 0; index < count; index++)
+        {
+            var npc = CreateCrew(seed, Roles[index % Roles.Length], index, usedNames);
+            usedNames.Add(npc.Name);
+            result.Add(npc);
+        }
+
+        return result;
+    }
+
+    private static Npc CreateCrew(
+        int seed,
+        CrewRole role,
+        int roleIndex,
+        IReadOnlySet<string> usedNames)
     {
         var profile = ProfileFor(role);
+        var firstNameIndex = Pick(seed, roleIndex * 17 + 1, profile.Names.Count);
+        var name = Enumerable.Range(0, profile.Names.Count)
+            .Select(offset => profile.Names[(firstNameIndex + offset) % profile.Names.Count])
+            .FirstOrDefault(candidate => !usedNames.Contains(candidate))
+            ?? $"{profile.Names[firstNameIndex]} {roleIndex + 1}";
+
         var npc = new Npc
         {
             Id = DeterministicGuid(seed, roleIndex),
-            Name = profile.Names[Pick(seed, roleIndex * 17 + 1, profile.Names.Count)],
+            Name = name,
             Role = role,
             CurrentRoomId = profile.StartRoom,
             Personality = new Personality(

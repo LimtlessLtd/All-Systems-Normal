@@ -455,28 +455,47 @@ public sealed class SocialSimulationSystem
         int minute,
         int salt)
     {
-        if (!aggressor.IsAlive
-            || !target.IsAlive
-            || relationship.Resentment < 82
-            || aggressor.Stress < 78
-            || Effective(
-                aggressor,
-                TraitEffectKind.Temper,
-                aggressor.Personality.Temper) < 60)
-        {
+        if (!aggressor.IsAlive || !target.IsAlive)
             return false;
-        }
 
+        var temper = Effective(
+            aggressor,
+            TraitEffectKind.Temper,
+            aggressor.Personality.Temper);
+        var room = state.Facility.Rooms[aggressor.CurrentRoomId];
+        var prisonerPressure = aggressor.IsPrisoner
+            ? aggressor.PrisonerDangerLevel switch
+            {
+                PrisonerDangerLevel.Low => 0,
+                PrisonerDangerLevel.Moderate => 8,
+                PrisonerDangerLevel.High => 20,
+                PrisonerDangerLevel.Extreme => 34,
+                _ => 0
+            } + aggressor.PrisonerViolenceBias
+            : 0;
+
+        // No single threshold causes a fight. A bad relationship, stress,
+        // exhaustion, hunger, fear, an ongoing argument and prisoner danger can
+        // combine into escalation pressure. The stable roll keeps outcomes
+        // deterministic for the same world state/minute.
         var pressure =
-            (relationship.Resentment - 82) * 0.012
-            + (aggressor.Stress - 78) * 0.009
-            + (Effective(
-                aggressor,
-                TraitEffectKind.Temper,
-                aggressor.Personality.Temper) - 60) * 0.006;
+            (relationship.Resentment * 1.05)
+            + ((100 - relationship.Trust) * .30)
+            + (temper * .62)
+            + (Math.Max(0, aggressor.Stress - 42) * .72)
+            + (Math.Max(0, aggressor.Fatigue - 58) * .34)
+            + (Math.Max(0, aggressor.Hunger - 68) * .24)
+            + (Math.Max(0, aggressor.Fear - 65) * .20)
+            + (aggressor.CurrentAction.Kind == ActionKind.Argue ? 18 : 0)
+            + (room.FireIntensity > 0 ? 8 : 0)
+            + prisonerPressure;
 
-        // Checked each turn, so keep violence rare even at high pressure.
-        var chance = Math.Clamp(pressure / 4, 0.01, 0.12);
+        if (pressure < 172)
+            return false;
+
+        // Evaluated per co-located pair per minute, so even severe pressure
+        // remains an occasional escalation rather than a guaranteed brawl.
+        var chance = Math.Clamp((pressure - 160) / 1250d, 0.008, 0.11);
 
         if (StableRoll(minute, aggressor.Name, target.Name, 100 + salt) >= chance)
         {
@@ -495,6 +514,7 @@ public sealed class SocialSimulationSystem
         target.Stress = Clamp(target.Stress + 25);
         aggressor.Stress = Clamp(aggressor.Stress + 8);
         relationship.Resentment = Clamp(relationship.Resentment + 4);
+        SetConversationCooldown(state, aggressor, target, minute, 211 + salt, 4, 8);
 
         aggressor.CurrentAction = new NpcAction(
             ActionKind.Attack,

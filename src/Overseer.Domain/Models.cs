@@ -7,7 +7,8 @@ public enum CrewRole
     Security,
     Doctor,
     Technician,
-    Scientist
+    Scientist,
+    Prisoner
 }
 
 public enum RoomType
@@ -23,6 +24,7 @@ public enum RoomType
     Recreation,
     Washroom,
     Hydroponics,
+    Containment,
     Corridor,
     Airlock
 }
@@ -137,6 +139,20 @@ public enum ScenarioRosterPolicy
     CampaignContinuing
 }
 
+public enum PrisonerDangerLevel
+{
+    Low,
+    Moderate,
+    High,
+    Extreme
+}
+
+public sealed record PrisonerDefinition(
+    string Name,
+    PrisonerDangerLevel DangerLevel,
+    string StartRoomId = "containment",
+    double ViolenceBias = 0);
+
 public sealed record ScenarioObjective(
     string Id,
     string Title,
@@ -177,7 +193,8 @@ public sealed record ScenarioDefinition(
     IReadOnlyList<ScenarioObjective> Objectives,
     IReadOnlyList<CorporateDirective>? Directives = null,
     StationGenerationConstraints? StationConstraints = null,
-    ScenarioRosterPolicy RosterPolicy = ScenarioRosterPolicy.CampaignContinuing);
+    ScenarioRosterPolicy RosterPolicy = ScenarioRosterPolicy.CampaignContinuing,
+    IReadOnlyList<PrisonerDefinition>? Prisoners = null);
 
 public sealed class ShutdownMechanism
 {
@@ -346,6 +363,10 @@ public enum ActionKind
     VerifyClaim,
     StandGuard,
     SeekSafety,
+    FightFire,
+    EvacuateHazard,
+    SealHazardRoom,
+    VentHazardRoom,
     OpenDoor,
     CloseDoor,
     LockDoor,
@@ -497,6 +518,12 @@ public sealed record CognitionTelemetryEntry(
     int? Urgency,
     string? Note);
 
+
+public enum RoomStatusPlateSide
+{
+    Top,
+    Bottom
+}
 
 public sealed record NpcMovement(
     string DoorId,
@@ -684,6 +711,13 @@ public sealed class Npc : IStationMobileEntity
     public HashSet<Guid> NoticedInjuredCrewIds { get; } = [];
     public double Hunger { get; set; } = 10;
     public double Fatigue { get; set; } = 10;
+
+    /// <summary>
+    /// Accumulated minutes spent awake during this person's scheduled sleep
+    /// window. It drives deterministic fatigue, movement and cognition penalties.
+    /// </summary>
+    public double SleepDebtMinutes { get; set; }
+
     public double Fear { get; set; } = 5;
     public double Stress { get; set; } = 10;
 
@@ -730,8 +764,15 @@ public sealed class Npc : IStationMobileEntity
         new(StringComparer.OrdinalIgnoreCase);
 
     public string? CauseOfDeath { get; set; }
+    public TimeSpan? LastDeathAnnouncementAt { get; set; }
     public bool IsPresent { get; set; } = true;
+    public bool IsPrisoner { get; set; }
+    public PrisonerDangerLevel PrisonerDangerLevel { get; set; } = PrisonerDangerLevel.Low;
+    public double PrisonerViolenceBias { get; set; }
     public bool IsAlive => Health > 0;
+
+    public HashSet<CropKind> FoodLikes { get; } = [];
+    public HashSet<CropKind> FoodDislikes { get; } = [];
 
     public Dictionary<string, int> Skills { get; } =
         new(StringComparer.OrdinalIgnoreCase);
@@ -762,6 +803,12 @@ public sealed class Npc : IStationMobileEntity
 
     public NpcIntent? Intent { get; set; }
     public TimeSpan RoutineUntil { get; set; }
+
+    /// <summary>
+    /// Final room a deterministic planner is currently routing toward. The UI
+    /// may visualize it, but it never decides movement from this value.
+    /// </summary>
+    public string? PlannedDestinationRoomId { get; set; }
 
     /// <summary>Equipment this person is currently servicing, if any.</summary>
     public string? ServicingDeviceId { get; set; }
@@ -819,6 +866,12 @@ public sealed class Room
     public double MapWidth { get; init; } = 16;
     public double MapHeight { get; init; } = 14;
 
+    /// <summary>
+    /// Generation-owned side reserved for the attached status plate. Procedural
+    /// packing treats that external strip as occupied geometry.
+    /// </summary>
+    public RoomStatusPlateSide? StatusPlateSide { get; init; }
+
     public bool IsPowered { get; set; } = true;
     public bool LightsOn { get; set; } = true;
     public bool CameraOnline { get; set; } = true;
@@ -833,6 +886,13 @@ public sealed class Room
     public double OxygenPercent { get; set; } = 20.9;
     public double CarbonDioxidePercent { get; set; } = 0.04;
     public double PressureKpa { get; set; } = 101.3;
+
+    /// <summary>0..100 deterministic compartment fire severity.</summary>
+    public double FireIntensity { get; set; }
+
+    /// <summary>0..100 visible smoke contamination from fire.</summary>
+    public double SmokePercent { get; set; }
+
     public bool VentilationEnabled { get; set; } = true;
     public bool HasVentilationControl { get; set; } = true;
     public bool IsVentilationAiControllable { get; set; } = true;

@@ -49,6 +49,7 @@ public sealed class ActionResolver
             ActionKind.VerifyClaim => SetAction(state, npc, action, "checks the room for evidence", out message),
             ActionKind.StandGuard => SetAction(state, npc, action, "takes up a watch position", out message),
             ActionKind.SeekSafety => SetAction(state, npc, action, "moves toward safer conditions", out message),
+            ActionKind.EvacuateHazard => SetAction(state, npc, action, "evacuates the hazardous compartment", out message),
             ActionKind.Intimacy => TryIntimacy(state, npc, action, out message),
             ActionKind.Investigate => SetAction(state, npc, action, "starts investigating", out message),
             ActionKind.Repair => SetAction(state, npc, action, "starts a repair attempt", out message),
