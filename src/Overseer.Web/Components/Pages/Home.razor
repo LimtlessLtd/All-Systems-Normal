@@ -363,10 +363,6 @@
                                     @generation.Identity.Size · @generation.Identity.Budget ·
                                     AGE @generation.Identity.AgeYears y · CREW @generation.Identity.CrewCapacity
                                 </small>
-                                <div class="generation-debug-actions">
-                                    <button type="button" class="secondary mini" @onclick="RegenerateSameSeedAsync">SAME SEED</button>
-                                    <button type="button" class="secondary mini" @onclick="RegenerateNewSeedAsync">NEW SEED</button>
-                                </div>
                                 <ul>
                                     @foreach (var diagnostic in generation.Diagnostics)
                                     {
