@@ -3,7 +3,7 @@
 Repository: https://github.com/LimtlessLtd/All-Systems-Normal
 Playable Pages build: https://limtlessltd.github.io/All-Systems-Normal/
 
-**Current state:** V0.10A — Seeded Procedural Stations + Station Presentation Pass
+**Current state:** V0.10B — Seeded Procedural Stations + Physical Cutaway Presentation
 **Next recommended milestone:** V0.11 — Contained Security-Network Malware & Crew Recovery
 
 This file is the authoritative technical handoff. Keep it concise and update sections in place; do not append milestone diaries.
@@ -146,7 +146,8 @@ Primary presentation helper: `src/Overseer.Simulation/StationPresentationSystem.
 - Both UIs derive the same station purpose/budget/age/maintenance/expansion CSS classes and bounds-based fit transform from authoritative `Facility` + `StationGenerationMetadata`.
 - `.station-world` transforms rooms, corridors, doors, fixtures, crew, robots and turrets together. Auto-fit must never move presentation objects independently of simulation geometry.
 - Hull mass is drawn only from real room/corridor footprints. Do not reintroduce decorative rails/links that imply nonexistent navigation.
-- `FacilitySeeder.ApplyIdentityDrivenDetails` adds deterministic room-aware presentation fixtures. Generated fixtures stay inside their owning room and use collision-aware placement for solid furniture/machinery.
+- `FacilitySeeder.ApplyIdentityDrivenDetails` adds deterministic room-aware presentation fixtures. Wall equipment is bulkhead-aligned; floor equipment uses collision-aware work bays; all generated fixtures stay inside their owning room.
+- The V0.10B cutaway layer uses room-specific deck patterns, embedded room plaques, dimensional fixture/machinery styling, service-corridor decking and restrained operational animation. Keep these cues presentation-only and mirrored in both UIs.
 - Purpose changes art direction; budget/age/maintenance/expansion change finish, wear and exposed services. Preserve the clean colourful cutaway style; do not apply a global brown/grime filter.
 - Room labels reduce information at wide zoom and regain detail when close. Small-room label density is presentation-only.
 - Browser and server `Home.razor` / `Home.razor.css` station rendering must remain visually mirrored. New room/fixture/purpose presentation rules should be added to both UIs unless moved into a future shared component/stylesheet.
