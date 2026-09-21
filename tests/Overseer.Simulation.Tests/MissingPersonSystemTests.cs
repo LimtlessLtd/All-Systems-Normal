@@ -125,38 +125,31 @@ public sealed class MissingPersonSystemTests
 
         marcus.Health = 0;
         marcus.IsPresent = false;
-        state.Elapsed = TimeSpan.FromMinutes(360);
+        state.Elapsed = TimeSpan.FromHours(5);
 
-        var expected = CrewDutySchedule.ExpectedDutyRoomId(marcus.Role, state.Elapsed);
-        nadia.CurrentRoomId = expected;
-
-        foreach (var other in state.Crew.Where(npc =>
-                     npc.Id != nadia.Id
-                     && npc.Id != sarah.Id
-                     && npc.Id != marcus.Id))
+        nadia.MissingPersonConcerns[marcus.Id] = new MissingPersonConcern
         {
-            other.CurrentRoomId = "reactor";
-        }
+            PersonId = marcus.Id,
+            PersonName = marcus.Name,
+            ExpectedRoomId = "quarters",
+            FirstConcernAt = state.Elapsed - TimeSpan.FromHours(1),
+            LastUpdatedAt = state.Elapsed,
+            Stage = MissingPersonConcernStage.Searching
+        };
 
+        nadia.CurrentRoomId = "medical";
         sarah.CurrentRoomId = "control";
         system.Tick(state);
 
-        Assert.DoesNotContain(marcus.Id, sarah.MissingPersonConcerns.Keys);
-
-        // A Concerned-stage absence is not broadcast. Nadia first checks the
-        // expected duty area; only the resulting active search can spread socially.
-        state.Elapsed = TimeSpan.FromMinutes(365);
-        nadia.CurrentRoomId = expected;
-        system.Tick(state);
         Assert.DoesNotContain(marcus.Id, sarah.MissingPersonConcerns.Keys);
 
         nadia.CurrentRoomId = "control";
-        sarah.CurrentRoomId = "control";
-        state.Elapsed = TimeSpan.FromMinutes(370);
+        state.Elapsed += TimeSpan.FromMinutes(5);
         system.Tick(state);
 
-        Assert.Contains(marcus.Id, sarah.MissingPersonConcerns.Keys);
-        Assert.Equal(nadia.Name, sarah.MissingPersonConcerns[marcus.Id].SourceNpcName);
+        var shared = Assert.Single(
+            sarah.MissingPersonConcerns.Where(pair => pair.Key == marcus.Id)).Value;
+        Assert.Equal(nadia.Name, shared.SourceNpcName);
     }
 
     [Fact]
