@@ -5294,6 +5294,613 @@ button.sound-toggle.sound-on {
     transition-timing-function: linear;
 }
 
+
+
+/* V0.10B — physical cutaway presentation overhaul.
+   Everything below skins authoritative room/corridor/fixture geometry only. */
+.station-map {
+    background:
+        radial-gradient(circle at 7% 16%, rgba(218,244,247,.34) 0 1px, transparent 1.6px),
+        radial-gradient(circle at 81% 12%, rgba(164,211,220,.24) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 92% 67%, rgba(218,244,247,.22) 0 1px, transparent 1.4px),
+        radial-gradient(circle at 17% 76%, rgba(139,195,205,.22) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 54% 91%, rgba(218,244,247,.20) 0 1px, transparent 1.4px),
+        linear-gradient(rgba(129,176,184,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(129,176,184,.025) 1px, transparent 1px),
+        radial-gradient(circle at 50% 46%, rgba(80,210,198,.10), transparent 50%),
+        #050f16;
+    background-size:
+        211px 211px, 263px 263px, 307px 307px, 349px 349px, 397px 397px,
+        24px 24px, 24px 24px, auto, auto;
+}
+
+.station-world > .room-node:not(.hallway):not(.main-corridor) {
+    overflow: hidden;
+    border-radius: 5px;
+    background-color: var(--deck-surface);
+    box-shadow:
+        0 0 0 3px #09171d,
+        0 0 0 5px var(--hull-outer),
+        0 0 0 6px color-mix(in srgb, var(--hull-edge) 58%, #071219),
+        0 10px 24px rgba(0,0,0,.56),
+        inset 0 0 0 2px rgba(188,218,223,.055),
+        inset 0 18px 32px color-mix(in srgb, var(--room-accent) 6%, transparent),
+        inset 0 -18px 34px rgba(0,0,0,.16);
+}
+
+.station-world > .room-node:not(.hallway):not(.main-corridor)::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    z-index: 1;
+    pointer-events: none;
+    border: 1px solid color-mix(in srgb, var(--room-accent) 23%, #647c83);
+    border-radius: 2px;
+    background:
+        radial-gradient(circle at 4px 4px, rgba(218,237,240,.30) 0 1px, transparent 1.6px),
+        radial-gradient(circle at calc(100% - 4px) 4px, rgba(218,237,240,.30) 0 1px, transparent 1.6px),
+        radial-gradient(circle at 4px calc(100% - 4px), rgba(218,237,240,.24) 0 1px, transparent 1.6px),
+        radial-gradient(circle at calc(100% - 4px) calc(100% - 4px), rgba(218,237,240,.24) 0 1px, transparent 1.6px);
+    box-shadow:
+        inset 0 0 0 1px rgba(3,10,14,.62),
+        0 0 0 1px rgba(255,255,255,.015);
+}
+
+.station-world > .room-node:not(.hallway):not(.main-corridor)::after {
+    content: "";
+    position: absolute;
+    inset: 10px;
+    z-index: 0;
+    pointer-events: none;
+    border-radius: 2px;
+    opacity: .92;
+    background:
+        linear-gradient(90deg, transparent 0 49%, rgba(190,218,222,.025) 49% 51%, transparent 51%),
+        linear-gradient(0deg, transparent 0 49%, rgba(190,218,222,.022) 49% 51%, transparent 51%);
+}
+
+/* Labels are plaques embedded into the cutaway rather than full-width UI cards. */
+.station-world > .room-node:not(.hallway):not(.main-corridor) .room-titlebar {
+    position: absolute;
+    left: 10px;
+    top: 9px;
+    z-index: 6;
+    width: auto;
+    max-width: calc(100% - 20px);
+    min-height: 19px;
+    padding: 2px 6px 2px 5px;
+    border: 1px solid rgba(183,215,220,.17);
+    border-left: 3px solid var(--room-accent);
+    border-radius: 3px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,.035), transparent),
+        rgba(4,13,18,.86);
+    box-shadow: 0 2px 5px rgba(0,0,0,.28);
+    backdrop-filter: blur(2px);
+}
+
+.station-world > .room-node:not(.hallway):not(.main-corridor) .room-data {
+    position: absolute;
+    right: 9px;
+    bottom: 8px;
+    z-index: 6;
+    display: flex;
+    gap: .28rem;
+    margin: 0;
+    padding: 2px 4px;
+    border: 1px solid rgba(161,194,200,.10);
+    border-radius: 3px;
+    background: rgba(3,12,17,.74);
+    color: #9db9c0;
+    font-size: .48rem;
+    letter-spacing: .02em;
+    box-shadow: 0 2px 4px rgba(0,0,0,.24);
+}
+
+.room-node.room-small .room-titlebar {
+    left: 7px;
+    top: 6px;
+    max-width: calc(100% - 14px);
+}
+
+.room-node.room-small .room-data {
+    display: none;
+}
+
+/* Room semantics become visible in the deck itself, not only through labels. */
+.room-type-controlroom::after {
+    background:
+        radial-gradient(circle at 50% 55%, transparent 0 18%, rgba(78,225,210,.055) 19% 20%, transparent 21% 31%, rgba(78,225,210,.035) 32% 33%, transparent 34%),
+        linear-gradient(90deg, transparent 0 14%, rgba(89,226,211,.04) 14% 16%, transparent 16% 84%, rgba(89,226,211,.04) 84% 86%, transparent 86%),
+        repeating-linear-gradient(0deg, rgba(255,255,255,.014) 0 1px, transparent 1px 11px);
+}
+
+.room-type-engineering::after,
+.room-type-generator::after {
+    background:
+        repeating-linear-gradient(135deg, rgba(239,178,84,.045) 0 6px, transparent 6px 14px),
+        linear-gradient(90deg, rgba(239,178,84,.035), transparent 24% 76%, rgba(239,178,84,.035)),
+        repeating-linear-gradient(0deg, rgba(255,255,255,.015) 0 1px, transparent 1px 13px);
+}
+
+.room-type-reactor::after {
+    background:
+        radial-gradient(circle at 50% 54%, transparent 0 17%, rgba(96,232,215,.075) 18% 20%, transparent 21% 31%, rgba(96,232,215,.05) 32% 34%, transparent 35% 45%, rgba(96,232,215,.025) 46% 47%, transparent 48%),
+        repeating-conic-gradient(from 0deg at 50% 54%, rgba(96,232,215,.03) 0 7deg, transparent 7deg 28deg);
+}
+
+.room-type-hydroponics::after {
+    background:
+        repeating-linear-gradient(90deg, rgba(73,216,126,.055) 0 10%, transparent 10% 19%),
+        linear-gradient(0deg, rgba(70,192,115,.025), transparent 30% 70%, rgba(70,192,115,.025));
+}
+
+.room-type-storage::after {
+    background:
+        repeating-linear-gradient(90deg, transparent 0 18%, rgba(190,204,207,.045) 18% 20%),
+        repeating-linear-gradient(0deg, transparent 0 46%, rgba(214,185,96,.038) 46% 54%);
+}
+
+.room-type-medical::after {
+    background:
+        linear-gradient(90deg, transparent 0 47%, rgba(145,206,247,.045) 47% 53%, transparent 53%),
+        linear-gradient(0deg, transparent 0 47%, rgba(145,206,247,.045) 47% 53%, transparent 53%),
+        repeating-linear-gradient(90deg, rgba(255,255,255,.012) 0 1px, transparent 1px 16px);
+}
+
+.room-type-crewquarters::after {
+    background:
+        repeating-linear-gradient(90deg, rgba(102,177,216,.034) 0 20%, transparent 20% 27%),
+        linear-gradient(0deg, rgba(105,181,218,.02), transparent 42%);
+}
+
+.room-type-kitchen::after {
+    background:
+        repeating-linear-gradient(90deg, rgba(233,178,103,.035) 0 1px, transparent 1px 15px),
+        repeating-linear-gradient(0deg, rgba(255,255,255,.014) 0 1px, transparent 1px 15px);
+}
+
+.room-type-recreation::after {
+    background:
+        radial-gradient(circle at 50% 58%, rgba(177,145,237,.055), transparent 42%),
+        repeating-linear-gradient(45deg, rgba(177,145,237,.018) 0 5px, transparent 5px 14px);
+}
+
+.room-type-washroom::after {
+    background:
+        repeating-linear-gradient(90deg, rgba(121,205,230,.035) 0 1px, transparent 1px 12px),
+        repeating-linear-gradient(0deg, rgba(121,205,230,.03) 0 1px, transparent 1px 12px);
+}
+
+.room-type-airlock::after {
+    background:
+        repeating-linear-gradient(135deg, rgba(216,222,224,.065) 0 5px, transparent 5px 12px),
+        linear-gradient(90deg, transparent 0 44%, rgba(216,226,229,.06) 44% 56%, transparent 56%);
+}
+
+/* Corridor floors become wide physical service passages with edge rails and
+   segmented anti-slip decking while retaining exact corridor footprints. */
+.station-world > .room-node.main-corridor,
+.station-world > .room-node.hallway {
+    border-radius: 2px;
+    box-shadow:
+        0 0 0 3px #08171d,
+        0 0 0 5px var(--hull-outer),
+        0 0 0 6px color-mix(in srgb, var(--hull-edge) 46%, #071219),
+        inset 0 0 0 1px rgba(207,230,233,.05),
+        0 5px 12px rgba(0,0,0,.46);
+}
+
+.station-world > .room-node.hallway-horizontal,
+.station-world > .room-node.main-corridor {
+    background:
+        linear-gradient(0deg,
+            color-mix(in srgb, var(--station-primary) 14%, transparent) 0 5%,
+            transparent 5% 18%,
+            rgba(3,12,17,.26) 18% 21%,
+            transparent 21% 79%,
+            rgba(3,12,17,.26) 79% 82%,
+            transparent 82% 95%,
+            color-mix(in srgb, var(--station-primary) 14%, transparent) 95%),
+        repeating-linear-gradient(90deg,
+            rgba(255,255,255,.032) 0 18px,
+            rgba(0,0,0,.045) 18px 20px,
+            transparent 20px 36px),
+        var(--deck-surface);
+}
+
+.station-world > .room-node.hallway-vertical {
+    background:
+        linear-gradient(90deg,
+            color-mix(in srgb, var(--station-primary) 14%, transparent) 0 5%,
+            transparent 5% 18%,
+            rgba(3,12,17,.26) 18% 21%,
+            transparent 21% 79%,
+            rgba(3,12,17,.26) 79% 82%,
+            transparent 82% 95%,
+            color-mix(in srgb, var(--station-primary) 14%, transparent) 95%),
+        repeating-linear-gradient(0deg,
+            rgba(255,255,255,.032) 0 18px,
+            rgba(0,0,0,.045) 18px 20px,
+            transparent 20px 36px),
+        var(--deck-surface);
+}
+
+/* Fixtures now read as small objects with thickness, controls and moving parts. */
+.fixture {
+    isolation: isolate;
+    border-width: 1px;
+    border-color: color-mix(in srgb, var(--room-accent) 28%, #80959b);
+    box-shadow:
+        0 3px 4px rgba(0,0,0,.34),
+        inset 0 1px 0 rgba(255,255,255,.12),
+        inset 0 -2px 0 rgba(0,0,0,.18);
+}
+
+.fixture-console {
+    border-radius: 3px;
+    background:
+        linear-gradient(180deg, rgba(91,232,217,.28) 0 34%, rgba(5,18,23,.78) 35% 43%, transparent 44%),
+        repeating-linear-gradient(90deg, rgba(125,173,181,.16) 0 18%, transparent 18% 27%),
+        #21343b;
+}
+
+.fixture-console::before,
+.fixture-recreationconsole::before {
+    content: "";
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    top: 12%;
+    height: 29%;
+    border: 1px solid rgba(112,235,222,.34);
+    border-radius: 2px;
+    background:
+        linear-gradient(90deg, transparent 0 8%, rgba(126,241,229,.65) 9% 12%, transparent 13% 31%, rgba(126,241,229,.38) 32% 37%, transparent 38%),
+        #08242a;
+    box-shadow: 0 0 6px rgba(83,229,211,.16);
+}
+
+.fixture-console::after,
+.fixture-recreationconsole::after {
+    content: "";
+    position: absolute;
+    left: 13%;
+    right: 13%;
+    bottom: 14%;
+    height: 2px;
+    background: repeating-linear-gradient(90deg, #63d9ce 0 5px, transparent 5px 9px);
+    opacity: .42;
+}
+
+.fixture-screen {
+    overflow: hidden;
+    background:
+        linear-gradient(180deg, rgba(69,224,210,.14), transparent 24%),
+        repeating-linear-gradient(0deg, rgba(72,232,216,.12) 0 1px, #07171d 1px 4px);
+}
+
+.fixture-screen::before {
+    content: "";
+    position: absolute;
+    left: 5%;
+    right: 5%;
+    height: 18%;
+    top: -20%;
+    background: linear-gradient(180deg, transparent, rgba(134,255,241,.28), transparent);
+    animation: station-screen-scan 2.6s linear infinite;
+}
+
+.fixture-generator {
+    overflow: hidden;
+    border-radius: 7px;
+}
+
+.fixture-generator::before {
+    content: "";
+    position: absolute;
+    inset: 16%;
+    border: 2px solid rgba(255,204,91,.34);
+    border-radius: 50%;
+    background:
+        repeating-conic-gradient(from 0deg, rgba(250,199,87,.55) 0 9deg, transparent 9deg 22deg);
+    animation: station-rotor 7s linear infinite;
+}
+
+.fixture-generator::after {
+    content: "";
+    position: absolute;
+    inset: 34%;
+    border-radius: 50%;
+    background: #ffd267;
+    box-shadow: 0 0 9px rgba(255,198,82,.50);
+    animation: station-power-pulse 1.9s ease-in-out infinite alternate;
+}
+
+.fixture-reactorcore {
+    overflow: visible;
+    border-radius: 50%;
+}
+
+.fixture-reactorcore::before {
+    content: "";
+    position: absolute;
+    inset: 10%;
+    border: 2px dashed rgba(110,240,224,.46);
+    border-radius: 50%;
+    animation: station-rotor 9s linear infinite reverse;
+}
+
+.fixture-reactorcore::after {
+    content: "";
+    position: absolute;
+    inset: 29%;
+    border-radius: 50%;
+    background: #bffff5;
+    box-shadow:
+        0 0 7px rgba(118,247,231,.92),
+        0 0 15px rgba(70,226,207,.45);
+    animation: station-reactor-pulse 2.1s ease-in-out infinite alternate;
+}
+
+.fixture-workbench::before {
+    content: "";
+    position: absolute;
+    left: 7%;
+    right: 7%;
+    top: 19%;
+    height: 14%;
+    background: repeating-linear-gradient(90deg, #8ba1a6 0 7%, #334a50 7% 14%);
+    opacity: .55;
+}
+
+.fixture-workbench::after {
+    content: "";
+    position: absolute;
+    left: 10%;
+    right: 10%;
+    bottom: 13%;
+    height: 18%;
+    background:
+        radial-gradient(circle at 15% 50%, #f3c05e 0 7%, transparent 8%),
+        radial-gradient(circle at 45% 50%, #68dcd1 0 7%, transparent 8%),
+        radial-gradient(circle at 75% 50%, #d67b7f 0 7%, transparent 8%);
+    opacity: .65;
+}
+
+.fixture-storagerack::before {
+    content: "";
+    position: absolute;
+    inset: 7%;
+    background:
+        repeating-linear-gradient(0deg, transparent 0 21%, rgba(3,12,16,.74) 21% 26%),
+        repeating-linear-gradient(90deg, rgba(166,190,195,.11) 0 28%, transparent 28% 34%);
+}
+
+.fixture-growbed {
+    overflow: hidden;
+    border-color: rgba(74,198,112,.42);
+}
+
+.fixture-growbed::after {
+    content: "";
+    position: absolute;
+    left: 5%;
+    right: 5%;
+    bottom: 6%;
+    height: 14%;
+    border-radius: 50%;
+    background: rgba(72,220,127,.20);
+    box-shadow: 0 0 7px rgba(72,220,127,.12);
+    animation: hydroponic-shimmer 2.8s ease-in-out infinite alternate;
+}
+
+.fixture-irrigationtank::before {
+    content: "";
+    position: absolute;
+    left: 18%;
+    right: 18%;
+    top: 8%;
+    height: 5%;
+    border-radius: 999px;
+    background: rgba(170,231,236,.30);
+}
+
+.fixture-kitchencounter::after {
+    content: "";
+    position: absolute;
+    inset: 15% 8%;
+    background:
+        radial-gradient(circle at 14% 50%, rgba(118,194,207,.58) 0 5%, transparent 6%),
+        radial-gradient(circle at 31% 50%, rgba(118,194,207,.45) 0 5%, transparent 6%),
+        repeating-linear-gradient(90deg, transparent 0 17%, rgba(210,229,232,.08) 17% 19%);
+}
+
+.fixture-treatmentunit::before,
+.fixture-medicalbed::before {
+    content: "+";
+    position: absolute;
+    right: 8%;
+    top: 8%;
+    display: grid;
+    place-items: center;
+    width: 11px;
+    height: 11px;
+    border-radius: 2px;
+    background: rgba(132,201,247,.16);
+    color: rgba(183,226,255,.74);
+    font: 800 9px/1 sans-serif;
+}
+
+.fixture-pipe::after {
+    content: "";
+    position: absolute;
+    inset: 0 13%;
+    border-left: 2px solid rgba(220,237,239,.12);
+    border-right: 2px solid rgba(3,13,17,.34);
+}
+
+.fixture-vent::after {
+    content: "";
+    position: absolute;
+    inset: 14%;
+    border: 1px solid rgba(168,195,200,.14);
+}
+
+.fixture-camera {
+    animation: camera-status-pulse 2.5s ease-in-out infinite;
+}
+
+/* Airlocks are heavy pressure interfaces rather than small coloured buttons. */
+.room-type-airlock.exterior-module {
+    box-shadow:
+        0 0 0 4px #07151b,
+        0 0 0 7px #20343d,
+        0 0 0 8px rgba(184,212,218,.28),
+        0 12px 25px rgba(0,0,0,.58),
+        inset 0 0 0 3px rgba(4,12,17,.76);
+}
+
+.room-type-airlock.exterior-module::before {
+    background:
+        repeating-linear-gradient(135deg, rgba(223,230,231,.09) 0 5px, transparent 5px 11px),
+        radial-gradient(circle at 4px 4px, rgba(222,239,241,.36) 0 1px, transparent 1.7px),
+        radial-gradient(circle at calc(100% - 4px) calc(100% - 4px), rgba(222,239,241,.28) 0 1px, transparent 1.7px);
+}
+
+.map-door {
+    min-width: 25px;
+    min-height: 17px;
+    border-radius: 2px;
+    font-weight: 900;
+    letter-spacing: -.04em;
+    text-shadow: 0 1px 1px rgba(0,0,0,.55);
+}
+
+.map-door::before {
+    inset: -5px;
+    border: 2px solid #09171d;
+    border-radius: 3px;
+    box-shadow: 0 0 0 1px rgba(164,197,204,.20);
+}
+
+.map-door.open {
+    box-shadow:
+        0 0 0 1px rgba(91,229,212,.18),
+        0 0 11px rgba(76,220,203,.14),
+        inset 0 1px 0 rgba(255,255,255,.18);
+}
+
+.map-door.locked {
+    box-shadow:
+        0 0 0 1px rgba(236,97,107,.24),
+        0 0 10px rgba(236,86,99,.16),
+        inset 0 1px 0 rgba(255,255,255,.14);
+}
+
+/* More physical entity grounding and small operational animation. */
+.crew-shadow {
+    width: 29px;
+    height: 11px;
+    background: rgba(0,0,0,.44);
+}
+
+.crew-token.is-walking .crew-shadow {
+    animation: crew-shadow-step .34s ease-in-out infinite alternate;
+}
+
+.person-visor::after {
+    content: "";
+    position: absolute;
+    left: 1px;
+    top: 1px;
+    width: 3px;
+    height: 1px;
+    border-radius: 999px;
+    background: rgba(223,255,250,.58);
+}
+
+.robot-token:not(.turret-token) .robot-icon {
+    background:
+        linear-gradient(180deg, rgba(255,255,255,.12), transparent 28%),
+        linear-gradient(90deg, #273c44 0 18%, #50656c 18% 82%, #273c44 82%);
+}
+
+.robot-token:not(.turret-token) .robot-icon::before {
+    border-radius: 2px 2px 5px 5px;
+}
+
+@keyframes station-screen-scan {
+    0% { top: -22%; opacity: 0; }
+    14% { opacity: .82; }
+    86% { opacity: .82; }
+    100% { top: 104%; opacity: 0; }
+}
+
+@keyframes station-rotor {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes station-power-pulse {
+    from { transform: scale(.86); opacity: .68; }
+    to { transform: scale(1.08); opacity: 1; }
+}
+
+@keyframes station-reactor-pulse {
+    from { transform: scale(.88); filter: brightness(.90); }
+    to { transform: scale(1.08); filter: brightness(1.18); }
+}
+
+@keyframes hydroponic-shimmer {
+    from { opacity: .35; transform: scaleX(.92); }
+    to { opacity: .76; transform: scaleX(1); }
+}
+
+@keyframes camera-status-pulse {
+    0%, 82%, 100% { box-shadow: 0 0 0 2px rgba(5,18,24,.7), 0 0 7px rgba(92,225,210,.32); }
+    88% { box-shadow: 0 0 0 2px rgba(5,18,24,.7), 0 0 13px rgba(92,225,210,.72); }
+}
+
+@keyframes crew-shadow-step {
+    from { transform: translate(-50%, -50%) scaleX(.90); opacity: .65; }
+    to { transform: translate(-50%, -50%) scaleX(1.04); opacity: .82; }
+}
+
+/* Zoom-aware presentation keeps distant seeds legible without flattening close views. */
+.station-map.zoom-wide .station-world > .room-node:not(.hallway):not(.main-corridor) .room-titlebar {
+    left: 6px;
+    top: 6px;
+    padding: 1px 4px;
+    background: rgba(4,13,18,.91);
+}
+
+.station-map.zoom-wide .fixture {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+.station-map.zoom-close .station-world > .room-node:not(.hallway):not(.main-corridor) {
+    box-shadow:
+        0 0 0 3px #09171d,
+        0 0 0 5px var(--hull-outer),
+        0 0 0 6px color-mix(in srgb, var(--hull-edge) 62%, #071219),
+        0 12px 27px rgba(0,0,0,.58),
+        inset 0 0 0 2px rgba(188,218,223,.065),
+        inset 0 22px 38px color-mix(in srgb, var(--room-accent) 7%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fixture-screen::before,
+    .fixture-generator::before,
+    .fixture-generator::after,
+    .fixture-reactorcore::before,
+    .fixture-reactorcore::after,
+    .fixture-growbed::after,
+    .fixture-camera,
+    .crew-token.is-walking .crew-shadow {
+        animation: none !important;
+    }
+}
+
 @media (max-width: 760px) {
     .station-character-chip {
         display: none;
