@@ -55,35 +55,12 @@ public static class StationPresentationSystem
                 MaintenanceCondition: 70,
                 ExpansionHistory: StationExpansionHistory.LightlyExpanded);
 
-        var rooms = facility.Rooms.Values.ToList();
-        var minX = rooms.Count == 0
-            ? 5
-            : rooms.Min(room => room.MapX - (room.MapWidth / 2));
-        var maxX = rooms.Count == 0
-            ? 95
-            : rooms.Max(room => room.MapX + (room.MapWidth / 2));
-        var minY = rooms.Count == 0
-            ? 5
-            : rooms.Min(room => room.MapY - (room.MapHeight / 2));
-        var maxY = rooms.Count == 0
-            ? 95
-            : rooms.Max(room => room.MapY + (room.MapHeight / 2));
-
-        var spanX = Math.Max(1, maxX - minX);
-        var spanY = Math.Max(1, maxY - minY);
-
-        // Leave enough breathing room for labels, crew nameplates and hatch art,
-        // while making compact/off-centre procedural shapes occupy the viewport.
-        var fitScale = Math.Clamp(
-            Math.Min(90d / spanX, 86d / spanY),
-            0.84,
-            1.18);
-
-        var centerX = (minX + maxX) / 2;
-        var centerY = (minY + maxY) / 2;
-
-        var offsetX = Math.Clamp((50 - centerX) * fitScale, -10, 10);
-        var offsetY = Math.Clamp((50 - centerY) * fitScale, -10, 10);
+        // V0.10D uses a deliberately large virtual deck and a pannable camera.
+        // Do not auto-fit the authoritative station back into the viewport:
+        // doing so made every procedurally large room visually tiny again.
+        const double fitScale = 1;
+        const double offsetX = 0;
+        const double offsetY = 0;
 
         return new StationPresentationProfile(
             $"purpose-{Slug(identity.Purpose)}",
