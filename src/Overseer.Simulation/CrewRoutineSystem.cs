@@ -89,13 +89,19 @@ public sealed class CrewRoutineSystem
     }
 
     /// <summary>
-    /// Maintenance and provisioning hold their worker without an Intent once
-    /// they arrive, so the routine must not hand that person a new errand in
-    /// the middle of the job. Only on-site work is protected: somebody holding
-    /// a job elsewhere is still free to be routed.
+    /// Maintenance, provisioning and medical care hold people without an Intent
+    /// once they arrive, so the routine must not hand them a new errand in the
+    /// middle of the job. Only on-site work is protected: somebody holding a
+    /// job elsewhere is still free to be routed.
     /// </summary>
     private static bool IsWorkingJobOnSite(GameState state, Npc npc)
     {
+        if (npc.MedicalActionCompletesAt is not null
+            || MedicalSystem.IsAwaitingCare(state, npc))
+        {
+            return true;
+        }
+
         if (npc.ServicingDeviceId is { } deviceId
             && state.Devices.TryGetValue(deviceId, out var device)
             && npc.CurrentRoomId.Equals(device.RoomId, StringComparison.OrdinalIgnoreCase))

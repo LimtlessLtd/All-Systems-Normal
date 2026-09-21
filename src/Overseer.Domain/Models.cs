@@ -670,6 +670,18 @@ public sealed class Npc : IStationMobileEntity
     public TimeSpan? LastMedicalCheckupAt { get; set; }
     public Guid? MedicalPatientId { get; set; }
     public TimeSpan? MedicalActionCompletesAt { get; set; }
+
+    /// <summary>
+    /// The clinical procedure in progress. Kept apart from CurrentAction, which
+    /// movement, routine and social systems rewrite while the procedure runs.
+    /// </summary>
+    public ActionKind? MedicalActionKind { get; set; }
+
+    /// <summary>
+    /// Injured colleagues this person has already reacted to, so seeing the same
+    /// patient again does not force a fresh decision every minute.
+    /// </summary>
+    public HashSet<Guid> NoticedInjuredCrewIds { get; } = [];
     public double Hunger { get; set; } = 10;
     public double Fatigue { get; set; } = 10;
     public double Fear { get; set; } = 5;
