@@ -30,22 +30,70 @@ public sealed class SimulationEngine
                 -25,
                 25);
 
-            // Eating only helps if there is actually food. Hunger used to fall
-            // the moment somebody decided to eat, which made the galley and the
-            // hydroponics bay scenery.
-            var eating = npc.CurrentAction.Kind == ActionKind.Eat && state.Stores.HasMeal;
+            // Eating only helps if food physically exists. Prepared meals are
+            // efficient; raw hydroponic crops are an emergency fallback with
+            // substantially weaker hunger relief and a morale/stress cost.
+            var eatingPrepared = npc.CurrentAction.Kind == ActionKind.Eat && state.Stores.HasMeal;
+            var rawCrop = eatingPrepared || npc.CurrentAction.Kind != ActionKind.Eat
+                ? null
+                : ChooseRawCrop(state.Stores, npc);
+            var eatingRaw = rawCrop is not null;
 
-            if (eating)
+            if (eatingPrepared)
             {
                 state.Stores.Meals = Math.Max(0, state.Stores.Meals - (0.07 * minutes));
             }
+            else if (rawCrop is { } crop)
+            {
+                state.Stores.RawCrops[crop] = Math.Max(
+                    0,
+                    state.Stores.RawCrops[crop] - (StationProvisionRules.RawCropUnitsPerMinute * minutes));
 
-            npc.Hunger = Clamp(
-                npc.Hunger + ((eating ? -1.9 : 0.11) * minutes));
+                var rawTarget = $"raw:{crop}";
+                if (!string.Equals(npc.CurrentAction.TargetId, rawTarget, StringComparison.Ordinal))
+                {
+                    npc.CurrentAction = new NpcAction(
+                        ActionKind.Eat,
+                        rawTarget,
+                        $"Eating raw {crop.ToString().ToLowerInvariant()} because no prepared meal is available.");
+                    state.EventLog.Insert(
+                        0,
+                        $"T+{state.Elapsed:hh\\:mm}: {npc.Name} resorts to eating raw {crop.ToString().ToLowerInvariant()}.");
+                }
 
-            npc.Fatigue = npc.CurrentAction.Kind is ActionKind.Rest or ActionKind.Sleep
-                ? Clamp(npc.Fatigue - (0.9 * minutes))
-                : Clamp(npc.Fatigue + (0.065 * minutes));
+                var preference = FoodPreferenceRules.PreferenceScore(npc, crop);
+                var preferenceStress = preference switch
+                {
+                    <= -2 => 0.22,
+                    >= 2 => -0.04,
+                    _ => 0.08
+                };
+                npc.Stress = Clamp(
+                    npc.Stress
+                    + ((StationProvisionRules.RawFoodStressPerMinute + preferenceStress) * minutes));
+            }
+
+            var hungerDelta = eatingPrepared
+                ? -1.9
+                : rawCrop is { } activeCrop
+                    ? -CropRules.RawHungerReliefPerMinute(activeCrop)
+                    : 0.11;
+            npc.Hunger = Clamp(npc.Hunger + (hungerDelta * minutes));
+
+            var sleeping = npc.CurrentAction.Kind is ActionKind.Rest or ActionKind.Sleep;
+            var scheduledSleep = CrewDutySchedule.IsSleepWindow(npc, state.Elapsed);
+
+            if (scheduledSleep && !sleeping)
+                npc.SleepDebtMinutes = Math.Clamp(npc.SleepDebtMinutes + minutes, 0, 16 * 60);
+            else if (sleeping)
+                npc.SleepDebtMinutes = Math.Clamp(npc.SleepDebtMinutes - (2.2 * minutes), 0, 16 * 60);
+
+            var fatigueRate = sleeping
+                ? -0.9
+                : 0.065
+                    + (scheduledSleep ? 0.055 : 0)
+                    + (Math.Min(360, npc.SleepDebtMinutes) / 12000d);
+            npc.Fatigue = Clamp(npc.Fatigue + (fatigueRate * minutes));
 
             npc.HygieneNeed = Clamp(
                 npc.HygieneNeed
@@ -148,6 +196,7 @@ public sealed class SimulationEngine
             var pressure =
                 Math.Max(0, npc.Hunger - 65)
                 + Math.Max(0, npc.Fatigue - 65)
+                + (Math.Max(0, npc.SleepDebtMinutes - 60) / 8)
                 + Math.Max(0, npc.Fear - 55)
                 + (Math.Max(0, npc.HygieneNeed - 70) * 0.35)
                 + (Math.Max(0, npc.RecreationNeed - 75) * 0.25)
@@ -193,6 +242,15 @@ public sealed class SimulationEngine
             }
         }
     }
+
+    private static CropKind? ChooseRawCrop(StationStores stores, Npc npc) =>
+        stores.RawCrops
+            .Where(pair => pair.Value > 0 && CropRules.IsEdibleRaw(pair.Key))
+            .OrderByDescending(pair => FoodPreferenceRules.PreferenceScore(npc, pair.Key))
+            .ThenByDescending(pair => pair.Value)
+            .ThenBy(pair => pair.Key)
+            .Select(pair => (CropKind?)pair.Key)
+            .FirstOrDefault();
 
     private static string DetermineCauseOfDeath(Npc npc, Room room)
     {
