@@ -70,4 +70,32 @@ public sealed class IntentExecutionSystemTests
         Assert.Null(marcus.Movement);
         Assert.NotNull(marcus.Intent);
     }
+
+    [Fact]
+    public void HungerIntent_PersistsLongEnoughForPhysicalStationTraversal()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+
+        marcus.CurrentRoomId = "storage";
+        marcus.Intent = new NpcIntent(
+            ActionKind.Eat,
+            null,
+            "Get a proper meal.",
+            "I am very hungry.",
+            75,
+            "Test",
+            state.Elapsed);
+
+        state.Elapsed += TimeSpan.FromMinutes(30);
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.NotNull(marcus.Intent);
+        Assert.Equal(ActionKind.Eat, marcus.Intent!.Action);
+        Assert.True(
+            marcus.Movement is not null
+            || marcus.CurrentRoomId.Equals("kitchen", StringComparison.OrdinalIgnoreCase));
+    }
+
 }

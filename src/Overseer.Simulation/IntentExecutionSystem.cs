@@ -13,7 +13,7 @@ public sealed class IntentExecutionSystem
         {
             var intent = npc.Intent!;
 
-            if (state.Elapsed - intent.CreatedAt > TimeSpan.FromMinutes(20))
+            if (state.Elapsed - intent.CreatedAt > IntentLifetime(intent))
             {
                 npc.Intent = null;
                 npc.CurrentAction = new NpcAction(
@@ -182,6 +182,25 @@ public sealed class IntentExecutionSystem
                     break;
             }
         }
+    }
+
+    private static TimeSpan IntentLifetime(NpcIntent intent)
+    {
+        // Ordinary deliberative goals remain deliberately short-lived so the
+        // mind can reconsider. Survival needs and critical safety goals must
+        // persist long enough to traverse a now-physical, collision-aware
+        // station rather than being forgotten halfway to food or safety.
+        if (intent.Urgency >= 90)
+            return TimeSpan.FromMinutes(90);
+
+        return intent.Action switch
+        {
+            ActionKind.Eat => TimeSpan.FromMinutes(75),
+            ActionKind.Sleep or ActionKind.Rest => TimeSpan.FromMinutes(60),
+            ActionKind.UseToilet => TimeSpan.FromMinutes(45),
+            ActionKind.SeekSafety => TimeSpan.FromMinutes(90),
+            _ => TimeSpan.FromMinutes(20)
+        };
     }
 
     private void ExecuteRobotCountermeasureIntent(
