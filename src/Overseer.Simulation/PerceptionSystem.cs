@@ -11,7 +11,23 @@ public sealed class PerceptionSystem
 {
     public const double HumanRange = 26;
     public const double SensorRange = HumanRange * 2;
+
+    /// <summary>
+    /// Human sight in the dark: when either end of the sightline is unlit,
+    /// people only make out what is close. Machine sensors do not need light.
+    /// </summary>
+    public const double DarkRangeFactor = 0.35;
     private const double RayStep = .45;
+
+    public static bool IsLit(GameState state, string roomId) =>
+        state.Facility.Rooms.TryGetValue(roomId, out var room)
+        && room.IsPowered
+        && room.LightsOn;
+
+    private static double HumanRangeBetween(GameState state, string observerRoomId, string targetRoomId) =>
+        IsLit(state, observerRoomId) && IsLit(state, targetRoomId)
+            ? HumanRange
+            : HumanRange * DarkRangeFactor;
 
     public void Tick(GameState state)
     {
@@ -48,11 +64,32 @@ public sealed class PerceptionSystem
             observer.PositionX,
             observer.PositionY,
             observer.FacingDegrees,
-            HumanRange,
+            HumanRangeBetween(state, observer.CurrentRoomId, target.CurrentRoomId),
             forwardCone: true,
             target.CurrentRoomId,
             target.PositionX,
             target.PositionY);
+
+    /// <summary>
+    /// Whether someone can tell who is involved in a commotion. In the same
+    /// compartment people turn toward the noise, so facing does not matter but
+    /// distance and light do; across compartments it is ordinary sight.
+    /// </summary>
+    public static bool CanMakeOut(GameState state, Npc observer, Npc target)
+    {
+        if (!target.IsPresent)
+            return false;
+
+        if (!observer.CurrentRoomId.Equals(target.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
+            || !state.Facility.Rooms.TryGetValue(observer.CurrentRoomId, out var room))
+            return CanSee(state, observer, target);
+
+        var from = ToMap(room, observer.PositionX, observer.PositionY);
+        var to = ToMap(room, target.PositionX, target.PositionY);
+        var distance = Math.Sqrt(Math.Pow(to.X - from.X, 2) + Math.Pow(to.Y - from.Y, 2));
+
+        return distance <= HumanRangeBetween(state, room.Id, room.Id);
+    }
 
     public static bool CanSee(GameState state, StationRobot observer, Npc target) =>
         observer.IsOperational
@@ -91,7 +128,7 @@ public sealed class PerceptionSystem
             observer.PositionX,
             observer.PositionY,
             observer.FacingDegrees,
-            HumanRange,
+            HumanRangeBetween(state, observer.CurrentRoomId, evidence.RoomId),
             forwardCone: true,
             evidence.RoomId,
             evidence.X,
