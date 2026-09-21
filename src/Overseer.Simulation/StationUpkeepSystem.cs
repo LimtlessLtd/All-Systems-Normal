@@ -139,6 +139,7 @@ public sealed class StationUpkeepSystem
                         Kind = StationSystemKind.PowerGenerator,
                         RoomId = room.Id,
                         Label = $"{room.Name} turbine",
+                        FixtureLabel = "Generator A",
                         Discipline = MaintenanceDiscipline.Mechanical,
                         WearPerHour = 0,
                         DegradedAt = 50,
@@ -153,6 +154,7 @@ public sealed class StationUpkeepSystem
                         Kind = StationSystemKind.Reactor,
                         RoomId = room.Id,
                         Label = $"{room.Name} core",
+                        FixtureLabel = "Reactor Core",
                         Discipline = MaintenanceDiscipline.Reactor,
                         WearPerHour = 0,
                         DegradedAt = 55,
@@ -167,6 +169,7 @@ public sealed class StationUpkeepSystem
                         Kind = StationSystemKind.GrowBeds,
                         RoomId = room.Id,
                         Label = $"{room.Name} grow beds",
+                        FixtureLabel = "Grow Bed A",
                         Discipline = MaintenanceDiscipline.Horticulture,
                         WearPerHour = 0,
                         DegradedAt = 40,
@@ -181,6 +184,7 @@ public sealed class StationUpkeepSystem
                         Kind = StationSystemKind.GalleyEquipment,
                         RoomId = room.Id,
                         Label = $"{room.Name} galley equipment",
+                        FixtureLabel = "Galley Line",
                         Discipline = MaintenanceDiscipline.Galley,
                         WearPerHour = 0,
                         DegradedAt = 35,
@@ -195,11 +199,90 @@ public sealed class StationUpkeepSystem
             Id = "life-support:station",
             Kind = StationSystemKind.LifeSupport,
             RoomId = "engineering",
-            Label = "Primary life support",
+            Label = "Primary life support controller",
+            FixtureLabel = "Systems Console",
             Discipline = MaintenanceDiscipline.LifeSupport,
             WearPerHour = 0,
             DegradedAt = 50,
             ServiceDifficulty = 60
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "distribution:station",
+            Kind = StationSystemKind.PowerDistribution,
+            RoomId = "engineering",
+            Label = "Main switchboard",
+            FixtureLabel = "Main Switchboard",
+            Discipline = MaintenanceDiscipline.Electrical,
+            WearPerHour = 0,
+            DegradedAt = 45,
+            ServiceDifficulty = 62
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "capacitor:station",
+            Kind = StationSystemKind.CapacitorBank,
+            RoomId = "engineering",
+            Label = "Pulse capacitor bank",
+            FixtureLabel = "Pulse Capacitor Bank",
+            Discipline = MaintenanceDiscipline.Electrical,
+            WearPerHour = 0,
+            DegradedAt = 40,
+            ServiceDifficulty = 56
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "oxygen:station",
+            Kind = StationSystemKind.OxygenGenerator,
+            RoomId = "engineering",
+            Label = "Oxygen generator",
+            FixtureLabel = "Oxygen Generator",
+            Discipline = MaintenanceDiscipline.LifeSupport,
+            WearPerHour = 0,
+            DegradedAt = 45,
+            ServiceDifficulty = 58
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "scrubber:station",
+            Kind = StationSystemKind.CarbonScrubber,
+            RoomId = "engineering",
+            Label = "CO2 scrubber rack",
+            FixtureLabel = "CO₂ Scrubber Rack",
+            Discipline = MaintenanceDiscipline.LifeSupport,
+            WearPerHour = 0,
+            DegradedAt = 45,
+            ServiceDifficulty = 58
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "thermal:station",
+            Kind = StationSystemKind.ThermalLoop,
+            RoomId = "engineering",
+            Label = "Thermal control loop",
+            FixtureLabel = "Thermal Control Loop",
+            Discipline = MaintenanceDiscipline.Mechanical,
+            WearPerHour = 0,
+            DegradedAt = 45,
+            ServiceDifficulty = 55
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "coolant:reactor",
+            Kind = StationSystemKind.CoolantPump,
+            RoomId = "reactor",
+            Label = "Primary reactor coolant pump",
+            FixtureLabel = "Primary Coolant Pump",
+            Discipline = MaintenanceDiscipline.Reactor,
+            WearPerHour = 0,
+            DegradedAt = 50,
+            ServiceDifficulty = 64
         });
 
         foreach (var door in state.Facility.Doors.OrderBy(d => d.Id, StringComparer.Ordinal))
@@ -211,6 +294,7 @@ public sealed class StationUpkeepSystem
                 RoomId = door.RoomAId,
                 DoorId = door.Id,
                 Label = $"{door.Id} actuator",
+                FixtureLabel = $"{door.Id} Local Control",
                 Discipline = MaintenanceDiscipline.Mechanical,
                 WearPerHour = 0,
                 DegradedAt = 30,
@@ -258,6 +342,12 @@ public sealed class StationUpkeepSystem
             StationSystemKind.Ventilation => 0.34,
             StationSystemKind.Lighting => 0.28,
             StationSystemKind.Camera => 0.24,
+            StationSystemKind.PowerDistribution => 0.42,
+            StationSystemKind.CapacitorBank => 0.30,
+            StationSystemKind.CoolantPump => 0.48,
+            StationSystemKind.OxygenGenerator => 0.40,
+            StationSystemKind.CarbonScrubber => 0.42,
+            StationSystemKind.ThermalLoop => 0.38,
             StationSystemKind.IsolationMechanism => 0.18,
             _ => 0.3
         };
@@ -285,6 +375,7 @@ public sealed class StationUpkeepSystem
             WearPerHour = wear,
             DegradedAt = template.DegradedAt,
             ServiceDifficulty = template.ServiceDifficulty,
+            FixtureLabel = template.FixtureLabel,
             Condition = Math.Round(condition, 1)
         };
 
