@@ -839,6 +839,138 @@ public sealed class StationUpkeepSystem
         }
     }
 
+
+    private static void BindMachineFixtures(GameState state)
+    {
+        foreach (var device in state.Devices.Values.OrderBy(device => device.Id, StringComparer.Ordinal))
+        {
+            if (device.Kind == StationSystemKind.Door
+                && device.DoorId is { } doorId
+                && state.Facility.Doors.FirstOrDefault(door =>
+                    door.Id.Equals(doorId, StringComparison.OrdinalIgnoreCase)) is { } door)
+            {
+                AddDoorConsole(state, device, door.RoomAId, side: 0);
+                AddDoorConsole(state, device, door.RoomBId, side: 1);
+                continue;
+            }
+
+            if (!state.Facility.Rooms.TryGetValue(device.RoomId, out var room))
+            {
+                continue;
+            }
+
+            var fixtureType = FixtureTypeFor(device.Kind);
+            if (fixtureType is null)
+            {
+                continue;
+            }
+
+            var existingIndex = room.Fixtures.FindIndex(fixture =>
+                fixture.DeviceId is null
+                && FixtureMatchesDevice(fixture.Type, device.Kind));
+
+            if (existingIndex >= 0)
+            {
+                var existing = room.Fixtures[existingIndex];
+                room.Fixtures[existingIndex] = existing with
+                {
+                    Label = device.Label,
+                    DeviceId = device.Id,
+                    InteractionX = existing.InteractionX ?? existing.X,
+                    InteractionY = existing.InteractionY ?? existing.Y
+                };
+                continue;
+            }
+
+            var ordinal = Math.Abs(StringComparer.Ordinal.GetHashCode(device.Id));
+            var x = 18 + (ordinal % 5) * 16;
+            var y = 18 + ((ordinal / 7) % 4) * 18;
+            var size = fixtureType.Value switch
+            {
+                FixtureType.CapacitorBank => (Width: 22d, Height: 18d),
+                FixtureType.PowerBus => (Width: 28d, Height: 12d),
+                FixtureType.CoolantPump => (Width: 18d, Height: 18d),
+                FixtureType.WaterRecycler => (Width: 24d, Height: 22d),
+                FixtureType.OxygenGenerator => (Width: 22d, Height: 22d),
+                FixtureType.CarbonScrubber => (Width: 22d, Height: 22d),
+                FixtureType.NetworkRack => (Width: 20d, Height: 24d),
+                _ => (Width: 18d, Height: 16d)
+            };
+
+            room.Fixtures.Add(new RoomFixture(
+                fixtureType.Value,
+                device.Label,
+                Math.Clamp(x, 12, 88),
+                Math.Clamp(y, 12, 88),
+                size.Width,
+                size.Height,
+                Math.Clamp(x, 12, 88),
+                Math.Clamp(y + (size.Height / 2) + 5, 8, 92),
+                FixtureUsePose.Stand,
+                0,
+                device.Id));
+        }
+    }
+
+    private static void AddDoorConsole(
+        GameState state,
+        StationDevice device,
+        string roomId,
+        int side)
+    {
+        if (!state.Facility.Rooms.TryGetValue(roomId, out var room))
+        {
+            return;
+        }
+
+        var hash = Math.Abs(StringComparer.Ordinal.GetHashCode($"{device.Id}:{roomId}"));
+        var x = side == 0 ? 9d : 91d;
+        var y = 22d + (hash % 55);
+
+        room.Fixtures.Add(new RoomFixture(
+            FixtureType.DoorConsole,
+            $"{device.Label} local control",
+            x,
+            y,
+            9,
+            12,
+            side == 0 ? 15 : 85,
+            y,
+            FixtureUsePose.Stand,
+            side == 0 ? 90 : 270,
+            device.Id));
+    }
+
+    private static FixtureType? FixtureTypeFor(StationSystemKind kind) =>
+        kind switch
+        {
+            StationSystemKind.PowerGenerator => FixtureType.Generator,
+            StationSystemKind.Reactor => FixtureType.ReactorCore,
+            StationSystemKind.Lighting => FixtureType.UtilityPanel,
+            StationSystemKind.Camera => FixtureType.Camera,
+            StationSystemKind.ClimateControl => FixtureType.UtilityPanel,
+            StationSystemKind.Ventilation => FixtureType.Vent,
+            StationSystemKind.AirlockMechanism => FixtureType.AirlockDoor,
+            StationSystemKind.IsolationMechanism => FixtureType.OverseerShutdown,
+            StationSystemKind.GrowBeds => FixtureType.GrowBed,
+            StationSystemKind.GalleyEquipment => FixtureType.KitchenCounter,
+            StationSystemKind.LifeSupport => FixtureType.Console,
+            StationSystemKind.PowerDistributionBus => FixtureType.PowerBus,
+            StationSystemKind.CapacitorBank => FixtureType.CapacitorBank,
+            StationSystemKind.CoolantPump => FixtureType.CoolantPump,
+            StationSystemKind.WaterRecycler => FixtureType.WaterRecycler,
+            StationSystemKind.OxygenGenerator => FixtureType.OxygenGenerator,
+            StationSystemKind.CarbonScrubber => FixtureType.CarbonScrubber,
+            StationSystemKind.DataNetwork => FixtureType.NetworkRack,
+            _ => null
+        };
+
+    private static bool FixtureMatchesDevice(FixtureType fixtureType, StationSystemKind kind) =>
+        FixtureTypeFor(kind) == fixtureType
+        || (kind == StationSystemKind.LifeSupport && fixtureType == FixtureType.Console)
+        || (kind is StationSystemKind.ClimateControl or StationSystemKind.Lighting
+            && fixtureType == FixtureType.UtilityPanel);
+
     private static void Log(GameState state, string message)
     {
         var timestamp = state.Elapsed.ToString(@"hh\:mm");
