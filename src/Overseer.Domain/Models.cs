@@ -765,6 +765,7 @@ public sealed class Room
     public bool IsPowered { get; set; } = true;
     public bool LightsOn { get; set; } = true;
     public bool CameraOnline { get; set; } = true;
+    public bool CameraNetworkReachable { get; set; } = true;
 
     public double TemperatureC { get; set; } = 21;
     public double TemperatureSetpointC { get; set; } = 21;
@@ -791,7 +792,7 @@ public sealed class Room
 
     public List<RoomFixture> Fixtures { get; } = [];
 
-    public bool HasVisualFeed => IsPowered && CameraOnline;
+    public bool HasVisualFeed => IsPowered && CameraOnline && CameraNetworkReachable;
 }
 
 public sealed class Door
@@ -880,6 +881,7 @@ public sealed class GameState
         new(StringComparer.OrdinalIgnoreCase);
 
     public PowerGrid Power { get; } = new();
+    public bool ControlNetworkOnline { get; set; } = true;
 
     // The food chain: beds in hydroponics, stores the galley draws on.
     public List<CropBed> CropBeds { get; } = [];
