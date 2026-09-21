@@ -423,6 +423,22 @@ public sealed record NpcIntent(
     string Source,
     TimeSpan CreatedAt);
 
+public sealed record CognitionTelemetryEntry(
+    long Sequence,
+    TimeSpan CreatedAt,
+    Guid NpcId,
+    string NpcName,
+    string Source,
+    string? Prompt,
+    string? RawResponse,
+    ActionKind? Action,
+    string? TargetId,
+    string? Goal,
+    string? Reason,
+    int? Urgency,
+    string? Note);
+
+
 public sealed record NpcMovement(
     string DoorId,
     string FromRoomId,
@@ -783,6 +799,8 @@ public sealed class GameState
     public List<SecurityTurret> Turrets { get; } = [];
     public TimeSpan Elapsed { get; set; }
     public List<string> EventLog { get; } = [];
+    public List<CognitionTelemetryEntry> CognitionTelemetry { get; } = [];
+    public long NextCognitionTelemetrySequence { get; set; } = 1;
     public ScenarioDefinition? Scenario { get; set; }
     public ScenarioStatus ScenarioStatus { get; set; } = ScenarioStatus.Running;
     public string? ScenarioOutcome { get; set; }
