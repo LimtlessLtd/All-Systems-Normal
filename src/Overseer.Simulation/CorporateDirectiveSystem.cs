@@ -337,7 +337,7 @@ public sealed class CorporateDirectiveSystem
         }
 
         return outside.All(npc =>
-            _navigation.FindPath(state.Facility, npc.CurrentRoomId, room.Id).Count == 0);
+            _navigation.FindPathForCrew(state, npc, npc.CurrentRoomId, room.Id).Count == 0);
     }
 
     private static void EvaluateEmergencyCompliance(

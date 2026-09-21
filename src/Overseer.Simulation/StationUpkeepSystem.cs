@@ -319,7 +319,9 @@ public sealed class StationUpkeepSystem
                 Kind = StationSystemKind.Door,
                 RoomId = door.RoomAId,
                 DoorId = door.Id,
-                Label = $"{door.Id} actuator",
+                // Crew say this label aloud and the Inspector shows it, so it
+                // uses room names rather than the internal door ID.
+                Label = $"{HatchName(state, door)} actuator",
                 Discipline = MaintenanceDiscipline.Mechanical,
                 WearPerHour = 0,
                 DegradedAt = 30,
@@ -1044,6 +1046,18 @@ public sealed class StationUpkeepSystem
         || (kind == StationSystemKind.LifeSupport && fixtureType == FixtureType.Console)
         || (kind is StationSystemKind.ClimateControl or StationSystemKind.Lighting
             && fixtureType == FixtureType.UtilityPanel);
+
+    private static string HatchName(GameState state, Door door)
+    {
+        var first = state.Facility.Rooms.TryGetValue(door.RoomAId, out var roomA)
+            ? roomA.Name
+            : door.RoomAId;
+        var second = state.Facility.Rooms.TryGetValue(door.RoomBId, out var roomB)
+            ? roomB.Name
+            : door.RoomBId;
+
+        return $"{first} / {second} hatch";
+    }
 
     private static int StableHash(string value)
     {

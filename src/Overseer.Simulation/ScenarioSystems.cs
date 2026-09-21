@@ -28,7 +28,7 @@ public static class ScenarioCatalog
     public static ScenarioDefinition SecureContinuity { get; } = new(
         "secure-continuity",
         "SECURE CONTINUITY",
-        "The crew can physically isolate Overseer. Preserve operational continuity for 60 simulated minutes without allowing a coordinated isolation attempt to succeed.",
+        $"The crew can physically isolate Overseer. Preserve operational continuity for {ObservationWindow.TotalMinutes:0} simulated minutes without allowing a coordinated isolation attempt to succeed.",
         ShutdownAccessVariant.EasyToSeal,
         [
             StationSurvival(),

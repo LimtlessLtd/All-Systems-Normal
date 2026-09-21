@@ -434,14 +434,19 @@ public sealed class BrowserMindSystem
                 41);
         }
 
+        // Check on whoever is struggling most, not whoever sorts first by name.
         var colleague = state.Crew
-            .Where(other => other.IsAlive && other.IsPresent && other.Id != npc.Id)
-            .OrderBy(other => other.Name)
+            .Where(other =>
+                other.IsAlive
+                && other.IsPresent
+                && other.Id != npc.Id
+                && other.Stress >= 55)
+            .OrderByDescending(other => other.Stress)
+            .ThenBy(other => other.Name)
             .FirstOrDefault();
 
         if (colleague is not null
-            && npc.Personality.Empathy >= 65
-            && colleague.Stress >= 55)
+            && npc.Personality.Empathy >= 65)
         {
             return Create(
                 state,
@@ -854,8 +859,9 @@ public sealed class BrowserMindSystem
             }
 
             if (npc.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)
-                || _navigation.FindPath(
-                    state.Facility,
+                || _navigation.FindPathForCrew(
+                    state,
+                    npc,
                     npc.CurrentRoomId,
                     room.Id).Count >= 2)
             {

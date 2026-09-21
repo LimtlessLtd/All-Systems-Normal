@@ -15,7 +15,7 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
 
         if (CrewEnvironmentSafety.IsDangerous(room))
         {
-            var saferRoom = FindSaferRoom(state, room);
+            var saferRoom = FindSaferRoom(state, npc, room);
 
             if (saferRoom is not null)
             {
@@ -91,6 +91,30 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                 "Restore primary life support.",
                 "The crew need life support and I have enough technical ability to try.",
                 88);
+        }
+        // Basic survival comes before curiosity, matching BrowserMindSystem.
+        // With investigation first, a suspicious crew member would investigate
+        // while starving and oscillate against the routine steering them to food.
+        else if (npc.Hunger >= 62)
+        {
+            intent = Create(npc, state, ActionKind.Eat, null,
+                "Get something to eat.",
+                "I am hungry enough that food is becoming difficult to ignore.",
+                80);
+        }
+        else if (npc.Fatigue >= 72)
+        {
+            intent = Create(npc, state, ActionKind.Sleep, null,
+                "Get some sleep.",
+                "I am too tired to keep working effectively.",
+                78);
+        }
+        else if (npc.BladderNeed >= 72)
+        {
+            intent = Create(npc, state, ActionKind.UseToilet, null,
+                "Use the washroom.",
+                "I need the toilet and should deal with that now.",
+                84);
         }
         else if (MostPressingMissingConcern(npc) is { } missingConcern
             && FindMissingSearchRoom(state, npc, missingConcern) is { } searchRoom)
@@ -177,27 +201,6 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                 $"Restore {room.Name}.",
                 "A local system is disabled and I can probably bring it back.",
                 62);
-        }
-        else if (npc.Hunger >= 62)
-        {
-            intent = Create(npc, state, ActionKind.Eat, null,
-                "Get something to eat.",
-                "I am hungry enough that food is becoming difficult to ignore.",
-                80);
-        }
-        else if (npc.Fatigue >= 72)
-        {
-            intent = Create(npc, state, ActionKind.Sleep, null,
-                "Get some sleep.",
-                "I am too tired to keep working effectively.",
-                78);
-        }
-        else if (npc.BladderNeed >= 72)
-        {
-            intent = Create(npc, state, ActionKind.UseToilet, null,
-                "Use the washroom.",
-                "I need the toilet and should deal with that now.",
-                84);
         }
         else if (npc.HygieneNeed >= 65)
         {
@@ -289,7 +292,7 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                 && !npc.CurrentRoomId.Equals(
                     SecurityMalwareSystem.ControllerRoomId,
                     StringComparison.OrdinalIgnoreCase)
-                && ReachableRooms(state.Facility, npc.CurrentRoomId)
+                && ReachableRooms(state, npc, npc.CurrentRoomId)
                     .Contains(SecurityMalwareSystem.ControllerRoomId))
             {
                 return Create(
@@ -321,7 +324,7 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                 && !npc.CurrentRoomId.Equals(
                     SecurityMalwareSystem.ControllerRoomId,
                     StringComparison.OrdinalIgnoreCase)
-                && ReachableRooms(state.Facility, npc.CurrentRoomId)
+                && ReachableRooms(state, npc, npc.CurrentRoomId)
                     .Contains(SecurityMalwareSystem.ControllerRoomId))
             {
                 return Create(
@@ -529,7 +532,7 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
         GameState state,
         Npc npc)
     {
-        var reachable = ReachableRooms(state.Facility, npc.CurrentRoomId);
+        var reachable = ReachableRooms(state, npc, npc.CurrentRoomId);
         return npc.InvestigationLeads.Values
             .Where(lead =>
                 lead.Stage == InvestigationLeadStage.Open
@@ -608,7 +611,7 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
         Npc npc,
         MissingPersonConcern concern)
     {
-        var reachable = ReachableRooms(state.Facility, npc.CurrentRoomId);
+        var reachable = ReachableRooms(state, npc, npc.CurrentRoomId);
         var candidateIds = new[]
         {
             concern.ExpectedRoomId,
@@ -655,10 +658,12 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
             && (door.RoomAId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
                 || door.RoomBId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)));
 
+    // An ordinary closed hatch is opened while walking through, never forced.
     private static Door? FindAdjacentBlockedDoor(GameState state, Npc npc) =>
         state.Facility.Doors.FirstOrDefault(door =>
             !door.IsPassable
             && door.CanBeForced
+            && !CrewDoorInteractionSystem.CanOpenForTraversal(state, npc, door)
             && (door.RoomAId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
                 || door.RoomBId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)));
 
@@ -700,10 +705,10 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
             130);
     }
 
-    private static Room? FindSaferRoom(GameState state, Room currentRoom)
+    private static Room? FindSaferRoom(GameState state, Npc npc, Room currentRoom)
     {
         var currentRisk = CrewEnvironmentSafety.RiskScore(currentRoom);
-        var reachable = ReachableRooms(state.Facility, currentRoom.Id);
+        var reachable = ReachableRooms(state, npc, currentRoom.Id);
 
         return state.Facility.Rooms.Values
             .Where(room =>
@@ -718,7 +723,7 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
             .FirstOrDefault();
     }
 
-    private static HashSet<string> ReachableRooms(Facility facility, string startRoomId)
+    private static HashSet<string> ReachableRooms(GameState state, Npc npc, string startRoomId)
     {
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -729,8 +734,8 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
 
         while (queue.TryDequeue(out var current))
         {
-            foreach (var door in facility.Doors.Where(door =>
-                         door.IsPassable
+            foreach (var door in state.Facility.Doors.Where(door =>
+                         CrewDoorInteractionSystem.CanTraverseWhenReached(state, npc, door)
                          && (door.RoomAId.Equals(current, StringComparison.OrdinalIgnoreCase)
                              || door.RoomBId.Equals(current, StringComparison.OrdinalIgnoreCase))))
             {
