@@ -2285,7 +2285,8 @@
         || room.PressureKpa < 80
         || room.TemperatureC is < 5 or > 38
             ? "critical"
-        : !room.CameraOnline
+        : !room.HasVisualFeed
+          || !room.EffectiveLightsOn
           || room.OxygenPercent < 19.5
           || room.CarbonDioxidePercent > 1
           || room.PressureKpa < 90
@@ -2338,7 +2339,8 @@
             }
         }
 
-        if (SelectedRoom?.Id == room.Id)
+        if (SelectedRoom?.Id == room.Id
+            || SelectedFixture?.Room.Id == room.Id)
             classes.Add("selected");
 
         if (room.HasExteriorHatch && room.ExteriorHatchOpen)
@@ -2346,10 +2348,10 @@
 
         if (!room.IsPowered)
             classes.Add("no-power");
-        else if (!room.CameraOnline)
+        else if (!room.HasVisualFeed)
             classes.Add("camera-off");
 
-        if (!room.LightsOn)
+        if (!room.EffectiveLightsOn)
             classes.Add("lights-off");
 
         return string.Join(' ', classes);
@@ -2443,7 +2445,10 @@
         var orientation = portal.Wall == StationWall.Vertical
             ? "door-vertical"
             : "door-horizontal";
-        var state = door.IsLocked ? "locked" : door.IsOpen ? "open" : "closed";
+        var state = door.IsLocked ? "locked"
+            : !door.IsPowered || !door.GridPowerAvailable ? "unpowered"
+            : door.IsOpen ? "open"
+            : "closed";
 
         var physical = door.IsWelded ? "welded"
             : door.IsBarricaded ? "barricaded"
@@ -2467,7 +2472,10 @@
             : door.IsDamaged ? $"damaged ({door.StructuralIntegrityPercent}% integrity)"
             : door.IsTechnicallyBypassed ? "technical bypass active"
             : "intact";
-        return $"{a.Name} ↔ {b.Name}: {state}, {physical}. Click to inspect.";
+        var power = door.IsPowered
+            ? door.GridPowerAvailable ? "actuator bus powered" : "grid bus unavailable"
+            : "actuator failed";
+        return $"{a.Name} ↔ {b.Name}: {state}, {physical}, {power}. Click to inspect.";
     }
 
     private IEnumerable<Door> ConnectedDoors(Room room) =>
