@@ -23,18 +23,19 @@ public sealed class LocalMovementSystem
 
         var maxDistance = SpeedPerMinute * delta.TotalMinutes;
 
-        foreach (var npc in state.Crew.Where(npc => npc.IsAlive))
+        foreach (var npc in state.Crew.Where(npc => npc.IsAlive && npc.IsPresent))
         {
             npc.IsLocallyMoving = false;
+            var crewDistance = maxDistance * CrewConditionRules.MovementMultiplier(npc);
             if (npc.Movement is { } movement)
             {
-                AdvanceDoorMovement(state, npc, npc.Name, movement, maxDistance);
+                AdvanceDoorMovement(state, npc, npc.Name, movement, crewDistance);
                 continue;
             }
 
             var room = state.Facility.Rooms[npc.CurrentRoomId];
             var destination = GetLocalDestination(state, npc);
-            MoveTowards(room, npc, destination.X, destination.Y, maxDistance);
+            MoveTowards(room, npc, destination.X, destination.Y, crewDistance);
         }
 
         foreach (var robot in state.Robots.Where(robot => !robot.IsDestroyed))
