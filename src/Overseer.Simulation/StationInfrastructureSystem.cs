@@ -271,9 +271,10 @@ public static class StationInfrastructureSystem
         if (!facility.Rooms.TryGetValue(roomId, out var room))
             return;
 
-        // Tiny connector passages do not need separate operator furniture.
-        if (room.Type == RoomType.Corridor
-            && room.Id.StartsWith("hall-", StringComparison.OrdinalIgnoreCase))
+        // Corridors remain visually restrained and do not carry furniture-like
+        // control panels. Corridor-only hatches are serviced at the hatch
+        // hardware itself; functional-room sides get a local wall panel.
+        if (room.Type == RoomType.Corridor)
             return;
 
         var otherId = door.RoomAId.Equals(roomId, StringComparison.OrdinalIgnoreCase)
