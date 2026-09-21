@@ -182,7 +182,7 @@ Current shared mechanics include:
 - five ordered campaign assignments, corporate directives, carry-over consequences and endings
 - browser-local campaign persistence
 - mirrored Pages/server station UI, resizable panels, large pannable deck camera, wheel/WASD/drag zoom/pan, audio/music, speech/thought bubbles, seamless physical entity animation and dotted green next-segment crew movement intent
-- external room telemetry callouts with leader lines and no room/corridor overlap
+- room telemetry prefers short attached labels beside clear rooms; crowded cases use collision-free external callouts with prominent leader lines
 - bright white/grey spacecraft interior art direction with animated consoles/screens/vents/irrigation/pipes/medical/camera/airlock/machinery cues
 - one shared `StationSelection` / `StationInspectionSystem` contract drives the contextual Inspector for rooms, crew, doors, MR robots and ST turrets
 - the primary workspace is objectives/directives + full-width Overseer Comms + map/Inspector; the old permanent Facility Systems panel is removed
@@ -295,6 +295,16 @@ Standard gate:
 - Pages remains model-free. `SeededCrewRosterGenerator` produces repeatable six-person fresh rosters with unique names/roles, skills and 1–3 mechanical traits; same-seed station regeneration repeats the fresh roster.
 - Crew-specific carry-over is applied only to continuing rosters and matches by persisted identity, preventing fresh cohorts from inheriting old crew state by role.
 - Regression coverage lives in `ScenarioRosterPolicyTests.cs` and protects fresh/continuing policy, seeded repeatability/variation, roster quality, persistence authority and both runtime integration points.
+
+## Completed Station UI / Presentation Polish
+
+- Fixture layout is normalised after physical device binding: large central equipment keeps central priority, true wall controls/vents/cameras/door pads reserve bulkhead space, heavy infrastructure remains floor machinery, and fixture rectangles must stay in-bounds without overlap.
+- Optional generated bulkhead decoration is dropped rather than moved into the room when perimeter space is saturated. Physical device controls remain represented and accessible.
+- Physical machine presentation derives device-family classes from existing `RoomFixture.DeviceId` values; lighting, climate, ventilation, power, coolant, life-support, network, generator, reactor and hydroponics now have visibly distinct styling/status rhythms without changing simulation authority.
+- Station camera zoom is 15%–300% in 5% increments. Drag-panning suppresses text selection while preserving existing click/selection routing.
+- Room telemetry attaches near its room where station geometry permits; all labels remain collision-free and external fallbacks use stronger leader lines.
+- Station Overview now uses one compact command strip with Messages, Objectives and station-focus mode. Focus mode shows only Station Overview + Inspector; the popups reuse the authoritative existing comms, assignment/objective and Corporate Directive state.
+- Server/Ollama and static Pages implementations remain mirrored. Regression coverage lives in `StationUiPresentationPolishTests.cs` and the existing procedural-station presentation tests.
 
 ## Next milestone — V0.13 Hazardous Transport Assignments
 
