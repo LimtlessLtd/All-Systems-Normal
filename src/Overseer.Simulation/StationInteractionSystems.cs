@@ -64,7 +64,9 @@ public static class CrewAffordanceSystem
         new(ActionKind.IsolateTurretNetwork, "turret", "Isolate a hostile turret network from Engineering."),
         new(ActionKind.DisableTurretPower, "turret", "Disable a hostile turret power feed."),
         new(ActionKind.DamageTurret, "turret", "Physically disable a hostile turret."),
-        new(ActionKind.ReprogramTurret, "turret", "Reprogram a locally safe hostile turret.")
+        new(ActionKind.ReprogramTurret, "turret", "Reprogram a locally safe hostile turret."),
+        new(ActionKind.IsolateSecurityController, "security-controller", "Physically isolate a diagnosed compromised MR/ST controller."),
+        new(ActionKind.PurgeSecurityController, "security-controller", "Purge and reimage an isolated compromised MR/ST controller.")
     ];
 
     public static bool IsCognitionAction(ActionKind action) =>
