@@ -199,7 +199,7 @@ public sealed class CrewProvisioningSystemTests
 
             Assert.True(
                 state.Crew.Count(npc => npc.IsAlive) == 6,
-                $"seed {seed}: deaths = {string.Join("; ", state.Crew.Where(npc => !npc.IsAlive).Select(npc => $"{npc.Name}: {npc.CauseOfDeath}, room={npc.CurrentRoomId}, hunger={npc.Hunger:0.0}, health={npc.Health:0.0}"))}");
+                $"seed {seed}: deaths = {string.Join("; ", state.Crew.Where(npc => !npc.IsAlive).Select(npc => $"{npc.Name}: {npc.CauseOfDeath}, room={npc.CurrentRoomId}, hunger={npc.Hunger:0.0}, health={npc.Health:0.0}, action={npc.CurrentAction.Kind}/{npc.CurrentAction.Reason}, intent={npc.Intent?.Action}/{npc.Intent?.TargetId}/u{npc.Intent?.Urgency}, movement={npc.Movement?.FromRoomId}->{npc.Movement?.ToRoomId}/{npc.Movement?.DoorId}, service={npc.ServicingDeviceId}, provisioning={npc.ProvisioningJob}, meals={state.Stores.Meals:0.0}, pathToKitchen={string.Join(">", new NavigationSystem().FindPathForCrew(state, npc, npc.CurrentRoomId, "kitchen"))}"))}");
 
             var hunger = state.Crew.Where(n => n.IsAlive).Average(n => n.Hunger);
 
