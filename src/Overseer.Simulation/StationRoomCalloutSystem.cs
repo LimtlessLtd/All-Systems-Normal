@@ -9,7 +9,8 @@ public sealed record StationRoomCallout(
     double AnchorX,
     double AnchorY,
     string Side,
-    bool IsExternal = false);
+    bool IsExternal = false,
+    double LabelWidth = StationRoomCalloutSystem.MaxLabelWidthPercent);
 
 /// <summary>
 /// Presentation-only room telemetry. Every functional room owns a compact
@@ -21,28 +22,57 @@ public static class StationRoomCalloutSystem
 {
     public const double AuthorityInsetPercent = 10;
     public const double AuthorityScale = 0.8;
-    private const double LabelHalfHeight = 1.15;
+    public const double LabelHalfHeight = 1.15;
+
+    /// <summary>Widest a label may be, as a percentage of deck width (~260px).</summary>
+    public const double MaxLabelWidthPercent = 8.1;
     private const double AttachedGap = .16;
 
     public static IReadOnlyList<StationRoomCallout> Build(Facility facility)
     {
         ArgumentNullException.ThrowIfNull(facility);
 
-        return facility.Rooms.Values
+        var rooms = facility.Rooms.Values
             .Where(room => room.Type != RoomType.Corridor)
             .OrderBy(room => room.Id, StringComparer.Ordinal)
-            .Select(room => BuildAttached(facility, room))
             .ToList();
+        var callouts = rooms
+            .Select(room => BuildAttached(facility, room, preferredSide: null))
+            .ToList();
+
+        // Labels are as wide as their room, so labels on the same side of
+        // non-overlapping rooms cannot collide. Two labels can still meet in a
+        // shared gap between stacked rooms; move one to its room's other edge
+        // when that side is clear.
+        for (var index = 0; index < callouts.Count; index++)
+        {
+            if (!callouts.Where((other, otherIndex) => otherIndex != index).Any(other => Overlaps(callouts[index], other)))
+                continue;
+
+            var flipped = BuildAttached(
+                facility,
+                rooms[index],
+                callouts[index].Side == "top" ? "bottom" : "top");
+
+            if (!callouts.Where((other, otherIndex) => otherIndex != index).Any(other => Overlaps(flipped, other)))
+                callouts[index] = flipped;
+        }
+
+        return callouts;
     }
+
+    public static bool Overlaps(StationRoomCallout first, StationRoomCallout second) =>
+        Math.Abs(first.LabelX - second.LabelX) < (first.LabelWidth + second.LabelWidth) / 2
+        && Math.Abs(first.LabelY - second.LabelY) < LabelHalfHeight * 2;
 
     public static double ToDeck(double authoritativePercent) =>
         AuthorityInsetPercent + (authoritativePercent * AuthorityScale);
 
-    private static StationRoomCallout BuildAttached(Facility facility, Room room)
+    private static StationRoomCallout BuildAttached(Facility facility, Room room, string? preferredSide)
     {
         var topClearance = EdgeClearance(facility, room, top: true);
         var bottomClearance = EdgeClearance(facility, room, top: false);
-        var side = topClearance >= bottomClearance ? "top" : "bottom";
+        var side = preferredSide ?? (topClearance >= bottomClearance ? "top" : "bottom");
         var anchorX = ToDeck(room.MapX);
         var anchorY = ToDeck(
             side == "top"
@@ -59,7 +89,8 @@ public static class StationRoomCalloutSystem
             Math.Clamp(labelY, 1.5, 98.5),
             anchorX,
             anchorY,
-            side);
+            side,
+            LabelWidth: Math.Min(MaxLabelWidthPercent, room.MapWidth * AuthorityScale));
     }
 
     private static double EdgeClearance(Facility facility, Room room, bool top)
