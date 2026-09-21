@@ -242,11 +242,21 @@ window.overseerLayout = (() => {
         if (!content) return;
 
         const rect = viewport.getBoundingClientRect();
-        const maxX = Math.max(120, rect.width * Math.max(0.8, state.zoom));
-        const maxY = Math.max(100, rect.height * Math.max(0.8, state.zoom));
+        state.zoom = clamp(state.zoom, cameraLimits.minZoom, cameraLimits.maxZoom);
+
+        // The camera content is intentionally much larger than the viewport.
+        // Clamp against its scaled physical dimensions so every edge of a
+        // sprawling station remains reachable by drag/WASD.
+        const contentWidth = content.offsetWidth || rect.width;
+        const contentHeight = content.offsetHeight || rect.height;
+        const maxX = Math.max(
+            80,
+            ((contentWidth * state.zoom) - rect.width) / 2 + (rect.width * 0.12));
+        const maxY = Math.max(
+            80,
+            ((contentHeight * state.zoom) - rect.height) / 2 + (rect.height * 0.12));
         state.x = clamp(state.x, -maxX, maxX);
         state.y = clamp(state.y, -maxY, maxY);
-        state.zoom = clamp(state.zoom, cameraLimits.minZoom, cameraLimits.maxZoom);
 
         content.style.transform =
             `translate3d(${state.x.toFixed(1)}px, ${state.y.toFixed(1)}px, 0) scale(${state.zoom.toFixed(2)})`;
@@ -364,10 +374,16 @@ window.overseerLayout = (() => {
         }, true);
 
         viewport.addEventListener("wheel", event => {
-            if (!event.ctrlKey && !event.metaKey) return;
+            // Hovering the station owns the wheel: scroll up zooms in, scroll
+            // down zooms out. No Ctrl/Cmd chord is required.
             event.preventDefault();
             lastActiveCamera = viewport;
-            zoomCamera(viewport, event.deltaY < 0 ? cameraLimits.zoomStep : -cameraLimits.zoomStep);
+            viewport.focus({ preventScroll: true });
+            zoomCamera(
+                viewport,
+                event.deltaY < 0
+                    ? cameraLimits.zoomStep
+                    : -cameraLimits.zoomStep);
         }, { passive: false });
 
         const panel = viewport.closest(".station-panel");
