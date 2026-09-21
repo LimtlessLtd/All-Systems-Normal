@@ -309,8 +309,43 @@ public enum ActionKind
     IsolateTurretNetwork,
     DisableTurretPower,
     DamageTurret,
-    ReprogramTurret
+    ReprogramTurret,
+
+    // V0.10E open-ended crew affordances. These remain high-level intentions:
+    // deterministic simulation validates targets, access, skills and outcomes.
+    InspectEquipment,
+    CheckOnCrew,
+    AssistCrew,
+    CoordinateWork,
+    ReassureCrew,
+    MisleadCrew,
+    ReportConcern,
+    VerifyClaim,
+    StandGuard,
+    SeekSafety,
+    OpenDoor,
+    CloseDoor,
+    LockDoor,
+    UnlockDoor
 }
+
+
+public enum StationSelectionKind
+{
+    Room,
+    Crew,
+    Door,
+    Robot,
+    Turret
+}
+
+/// <summary>
+/// UI-neutral identity for anything the operator can inspect. Keeping selection
+/// out of Razor lets both front ends route the same authoritative entities.
+/// </summary>
+public sealed record StationSelection(
+    StationSelectionKind Kind,
+    string Id);
 
 public sealed record Memory(
     string Description,
@@ -766,6 +801,12 @@ public sealed class Door
     public bool IsWelded { get; set; }
     public bool IsBarricaded { get; set; }
     public string? SecuredByNpcName { get; set; }
+
+    // Crew may open an ordinary unlocked hatch while traversing it. The
+    // authoritative simulation schedules the same hatch to close again once
+    // traffic has cleared; rendering only reflects IsOpen.
+    public Guid? LastCrewOperatorId { get; set; }
+    public TimeSpan? CrewAutoCloseAt { get; set; }
 
     public bool HasPhysicalSecuring => IsWelded || IsBarricaded;
     public bool IsPassable =>
