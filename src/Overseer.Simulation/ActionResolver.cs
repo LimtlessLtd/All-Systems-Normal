@@ -90,6 +90,9 @@ public sealed class ActionResolver
                 or ActionKind.DamageTurret
                 or ActionKind.ReprogramTurret
                 => TryTurretCountermeasure(state, npc, action, out message),
+            ActionKind.IsolateSecurityController
+                or ActionKind.PurgeSecurityController
+                => TrySecurityControllerCountermeasure(state, npc, action, out message),
             ActionKind.Idle => SetAction(state, npc, action, "waits", out message),
             _ => Fail("Unsupported action.", out message)
         };
@@ -223,6 +226,47 @@ public sealed class ActionResolver
         ActionKind.ReprogramTurret => "a local targeting reprogramming attempt",
         _ => "turret countermeasure work"
     };
+
+    private static bool TrySecurityControllerCountermeasure(
+        GameState state,
+        Npc npc,
+        NpcAction action,
+        out string message)
+    {
+        var allowed = action.Kind switch
+        {
+            ActionKind.IsolateSecurityController => SecurityMalwareSystem.CanIsolate(state, npc),
+            ActionKind.PurgeSecurityController => SecurityMalwareSystem.CanPurge(state, npc),
+            _ => false
+        };
+
+        if (!allowed)
+        {
+            message = action.Kind == ActionKind.IsolateSecurityController
+                ? $"{npc.Name} lacks local controller access, technical skill, or grounded malware evidence."
+                : $"{npc.Name} cannot reimage the controller until it is isolated and they have sufficient technical skill.";
+            return false;
+        }
+
+        if (npc.CurrentAction.Kind == action.Kind
+            && npc.CurrentAction.TargetId?.Equals(
+                SecurityMalwareSystem.ControllerTargetId,
+                StringComparison.OrdinalIgnoreCase) == true)
+        {
+            message = $"{npc.Name} continues security-controller recovery work.";
+            return true;
+        }
+
+        npc.RoutineUntil = TimeSpan.Zero;
+        return SetAction(
+            state,
+            npc,
+            action with { TargetId = SecurityMalwareSystem.ControllerTargetId },
+            action.Kind == ActionKind.IsolateSecurityController
+                ? "starts physically isolating the compromised security controller"
+                : "starts purging and reimaging the isolated security controller",
+            out message);
+    }
 
     private static bool TryDoorWork(GameState state, Npc npc, NpcAction action, string verb, out string message)
     {
