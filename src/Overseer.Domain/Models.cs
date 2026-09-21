@@ -61,7 +61,15 @@ public enum FixtureType
     Vent,
     UtilityPanel,
     Screen,
-    OverseerShutdown
+    OverseerShutdown,
+    CapacitorBank,
+    PowerBus,
+    CoolantPump,
+    WaterRecycler,
+    OxygenGenerator,
+    CarbonScrubber,
+    NetworkRack,
+    DoorConsole
 }
 
 public enum FixtureUsePose
@@ -731,10 +739,16 @@ public sealed class Npc : IStationMobileEntity
     
 public sealed class LifeSupportState
 {
+    /// <summary>What Overseer/crew have requested; actual operation also requires utilities.</summary>
+    public bool RequestedOnline { get; set; } = true;
     public bool IsOnline { get; set; } = true;
     public bool IsAiControllable { get; set; } = true;
     public double OxygenReservePercent { get; set; } = 100;
     public double ScrubberEfficiencyPercent { get; set; } = 100;
+    public double WaterReservePercent { get; set; } = 100;
+    public bool OxygenGeneratorOnline { get; set; } = true;
+    public bool CarbonScrubberOnline { get; set; } = true;
+    public bool WaterRecyclerOnline { get; set; } = true;
 }
 
 public sealed class Room
