@@ -15,13 +15,22 @@ public sealed class SocialSimulationSystem
             return;
         }
 
+        // Rolls include the station seed so two stations do not share one
+        // social history.
+        var rollClock = unchecked(minute + (state.UpkeepSeed * 7919));
+
         var living = state.Crew
             .Where(npc => npc.IsAlive && npc.Movement is null)
             .ToList();
 
         foreach (var roomGroup in living.GroupBy(npc => npc.CurrentRoomId))
         {
-            var occupants = roomGroup.OrderBy(npc => npc.Name).ToList();
+            // Pairing order rotates rather than always favouring whoever sorts
+            // first by name.
+            var occupants = roomGroup
+                .OrderBy(npc => StableRoll(rollClock, npc.Name, "", 7))
+                .ThenBy(npc => npc.Name)
+                .ToList();
             var engaged = new HashSet<Guid>();
 
             for (var i = 0; i < occupants.Count; i++)
@@ -36,7 +45,7 @@ public sealed class SocialSimulationSystem
                         continue;
                     }
 
-                    if (ResolvePair(state, first, second, minute))
+                    if (ResolvePair(state, first, second, rollClock))
                     {
                         engaged.Add(first.Id);
                         engaged.Add(second.Id);
@@ -110,8 +119,8 @@ public sealed class SocialSimulationSystem
         }
 
         var wantsCompany =
-            first.SocialNeed >= 34
-            || second.SocialNeed >= 34
+            first.SocialNeed >= 28
+            || second.SocialNeed >= 28
             || first.CurrentAction.Kind is ActionKind.Talk
                 or ActionKind.Socialize
                 or ActionKind.CheckOnCrew
@@ -126,7 +135,7 @@ public sealed class SocialSimulationSystem
                 or ActionKind.CoordinateWork
                 or ActionKind.ReassureCrew
                 or ActionKind.ReportConcern
-            || state.Facility.Rooms[first.CurrentRoomId].Type == RoomType.Recreation;
+            || state.Facility.Rooms[first.CurrentRoomId].Type is RoomType.Recreation or RoomType.Kitchen;
 
         var socialChance = Math.Clamp(
             0.04
@@ -343,40 +352,32 @@ public sealed class SocialSimulationSystem
         first.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(6);
         second.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(6);
 
-        var lineIndex = (int)(StableRoll(minute, first.Name, second.Name, 31) * 5);
-        var firstLines = new[]
-        {
-            "How are you holding up?",
-            "Long shift.",
-            "Anything strange today?",
-            "You doing okay?",
-            "Got a minute?"
-        };
-        var secondLines = new[]
-        {
-            "I'm alright. You?",
-            "Tell me about it.",
-            "Nothing I can't handle.",
-            "Yeah. Just tired.",
-            "Sure. What's up?"
-        };
+        // Whoever most wants to talk opens, about whatever is on their mind.
+        var (speaker, listener) = first.SocialNeed >= second.SocialNeed
+            ? (first, second)
+            : (second, first);
+        var exchange = ConversationTopicSystem.Converse(
+            state,
+            speaker,
+            listener,
+            StableRoll(minute, first.Name, second.Name, 31));
 
         var replyDelay = ReplyDelayMinutes(minute, first.Name, second.Name, 32, 1, 3);
 
+        QueueSpeech(speaker, exchange.Opening, state.Elapsed, 2);
         QueueSpeech(
-            first,
-            firstLines[Math.Clamp(lineIndex, 0, firstLines.Length - 1)],
-            state.Elapsed,
-            2);
-        QueueSpeech(
-            second,
-            secondLines[Math.Clamp(lineIndex, 0, secondLines.Length - 1)],
+            listener,
+            exchange.Reply,
             state.Elapsed + TimeSpan.FromMinutes(replyDelay),
             2);
 
         SetConversationCooldown(state, first, second, minute, 33, 8, 15);
 
-        if ((firstToSecond.Conversations + secondToFirst.Conversations) % 8 == 0)
+        if (exchange.LogLine is not null)
+        {
+            Log(state, exchange.LogLine);
+        }
+        else if ((firstToSecond.Conversations + secondToFirst.Conversations) % 8 == 0)
         {
             Log(state, $"{first.Name} and {second.Name} spend time talking.");
         }
@@ -416,12 +417,12 @@ public sealed class SocialSimulationSystem
         first.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(7);
         second.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(7);
 
-        var firstLine = StableRoll(minute, first.Name, second.Name, 55) < 0.5
-            ? "That's not what happened."
-            : "I'm done listening to this.";
-        var secondLine = StableRoll(minute, second.Name, first.Name, 56) < 0.5
-            ? "Don't put this on me."
-            : "Back off.";
+        var (firstLine, secondLine, topic) = ConversationTopicSystem.Argument(
+            first,
+            second,
+            firstToSecond,
+            StableRoll(minute, first.Name, second.Name, 55));
+        var about = topic is null ? "" : $" about {topic}";
 
         var replyDelay = ReplyDelayMinutes(minute, first.Name, second.Name, 57, 1, 2);
         QueueSpeech(first, firstLine, state.Elapsed, 2);
@@ -435,15 +436,15 @@ public sealed class SocialSimulationSystem
             first.CurrentRoomId);
 
         first.Memories.Add(new Memory(
-            $"Argument with {second.Name}.",
+            $"Argument with {second.Name}{about}.",
             state.Elapsed,
             0.55));
         second.Memories.Add(new Memory(
-            $"Argument with {first.Name}.",
+            $"Argument with {first.Name}{about}.",
             state.Elapsed,
             0.55));
 
-        Log(state, $"{first.Name} and {second.Name} get into an argument.");
+        Log(state, $"{first.Name} and {second.Name} get into an argument{about}.");
     }
 
     private static bool TryViolence(

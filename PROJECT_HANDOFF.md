@@ -174,6 +174,7 @@ Current shared mechanics include:
 - physical airlocks, pressure cycling and decompression
 - hydroponics, provisions, cooking, eating and human routines
 - autonomous crew with skills, traits, relationships, beliefs, memories and persistent intents
+- conversations carry content via `ConversationTopicSystem`: doubts about Overseer, gossip about a third crew member (nudges the listener's view of them by trust; friends of the subject push back), passing on recent notable memories (never news about the listener), wellbeing and small talk. Arguments name a cause (Overseer disagreement, grievance). Informative talk leaves listener memories and appears in the player LOG; Overseer beliefs remain evidence-driven. Social rolls include the station seed and pairing order rotates.
 - suspicion/evidence, investigation, testimony and account comparison
 - broadcasts/private messages interpreted as claims rather than truth
 - MR-series autonomous robot behaviour and grounded crew countermeasures
