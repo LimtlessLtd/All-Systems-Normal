@@ -82,6 +82,23 @@ public static class CampaignProgressionSystem
         }).ToList();
     }
 
+    public static IReadOnlyList<Npc>? CreateCrewForScenario(
+        CampaignState campaign,
+        ScenarioDefinition scenario)
+    {
+        ArgumentNullException.ThrowIfNull(campaign);
+        ArgumentNullException.ThrowIfNull(scenario);
+
+        if (scenario.RosterPolicy == ScenarioRosterPolicy.FreshGenerated)
+        {
+            return null;
+        }
+
+        return CreateContinuingCrew(campaign)
+            ?? throw new InvalidOperationException(
+                $"Scenario '{scenario.Id}' requires campaign-continuing crew, but no crew continuity snapshot exists.");
+    }
+
     public static void ApplyCarryOver(CampaignState campaign, GameState state)
     {
         ArgumentNullException.ThrowIfNull(campaign);
@@ -89,32 +106,34 @@ public static class CampaignProgressionSystem
 
         state.ComplianceScore = campaign.CumulativeCompliance;
 
-        foreach (var npc in state.Crew)
+        if (state.Scenario?.RosterPolicy == ScenarioRosterPolicy.CampaignContinuing)
         {
-            var snapshot = campaign.Crew.FirstOrDefault(x => x.Id == npc.Id)
-                ?? campaign.Crew.FirstOrDefault(x => x.Role == npc.Role);
-
-            if (snapshot is null)
+            foreach (var npc in state.Crew)
             {
-                continue;
-            }
+                var snapshot = campaign.Crew.FirstOrDefault(x => x.Id == npc.Id);
 
-            npc.OverseerCredibility = snapshot.OverseerCredibility;
-            npc.OverseerSuspicion = Math.Clamp(snapshot.OverseerSuspicion * 0.65, 0, 100);
-
-            foreach (var (otherName, relationship) in snapshot.Relationships)
-            {
-                if (!npc.Relationships.TryGetValue(otherName, out var live))
+                if (snapshot is null)
                 {
                     continue;
                 }
 
-                live.Affinity = relationship.Affinity;
-                live.Trust = relationship.Trust;
-                live.Resentment = relationship.Resentment;
-                live.Attraction = relationship.Attraction;
-                live.Conversations = relationship.Conversations;
-                live.Arguments = relationship.Arguments;
+                npc.OverseerCredibility = snapshot.OverseerCredibility;
+                npc.OverseerSuspicion = Math.Clamp(snapshot.OverseerSuspicion * 0.65, 0, 100);
+
+                foreach (var (otherName, relationship) in snapshot.Relationships)
+                {
+                    if (!npc.Relationships.TryGetValue(otherName, out var live))
+                    {
+                        continue;
+                    }
+
+                    live.Affinity = relationship.Affinity;
+                    live.Trust = relationship.Trust;
+                    live.Resentment = relationship.Resentment;
+                    live.Attraction = relationship.Attraction;
+                    live.Conversations = relationship.Conversations;
+                    live.Arguments = relationship.Arguments;
+                }
             }
         }
 
