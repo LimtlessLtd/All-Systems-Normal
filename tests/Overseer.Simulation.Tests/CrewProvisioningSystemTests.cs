@@ -197,7 +197,9 @@ public sealed class CrewProvisioningSystemTests
             var state = FacilitySeeder.CreateDefault(upkeepSeed: seed);
             new Station().Run(state, 1440);
 
-            Assert.Equal(6, state.Crew.Count(npc => npc.IsAlive));
+            Assert.True(
+                state.Crew.Count(npc => npc.IsAlive) == 6,
+                $"seed {seed}: deaths = {string.Join("; ", state.Crew.Where(npc => !npc.IsAlive).Select(npc => $"{npc.Name}: {npc.CauseOfDeath}, room={npc.CurrentRoomId}, hunger={npc.Hunger:0.0}, health={npc.Health:0.0}"))}");
 
             var hunger = state.Crew.Where(n => n.IsAlive).Average(n => n.Hunger);
 

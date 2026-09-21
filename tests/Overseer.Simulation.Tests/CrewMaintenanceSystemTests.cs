@@ -162,7 +162,9 @@ public sealed class CrewMaintenanceSystemTests
                 $"seed {seed}: condition collapsed from {before:0.0} to {after:0.0}.");
 
             Assert.Equal(0, state.Devices.Values.Count(d => d.IsFailed));
-            Assert.Equal(6, state.Crew.Count(npc => npc.IsAlive));
+            Assert.True(
+                state.Crew.Count(npc => npc.IsAlive) == 6,
+                $"seed {seed}: deaths = {string.Join("; ", state.Crew.Where(npc => !npc.IsAlive).Select(npc => $"{npc.Name}: {npc.CauseOfDeath}, room={npc.CurrentRoomId}, hunger={npc.Hunger:0.0}, health={npc.Health:0.0}"))}");
         }
     }
 
