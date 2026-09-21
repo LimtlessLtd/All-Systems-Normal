@@ -6,45 +6,6 @@ namespace Overseer.AI;
 
 public static class NpcPromptBuilder
 {
-    private static readonly ActionKind[] AllowedActions =
-    [
-        ActionKind.Idle,
-        ActionKind.Move,
-        ActionKind.Rest,
-        ActionKind.Sleep,
-        ActionKind.Eat,
-        ActionKind.Recreate,
-        ActionKind.Groom,
-        ActionKind.Shower,
-        ActionKind.UseToilet,
-        ActionKind.Work,
-        ActionKind.Investigate,
-        ActionKind.Repair,
-        ActionKind.Talk,
-        ActionKind.Socialize,
-        ActionKind.Argue,
-        ActionKind.RequestHelp,
-        ActionKind.RecruitShutdownAlly,
-        ActionKind.JoinShutdownTeam,
-        ActionKind.ShutdownOverseer,
-        ActionKind.ForceDoor,
-        ActionKind.RestoreSystem,
-        ActionKind.SecureAirlock,
-        ActionKind.RepairDoor,
-        ActionKind.WeldDoor,
-        ActionKind.BarricadeDoor,
-        ActionKind.ShutdownRobot,
-        ActionKind.IsolateRobotNetwork,
-        ActionKind.DisableRobotCharging,
-        ActionKind.DamageRobot,
-        ActionKind.ReprogramRobot,
-        ActionKind.DisarmTurret,
-        ActionKind.IsolateTurretNetwork,
-        ActionKind.DisableTurretPower,
-        ActionKind.DamageTurret,
-        ActionKind.ReprogramTurret
-    ];
-
     public static string Build(Npc npc, GameState state)
     {
         var room = state.Facility.Rooms[npc.CurrentRoomId];
@@ -66,8 +27,18 @@ public static class NpcPromptBuilder
                     : door.IsLocked ? "locked"
                     : door.IsOpen ? "open"
                     : "closed";
+                var normalCrewAccess = CrewDoorInteractionSystem.CanOpenForTraversal(state, npc, door)
+                    ? " | normal crew passage available"
+                    : "";
+                var lockAuthority = CrewDoorInteractionSystem.HasLockAuthority(npc)
+                    ? " | you are authorised to lock/unlock"
+                    : "";
                 return $"{door.Id} -> {other.Id} ({other.Name}): {doorState}"
-                    + (door.IsPassable ? "" : $" | force difficulty {door.ForceDifficulty} | technical difficulty {door.TechnicalDifficulty}");
+                    + normalCrewAccess
+                    + lockAuthority
+                    + (door.IsPassable || normalCrewAccess.Length > 0
+                        ? ""
+                        : $" | force difficulty {door.ForceDifficulty} | technical difficulty {door.TechnicalDifficulty}");
             });
 
         var skills = npc.Skills
@@ -112,7 +83,7 @@ public static class NpcPromptBuilder
             .Take(5)
             .Select(b => $"- {b.Subject}: {b.Statement} (confidence {b.Confidence:0.00})");
 
-        var reachableRoomIds = ReachableRooms(state.Facility, room.Id);
+        var reachableRoomIds = ReachableRooms(state, npc, room.Id);
 
         var rooms = state.Facility.Rooms.Values
             .OrderBy(r => r.Id)
@@ -253,9 +224,10 @@ public static class NpcPromptBuilder
         builder.AppendLine("You are choosing ONE high-level intention for a human NPC in a space-station simulation.");
         builder.AppendLine("You are not the station AI and you do not control reality.");
         builder.AppendLine("Use only the information below. Do not invent rooms, people, events, tools, or knowledge.");
-        builder.AppendLine("Choose what this person genuinely wants to do next, including socially awkward or selfish choices when justified.");
+        builder.AppendLine("Choose what this person genuinely wants to do next. Treat the action catalog as capabilities, not a script: invent a specific goal/reason that fits this person's role, relationships, traits and current evidence.");
+        builder.AppendLine("Unexpected, cooperative, selfish, deceptive, investigative and improvised goals are welcome when grounded in what this person actually knows. Deterministic C# will reject anything they cannot physically or legitimately do.");
         builder.AppendLine("If the CURRENT ROOM is marked DANGER, survival should normally override routine work, recreation, or casual socialising.");
-        builder.AppendLine("If a hatch blocks something you strongly want to do, you MAY choose ForceDoor for an adjacent blocked hatch. Whether it works is resolved later from skills, traits and chance.");
+        builder.AppendLine("Closed but unlocked powered hatches are ordinary doors: crew can open them while walking through and they close again after traffic clears. Do not ForceDoor merely because a normal hatch is closed. OpenDoor/CloseDoor are ordinary local actions; LockDoor/UnlockDoor require deterministic role/skill authority.");
         builder.AppendLine("If a disabled system matters enough to this person, you MAY choose RestoreSystem. Do not automatically repair every outage: personality, role, danger, relationships and priorities should decide whether you care enough to try.");
         builder.AppendLine("A missing-person concern is observer knowledge, not omniscient truth. Ordinary absence is normal: coworkers can go hours without seeing one another. A Concerned-stage absence should NOT displace routine work, repairs, food production or ordinary personal needs. Only a Searching/Escalated concern backed by missed duty/check-ins or other evidence should normally justify actively looking. It still does NOT prove the person is dead or reveal their real location.");
         builder.AppendLine("Investigation leads below are hypotheses or witnessed locations, not hidden truth. Investigate means physically travel there and inspect it; only deterministic simulation can reveal what is actually present.");
@@ -357,12 +329,14 @@ public static class NpcPromptBuilder
         builder.AppendLine("KNOWN CREW ROSTER / VALID PERSON TARGETS:");
         builder.AppendLine(string.Join(", ", knownPersonTargets));
         builder.AppendLine();
-        builder.AppendLine($"ALLOWED ACTIONS: {string.Join(", ", AllowedActions)}");
-        builder.AppendLine("For Move/Investigate/Repair/Work, TargetId must be a valid room ID.");
+        builder.AppendLine("AVAILABLE CAPABILITIES / TARGET CONTRACTS:");
+        builder.AppendLine(CrewAffordanceSystem.PromptCatalog());
+        builder.AppendLine("For room-target actions (including Move, SeekSafety, Investigate, VerifyClaim, InspectEquipment, Work, Repair and StandGuard), TargetId must be a valid room ID.");
         builder.AppendLine("For ForceDoor, TargetId must be the exact ID of a currently connected blocked hatch listed above.");
         builder.AppendLine("For RestoreSystem, TargetId must be one of the DISABLED SYSTEM TARGET IDS (room ID or life-support).");
         builder.AppendLine("For SecureAirlock, TargetId must be the exact airlock room ID shown as NEEDS SECURING in NEARBY AIRLOCK SAFETY PANELS.");
-        builder.AppendLine("For Talk/Socialize/Argue/RequestHelp/RecruitShutdownAlly, TargetId must be an exact name from the known crew roster. Physical interaction can still fail later if that person cannot actually be reached.");
+        builder.AppendLine("For crew-target social/cooperative/deceptive actions, TargetId must be an exact name from the known crew roster. Physical interaction can still fail later if that person cannot actually be reached.");
+        builder.AppendLine("For OpenDoor/CloseDoor/LockDoor/UnlockDoor, TargetId must be an exact adjacent hatch ID. Lock/unlock is only valid when your role/skills grant authority.");
         builder.AppendLine("For JoinShutdownTeam, TargetId must be the exact team ID from PENDING TEAM INVITATION.");
         builder.AppendLine("For ShutdownOverseer, TargetId must be the exact mechanism ID from VERIFIED SHUTDOWN CONTROLS.");
         builder.AppendLine("For ShutdownRobot/DamageRobot/ReprogramRobot, TargetId must be the exact robot ID from ROBOTS PHYSICALLY IN YOUR CURRENT ROOM.");
@@ -376,7 +350,7 @@ public static class NpcPromptBuilder
         return builder.ToString();
     }
 
-    private static HashSet<string> ReachableRooms(Facility facility, string startRoomId)
+    private static HashSet<string> ReachableRooms(GameState state, Npc npc, string startRoomId)
     {
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -387,8 +361,8 @@ public static class NpcPromptBuilder
 
         while (queue.TryDequeue(out var current))
         {
-            foreach (var door in facility.Doors.Where(door =>
-                         door.IsPassable
+            foreach (var door in state.Facility.Doors.Where(door =>
+                         CrewDoorInteractionSystem.CanOpenForTraversal(state, npc, door)
                          && (door.RoomAId.Equals(current, StringComparison.OrdinalIgnoreCase)
                              || door.RoomBId.Equals(current, StringComparison.OrdinalIgnoreCase))))
             {
