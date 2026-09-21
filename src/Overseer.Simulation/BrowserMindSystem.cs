@@ -840,6 +840,12 @@ public sealed class BrowserMindSystem
                 : AudioCueKind.Thought,
             npc.Id.ToString(),
             npc.CurrentRoomId);
+
+        CognitionTelemetrySystem.Record(
+            state,
+            npc,
+            "Browser demo",
+            intent);
     }
 
     private static NpcIntent Create(
