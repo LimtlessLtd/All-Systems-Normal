@@ -3,7 +3,7 @@
 Repository: https://github.com/LimtlessLtd/All-Systems-Normal
 Playable Pages build: https://limtlessltd.github.io/All-Systems-Normal/
 
-**Current state:** V0.10E — Inspector/Debug Separation, Door Interaction + Broader Crew Agency
+**Current state:** V0.10F — Station Overview Interaction + Physical Infrastructure
 **Next recommended milestone:** V0.11 — Contained Security-Network Malware & Crew Recovery
 
 This file is the authoritative technical handoff. Keep it concise and update sections in place; do not append milestone diaries.
@@ -168,7 +168,9 @@ Current shared mechanics include:
 
 - rooms/corridors/doors/fixtures and deterministic A* movement
 - door lock/open/manual override/bypass/damage/repair/weld/barricade counterplay
-- power, equipment wear/repair, life support and environmental propagation
+- physical electrical/mechanical infrastructure: reactor/generator output, distribution bus efficiency, capacitor energy buffering, machine loads, load shedding, powered door actuators, coolant pumps, oxygen generation, CO₂ scrubbing, water recycling and control-network camera reachability
+- deterministic equipment wear/repair plus rare seeded unexpected fault events; qualified crew physically travel to and service degraded machinery
+- life support and environmental propagation depend on the actual powered utility chain rather than a standalone boolean
 - physical airlocks, pressure cycling and decompression
 - hydroponics, provisions, cooking, eating and human routines
 - autonomous crew with skills, traits, relationships, beliefs, memories and persistent intents
@@ -183,8 +185,12 @@ Current shared mechanics include:
 - bright white/grey spacecraft interior art direction with animated consoles/screens/vents/irrigation/pipes/medical/camera/airlock/machinery cues
 - one shared `StationSelection` / `StationInspectionSystem` contract drives the contextual Inspector for rooms, crew, doors, MR robots and ST turrets
 - the primary workspace is map + Inspector + comms; the old permanent Facility Systems panel is removed
+- map camera panning must never pointer-capture events that originate on `[data-station-interactive]` entities; this is regression-tested in both runtimes
+- rooms, crew, doors, MR robots, ST turrets, physical machinery and key overview status readouts all route through the same Inspector
+- maintainable machinery is bound to physical room fixtures via `RoomFixture.DeviceId`; door entities carry visible local control pads without cluttering corridor fixture geometry
 - `/debug` is a separate full-screen non-gameplay diagnostics surface; it contains cognition traces, raw Ollama prompt/response data, event logs and generation diagnostics and can be disabled without changing simulation authority
-- authoritative sliding doors animate from `Door.IsOpen`; ordinary crew automatically open traversable closed/unlocked hatches and they auto-close after traffic, while deterministic role/skill rules gate lock/unlock
+- authoritative sliding doors animate from `Door.IsOpen`; leaves retract fully clear of the walking line, mobile entities render above the hatch plane, ordinary crew automatically open traversable closed/unlocked hatches and they auto-close after traffic, while deterministic role/skill rules gate lock/unlock
+- the station exterior uses a dark-space fallback plus NASA/ESA/CSA/STScI JWST SMACS 0723 imagery; bright white/grey styling is reserved for the spacecraft itself
 - `CrewAffordanceSystem` is the shared capability catalog for Ollama and browser fallback; deterministic systems still validate knowledge, targets, routes, skills, permissions and outcomes
 - expanded grounded crew agency includes cooperative, investigative, deceptive, safety and local door intentions; deception never directly edits another NPC's beliefs
 - selectable MR robots with dedicated Inspector telemetry; crew and friendly robots physically approach actual fixtures/equipment while working where an interaction point exists
@@ -201,6 +207,7 @@ Useful subsystem anchors:
 - src/Overseer.Simulation/TurretCountermeasureSystem.cs
 - src/Overseer.Simulation/EnvironmentSystem.cs
 - src/Overseer.Simulation/StationUpkeepSystem.cs
+- src/Overseer.Simulation/StationDeviceControlSystem.cs
 - src/Overseer.Simulation/StationInteractionSystems.cs
 - src/Overseer.Simulation/CrewProvisioningSystem.cs
 - src/Overseer.Simulation/BrowserMindSystem.cs
@@ -248,6 +255,14 @@ Standard gate:
 - Engineer/Technician plus deterministic Security/Commander skill rules gate crew lock/unlock; existing damaged/manual/bypass/weld/barricade rules remain authoritative.
 - Ollama consumes a shared capability-oriented affordance catalog instead of a duplicated hardcoded menu; the model-free browser mind uses the same action contracts.
 - V0.10E regression coverage lives in `V010EInteractionTests.cs` plus existing navigation/browser-mind tests.
+
+## Completed V0.10F contracts
+
+- Station camera drag/pan no longer swallows clicks that begin on interactive station entities.
+- Physical machinery and overview status readouts select into the universal Inspector; there is no separate robot control panel.
+- Core machinery fixtures are simulation-backed and maintainable; corridor-clearance invariants remain intact.
+- Generation, distribution, capacitor storage, machine load, load shedding, door power and life-support utilities form one deterministic dependency chain.
+- New regression coverage protects click routing, universal Inspector exposure, device fixtures, power consequences, network visibility and door-layer animation.
 
 ## Next milestone — V0.11 Contained Security-Network Malware & Crew Recovery
 
