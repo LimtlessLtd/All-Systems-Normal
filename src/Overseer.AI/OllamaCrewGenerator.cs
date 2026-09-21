@@ -12,7 +12,9 @@ public sealed class OllamaCrewGenerator(
     private readonly RuleBasedCrewGenerator _fallback = fallback;
 
     private static readonly CrewRole[] RequiredRoles =
-        Enum.GetValues<CrewRole>();
+        Enum.GetValues<CrewRole>()
+            .Where(role => role != CrewRole.Prisoner)
+            .ToArray();
 
     private static readonly HashSet<string> AllowedSkills =
         new(StringComparer.OrdinalIgnoreCase)
