@@ -37,7 +37,15 @@ public static class StationRoomCalloutSystem
             .OrderBy(room => room.Id, StringComparer.Ordinal)
             .ToList();
         var callouts = rooms
-            .Select(room => BuildAttached(facility, room, preferredSide: null))
+            .Select(room => BuildAttached(
+                facility,
+                room,
+                room.StatusPlateSide switch
+                {
+                    RoomStatusPlateSide.Top => "top",
+                    RoomStatusPlateSide.Bottom => "bottom",
+                    _ => null
+                }))
             .ToList();
 
         // Labels are as wide as their room, so labels on the same side of
@@ -46,7 +54,8 @@ public static class StationRoomCalloutSystem
         // when that side is clear.
         for (var index = 0; index < callouts.Count; index++)
         {
-            if (!callouts.Where((other, otherIndex) => otherIndex != index).Any(other => Overlaps(callouts[index], other)))
+            if (!callouts.Where((other, otherIndex) => otherIndex != index).Any(other => Overlaps(callouts[index], other))
+                || rooms[index].StatusPlateSide is not null)
                 continue;
 
             var flipped = BuildAttached(
