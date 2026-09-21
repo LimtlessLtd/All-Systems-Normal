@@ -96,18 +96,10 @@ public static class StationRoomCalloutSystem
             for (var index = 0; index < group.Count; index++)
             {
                 var room = group[index].Room;
-                var x = side switch
-                {
-                    Side.Left => HorizontalLabelXLeft,
-                    Side.Right => HorizontalLabelXRight,
-                    _ => positioned[index]
-                };
-                var y = side switch
-                {
-                    Side.Top => VerticalLabelYTop,
-                    Side.Bottom => VerticalLabelYBottom,
-                    _ => positioned[index]
-                };
+                var (x, y) = ResolveExternalLabelPosition(
+                    side,
+                    positioned[index],
+                    occupiedLabels);
                 var (anchorX, anchorY) = Anchor(room, side);
 
                 result.Add(new StationRoomCallout(
@@ -118,6 +110,7 @@ public static class StationRoomCalloutSystem
                     anchorY,
                     side.ToString().ToLowerInvariant(),
                     IsExternal: true));
+                occupiedLabels.Add(LabelRect.FromCenter(x, y));
             }
         }
 
@@ -128,6 +121,78 @@ public static class StationRoomCalloutSystem
 
     public static double ToDeck(double authoritativePercent) =>
         AuthorityInsetPercent + (authoritativePercent * AuthorityScale);
+
+    private static (double X, double Y) ResolveExternalLabelPosition(
+        Side side,
+        double desiredAxis,
+        IReadOnlyList<LabelRect> occupiedLabels)
+    {
+        var minimum = side is Side.Left or Side.Right ? 11.5 : 13.5;
+        var maximum = side is Side.Left or Side.Right ? 88.5 : 86.5;
+        var spacing = side is Side.Left or Side.Right ? VerticalSpacing : HorizontalSpacing;
+
+        foreach (var axis in ExternalAxisCandidates(desiredAxis, minimum, maximum, spacing))
+        {
+            var x = side switch
+            {
+                Side.Left => HorizontalLabelXLeft,
+                Side.Right => HorizontalLabelXRight,
+                _ => axis
+            };
+            var y = side switch
+            {
+                Side.Top => VerticalLabelYTop,
+                Side.Bottom => VerticalLabelYBottom,
+                _ => axis
+            };
+            var rect = LabelRect.FromCenter(x, y);
+
+            if (!occupiedLabels.Any(existing => rect.Overlaps(existing, .3)))
+            {
+                return (x, y);
+            }
+        }
+
+        for (var axis = minimum; axis <= maximum; axis += .5)
+        {
+            var x = side switch
+            {
+                Side.Left => HorizontalLabelXLeft,
+                Side.Right => HorizontalLabelXRight,
+                _ => axis
+            };
+            var y = side switch
+            {
+                Side.Top => VerticalLabelYTop,
+                Side.Bottom => VerticalLabelYBottom,
+                _ => axis
+            };
+            var rect = LabelRect.FromCenter(x, y);
+
+            if (!occupiedLabels.Any(existing => rect.Overlaps(existing, .05)))
+            {
+                return (x, y);
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Unable to place an external station callout on the {side} margin without overlap.");
+    }
+
+    private static IEnumerable<double> ExternalAxisCandidates(
+        double desired,
+        double minimum,
+        double maximum,
+        double spacing)
+    {
+        yield return Math.Clamp(desired, minimum, maximum);
+
+        for (var step = 1; step <= 16; step++)
+        {
+            yield return Math.Clamp(desired + (spacing * step), minimum, maximum);
+            yield return Math.Clamp(desired - (spacing * step), minimum, maximum);
+        }
+    }
 
     private static bool TryPlaceAttached(
         Facility facility,
