@@ -299,7 +299,31 @@
                         title="Restore default panel and map sizes">RESET LAYOUT</button>
             </div>
 
-            <div class="station-map-viewport" data-map-camera tabindex="0" aria-label="Station map. Drag to pan; use WASD or arrow keys to move the camera.">
+            <div class="station-map-viewport" data-map-camera tabindex="0" aria-label="Station map. Drag empty space to pan; click station entities to inspect them.">
+                <div class="station-status-strip" aria-label="Station electrical and life support status">
+                    <button type="button"
+                            data-station-interactable
+                            @onclick="() => SelectFixture("engineering", Session.State.Facility.Rooms["engineering"].Fixtures.First(f => f.SystemId == "distribution:station"))">
+                        <span>GENERATION</span>
+                        <strong>@Session.State.Power.GenerationKilowatts.ToString("0") kW</strong>
+                        <small>@Session.State.Power.QualityPercent.ToString("0")% GRID</small>
+                    </button>
+                    <button type="button"
+                            data-station-interactable
+                            @onclick="() => SelectFixture("engineering", Session.State.Facility.Rooms["engineering"].Fixtures.First(f => f.SystemId == "capacitor:station"))">
+                        <span>CAPACITOR</span>
+                        <strong>@Session.State.Power.CapacitorChargeKwh.ToString("0.0") kWh</strong>
+                        <small>@(Session.State.Power.IsOnEmergencyStorage ? "DISCHARGING" : "BUFFER")</small>
+                    </button>
+                    <button type="button"
+                            data-station-interactable
+                            @onclick="() => SelectFixture("engineering", Session.State.Facility.Rooms["engineering"].Fixtures.First(f => f.SystemId == "oxygen:station"))">
+                        <span>LIFE SUPPORT</span>
+                        <strong>@(Session.State.LifeSupport.IsOperational ? "ONLINE" : "OFFLINE")</strong>
+                        <small>O₂ @Session.State.LifeSupport.OxygenReservePercent.ToString("0.0")%</small>
+                    </button>
+                </div>
+                <span class="space-credit">JWST CARINA · NASA / ESA / CSA / STScI</span>
                 <div class="@StationMapClass" style="@StationMapStyle">
                 <div class="station-map-camera" data-map-camera-content>
                 <div class="station-world" style="@StationWorldStyle">
@@ -320,6 +344,7 @@
                     var calloutRoom = Session.State.Facility.Rooms[callout.RoomId];
                     <button @key="@($"callout-{callout.RoomId}")"
                             type="button"
+                            data-station-interactable
                             class="@($"room-status-callout side-{callout.Side} {RoomHealthClass(calloutRoom)} {(SelectedRoom?.Id == calloutRoom.Id ? "selected" : "")}")"
                             style="@CalloutStyle(callout)"
                             @onclick="() => SelectRoom(calloutRoom.Id)"
@@ -336,18 +361,45 @@
                 <div class="station-authority-layer">
                 @foreach (var room in Session.State.Facility.Rooms.Values)
                 {
-                    <button @key="room.Id"
-                            class="@RoomClass(room)"
-                            style="@RoomStyle(room)"
-                            aria-label="@($"Select {room.Name}")"
-                            @onclick="() => SelectRoom(room.Id)">
-                        <span class="fixture-layer" aria-hidden="true">
+                    <div @key="room.Id"
+                         class="@RoomClass(room)"
+                         style="@RoomStyle(room)"
+                         role="button"
+                         tabindex="0"
+                         data-station-interactable
+                         aria-label="@($"Select {room.Name}")"
+                         @onclick="() => SelectRoom(room.Id)">
+                        <span class="fixture-layer">
                             @foreach (var fixture in room.Fixtures)
                             {
-                                <i @key="fixture"
-                                   class="@FixtureClass(fixture)"
-                                   style="@FixtureStyle(fixture)"
-                                   title="@fixture.Label"></i>
+                                if (!string.IsNullOrWhiteSpace(fixture.SystemId))
+                                {
+                                    var fixtureSelected =
+                                        SelectedFixture?.Room.Id == room.Id
+                                        && SelectedFixture.Fixture.Label.Equals(
+                                            fixture.Label,
+                                            StringComparison.OrdinalIgnoreCase);
+
+                                    <button @key="@($"{room.Id}:{fixture.Label}")"
+                                            type="button"
+                                            data-station-interactable
+                                            class="@($"{FixtureClass(fixture)} fixture-interactive {(fixtureSelected ? "selected" : "")}")"
+                                            style="@FixtureStyle(fixture)"
+                                            title="@($"{fixture.Label} — click to inspect")"
+                                            aria-label="@($"Inspect {fixture.Label}")"
+                                            @onclick:stopPropagation="true"
+                                            @onclick="() => SelectFixture(room.Id, fixture)">
+                                        <span class="fixture-status-light" aria-hidden="true"></span>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <i @key="@($"{room.Id}:{fixture.Label}")"
+                                       class="@FixtureClass(fixture)"
+                                       style="@FixtureStyle(fixture)"
+                                       title="@fixture.Label"
+                                       aria-hidden="true"></i>
+                                }
                             }
                         </span>
 
@@ -355,17 +407,18 @@
                         {
                             <span class="signal-lost">VISUAL LOST</span>
                         }
-                        else if (!room.LightsOn)
+                        else if (!room.EffectiveLightsOn)
                         {
                             <span class="lights-out">LIGHTS OFF</span>
                         }
-                    </button>
+                    </div>
                 }
 
                 @foreach (var door in Session.State.Facility.Doors)
                 {
                     <button @key="door.Id"
                             type="button"
+                            data-station-interactable
                             class="@DoorClass(door)"
                             style="@DoorStyle(door)"
                             title="@DoorTitle(door)"
@@ -384,6 +437,7 @@
                 {
                     <button @key="mapRobot"
                             type="button"
+                            data-station-interactable
                             class="@RobotTokenClass(mapRobot)"
                             style="@RobotStyle(mapRobot)"
                             title="@($"{mapRobot.Name} — {mapRobot.Policy} — {mapRobot.CurrentTask}")"
@@ -407,6 +461,7 @@
                 {
                     <button @key="mapTurret"
                             type="button"
+                            data-station-interactable
                             class="@TurretTokenClass(mapTurret)"
                             style="@TurretStyle(mapTurret)"
                             title="@($"{mapTurret.Name} — {mapTurret.Policy} — {mapTurret.CurrentTask}")"
@@ -420,6 +475,8 @@
                 @foreach (var npc in Session.State.Crew.Where(CanSee))
                 {
                     <button @key="npc.Id"
+                            type="button"
+                            data-station-interactable
                             class="@CrewTokenClass(npc)"
                             style="@CrewStyle(npc)"
                             title="@($"{npc.Name} — {npc.Role}{(!npc.IsAlive ? " — DECEASED" : "")}")"
@@ -470,7 +527,7 @@
                  tabindex="0"></div>
 
             <div class="map-footer">
-                <span>Drag / WASD to pan · mouse wheel or ± zoom · click rooms, doors, crew, robots or turrets to inspect.</span>
+                <span>Drag empty space / WASD to pan · mouse wheel or ± zoom · click rooms, machinery, doors, crew, robots or turrets to inspect and control them.</span>
                 <span>Crew disappear from the map when a camera feed is lost.</span>
             </div>
         </main>
