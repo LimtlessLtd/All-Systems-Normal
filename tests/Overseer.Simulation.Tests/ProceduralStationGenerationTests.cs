@@ -455,6 +455,83 @@ public sealed class ProceduralStationGenerationTests
         }
     }
 
+    [Fact]
+    public void GeneratedFunctionalRoomsMeetLargeDeckPresentationMinimum()
+    {
+        foreach (var seed in Enumerable.Range(0, 20).Select(index => 910_000 + index))
+        {
+            var state = FacilitySeeder.CreateDefault(stationSeed: seed);
+
+            foreach (var room in state.Facility.Rooms.Values.Where(room => room.Type != RoomType.Corridor))
+            {
+                Assert.True(
+                    room.MapWidth >= 8.0,
+                    $"Seed {seed}, {room.Id}: width {room.MapWidth:0.###}% renders below the 200px minimum.");
+                Assert.True(
+                    room.MapHeight >= 9.0,
+                    $"Seed {seed}, {room.Id}: height {room.MapHeight:0.###}% renders below the 200px minimum.");
+            }
+        }
+    }
+
+    [Fact]
+    public void ExternalRoomCalloutsNeverCoverAuthoritativeStationGeometry()
+    {
+        const double labelHalfWidth = 4.1;
+        const double labelHalfHeight = 1.35;
+
+        foreach (var seed in Enumerable.Range(0, 16).Select(index => 920_000 + index))
+        {
+            var state = FacilitySeeder.CreateDefault(stationSeed: seed);
+            var callouts = StationRoomCalloutSystem.Build(state.Facility);
+            var functional = state.Facility.Rooms.Values
+                .Where(room => room.Type != RoomType.Corridor)
+                .ToList();
+
+            Assert.Equal(functional.Count, callouts.Count);
+
+            foreach (var callout in callouts)
+            {
+                var labelLeft = callout.LabelX - labelHalfWidth;
+                var labelRight = callout.LabelX + labelHalfWidth;
+                var labelTop = callout.LabelY - labelHalfHeight;
+                var labelBottom = callout.LabelY + labelHalfHeight;
+
+                foreach (var room in state.Facility.Rooms.Values)
+                {
+                    var left = StationRoomCalloutSystem.ToDeck(room.MapX - (room.MapWidth / 2));
+                    var right = StationRoomCalloutSystem.ToDeck(room.MapX + (room.MapWidth / 2));
+                    var top = StationRoomCalloutSystem.ToDeck(room.MapY - (room.MapHeight / 2));
+                    var bottom = StationRoomCalloutSystem.ToDeck(room.MapY + (room.MapHeight / 2));
+
+                    var overlaps = labelLeft < right
+                        && labelRight > left
+                        && labelTop < bottom
+                        && labelBottom > top;
+
+                    Assert.False(
+                        overlaps,
+                        $"Seed {seed}: callout {callout.RoomId} overlaps room {room.Id}.");
+                }
+            }
+
+            for (var first = 0; first < callouts.Count; first++)
+            {
+                for (var second = first + 1; second < callouts.Count; second++)
+                {
+                    var a = callouts[first];
+                    var b = callouts[second];
+                    var overlaps = Math.Abs(a.LabelX - b.LabelX) < labelHalfWidth * 2
+                        && Math.Abs(a.LabelY - b.LabelY) < labelHalfHeight * 2;
+
+                    Assert.False(
+                        overlaps,
+                        $"Seed {seed}: callouts {a.RoomId} and {b.RoomId} overlap.");
+                }
+            }
+        }
+    }
+
     private static string Signature(StationGenerationResult result)
     {
         var roomSignature = string.Join(
