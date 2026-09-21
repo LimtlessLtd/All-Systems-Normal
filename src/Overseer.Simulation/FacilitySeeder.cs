@@ -130,6 +130,7 @@ public static class FacilitySeeder
         StationUpkeepSystem.Register(state, seed);
         NormalizeFixtureLayout(facility);
         CrewProvisioningSystem.Plant(state, seed);
+        StationUpkeepSystem.RefreshPowerReadings(state);
 
         var identity = generation.Metadata.Identity;
         state.EventLog.Add(

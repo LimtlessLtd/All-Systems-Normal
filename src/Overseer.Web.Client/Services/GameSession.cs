@@ -83,33 +83,10 @@ public sealed class GameSession
     public int LivingCrewCount =>
         State.Crew.Count(npc => npc.IsAlive);
 
-    public int AlertCount =>
-        State.Facility.Rooms.Values.Count(room =>
-            !room.IsPowered
-            || !room.CameraOnline
-            || room.OxygenPercent < 19.5
-            || room.TemperatureC is < 16 or > 28)
-        + State.Crew.Count(npc => !npc.IsAlive)
-        + (State.LifeSupport.IsOnline ? 0 : 1)
-        + State.Facility.Rooms.Values.Count(room =>
-            room.CarbonDioxidePercent > 1.0
-            || room.PressureKpa < 90)
-        + State.Facility.Rooms.Values.Count(room =>
-            room.HasExteriorHatch
-            && (room.ExteriorHatchOpen
-                || room.AirlockAlarmActive
-                || !room.AirlockSafetyInterlocksEnabled))
-        + State.Robots.Count(robot =>
-            robot.IsDestroyed
-            || robot.Policy == RobotPolicy.Hostile
-            || robot.IsNetworkIsolated
-            || !robot.ChargingEnabled)
-        + State.Turrets.Count(turret =>
-            turret.IsDestroyed
-            || (turret.IsArmed && turret.Policy != TurretPolicy.Safe)
-            || turret.IsNetworkIsolated
-            || !turret.PowerFeedEnabled)
-        + (State.SecurityMalware.IsActive ? 1 : 0);
+    public IReadOnlyList<StationAlert> Alerts =>
+        StationAlertSystem.Build(State);
+
+    public int AlertCount => Alerts.Count;
 
     public (bool Started, long Generation) StartClock() =>
         _clock.Start();

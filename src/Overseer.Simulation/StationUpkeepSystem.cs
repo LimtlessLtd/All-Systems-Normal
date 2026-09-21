@@ -505,7 +505,24 @@ public sealed class StationUpkeepSystem
 
     // ---------------------------------------------------------------- power --
 
-    private static void UpdatePowerGrid(GameState state, double hours)
+    /// <summary>
+    /// Fills in the grid readings without applying any consequences (no load
+    /// shedding, storage or dependency changes), so a freshly seeded station
+    /// reports real supply and demand before its first turn instead of 0/0 kW.
+    /// </summary>
+    public static void RefreshPowerReadings(GameState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.Devices.Count == 0)
+        {
+            return;
+        }
+
+        MeasureGrid(state);
+    }
+
+    private static (double Supply, double Demand) MeasureGrid(GameState state)
     {
         var rawSupply = state.Devices.Values
             .Where(device => device.Kind is StationSystemKind.Reactor
@@ -533,6 +550,12 @@ public sealed class StationUpkeepSystem
 
         state.Power.SupplyKilowatts = supply;
         state.Power.DemandKilowatts = demand;
+        return (supply, demand);
+    }
+
+    private static void UpdatePowerGrid(GameState state, double hours)
+    {
+        var (supply, demand) = MeasureGrid(state);
         state.Power.BufferDischargeKilowatts = 0;
 
         var capacitor = Find(state, StationSystemKind.CapacitorBank);

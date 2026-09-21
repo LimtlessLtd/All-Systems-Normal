@@ -523,6 +523,10 @@ window.overseerLayout = (() => {
         return true;
     }
 
+    function revealStationPanel() {
+        document.querySelector(".station-panel")?.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+
     let pauseHandler = null;
 
     function registerPauseHandler(dotNetReference) {
@@ -648,5 +652,5 @@ window.overseerLayout = (() => {
     return { init, fitCamera: selector => {
         const viewport = document.querySelector(selector);
         if (viewport) fitCamera(viewport);
-    }, focusEntity, registerPauseHandler, unregisterPauseHandler };
+    }, focusEntity, revealStationPanel, registerPauseHandler, unregisterPauseHandler };
 })();
