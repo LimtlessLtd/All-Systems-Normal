@@ -384,7 +384,7 @@
                                     <button @key="@($"{room.Id}:{fixture.Label}")"
                                             type="button"
                                             data-station-interactable
-                                            class="@($"{FixtureClass(fixture)} fixture-interactive {(fixtureSelected ? "selected" : "")}")"
+                                            class="@($"{FixtureClass(fixture)} fixture-interactive {FixtureStateClass(fixture)} {(fixtureSelected ? "selected" : "")}")"
                                             style="@FixtureStyle(fixture)"
                                             title="@($"{fixture.Label} — click to inspect")"
                                             aria-label="@($"Inspect {fixture.Label}")"
@@ -2199,6 +2199,40 @@
         }
 
         return (Math.Atan2(dy, dx) * 180 / Math.PI) + 90;
+    }
+
+    private string FixtureStateClass(RoomFixture fixture)
+    {
+        if (string.IsNullOrWhiteSpace(fixture.SystemId))
+            return string.Empty;
+
+        if (Session.State.Devices.TryGetValue(fixture.SystemId, out var device))
+            return device.IsFailed ? "fixture-failed"
+                : device.IsDegraded ? "fixture-degraded"
+                : "fixture-healthy";
+
+        if (fixture.SystemId.StartsWith("door:", StringComparison.OrdinalIgnoreCase))
+        {
+            var doorId = fixture.SystemId["door:".Length..];
+            var door = Session.State.Facility.Doors.FirstOrDefault(candidate =>
+                candidate.Id.Equals(doorId, StringComparison.OrdinalIgnoreCase));
+
+            if (door is not null)
+                return !door.IsPowered || !door.GridPowerAvailable
+                    ? "fixture-failed"
+                    : door.IsLocked ? "fixture-degraded"
+                    : "fixture-healthy";
+        }
+
+        if (fixture.SystemId.StartsWith("room:", StringComparison.OrdinalIgnoreCase))
+            return Session.State.Facility.Rooms.TryGetValue(
+                    fixture.SystemId["room:".Length..],
+                    out var room)
+                && room.IsPowered
+                    ? "fixture-healthy"
+                    : "fixture-failed";
+
+        return "fixture-healthy";
     }
 
     private static string FixtureClass(RoomFixture fixture)
