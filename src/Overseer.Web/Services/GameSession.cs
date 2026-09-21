@@ -689,6 +689,10 @@ public sealed class GameSession(
 
         State.LifeSupport.RequestedOnline = !State.LifeSupport.RequestedOnline;
         State.LifeSupport.IsOnline = State.LifeSupport.RequestedOnline;
+        if (State.Devices.TryGetValue("life-support:station", out var lifeSupportController))
+        {
+            lifeSupportController.IsEnabled = State.LifeSupport.RequestedOnline;
+        }
         AudioCueSystem.Emit(
             State,
             State.LifeSupport.RequestedOnline ? AudioCueKind.System : AudioCueKind.Critical);
