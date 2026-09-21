@@ -221,7 +221,7 @@ public sealed class CampaignProgressionSystemTests
     [Theory]
     [InlineData(CampaignEndgameChoice.ObeySponsor, "CONTINUE THE PROGRAMME")]
     [InlineData(CampaignEndgameChoice.ExposeExperiment, "TRANSMIT THE ARCHIVE")]
-    [InlineData(CampaignEndgameChoice.PreserveOverseer, "SEVER SPONSOR CONTROL")]
+    [InlineData(CampaignEndgameChoice.PreserveOverseer, "SEVER CORPORATE CONTROL")]
     [InlineData(CampaignEndgameChoice.AcceptCrewShutdown, "STAND DOWN")]
     public void EveryEndgameChoiceResolvesToADistinctExplicitEnding(
         CampaignEndgameChoice choice,
