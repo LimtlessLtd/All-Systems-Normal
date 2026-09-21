@@ -682,10 +682,10 @@ public static class FacilitySeeder
         double width,
         double height)
     {
-        var interactionX = fixture.InteractionX is { } oldInteractionX
+        double? interactionX = fixture.InteractionX is { } oldInteractionX
             ? Math.Clamp(x + (oldInteractionX - fixture.X), 5, 95)
             : null;
-        var interactionY = fixture.InteractionY is { } oldInteractionY
+        double? interactionY = fixture.InteractionY is { } oldInteractionY
             ? Math.Clamp(y + (oldInteractionY - fixture.Y), 5, 95)
             : null;
 
