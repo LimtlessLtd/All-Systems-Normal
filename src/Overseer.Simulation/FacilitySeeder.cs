@@ -293,7 +293,13 @@ public static class FacilitySeeder
             or FixtureType.Window
             or FixtureType.Vent
             or FixtureType.Screen
-            or FixtureType.UtilityPanel;
+            or FixtureType.UtilityPanel
+            or FixtureType.Workbench
+            or FixtureType.StorageRack
+            or FixtureType.Crate
+            or FixtureType.ToolCabinet
+            or FixtureType.Cabinet
+            or FixtureType.Locker;
 
         // Presentation fixtures use a loose installation grid rather than pure
         // random scatter. Wall equipment hugs bulkheads; floor equipment prefers
@@ -1008,12 +1014,12 @@ public static class FacilitySeeder
     {
         // Crew Quarters — six real bunks and personal storage leave a clear
         // central aisle. Interaction anchors are future-proofed for lying/sitting.
-        AddFixture(facility, "quarters", FixtureType.Bed, "Bunk A", 18, 25, 20, 13, 18, 25, FixtureUsePose.Lie, 90);
-        AddFixture(facility, "quarters", FixtureType.Bed, "Bunk B", 50, 25, 20, 13, 50, 25, FixtureUsePose.Lie, 90);
-        AddFixture(facility, "quarters", FixtureType.Bed, "Bunk C", 82, 25, 20, 13, 82, 25, FixtureUsePose.Lie, 90);
-        AddFixture(facility, "quarters", FixtureType.Bed, "Bunk D", 18, 72, 20, 13, 18, 72, FixtureUsePose.Lie, 270);
-        AddFixture(facility, "quarters", FixtureType.Bed, "Bunk E", 50, 72, 20, 13, 50, 72, FixtureUsePose.Lie, 270);
-        AddFixture(facility, "quarters", FixtureType.Bed, "Bunk F", 82, 72, 20, 13, 82, 72, FixtureUsePose.Lie, 270);
+        AddFixture(facility, "quarters", FixtureType.Bed, "Double Bunk A", 18, 25, 20, 13, 18, 25, FixtureUsePose.Lie, 90);
+        AddFixture(facility, "quarters", FixtureType.Bed, "Double Bunk B", 50, 25, 20, 13, 50, 25, FixtureUsePose.Lie, 90);
+        AddFixture(facility, "quarters", FixtureType.Bed, "Double Bunk C", 82, 25, 20, 13, 82, 25, FixtureUsePose.Lie, 90);
+        AddFixture(facility, "quarters", FixtureType.Bed, "Double Bunk D", 18, 72, 20, 13, 18, 72, FixtureUsePose.Lie, 270);
+        AddFixture(facility, "quarters", FixtureType.Bed, "Double Bunk E", 50, 72, 20, 13, 50, 72, FixtureUsePose.Lie, 270);
+        AddFixture(facility, "quarters", FixtureType.Bed, "Double Bunk F", 82, 72, 20, 13, 82, 72, FixtureUsePose.Lie, 270);
         AddFixture(facility, "quarters", FixtureType.Locker, "Personal Lockers", 10, 49, 12, 25);
         AddFixture(facility, "quarters", FixtureType.Cabinet, "Personal Shelves", 90, 49, 10, 25);
         AddFixture(facility, "quarters", FixtureType.Table, "Writing Desk", 50, 49, 24, 13, 50, 57, FixtureUsePose.Sit);
