@@ -42,6 +42,7 @@ public sealed class GameSession
         new RuleBasedOverseerMessageInterpreter();
     private readonly ManualOverrideSystem _manualOverrides = new();
     private readonly ConversationPacingSystem _conversationPacing = new();
+    private readonly MemoryRetentionSystem _memoryRetention = new();
     private readonly SimulationClock _clock = new();
 
     public GameState State { get; private set; }
@@ -782,6 +783,7 @@ public sealed class GameSession
         _comms.Tick(State);
         _accountComparison.Tick(State);
         _suspicionDynamics.Tick(State, turn);
+        _memoryRetention.Tick(State);
 
         // Directives are graded before the station layer decides the outcome, so
         // its win gate reads this tick's directive results rather than the

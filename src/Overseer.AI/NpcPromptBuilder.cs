@@ -73,10 +73,9 @@ public static class NpcPromptBuilder
             .Select(r =>
                 $"{r.PersonName}: trust {r.Trust:0}, affinity {r.Affinity:0}, attraction {r.Attraction:0}, resentment {r.Resentment:0}");
 
-        var memories = npc.Memories
-            .OrderByDescending(m => m.Importance)
-            .ThenByDescending(m => m.OccurredAt)
-            .Take(6)
+        // Most salient now, not most important ever: old entries fade so the
+        // prompt follows what is actually on this person's mind.
+        var memories = MemorySalience.MostSalient(npc, state.Elapsed, 6)
             .Select(m => $"- {m.Description}");
 
         var beliefs = npc.Beliefs

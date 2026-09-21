@@ -47,6 +47,7 @@ public sealed class GameSession(
     private readonly CrewProvisioningSystem _provisioning = new();
     private readonly ManualOverrideSystem _manualOverrides = new();
     private readonly ConversationPacingSystem _conversationPacing = new();
+    private readonly MemoryRetentionSystem _memoryRetention = new();
     private readonly SimulationClock _clock = new();
 
     private int _mindCursor;
@@ -825,6 +826,7 @@ public sealed class GameSession(
         _comms.Tick(State);
         _accountComparison.Tick(State);
         _suspicionDynamics.Tick(State, turn);
+        _memoryRetention.Tick(State);
 
         // Directives are graded before the station layer decides the outcome, so
         // its win gate reads this tick's directive results rather than the
@@ -953,10 +955,12 @@ public sealed class GameSession(
             npc.Id.ToString(),
             npc.CurrentRoomId);
 
+        // A note of one's own plan is low-value context; at urgency-scaled
+        // importance it crowded real experiences out of the prompt.
         npc.Memories.Add(new Memory(
             $"I decided to: {intent.Goal}",
             State.Elapsed,
-            Math.Clamp(intent.Urgency / 100d, 0.2, 0.85)));
+            0.25));
 
         Log(
             $"{npc.Name} forms an intention [{intent.Source}]: {intent.Goal}");

@@ -174,6 +174,7 @@ Current shared mechanics include:
 - physical airlocks, pressure cycling and decompression
 - hydroponics, provisions, cooking, eating and human routines
 - autonomous crew with skills, traits, relationships, beliefs, memories and persistent intents
+- memory fades: `MemorySalience` scores importance × a half-life that grows with importance (trivia fades in hours, defining moments last about a day); prompts use the most salient memories now, and `MemoryRetentionSystem` caps each crew member at 40 memories every 30 minutes and forgets faded trivia older than a day. Campaign carry-over still keeps the most important memories.
 - conversations carry content via `ConversationTopicSystem`: doubts about Overseer, gossip about a third crew member (nudges the listener's view of them by trust; friends of the subject push back), passing on recent notable memories (never news about the listener), wellbeing and small talk. Arguments name a cause (Overseer disagreement, grievance). Informative talk leaves listener memories and appears in the player LOG; Overseer beliefs remain evidence-driven. Social rolls include the station seed and pairing order rotates.
 - suspicion/evidence, investigation, testimony and account comparison
 - broadcasts/private messages interpreted as claims rather than truth
