@@ -304,21 +304,21 @@
                 <div class="station-status-strip" aria-label="Station electrical and life support status">
                     <button type="button"
                             data-station-interactable
-                            @onclick="() => SelectFixture("engineering", Session.State.Facility.Rooms["engineering"].Fixtures.First(f => f.SystemId == "distribution:station"))">
+                            @onclick="SelectPowerDistribution">
                         <span>GENERATION</span>
                         <strong>@Session.State.Power.GenerationKilowatts.ToString("0") kW</strong>
                         <small>@Session.State.Power.QualityPercent.ToString("0")% GRID</small>
                     </button>
                     <button type="button"
                             data-station-interactable
-                            @onclick="() => SelectFixture("engineering", Session.State.Facility.Rooms["engineering"].Fixtures.First(f => f.SystemId == "capacitor:station"))">
+                            @onclick="SelectCapacitorBank">
                         <span>CAPACITOR</span>
                         <strong>@Session.State.Power.CapacitorChargeKwh.ToString("0.0") kWh</strong>
                         <small>@(Session.State.Power.IsOnEmergencyStorage ? "DISCHARGING" : "BUFFER")</small>
                     </button>
                     <button type="button"
                             data-station-interactable
-                            @onclick="() => SelectFixture("engineering", Session.State.Facility.Rooms["engineering"].Fixtures.First(f => f.SystemId == "oxygen:station"))">
+                            @onclick="SelectLifeSupportPlant">
                         <span>LIFE SUPPORT</span>
                         <strong>@(Session.State.LifeSupport.IsOperational ? "ONLINE" : "OFFLINE")</strong>
                         <small>O₂ @Session.State.LifeSupport.OxygenReservePercent.ToString("0.0")%</small>
@@ -1608,6 +1608,29 @@
         _selection = new(
             StationSelectionKind.Fixture,
             StationInspectionSystem.FixtureSelectionId(roomId, fixture));
+
+    private void SelectSystemFixture(string roomId, string systemId)
+    {
+        if (!Session.State.Facility.Rooms.TryGetValue(roomId, out var room))
+            return;
+
+        var fixture = room.Fixtures.FirstOrDefault(candidate =>
+            candidate.SystemId?.Equals(
+                systemId,
+                StringComparison.OrdinalIgnoreCase) == true);
+
+        if (fixture is not null)
+            SelectFixture(roomId, fixture);
+    }
+
+    private void SelectPowerDistribution() =>
+        SelectSystemFixture("engineering", "distribution:station");
+
+    private void SelectCapacitorBank() =>
+        SelectSystemFixture("engineering", "capacitor:station");
+
+    private void SelectLifeSupportPlant() =>
+        SelectSystemFixture("engineering", "oxygen:station");
 
     private void SelectRobot(string robotId) =>
         _selection = new(StationSelectionKind.Robot, robotId);
