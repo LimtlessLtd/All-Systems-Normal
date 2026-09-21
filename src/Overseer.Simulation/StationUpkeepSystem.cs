@@ -748,8 +748,10 @@ public sealed class StationUpkeepSystem
 
                     door.StructuralIntegrityPercent = (int)Math.Round(device.Condition);
                     door.IsDamaged = device.IsDegraded;
+                    door.IsPowered = !device.IsFailed;
 
-                    // A dead actuator is a manual door. Overseer loses it until
+                    // A dead actuator is a manual/mechanical problem. Overseer
+                    // loses it and ordinary powered opening is unavailable until
                     // somebody gets a tool on it.
                     if (device.IsFailed)
                     {
@@ -760,11 +762,6 @@ public sealed class StationUpkeepSystem
                 }
 
                 case StationSystemKind.LifeSupport:
-                    state.LifeSupport.ScrubberEfficiencyPercent = Math.Clamp(
-                        device.Condition,
-                        10,
-                        100);
-
                     state.LifeSupport.IsAiControllable = !device.IsFailed;
 
                     if (device.IsFailed)
@@ -772,6 +769,24 @@ public sealed class StationUpkeepSystem
                         state.LifeSupport.IsOnline = false;
                     }
 
+                    break;
+
+                case StationSystemKind.OxygenGenerator:
+                    state.LifeSupport.OxygenGenerationPercent = device.IsFailed
+                        ? 0
+                        : Math.Clamp(device.Condition, 5, 100);
+                    break;
+
+                case StationSystemKind.CarbonScrubber:
+                    state.LifeSupport.ScrubberEfficiencyPercent = device.IsFailed
+                        ? 0
+                        : Math.Clamp(device.Condition, 5, 100);
+                    break;
+
+                case StationSystemKind.ThermalLoop:
+                    state.LifeSupport.ThermalLoopEfficiencyPercent = device.IsFailed
+                        ? 0
+                        : Math.Clamp(device.Condition, 5, 100);
                     break;
 
                 case StationSystemKind.AirlockMechanism:
