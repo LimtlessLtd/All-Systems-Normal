@@ -598,7 +598,8 @@ public sealed record RoomFixture(
     double? InteractionX = null,
     double? InteractionY = null,
     FixtureUsePose UsePose = FixtureUsePose.Stand,
-    double FacingDegrees = 0);
+    double FacingDegrees = 0,
+    string? DeviceId = null);
 
 public sealed class Npc : IStationMobileEntity
 {
