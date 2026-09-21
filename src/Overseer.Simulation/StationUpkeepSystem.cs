@@ -364,6 +364,20 @@ public sealed class StationUpkeepSystem
             _ => 85 + (random.NextDouble() * 15)         // serviceable
         };
 
+        // Critical backbone machinery may begin worn, but a new run should not
+        // randomly boot into a total station-wide electrical/atmosphere death
+        // spiral before anybody can react. It can still degrade and fail later.
+        condition = template.Kind switch
+        {
+            StationSystemKind.PowerDistribution => Math.Max(condition, 62),
+            StationSystemKind.CapacitorBank => Math.Max(condition, 50),
+            StationSystemKind.CoolantPump => Math.Max(condition, 55),
+            StationSystemKind.OxygenGenerator
+                or StationSystemKind.CarbonScrubber
+                or StationSystemKind.ThermalLoop => Math.Max(condition, 50),
+            _ => condition
+        };
+
         var device = new StationDevice
         {
             Id = template.Id,
