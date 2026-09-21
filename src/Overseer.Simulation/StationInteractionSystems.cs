@@ -112,12 +112,13 @@ public static class CrewAffordanceSystem
         string? requestedTarget,
         out string? normalizedTarget)
     {
-        normalizedTarget = requestedTarget?.Trim();
+        var requested = requestedTarget?.Trim();
+        normalizedTarget = requested;
 
         if (IsRoomTarget(action))
         {
             if (normalizedTarget is null
-                || !state.Facility.Rooms.TryGetValue(normalizedTarget, out var room))
+                || !state.Facility.Rooms.TryGetValue(requested, out var room))
                 return false;
 
             if (action == ActionKind.SeekSafety
@@ -137,7 +138,7 @@ public static class CrewAffordanceSystem
                 && other.IsPresent
                 && other.Id != npc.Id
                 && other.Name.Equals(
-                    normalizedTarget,
+                    requested,
                     StringComparison.OrdinalIgnoreCase));
 
             if (person is null)
@@ -156,7 +157,7 @@ public static class CrewAffordanceSystem
         {
             var door = state.Facility.Doors.FirstOrDefault(candidate =>
                 candidate.Id.Equals(
-                    normalizedTarget,
+                    requested,
                     StringComparison.OrdinalIgnoreCase)
                 && CrewDoorInteractionSystem.IsAdjacent(npc, candidate));
 
@@ -188,8 +189,6 @@ public static class CrewAffordanceSystem
 /// </summary>
 public sealed class CrewDoorInteractionSystem
 {
-    private readonly AirlockSafetySystem _airlocks = new();
-
     public void Tick(GameState state)
     {
         foreach (var door in state.Facility.Doors.Where(door =>
