@@ -3,7 +3,7 @@
 Repository: https://github.com/LimtlessLtd/All-Systems-Normal
 Playable Pages build: https://limtlessltd.github.io/All-Systems-Normal/
 
-**Current state:** V0.10B — Seeded Procedural Stations + Physical Cutaway Presentation
+**Current state:** V0.10C — Map Workspace, Cognition Telemetry + Crew Autonomy Tuning
 **Next recommended milestone:** V0.11 — Contained Security-Network Malware & Crew Recovery
 
 This file is the authoritative technical handoff. Keep it concise and update sections in place; do not append milestone diaries.
@@ -151,6 +151,9 @@ Primary presentation helper: `src/Overseer.Simulation/StationPresentationSystem.
 - Purpose changes art direction; budget/age/maintenance/expansion change finish, wear and exposed services. Preserve the clean colourful cutaway style; do not apply a global brown/grime filter.
 - Room labels reduce information at wide zoom and regain detail when close. Small-room label density is presentation-only.
 - Browser and server `Home.razor` / `Home.razor.css` station rendering must remain visually mirrored. New room/fixture/purpose presentation rules should be added to both UIs unless moved into a future shared component/stylesheet.
+- The map camera is presentation-only: `.station-map-camera` applies player pan/zoom around the authoritative `.station-world` transform. Drag/WASD/arrow panning and JS camera zoom must never modify station/entity coordinates.
+- Desktop workspace is map-first. Facility Systems and Comms live in the right utility column; Inspector/Telemetry share a tabbed diagnostic panel. Do not restore a permanent left systems column or bottom Event Stream.
+- Functional room labels always show full room names plus colour-coded power/temperature/O₂ state.
 
 Visual invariants: never invent hull/corridor/door geometry, never offset one physical entity separately for aesthetics, and never let decorative fixtures become simulation-authoritative unless the domain contract is explicitly extended.
 
@@ -173,6 +176,9 @@ Current shared mechanics include:
 - five ordered campaign assignments, corporate directives, carry-over consequences and endings
 - browser-local campaign persistence
 - mirrored Pages/server station UI, resizable panels, zoom, audio/music, speech/thought bubbles and physical entity animation
+- transient cognition diagnostics via `CognitionTelemetrySystem`; Ollama traces retain prompt/raw response/validated intent, browser/rule-based minds emit the same decision shape
+- missing-person logic treats routine separation as normal: concern is measured in hours, Concerned-stage absence does not pre-empt work, and shared concern does not instantly interrupt the listener
+- server/Ollama already generates fresh six-person rosters with 1–3 mechanically meaningful traits for new non-continuing sessions; browser Pages remains model-free
 
 Useful subsystem anchors:
 
@@ -198,7 +204,7 @@ Implementation: src/Overseer.Persistence/CampaignStateSerializer.cs, format vers
 
 Persist deliberate campaign continuity such as mission history, sponsor state, continuing crew identity/traits/skills, relationships, bounded important memories, credibility/suspicion, health/presence consequences, equipment condition and provisions.
 
-Do not persist live movement, intents, jobs or investigations unless the save contract is explicitly redesigned.
+Do not persist live movement, intents, jobs, investigations or cognition telemetry unless the save contract is explicitly redesigned.
 
 ---
 
@@ -238,6 +244,15 @@ Required scope:
 Keep deferred: station-wide self-propagation, malware families, direct malware damage, self-destruct mechanics or lethal outcomes delegated to an LLM.
 
 ---
+
+## Deferred gameplay candidates after V0.11
+
+Keep these as deliberate follow-on designs rather than slipping them into unrelated passes:
+
+- **Broader human agency:** expand the high-level action/affordance vocabulary so LLM minds can propose a much wider range of work, social, improvised and self-preservation goals. Deterministic C# must still validate targets, prerequisites, routes, tools, time and physical outcomes. Protect ongoing duties from frivolous reconsideration so crop tending, harvesting/cooking, maintenance and repairs actually finish.
+- **Scenario roster policy:** Ollama crew generation already produces unique names/personality/skills/1–3 mechanical traits. Add an explicit scenario choice between fresh generated crew and campaign-continuing crew; Pages should use seeded deterministic roster variation rather than a model call.
+- **Hazardous transport assignments:** support missions carrying a hardened prisoner, hostile organism or other contained threat. Model containment/protocols/escape state deterministically, let crew form grounded responses, and allow Overseer to help or hinder survival without delegating combat, escape success or lethality to an LLM.
+- **Diagnostics expansion:** cognition telemetry should eventually cover every model-backed interaction type (crew generation, message interpretation and future planners), while remaining bounded/transient by default.
 
 ## Handoff prompt rule
 
