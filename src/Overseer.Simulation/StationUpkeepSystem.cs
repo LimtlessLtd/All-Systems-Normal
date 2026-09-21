@@ -37,7 +37,7 @@ public sealed class StationUpkeepSystem
         var hours = delta.TotalHours;
 
         Wear(state, hours);
-        UpdatePowerGrid(state);
+        UpdatePowerGrid(state, hours);
         ApplyFailures(state);
     }
 
@@ -195,11 +195,117 @@ public sealed class StationUpkeepSystem
             Id = "life-support:station",
             Kind = StationSystemKind.LifeSupport,
             RoomId = "engineering",
-            Label = "Primary life support",
+            Label = "Primary life support controller",
             Discipline = MaintenanceDiscipline.LifeSupport,
             WearPerHour = 0,
             DegradedAt = 50,
-            ServiceDifficulty = 60
+            ServiceDifficulty = 60,
+            RatedDrawKilowatts = 14
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "power-bus:engineering",
+            Kind = StationSystemKind.PowerDistributionBus,
+            RoomId = "engineering",
+            Label = "Main 440 V distribution bus",
+            Discipline = MaintenanceDiscipline.Electrical,
+            WearPerHour = 0,
+            DegradedAt = 45,
+            ServiceDifficulty = 60,
+            RatedDrawKilowatts = 2
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "capacitor-bank:engineering",
+            Kind = StationSystemKind.CapacitorBank,
+            RoomId = "engineering",
+            Label = "Transient capacitor bank",
+            Discipline = MaintenanceDiscipline.Electrical,
+            WearPerHour = 0,
+            DegradedAt = 40,
+            ServiceDifficulty = 55,
+            RatedDrawKilowatts = 1,
+            StorageCapacityKwh = 18
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "oxygen-generator:engineering",
+            Kind = StationSystemKind.OxygenGenerator,
+            RoomId = "engineering",
+            Label = "Oxygen electrolyser",
+            Discipline = MaintenanceDiscipline.LifeSupport,
+            WearPerHour = 0,
+            DegradedAt = 45,
+            ServiceDifficulty = 58,
+            RatedDrawKilowatts = 10
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "co2-scrubber:engineering",
+            Kind = StationSystemKind.CarbonScrubber,
+            RoomId = "engineering",
+            Label = "CO₂ scrubber train",
+            Discipline = MaintenanceDiscipline.LifeSupport,
+            WearPerHour = 0,
+            DegradedAt = 45,
+            ServiceDifficulty = 58,
+            RatedDrawKilowatts = 8
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "water-recycler:engineering",
+            Kind = StationSystemKind.WaterRecycler,
+            RoomId = "engineering",
+            Label = "Water recovery loop",
+            Discipline = MaintenanceDiscipline.Utilities,
+            WearPerHour = 0,
+            DegradedAt = 40,
+            ServiceDifficulty = 52,
+            RatedDrawKilowatts = 7
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "network:control",
+            Kind = StationSystemKind.DataNetwork,
+            RoomId = "control",
+            Label = "Station control network rack",
+            Discipline = MaintenanceDiscipline.Electrical,
+            WearPerHour = 0,
+            DegradedAt = 35,
+            ServiceDifficulty = 50,
+            RatedDrawKilowatts = 4
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "coolant-pump:reactor",
+            Kind = StationSystemKind.CoolantPump,
+            RoomId = "reactor",
+            Label = "Reactor primary coolant pump",
+            Discipline = MaintenanceDiscipline.Mechanical,
+            WearPerHour = 0,
+            DegradedAt = 45,
+            ServiceDifficulty = 62,
+            RatedDrawKilowatts = 9
+        });
+
+        Add(state, random, new StationDevice
+        {
+            Id = "coolant-pump:generator",
+            Kind = StationSystemKind.CoolantPump,
+            RoomId = "generator",
+            Label = "Generator cooling pump",
+            Discipline = MaintenanceDiscipline.Mechanical,
+            WearPerHour = 0,
+            DegradedAt = 40,
+            ServiceDifficulty = 48,
+            RatedDrawKilowatts = 5
         });
 
         foreach (var door in state.Facility.Doors.OrderBy(d => d.Id, StringComparer.Ordinal))
@@ -232,6 +338,8 @@ public sealed class StationUpkeepSystem
                 ServiceDifficulty = 60
             });
         }
+
+        BindMachineFixtures(state);
     }
 
     /// <summary>
@@ -259,6 +367,13 @@ public sealed class StationUpkeepSystem
             StationSystemKind.Lighting => 0.28,
             StationSystemKind.Camera => 0.24,
             StationSystemKind.IsolationMechanism => 0.18,
+            StationSystemKind.PowerDistributionBus => 0.36,
+            StationSystemKind.CapacitorBank => 0.42,
+            StationSystemKind.CoolantPump => 0.52,
+            StationSystemKind.WaterRecycler => 0.44,
+            StationSystemKind.OxygenGenerator => 0.48,
+            StationSystemKind.CarbonScrubber => 0.46,
+            StationSystemKind.DataNetwork => 0.26,
             _ => 0.3
         };
 
@@ -285,7 +400,10 @@ public sealed class StationUpkeepSystem
             WearPerHour = wear,
             DegradedAt = template.DegradedAt,
             ServiceDifficulty = template.ServiceDifficulty,
-            Condition = Math.Round(condition, 1)
+            Condition = Math.Round(condition, 1),
+            RatedOutputKilowatts = template.RatedOutputKilowatts,
+            RatedDrawKilowatts = template.RatedDrawKilowatts,
+            StorageCapacityKwh = template.StorageCapacityKwh
         };
 
         state.Devices[device.Id] = device;
@@ -329,21 +447,75 @@ public sealed class StationUpkeepSystem
 
     // ---------------------------------------------------------------- power --
 
-    private static void UpdatePowerGrid(GameState state)
+    private static void UpdatePowerGrid(GameState state, double hours)
     {
-        var supply = state.Devices.Values
+        var rawSupply = state.Devices.Values
             .Where(device => device.Kind is StationSystemKind.Reactor
                 or StationSystemKind.PowerGenerator)
-            .Sum(device => Output(device));
+            .Sum(device => Output(state, device));
 
-        var demand = state.Facility.Rooms.Values
+        var bus = Find(state, StationSystemKind.PowerDistributionBus);
+        var busEfficiency = bus is null || bus.IsFailed
+            ? 0.18
+            : bus.Condition >= bus.DegradedAt
+                ? 1.0
+                : Math.Clamp(bus.Condition / Math.Max(1, bus.DegradedAt), 0.35, 1.0);
+
+        state.Power.DistributionEfficiencyPercent = busEfficiency * 100;
+        var supply = rawSupply * busEfficiency;
+
+        var roomDemand = state.Facility.Rooms.Values
             .Where(room => room.IsPowered)
             .Sum(Demand);
+        var deviceDemand = state.Devices.Values
+            .Where(device => !device.IsFailed)
+            .Sum(device => DeviceDraw(state, device));
+
+        var demand = roomDemand + deviceDemand;
 
         state.Power.SupplyKilowatts = supply;
         state.Power.DemandKilowatts = demand;
+        state.Power.BufferDischargeKilowatts = 0;
+
+        var capacitor = Find(state, StationSystemKind.CapacitorBank);
+        state.Power.StorageCapacityKilowattHours = capacitor is null || capacitor.IsFailed
+            ? 0
+            : Math.Max(1, capacitor.StorageCapacityKwh)
+                * Math.Clamp(capacitor.Condition / 100d, 0.15, 1);
+
+        state.Power.StoredKilowattHours = Math.Clamp(
+            state.Power.StoredKilowattHours,
+            0,
+            state.Power.StorageCapacityKilowattHours);
+
+        var deficit = demand - supply;
+        if (deficit > 0.01
+            && state.Power.StoredKilowattHours > 0.01
+            && capacitor is { IsFailed: false })
+        {
+            var maxDischarge = 55d * Math.Clamp(capacitor.Condition / 100d, 0.2, 1);
+            var energyLimitedKw = hours <= 0
+                ? maxDischarge
+                : state.Power.StoredKilowattHours / hours;
+            var discharge = Math.Min(deficit, Math.Min(maxDischarge, energyLimitedKw));
+            state.Power.BufferDischargeKilowatts = discharge;
+            state.Power.StoredKilowattHours = Math.Max(
+                0,
+                state.Power.StoredKilowattHours - (discharge * hours));
+        }
+        else if (deficit < -0.01
+                 && capacitor is { IsFailed: false }
+                 && state.Power.StorageCapacityKilowattHours > state.Power.StoredKilowattHours)
+        {
+            var maxCharge = 35d * Math.Clamp(capacitor.Condition / 100d, 0.2, 1);
+            var chargeKw = Math.Min(-deficit, maxCharge);
+            state.Power.StoredKilowattHours = Math.Min(
+                state.Power.StorageCapacityKilowattHours,
+                state.Power.StoredKilowattHours + (chargeKw * hours));
+        }
 
         ShedLoad(state);
+        ApplyPoweredDependencies(state);
     }
 
     /// <summary>
@@ -361,24 +533,58 @@ public sealed class StationUpkeepSystem
                 ? HeavyRoomDemandKilowatts
                 : 0);
 
-    private static double Output(StationDevice device)
+    private static double Output(GameState state, StationDevice device)
     {
         if (device.IsFailed)
         {
             return 0;
         }
 
-        // Rated generously enough that a fully lit station runs on the reactor
-        // alone, or on the generators alone at a squeeze. Losing both is what
-        // should hurt.
-        var rated = device.Kind == StationSystemKind.Reactor ? 200.0 : 95.0;
+        var rated = device.RatedOutputKilowatts > 0
+            ? device.RatedOutputKilowatts
+            : device.Kind == StationSystemKind.Reactor ? 200.0 : 95.0;
 
-        // Output falls away as a unit degrades rather than dropping off a cliff.
         var efficiency = device.Condition >= device.DegradedAt
             ? 1.0
             : Math.Clamp(device.Condition / Math.Max(1, device.DegradedAt), 0.15, 1.0);
 
+        var coolant = device.Kind switch
+        {
+            StationSystemKind.Reactor => state.Devices.GetValueOrDefault("coolant-pump:reactor"),
+            StationSystemKind.PowerGenerator => state.Devices.GetValueOrDefault("coolant-pump:generator"),
+            _ => null
+        };
+
+        if (coolant is not null)
+        {
+            var coolingFactor = coolant.IsFailed
+                ? 0.28
+                : coolant.Condition >= coolant.DegradedAt
+                    ? 1.0
+                    : Math.Clamp(coolant.Condition / Math.Max(1, coolant.DegradedAt), 0.45, 1.0);
+            efficiency *= coolingFactor;
+        }
+
         return rated * efficiency;
+    }
+
+    private static double DeviceDraw(GameState state, StationDevice device)
+    {
+        if (device.RatedDrawKilowatts <= 0)
+        {
+            return 0;
+        }
+
+        if (state.Facility.Rooms.TryGetValue(device.RoomId, out var room)
+            && !room.IsPowered
+            && device.Kind is not StationSystemKind.LifeSupport
+                and not StationSystemKind.PowerDistributionBus
+                and not StationSystemKind.CapacitorBank)
+        {
+            return 0;
+        }
+
+        return device.RatedDrawKilowatts;
     }
 
     /// <summary>
@@ -400,7 +606,8 @@ public sealed class StationUpkeepSystem
                 continue;
             }
 
-            if (state.Power.SupplyKilowatts - state.Power.DemandKilowatts < Demand(room))
+            if ((state.Power.SupplyKilowatts + state.Power.BufferDischargeKilowatts)
+                - state.Power.DemandKilowatts < Demand(room))
             {
                 break;
             }
@@ -445,6 +652,67 @@ public sealed class StationUpkeepSystem
             Log(
                 state,
                 $"GRID: insufficient generation. Load shed from {string.Join(", ", shed)}.");
+        }
+    }
+
+    private static StationDevice? Find(GameState state, StationSystemKind kind) =>
+        state.Devices.Values.FirstOrDefault(device => device.Kind == kind);
+
+    private static void ApplyPoweredDependencies(GameState state)
+    {
+        foreach (var door in state.Facility.Doors)
+        {
+            var actuator = state.Devices.GetValueOrDefault($"door:{door.Id}");
+            var aPowered = state.Facility.Rooms.TryGetValue(door.RoomAId, out var a) && a.IsPowered;
+            var bPowered = state.Facility.Rooms.TryGetValue(door.RoomBId, out var b) && b.IsPowered;
+
+            door.IsPowered = actuator is { IsFailed: false }
+                && aPowered
+                && bPowered
+                && state.Power.DistributionEfficiencyPercent >= 22;
+        }
+
+        var engineeringPowered = state.Facility.Rooms.TryGetValue("engineering", out var engineering)
+            && engineering.IsPowered;
+        var core = Find(state, StationSystemKind.LifeSupport);
+        var oxygen = Find(state, StationSystemKind.OxygenGenerator);
+        var scrubber = Find(state, StationSystemKind.CarbonScrubber);
+        var water = Find(state, StationSystemKind.WaterRecycler);
+
+        state.LifeSupport.OxygenGeneratorOnline =
+            engineeringPowered && oxygen is { IsFailed: false };
+        state.LifeSupport.CarbonScrubberOnline =
+            engineeringPowered && scrubber is { IsFailed: false };
+        state.LifeSupport.WaterRecyclerOnline =
+            engineeringPowered && water is { IsFailed: false };
+
+        state.LifeSupport.ScrubberEfficiencyPercent = scrubber is null
+            ? 0
+            : Math.Clamp(scrubber.Condition, 0, 100);
+
+        var utilitiesAvailable = engineeringPowered
+            && core is { IsFailed: false }
+            && state.Power.DistributionEfficiencyPercent >= 30;
+
+        state.LifeSupport.IsAiControllable = utilitiesAvailable;
+        state.LifeSupport.IsOnline =
+            state.LifeSupport.RequestedOnline
+            && utilitiesAvailable
+            && state.LifeSupport.OxygenGeneratorOnline
+            && state.LifeSupport.CarbonScrubberOnline;
+
+        var coolantReactor = state.Devices.GetValueOrDefault("coolant-pump:reactor");
+        if (state.Facility.Rooms.TryGetValue("reactor", out var reactorRoom)
+            && coolantReactor is { IsFailed: true })
+        {
+            reactorRoom.TemperatureC = Math.Min(55, reactorRoom.TemperatureC + 0.25);
+        }
+
+        var coolantGenerator = state.Devices.GetValueOrDefault("coolant-pump:generator");
+        if (state.Facility.Rooms.TryGetValue("generator", out var generatorRoom)
+            && coolantGenerator is { IsFailed: true })
+        {
+            generatorRoom.TemperatureC = Math.Min(48, generatorRoom.TemperatureC + 0.16);
         }
     }
 
