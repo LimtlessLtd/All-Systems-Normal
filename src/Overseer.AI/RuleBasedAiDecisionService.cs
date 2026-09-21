@@ -247,6 +247,12 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
             }
         }
 
+        CognitionTelemetrySystem.Record(
+            state,
+            npc,
+            "Rule-based AI",
+            intent);
+
         return Task.FromResult(intent);
     }
 
