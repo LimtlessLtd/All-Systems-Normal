@@ -6670,6 +6670,26 @@ button.turret-token {
     }
 }
 
+/* The station header's controls were right-aligned on one line that never
+   wrapped above 1000px, so whenever they did not fit they slid left over the
+   title (and past the header edge). The title keeps its natural width; the
+   controls take the rest and wrap onto further rows, dropping below the
+   title only when even a narrow column will not fit beside it. */
+.station-command-header {
+    flex-wrap: wrap;
+    row-gap: .3rem;
+}
+
+.station-command-header .station-title-compact {
+    flex: 0 0 auto;
+}
+
+.station-command-header .station-header-actions {
+    flex: 1 1 340px;
+    flex-wrap: wrap;
+    row-gap: .22rem;
+}
+
 .pause-toggle.is-paused {
     border-color: var(--warning);
     color: var(--warning);
