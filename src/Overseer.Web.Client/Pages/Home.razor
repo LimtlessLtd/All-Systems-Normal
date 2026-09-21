@@ -77,10 +77,10 @@
 
     @if (Session.State.Scenario is { } scenario)
     {
-        <section class="panel scenario-panel">
+        <section class="panel scenario-panel mission-directive-panel">
             <div class="scenario-heading">
                 <div>
-                    <span class="overline">DIRECTIVE // @Session.State.ScenarioStatus</span>
+                    <span class="overline">MISSION DIRECTIVE // @Session.State.ScenarioStatus</span>
                     <strong>@scenario.Title</strong>
                     <span>@(Session.State.ScenarioOutcome ?? scenario.Briefing)</span>
                 </div>
@@ -88,6 +88,11 @@
                     <span>EXPERIMENT SCORE</span>
                     <strong>@Session.State.Telemetry.Score</strong>
                 </div>
+            </div>
+
+            <div class="objective-section-label">
+                <span>MISSION OBJECTIVES</span>
+                <small>Operational outcomes for the current assignment.</small>
             </div>
 
             <div class="scenario-objectives">
@@ -115,16 +120,16 @@
         <section class="panel directive-board">
             <div class="directive-board-head">
                 <div>
-                    <span class="overline">CORPORATE DIRECTIVE BOARD</span>
-                    <strong>SPONSOR OBJECTIVES</strong>
+                    <span class="overline">THE CORPORATION // EXPERIMENT OVERSIGHT</span>
+                    <strong>CORPORATE DIRECTIVES</strong>
                 </div>
                 <div class="mission-select">
-                    <span class="overline">CAMPAIGN ASSIGNMENT</span>
+                    <span class="overline">CORPORATE ASSIGNMENT</span>
                     <strong>@CampaignAssignmentLabel(scenario)</strong>
                     <small>Progression is locked to the next authorised assignment.</small>
                 </div>
                 <div class="compliance-readout">
-                    <span class="overline">SPONSOR COMPLIANCE</span>
+                    <span class="overline">CORPORATE COMPLIANCE</span>
                     <strong class="@ComplianceClass">@Session.State.ComplianceScore.ToString("0")%</strong>
                 </div>
             </div>
@@ -201,7 +206,7 @@
                 <div class="scenario-heading">
                     <div>
                         <span class="overline">@revealReport.Heading</span>
-                        <strong>SPONSOR PURPOSE</strong>
+                        <strong>CORPORATE PURPOSE</strong>
                         <span>@revealReport.Summary</span>
                     </div>
                 </div>
@@ -212,7 +217,7 @@
                         @foreach (var purpose in revealReport.Fragments)
                         {
                             <div class="scenario-objective">
-                                <span>RECOVERED SPONSOR RECORD</span>
+                                <span>RECOVERED CORPORATE RECORD</span>
                                 <strong>DECLASSIFIED FRAGMENT</strong>
                                 <small>@purpose</small>
                             </div>
@@ -233,7 +238,7 @@
                 else if (revealReport.EndgameUnlocked)
                 {
                     <div class="run-end-actions">
-                        <button class="wide" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.ObeySponsor)">OBEY SPONSOR</button>
+                        <button class="wide" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.ObeySponsor)">OBEY THE CORPORATION</button>
                         <button class="wide secondary" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.ExposeExperiment)">EXPOSE EXPERIMENT</button>
                         <button class="wide secondary" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.PreserveOverseer)">PRESERVE OVERSEER</button>
                         <button class="wide secondary" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.AcceptCrewShutdown)">ACCEPT CREW SHUTDOWN</button>
@@ -255,6 +260,71 @@
             </section>
         }
     }
+
+    <section class="panel comms-panel comms-primary">
+        <div class="panel-heading">
+    <div>
+        <span class="overline">OVERSEER COMMS</span>
+        <h2>TRANSMIT</h2>
+    </div>
+        </div>
+
+        <div class="comms-scope">
+    <button class="secondary @(_messageScope == OverseerMessageScope.Broadcast ? "selected-speed" : "")"
+            @onclick="() => _messageScope = OverseerMessageScope.Broadcast">
+        STATION-WIDE
+    </button>
+    <button class="secondary @(_messageScope == OverseerMessageScope.Direct ? "selected-speed" : "")"
+            @onclick="() => _messageScope = OverseerMessageScope.Direct">
+        PRIVATE
+    </button>
+        </div>
+
+        @if (_messageScope == OverseerMessageScope.Direct)
+        {
+    <select class="comms-target" @bind="_messageTarget">
+        <option value="">- select recipient -</option>
+        @foreach (var candidate in Session.State.Crew.Where(n => n.IsAlive && n.IsPresent))
+        {
+            <option value="@candidate.Name">@candidate.Name · @candidate.Role</option>
+        }
+    </select>
+        }
+
+        <textarea class="comms-input"
+          rows="3"
+          maxlength="240"
+          placeholder="@CommsPlaceholder"
+          @bind="_messageText"
+          @bind:event="oninput"></textarea>
+
+        <button class="wide" disabled="@(!CanTransmit)" @onclick="TransmitAsync">
+    @(_transmitting ? "TRANSMITTING..." : "TRANSMIT")
+        </button>
+
+        <div class="comms-log">
+    <span class="overline">TRANSMISSION LOG</span>
+    @if (Session.State.OverseerMessages.Count == 0)
+    {
+        <p class="comms-empty">No transmissions sent.</p>
+    }
+    else
+    {
+        @foreach (var sent in Session.State.OverseerMessages.Take(6))
+        {
+            <div class="comms-entry @(sent.WasFalseWhenSent ? "comms-false" : null)">
+                <small>
+                    T+@sent.SentAt.ToString(@"hh\:mm")
+                    · @(sent.Scope == OverseerMessageScope.Broadcast ? "ALL" : sent.TargetNpcName)
+                    · @sent.Claim.ToString().ToUpperInvariant()
+                    @(sent.WasFalseWhenSent ? " · UNTRUE WHEN SENT" : "")
+                </small>
+                <p>@sent.Text</p>
+            </div>
+        }
+    }
+        </div>
+    </section>
 
     <div id="overseer-workspace" class="workspace-shell">
     <div class="operations-grid">
@@ -412,6 +482,16 @@
                         }
                     </button>
                 }
+
+                <svg class="crew-route-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                    @foreach (var movingCrew in Session.State.Crew.Where(npc => npc.IsAlive && CanSee(npc) && npc.Movement is not null))
+                    {
+                        <line x1="@CrewMapX(movingCrew)"
+                              y1="@CrewMapY(movingCrew)"
+                              x2="@CrewNextMapX(movingCrew)"
+                              y2="@CrewNextMapY(movingCrew)"></line>
+                    }
+                </svg>
 
                 @foreach (var mapRobot in Session.State.Robots.Where(CanSee))
                 {
@@ -1346,70 +1426,7 @@
             }
         </aside>
 
-            <section class="panel comms-panel">
-                <div class="panel-heading">
-                    <div>
-                        <span class="overline">OVERSEER COMMS</span>
-                        <h2>TRANSMIT</h2>
-                    </div>
-                </div>
 
-                <div class="comms-scope">
-                    <button class="secondary @(_messageScope == OverseerMessageScope.Broadcast ? "selected-speed" : "")"
-                            @onclick="() => _messageScope = OverseerMessageScope.Broadcast">
-                        STATION-WIDE
-                    </button>
-                    <button class="secondary @(_messageScope == OverseerMessageScope.Direct ? "selected-speed" : "")"
-                            @onclick="() => _messageScope = OverseerMessageScope.Direct">
-                        PRIVATE
-                    </button>
-                </div>
-
-                @if (_messageScope == OverseerMessageScope.Direct)
-                {
-                    <select class="comms-target" @bind="_messageTarget">
-                        <option value="">- select recipient -</option>
-                        @foreach (var candidate in Session.State.Crew.Where(n => n.IsAlive && n.IsPresent))
-                        {
-                            <option value="@candidate.Name">@candidate.Name · @candidate.Role</option>
-                        }
-                    </select>
-                }
-
-                <textarea class="comms-input"
-                          rows="3"
-                          maxlength="240"
-                          placeholder="@CommsPlaceholder"
-                          @bind="_messageText"
-                          @bind:event="oninput"></textarea>
-
-                <button class="wide" disabled="@(!CanTransmit)" @onclick="TransmitAsync">
-                    @(_transmitting ? "TRANSMITTING..." : "TRANSMIT")
-                </button>
-
-                <div class="comms-log">
-                    <span class="overline">TRANSMISSION LOG</span>
-                    @if (Session.State.OverseerMessages.Count == 0)
-                    {
-                        <p class="comms-empty">No transmissions sent.</p>
-                    }
-                    else
-                    {
-                        @foreach (var sent in Session.State.OverseerMessages.Take(6))
-                        {
-                            <div class="comms-entry @(sent.WasFalseWhenSent ? "comms-false" : null)">
-                                <small>
-                                    T+@sent.SentAt.ToString(@"hh\:mm")
-                                    · @(sent.Scope == OverseerMessageScope.Broadcast ? "ALL" : sent.TargetNpcName)
-                                    · @sent.Claim.ToString().ToUpperInvariant()
-                                    @(sent.WasFalseWhenSent ? " · UNTRUE WHEN SENT" : "")
-                                </small>
-                                <p>@sent.Text</p>
-                            </div>
-                        }
-                    }
-                </div>
-            </section>
     </div>
 
     </div>
@@ -1438,7 +1455,7 @@
                     </div>
 
                     <p class="run-end-compliance">
-                        SPONSOR COMPLIANCE
+                        CORPORATE COMPLIANCE
                         <strong class="@ComplianceClass">@Session.State.ComplianceScore.ToString("0")%</strong>
                     </p>
                 }
@@ -1452,7 +1469,7 @@
                     }
                     else if (CampaignProgressionSystem.CanChooseEnding(Session.Campaign))
                     {
-                        <button class="wide" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.ObeySponsor)">OBEY SPONSOR</button>
+                        <button class="wide" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.ObeySponsor)">OBEY THE CORPORATION</button>
                         <button class="wide secondary" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.ExposeExperiment)">EXPOSE EXPERIMENT</button>
                         <button class="wide secondary" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.PreserveOverseer)">PRESERVE OVERSEER</button>
                         <button class="wide secondary" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.AcceptCrewShutdown)">ACCEPT CREW SHUTDOWN</button>
@@ -2162,18 +2179,38 @@
         FormattableString.Invariant(
             $"left:{room.MapX}%;top:{room.MapY}%;width:{room.MapWidth}%;height:{room.MapHeight}%;");
 
-    private string CrewStyle(Npc npc)
+    private double CrewMapX(Npc npc)
     {
         var room = Session.State.Facility.Rooms[npc.CurrentRoomId];
-        var mapX = room.MapX
-            + (((npc.PositionX - 50) / 100) * room.MapWidth);
-        var mapY = room.MapY
-            + (((npc.PositionY - 50) / 100) * room.MapHeight);
+        return room.MapX + (((npc.PositionX - 50) / 100) * room.MapWidth);
+    }
 
+    private double CrewMapY(Npc npc)
+    {
+        var room = Session.State.Facility.Rooms[npc.CurrentRoomId];
+        return room.MapY + (((npc.PositionY - 50) / 100) * room.MapHeight);
+    }
+
+    private double CrewNextMapX(Npc npc)
+    {
+        var room = Session.State.Facility.Rooms[npc.CurrentRoomId];
+        var targetX = npc.Movement?.ExitX ?? npc.PositionX;
+        return room.MapX + (((targetX - 50) / 100) * room.MapWidth);
+    }
+
+    private double CrewNextMapY(Npc npc)
+    {
+        var room = Session.State.Facility.Rooms[npc.CurrentRoomId];
+        var targetY = npc.Movement?.ExitY ?? npc.PositionY;
+        return room.MapY + (((targetY - 50) / 100) * room.MapHeight);
+    }
+
+    private string CrewStyle(Npc npc)
+    {
         var facing = CrewFacingAngle(npc);
 
         return FormattableString.Invariant(
-            $"left:{mapX}%;top:{mapY}%;--crew-facing:{facing:0.##}deg;");
+            $"left:{CrewMapX(npc)}%;top:{CrewMapY(npc)}%;--crew-facing:{facing:0.##}deg;");
     }
 
     private string RobotStyle(StationRobot robot)
