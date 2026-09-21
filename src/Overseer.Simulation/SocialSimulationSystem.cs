@@ -517,6 +517,19 @@ public sealed class SocialSimulationSystem
         {
             witness.Fear = Clamp(witness.Fear + 22);
             witness.Stress = Clamp(witness.Stress + 18);
+
+            // In the dark, or too far away, a witness hears the struggle but
+            // cannot say who did it.
+            if (!PerceptionSystem.CanMakeOut(state, witness, aggressor))
+            {
+                witness.Memories.Add(new Memory(
+                    $"Heard a violent struggle in {state.Facility.Rooms[aggressor.CurrentRoomId].Name} but couldn't see who.",
+                    state.Elapsed,
+                    0.8));
+                SetImmediateBubble(state, witness, "Who's there?!", NpcBubbleKind.Alert, 3);
+                continue;
+            }
+
             witness.Memories.Add(new Memory(
                 $"Witnessed {aggressor.Name} attack {target.Name}.",
                 state.Elapsed,
