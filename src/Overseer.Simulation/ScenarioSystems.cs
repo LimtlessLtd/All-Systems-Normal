@@ -436,7 +436,12 @@ public static class ScenarioCatalog
             state.ObjectiveProgress[objective.Id] = new ScenarioObjectiveProgress
             {
                 ObjectiveId = objective.Id,
-                Target = objective.Target
+                // "Keep crew alive" means no losses from the roster handed to
+                // this assignment. Fresh runs currently start around 12, while
+                // continuing campaigns and containment scenarios may differ.
+                Target = objective.Kind == ScenarioObjectiveKind.KeepCrewAlive
+                    ? state.Crew.Count(npc => npc.IsAlive && npc.IsPresent)
+                    : objective.Target
             };
         }
 
