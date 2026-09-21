@@ -151,7 +151,24 @@ public sealed class CrewMaintenanceSystemTests
             var state = FacilitySeeder.CreateDefault(upkeepSeed: seed);
             var before = state.Devices.Values.Average(d => d.Condition);
 
-            new Station().Run(state, 1440);
+            var station = new Station();
+            string? starvationSnapshot = null;
+
+            for (var minute = 0; minute < 1440; minute++)
+            {
+                station.Tick(state);
+                var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+                if (marcus.IsAlive && marcus.Hunger >= 90)
+                {
+                    starvationSnapshot =
+                        $"T={state.Elapsed.TotalMinutes:0}, room={marcus.CurrentRoomId}, " +
+                        $"hunger={marcus.Hunger:0.0}, action={marcus.CurrentAction.Kind}/{marcus.CurrentAction.Reason}, " +
+                        $"intent={marcus.Intent?.Action}/{marcus.Intent?.TargetId}/u{marcus.Intent?.Urgency}/age={(marcus.Intent is null ? 0 : (state.Elapsed - marcus.Intent.CreatedAt).TotalMinutes):0}, " +
+                        $"movement={marcus.Movement?.FromRoomId}->{marcus.Movement?.ToRoomId}/{marcus.Movement?.DoorId}, " +
+                        $"routineUntil={marcus.RoutineUntil.TotalMinutes:0}, service={marcus.ServicingDeviceId}, " +
+                        $"provisioning={marcus.ProvisioningJob}, meals={state.Stores.Meals:0.0}";
+                }
+            }
 
             var after = state.Devices.Values.Average(d => d.Condition);
 
@@ -164,7 +181,7 @@ public sealed class CrewMaintenanceSystemTests
             Assert.Equal(0, state.Devices.Values.Count(d => d.IsFailed));
             Assert.True(
                 state.Crew.Count(npc => npc.IsAlive) == 6,
-                $"seed {seed}: deaths = {string.Join("; ", state.Crew.Where(npc => !npc.IsAlive).Select(npc => $"{npc.Name}: {npc.CauseOfDeath}, room={npc.CurrentRoomId}, hunger={npc.Hunger:0.0}, health={npc.Health:0.0}, action={npc.CurrentAction.Kind}/{npc.CurrentAction.Reason}, intent={npc.Intent?.Action}/{npc.Intent?.TargetId}/u{npc.Intent?.Urgency}, movement={npc.Movement?.FromRoomId}->{npc.Movement?.ToRoomId}/{npc.Movement?.DoorId}, service={npc.ServicingDeviceId}, provisioning={npc.ProvisioningJob}, meals={state.Stores.Meals:0.0}, pathToKitchen={string.Join(">", new NavigationSystem().FindPathForCrew(state, npc, npc.CurrentRoomId, "kitchen"))}"))}");
+                $"seed {seed}: deaths = {string.Join("; ", state.Crew.Where(npc => !npc.IsAlive).Select(npc => $"{npc.Name}: {npc.CauseOfDeath}, room={npc.CurrentRoomId}, hunger={npc.Hunger:0.0}, health={npc.Health:0.0}, action={npc.CurrentAction.Kind}/{npc.CurrentAction.Reason}, intent={npc.Intent?.Action}/{npc.Intent?.TargetId}/u{npc.Intent?.Urgency}, movement={npc.Movement?.FromRoomId}->{npc.Movement?.ToRoomId}/{npc.Movement?.DoorId}, service={npc.ServicingDeviceId}, provisioning={npc.ProvisioningJob}, meals={state.Stores.Meals:0.0}, pathToKitchen={string.Join(">", new NavigationSystem().FindPathForCrew(state, npc, npc.CurrentRoomId, "kitchen"))}"))}; last-alive={starvationSnapshot}");
         }
     }
 
