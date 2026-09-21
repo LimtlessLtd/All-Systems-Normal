@@ -7360,3 +7360,341 @@ button.turret-token {
         transition: none;
     }
 }
+
+
+/* V0.10F — station overview is the interaction surface.
+   Bright physical station hardware is surrounded by actual space, while every
+   simulation-relevant entity remains clickable above the camera/pan layer. */
+.station-map-viewport {
+    background: #01040a;
+}
+
+.station-map {
+    background:
+        linear-gradient(180deg, rgba(0, 3, 9, .20), rgba(0, 2, 7, .58)),
+        url("https://assets.science.nasa.gov/dynamicimage/assets/science/missions/webb/science/2022/07/STScI-01GA6KKWG229B16K4Q38CH3BXS.png?crop=faces%2Cfocalpoint&fit=clip&h=1158&w=2000")
+        center / cover no-repeat,
+        #01040a;
+    box-shadow:
+        inset 0 0 180px rgba(0, 0, 0, .72),
+        inset 0 0 0 1px rgba(176, 211, 224, .08);
+}
+
+.space-credit {
+    position: absolute;
+    right: .55rem;
+    bottom: .45rem;
+    z-index: 80;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: rgba(0, 4, 10, .68);
+    color: rgba(224, 237, 242, .68);
+    font: 500 .46rem/1.2 "Cascadia Code", Consolas, monospace;
+    letter-spacing: .05em;
+    pointer-events: none;
+}
+
+.station-status-strip {
+    position: absolute;
+    top: .55rem;
+    left: 50%;
+    z-index: 82;
+    display: flex;
+    gap: .35rem;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.station-status-strip > button {
+    display: grid;
+    min-width: 112px;
+    padding: .42rem .55rem;
+    border: 1px solid rgba(160, 198, 209, .35);
+    border-radius: 5px;
+    background: rgba(3, 12, 18, .88);
+    color: #dfecef;
+    box-shadow: 0 5px 14px rgba(0,0,0,.28);
+    pointer-events: auto;
+    cursor: pointer;
+    text-align: left;
+}
+
+.station-status-strip > button:hover,
+.station-status-strip > button:focus-visible {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(98,229,213,.12), 0 5px 14px rgba(0,0,0,.32);
+}
+
+.station-status-strip span,
+.station-status-strip small,
+.station-status-strip strong {
+    display: block;
+}
+
+.station-status-strip span {
+    color: #8fa9b0;
+    font-size: .47rem;
+    letter-spacing: .09em;
+}
+
+.station-status-strip strong {
+    margin-top: 1px;
+    font-size: .67rem;
+}
+
+.station-status-strip small {
+    color: #aac0c5;
+    font-size: .48rem;
+}
+
+/* The room itself is clickable, while real systems nested inside it remain
+   independently clickable. Decorative scenery never steals pointer input. */
+.station-map-viewport [data-station-interactable] {
+    cursor: pointer;
+}
+
+.station-authority-layer > .room-node {
+    cursor: pointer;
+}
+
+.station-authority-layer .fixture-layer {
+    pointer-events: auto;
+}
+
+.station-authority-layer .fixture:not(.fixture-interactive) {
+    pointer-events: none;
+}
+
+.station-authority-layer button.fixture-interactive {
+    position: absolute;
+    z-index: 12;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+    cursor: pointer;
+    color: inherit;
+    transition:
+        transform .14s ease,
+        filter .14s ease,
+        outline-color .14s ease;
+}
+
+.station-authority-layer button.fixture-interactive:hover,
+.station-authority-layer button.fixture-interactive.selected {
+    z-index: 16;
+    transform: translate(-50%, -50%) scale(1.10);
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    filter: brightness(1.08);
+}
+
+.fixture-status-light {
+    position: absolute;
+    right: 3px;
+    top: 3px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #55a777;
+    box-shadow: 0 0 5px rgba(85,167,119,.58);
+    pointer-events: none;
+}
+
+.fixture-interactive.fixture-failed .fixture-status-light {
+    background: #d14f58;
+    box-shadow: 0 0 6px rgba(209,79,88,.72);
+}
+
+.fixture-interactive.fixture-degraded .fixture-status-light {
+    background: #d99a43;
+    box-shadow: 0 0 6px rgba(217,154,67,.65);
+}
+
+/* Real control hardware. Keep it visually different from furniture so players
+   learn that these objects can be inspected and operated. */
+.station-authority-layer .fixture-roomcontrolpanel,
+.station-authority-layer .fixture-doorcontrolpanel,
+.station-authority-layer .fixture-powerpanel {
+    border: 2px solid #59676d;
+    border-radius: 3px;
+    background:
+        linear-gradient(180deg, #1e2c32 0 34%, #88959a 35% 43%, #cfd4d6 44% 100%);
+    box-shadow:
+        0 2px 5px rgba(0,0,0,.28),
+        inset 0 0 0 1px rgba(255,255,255,.32);
+}
+
+.station-authority-layer .fixture-roomcontrolpanel::after,
+.station-authority-layer .fixture-doorcontrolpanel::after,
+.station-authority-layer .fixture-powerpanel::after {
+    content: "";
+    position: absolute;
+    left: 13%;
+    right: 13%;
+    top: 12%;
+    height: 15%;
+    border-radius: 1px;
+    background:
+        repeating-linear-gradient(90deg,
+            #82bca8 0 20%,
+            #d1ae62 20% 31%,
+            #2d4148 31% 43%);
+    opacity: .9;
+}
+
+.station-authority-layer .fixture-capacitorbank {
+    border-color: #68767b;
+    background:
+        repeating-linear-gradient(90deg,
+            #b8c0c3 0 15%,
+            #5a666b 15% 20%,
+            #d7dbdd 20% 35%,
+            #677278 35% 40%);
+}
+
+.station-authority-layer .fixture-capacitorbank::before {
+    content: "";
+    position: absolute;
+    inset: 18% 12%;
+    border-radius: 4px;
+    box-shadow:
+        inset 8px 0 0 rgba(91,150,137,.65),
+        inset -8px 0 0 rgba(91,150,137,.65);
+}
+
+.station-authority-layer .fixture-coolantpump {
+    border-radius: 50%;
+    border-color: #66777e;
+    background:
+        radial-gradient(circle at 50% 50%, #42545b 0 20%, #bac5c8 21% 46%, #66767c 47% 62%, #d9ddde 63%);
+}
+
+.station-authority-layer .fixture-coolantpump::after {
+    content: "";
+    position: absolute;
+    inset: 26%;
+    border: 2px dashed #3f5b63;
+    border-radius: 50%;
+    animation: station-rotor 2.1s linear infinite;
+}
+
+.station-authority-layer .fixture-oxygengenerator,
+.station-authority-layer .fixture-carbonscrubber,
+.station-authority-layer .fixture-thermalloop {
+    border-color: #6d7b80;
+    background:
+        linear-gradient(90deg, rgba(255,255,255,.34), transparent 28%),
+        repeating-linear-gradient(0deg,
+            #cdd3d5 0 18%,
+            #869399 18% 24%,
+            #dfe3e4 24% 42%);
+}
+
+.station-authority-layer .fixture-oxygengenerator::after,
+.station-authority-layer .fixture-carbonscrubber::after,
+.station-authority-layer .fixture-thermalloop::after {
+    content: "";
+    position: absolute;
+    left: 14%;
+    right: 14%;
+    bottom: 10%;
+    height: 5px;
+    border-radius: 999px;
+    background: #6c9b87;
+    box-shadow: 0 0 5px rgba(108,155,135,.4);
+}
+
+/* Doors are bulkhead hardware, not floating tokens. Their panels retract fully
+   out of the walking aperture and all mobile entities render over them. */
+.station-authority-layer .map-door {
+    z-index: 20;
+}
+
+.station-authority-layer .crew-token {
+    z-index: 45;
+}
+
+.station-authority-layer .robot-token {
+    z-index: 43;
+}
+
+.station-authority-layer .turret-token {
+    z-index: 42;
+}
+
+.map-door .door-leaf {
+    transition:
+        transform .24s cubic-bezier(.22,.78,.22,1),
+        background .16s ease,
+        box-shadow .16s ease;
+}
+
+.map-door.open.door-horizontal .door-leaf-a {
+    transform: translateX(-138%);
+}
+
+.map-door.open.door-horizontal .door-leaf-b {
+    transform: translateX(138%);
+}
+
+.map-door.open.door-vertical .door-leaf-a {
+    transform: translateY(-138%);
+}
+
+.map-door.open.door-vertical .door-leaf-b {
+    transform: translateY(138%);
+}
+
+.map-door.closed .door-leaf {
+    background:
+        linear-gradient(180deg, rgba(255,255,255,.34), transparent 24%),
+        #aeb8bb;
+    box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,.25),
+        0 1px 3px rgba(0,0,0,.45),
+        0 0 0 1px rgba(211,157,73,.42);
+}
+
+.map-door.locked .door-leaf {
+    background:
+        repeating-linear-gradient(135deg,
+            rgba(255,255,255,.18) 0 3px,
+            transparent 3px 7px),
+        #b84650;
+    box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,.20),
+        0 0 8px rgba(197,61,75,.34);
+}
+
+.map-door.open .door-lock-mark {
+    display: none;
+}
+
+@media (max-width: 760px) {
+    .station-status-strip {
+        left: .4rem;
+        right: .4rem;
+        transform: none;
+        gap: .2rem;
+    }
+
+    .station-status-strip > button {
+        min-width: 0;
+        flex: 1 1 0;
+        padding: .34rem;
+    }
+
+    .station-status-strip small {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .station-authority-layer .fixture-coolantpump::after,
+    .map-door .door-leaf {
+        animation: none !important;
+        transition: none !important;
+    }
+}
