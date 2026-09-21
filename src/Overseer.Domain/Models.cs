@@ -61,7 +61,15 @@ public enum FixtureType
     Vent,
     UtilityPanel,
     Screen,
-    OverseerShutdown
+    OverseerShutdown,
+    RoomControlPanel,
+    DoorControlPanel,
+    PowerPanel,
+    CapacitorBank,
+    CoolantPump,
+    OxygenGenerator,
+    CarbonScrubber,
+    ThermalLoop
 }
 
 public enum FixtureUsePose
@@ -335,6 +343,7 @@ public enum StationSelectionKind
     Room,
     Crew,
     Door,
+    Fixture,
     Robot,
     Turret
 }
@@ -597,7 +606,8 @@ public sealed record RoomFixture(
     double? InteractionX = null,
     double? InteractionY = null,
     FixtureUsePose UsePose = FixtureUsePose.Stand,
-    double FacingDegrees = 0);
+    double FacingDegrees = 0,
+    string? SystemId = null);
 
 public sealed class Npc : IStationMobileEntity
 {
@@ -729,10 +739,22 @@ public sealed class Npc : IStationMobileEntity
     
 public sealed class LifeSupportState
 {
+    /// <summary>Operator-requested life-support state.</summary>
     public bool IsOnline { get; set; } = true;
     public bool IsAiControllable { get; set; } = true;
+
+    /// <summary>
+    /// Grid availability is separate from the operator switch. Severe power
+    /// collapse can starve life support even while Overseer still requests ON.
+    /// </summary>
+    public bool PowerAvailable { get; set; } = true;
+
     public double OxygenReservePercent { get; set; } = 100;
+    public double OxygenGenerationPercent { get; set; } = 100;
     public double ScrubberEfficiencyPercent { get; set; } = 100;
+    public double ThermalLoopEfficiencyPercent { get; set; } = 100;
+
+    public bool IsOperational => IsOnline && PowerAvailable;
 }
 
 public sealed class Room
@@ -748,7 +770,12 @@ public sealed class Room
 
     public bool IsPowered { get; set; } = true;
     public bool LightsOn { get; set; } = true;
+    public bool LightingPowerAvailable { get; set; } = true;
     public bool CameraOnline { get; set; } = true;
+    public bool CameraPowerAvailable { get; set; } = true;
+
+    public bool EffectiveLightsOn =>
+        IsPowered && LightingPowerAvailable && LightsOn;
 
     public double TemperatureC { get; set; } = 21;
     public double TemperatureSetpointC { get; set; } = 21;
@@ -775,7 +802,8 @@ public sealed class Room
 
     public List<RoomFixture> Fixtures { get; } = [];
 
-    public bool HasVisualFeed => IsPowered && CameraOnline;
+    public bool HasVisualFeed =>
+        IsPowered && CameraPowerAvailable && CameraOnline;
 }
 
 public sealed class Door
@@ -787,6 +815,13 @@ public sealed class Door
     public bool IsOpen { get; set; } = true;
     public bool IsLocked { get; set; }
     public bool IsPowered { get; set; } = true;
+
+    /// <summary>
+    /// Grid-side actuator power. This can disappear during brownouts without
+    /// overwriting authored/local actuator state.
+    /// </summary>
+    public bool GridPowerAvailable { get; set; } = true;
+
     public bool IsAiControllable { get; set; } = true;
     public bool ManualOverrideAvailable { get; set; }
     public bool IsManuallyOverridden { get; set; }
@@ -811,7 +846,8 @@ public sealed class Door
     public bool HasPhysicalSecuring => IsWelded || IsBarricaded;
     public bool IsPassable =>
         !HasPhysicalSecuring
-        && (IsManuallyOverridden || (IsPowered && IsOpen && !IsLocked));
+        && (IsManuallyOverridden
+            || (IsPowered && GridPowerAvailable && IsOpen && !IsLocked));
 
     public bool Connects(string firstRoomId, string secondRoomId) =>
         (RoomAId.Equals(firstRoomId, StringComparison.OrdinalIgnoreCase)
