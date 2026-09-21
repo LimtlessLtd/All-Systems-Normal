@@ -1446,6 +1446,42 @@ public static class StationGenerator
             }
         }
 
+        var reservedPlates = rooms
+            .Where(room => room.Type != RoomType.Corridor && room.StatusPlateSide is not null)
+            .Select(room => (Owner: room, Envelope: CreateStatusPlateEnvelope(room)))
+            .ToList();
+
+        foreach (var plate in reservedPlates)
+        {
+            if (!InsideCanvas(plate.Envelope))
+                errors.Add($"{plate.Owner.Id} status plate reserve lies outside the station canvas.");
+
+            foreach (var other in rooms.Where(room => room.Id != plate.Owner.Id))
+            {
+                var overlap = StationGeometry.InteriorOverlapArea(plate.Envelope, other);
+                if (overlap > OverlapTolerance)
+                {
+                    errors.Add(
+                        $"{plate.Owner.Id} status plate reserve overlaps {other.Id} by {overlap:0.###}.");
+                }
+            }
+        }
+
+        for (var firstIndex = 0; firstIndex < reservedPlates.Count; firstIndex++)
+        {
+            for (var secondIndex = firstIndex + 1; secondIndex < reservedPlates.Count; secondIndex++)
+            {
+                var overlap = StationGeometry.InteriorOverlapArea(
+                    reservedPlates[firstIndex].Envelope,
+                    reservedPlates[secondIndex].Envelope);
+                if (overlap > OverlapTolerance)
+                {
+                    errors.Add(
+                        $"{reservedPlates[firstIndex].Owner.Id} and {reservedPlates[secondIndex].Owner.Id} status plate reserves overlap by {overlap:0.###}.");
+                }
+            }
+        }
+
         foreach (var door in facility.Doors)
         {
             if (!facility.Rooms.TryGetValue(door.RoomAId, out var first)
