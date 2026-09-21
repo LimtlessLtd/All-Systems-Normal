@@ -408,6 +408,37 @@
                 <div class="@StationMapClass" style="@StationMapStyle">
                 <div class="station-map-camera" data-map-camera-content>
                 <div class="station-world" style="@StationWorldStyle">
+                <svg class="room-callout-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                    @foreach (var callout in RoomCallouts)
+                    {
+                        var calloutRoom = Session.State.Facility.Rooms[callout.RoomId];
+                        <line x1="@CalloutRoomX(calloutRoom, callout.Side)"
+                              y1="@CalloutRoomY(calloutRoom, callout.Side)"
+                              x2="@callout.LabelX"
+                              y2="@callout.LabelY"
+                              class="@($"room-callout-line {RoomHealthClass(calloutRoom)}")"></line>
+                    }
+                </svg>
+
+                @foreach (var callout in RoomCallouts)
+                {
+                    var calloutRoom = Session.State.Facility.Rooms[callout.RoomId];
+                    <button @key="@($"callout-{callout.RoomId}")"
+                            type="button"
+                            class="@($"room-status-callout side-{callout.Side} {RoomHealthClass(calloutRoom)} {(SelectedRoom?.Id == calloutRoom.Id ? "selected" : "")}")"
+                            style="@CalloutStyle(callout)"
+                            @onclick="() => SelectRoom(calloutRoom.Id)"
+                            aria-label="@($"Inspect {calloutRoom.Name}")">
+                        <span class="callout-name">@calloutRoom.Name</span>
+                        <span class="callout-statuses">
+                            <b class="@PowerStatusClass(calloutRoom)">@(calloutRoom.IsPowered ? "PWR" : "PWR OFF")</b>
+                            <b class="@TemperatureStatusClass(calloutRoom)">@calloutRoom.TemperatureC.ToString("0")°C</b>
+                            <b class="@OxygenStatusClass(calloutRoom)">O₂ @calloutRoom.OxygenPercent.ToString("0.0")%</b>
+                        </span>
+                    </button>
+                }
+
+                <div class="station-authority-layer">
                 @foreach (var room in Session.State.Facility.Rooms.Values)
                 {
                     <button @key="room.Id"
@@ -415,17 +446,6 @@
                             style="@RoomStyle(room)"
                             aria-label="@($"Select {room.Name}")"
                             @onclick="() => SelectRoom(room.Id)">
-                        <span class="room-titlebar">
-                            <i class="room-glyph" aria-hidden="true">@RoomGlyph(room.Type)</i>
-                            <span class="room-name">@room.Name</span>
-                            <i class="room-state-dot @RoomHealthClass(room)" aria-hidden="true"></i>
-                        </span>
-                        <span class="room-data">
-                            <b class="room-status @PowerStatusClass(room)">@(room.IsPowered ? "PWR ON" : "PWR OFF")</b>
-                            <b class="room-status @TemperatureStatusClass(room)">TEMP @room.TemperatureC.ToString("0")°</b>
-                            <b class="room-status @OxygenStatusClass(room)">O₂ @room.OxygenPercent.ToString("0.0")%</b>
-                        </span>
-
                         <span class="fixture-layer" aria-hidden="true">
                             @foreach (var fixture in room.Fixtures)
                             {
@@ -461,14 +481,25 @@
 
                 @foreach (var mapRobot in Session.State.Robots.Where(CanSee))
                 {
-                    <div @key="mapRobot"
-                         class="@RobotTokenClass(mapRobot)"
-                         style="@RobotStyle(mapRobot)"
-                         title="@($"{mapRobot.Name} — {mapRobot.Policy} — {mapRobot.CurrentTask}")"
-                         aria-label="@($"{mapRobot.Name}, {mapRobot.Policy} policy")">
-                        <span class="robot-icon" aria-hidden="true"></span>
+                    <button @key="mapRobot"
+                            type="button"
+                            class="@RobotTokenClass(mapRobot)"
+                            style="@RobotStyle(mapRobot)"
+                            title="@($"{mapRobot.Name} — {mapRobot.Policy} — {mapRobot.CurrentTask}")"
+                            aria-label="@($"Select {mapRobot.Name}, {mapRobot.Policy} policy")"
+                            @onclick="() => SelectRobot(mapRobot.Id)">
+                        <span class="robot-shadow" aria-hidden="true"></span>
+                        <span class="robot-machine" aria-hidden="true">
+                            <i class="robot-track robot-track-left"></i>
+                            <i class="robot-track robot-track-right"></i>
+                            <i class="robot-body"></i>
+                            <i class="robot-arm robot-arm-left"></i>
+                            <i class="robot-arm robot-arm-right"></i>
+                            <i class="robot-head"><i class="robot-eye"></i></i>
+                            <i class="robot-tool"></i>
+                        </span>
                         <span class="robot-nameplate">@mapRobot.Name</span>
-                    </div>
+                    </button>
                 }
 
                 @foreach (var mapTurret in Session.State.Turrets.Where(CanSee))
@@ -523,6 +554,7 @@
                 </div>
                 </div>
                 </div>
+                </div>
             </div>
 
             <div class="layout-splitter layout-splitter-horizontal map-splitter"
@@ -535,7 +567,7 @@
                  tabindex="0"></div>
 
             <div class="map-footer">
-                <span>Drag / WASD to pan · ± or Ctrl+wheel to zoom · click rooms and crew to inspect.</span>
+                <span>Drag / WASD to pan · mouse wheel or ± zoom · click room callouts, crew or robots to inspect.</span>
                 <span>Crew disappear from the map when a camera feed is lost.</span>
             </div>
         </main>
@@ -641,6 +673,64 @@
                             <p>@entry</p>
                         }
                     </div>
+                </div>
+            }
+            else if (SelectedRobot is { } selectedRobot)
+            {
+                var robotRoom = Session.State.Facility.Rooms[selectedRobot.CurrentRoomId];
+
+                <div class="panel-heading">
+                    <div>
+                        <span class="overline">AUTONOMOUS ROBOT</span>
+                        <h2>@selectedRobot.Name</h2>
+                    </div>
+                    <span class="robot-inspector-badge">@selectedRobot.Policy</span>
+                </div>
+
+                <p class="role-line">@robotRoom.Name · @(selectedRobot.IsOperational ? "OPERATIONAL" : "OFFLINE")</p>
+
+                <div class="environment-grid">
+                    <div><span>HEALTH</span><strong>@selectedRobot.Health.ToString("0")%</strong></div>
+                    <div><span>BATTERY</span><strong>@selectedRobot.BatteryPercent.ToString("0")%</strong></div>
+                    <div><span>POLICY</span><strong>@selectedRobot.Policy</strong></div>
+                    <div><span>LINK</span><strong>@(selectedRobot.IsNetworkIsolated ? "ISOLATED" : "ONLINE")</strong></div>
+                    <div><span>CHARGING</span><strong>@(selectedRobot.ChargingEnabled ? "ENABLED" : "DENIED")</strong></div>
+                    <div><span>STATE</span><strong>@(selectedRobot.IsOperational ? "ACTIVE" : "SHUT DOWN")</strong></div>
+                </div>
+
+                <div class="action-card robot-task-card">
+                    <span>CURRENT PHYSICAL TASK</span>
+                    <strong>@selectedRobot.CurrentTask</strong>
+                    <p>
+                        @(selectedRobot.Movement is null
+                            ? "Interacting locally with the room or awaiting a route."
+                            : $"Moving through {selectedRobot.Movement.DoorId} toward {selectedRobot.Movement.ToRoomId}.")
+                    </p>
+                </div>
+
+                <div class="controlRobot-policy-controls">
+                    <button class="mini secondary"
+                            disabled="@(!selectedRobot.HasRemoteControlLink)"
+                            @onclick="() => Session.SetRobotPolicy(selectedRobot.Id, RobotPolicy.Friendly)">FRIENDLY</button>
+                    <button class="mini secondary"
+                            disabled="@(!selectedRobot.HasRemoteControlLink)"
+                            @onclick="() => Session.SetRobotPolicy(selectedRobot.Id, RobotPolicy.Neutral)">NEUTRAL</button>
+                    <button class="mini danger"
+                            disabled="@(!selectedRobot.HasRemoteControlLink)"
+                            @onclick="() => Session.SetRobotPolicy(selectedRobot.Id, RobotPolicy.Hostile)">HOSTILE</button>
+                    <button class="mini secondary"
+                            disabled="@(!selectedRobot.HasRemoteControlLink)"
+                            @onclick="() => Session.ToggleRobotRemoteShutdown(selectedRobot.Id)">
+                        @(selectedRobot.IsRemotelyShutdown ? "REMOTE RESTART" : "REMOTE SHUTDOWN")
+                    </button>
+                </div>
+
+                <div class="belief-card">
+                    <span>ENVIRONMENT INTERACTION</span>
+                    <p>
+                        Friendly robots now physically approach local consoles, panels, cameras,
+                        vents and machinery while inspecting, charging or repairing station systems.
+                    </p>
                 </div>
             }
             else if (SelectedCrew is { } selectedCrew)
@@ -1267,6 +1357,7 @@
 @code {
     private string? _selectedRoomId = "control";
     private Guid? _selectedCrewId;
+    private string? _selectedRobotId;
     private int _delayMs = 2800;
     private bool _soundEnabled;
     private bool _musicEnabled;
@@ -1285,6 +1376,16 @@
         _selectedCrewId is { } crewId
             ? Session.State.Crew.FirstOrDefault(npc => npc.Id == crewId)
             : null;
+
+    private StationRobot? SelectedRobot =>
+        _selectedRobotId is not null
+            ? Session.State.Robots.FirstOrDefault(robot =>
+                robot.Id.Equals(_selectedRobotId, StringComparison.OrdinalIgnoreCase))
+            : null;
+
+    private IReadOnlyList<StationRoomCallout> RoomCallouts =>
+        StationRoomCalloutSystem.Build(Session.State.Facility);
+
 
     private OverseerMessageScope _messageScope = OverseerMessageScope.Broadcast;
     private string _messageTarget = string.Empty;
@@ -1368,6 +1469,7 @@
         await Session.LoadScenarioAsync(next.Id);
         _selectedCrewId = null;
         _selectedRoomId = null;
+        _selectedRobotId = null;
         _lastAudioSequence = 0;
         await PersistCampaignAsync();
         StartAutoClock();
@@ -1454,16 +1556,49 @@
         }
     }
 
+    private static string CalloutStyle(StationRoomCallout callout) =>
+        FormattableString.Invariant(
+            $"left:{callout.LabelX:0.###}%;top:{callout.LabelY:0.###}%;");
+
+    private static double CalloutRoomX(Room room, string side) =>
+        StationRoomCalloutSystem.ToDeck(
+            side switch
+            {
+                "left" => room.MapX - (room.MapWidth / 2),
+                "right" => room.MapX + (room.MapWidth / 2),
+                _ => room.MapX
+            });
+
+    private static double CalloutRoomY(Room room, string side) =>
+        StationRoomCalloutSystem.ToDeck(
+            side switch
+            {
+                "top" => room.MapY - (room.MapHeight / 2),
+                "bottom" => room.MapY + (room.MapHeight / 2),
+                _ => room.MapY
+            });
+
+
     private void SelectRoom(string roomId)
     {
         _selectedRoomId = roomId;
         _selectedCrewId = null;
+        _selectedRobotId = null;
     }
 
     private void SelectCrew(Guid crewId)
     {
         _selectedCrewId = crewId;
         _selectedRoomId = null;
+        _selectedRobotId = null;
+    }
+
+    private void SelectRobot(string robotId)
+    {
+        _selectedRobotId = robotId;
+        _selectedCrewId = null;
+        _selectedRoomId = null;
+        _selectedRobotId = null;
     }
 
     private Task RegenerateSameSeedAsync() =>
@@ -1478,6 +1613,7 @@
         await Session.RegenerateStationAsync(seed);
         _selectedCrewId = null;
         _selectedRoomId = "control";
+        _selectedRobotId = null;
         _lastAudioSequence = 0;
         StartAutoClock();
     }
@@ -1489,6 +1625,7 @@
         await JS.InvokeVoidAsync("localStorage.removeItem", CampaignStorageKey);
         _selectedRoomId = "control";
         _selectedCrewId = null;
+        _selectedRobotId = null;
         _lastAudioSequence = 0;
         StartAutoClock();
     }
@@ -1545,6 +1682,7 @@
         await Session.RestoreCampaignAsync(campaign);
         _selectedCrewId = null;
         _selectedRoomId = null;
+        _selectedRobotId = null;
         _lastAudioSequence = 0;
     }
 
@@ -1693,12 +1831,28 @@
         return string.Join(' ', classes);
     }
 
-    private static string RobotTokenClass(StationRobot robot)
+    private string RobotTokenClass(StationRobot robot)
     {
-        var state = robot.IsDestroyed ? "destroyed"
-            : !robot.IsOperational ? "shutdown"
-            : robot.Policy.ToString().ToLowerInvariant();
-        return $"robot-token {state}{(robot.Movement is null ? "" : " is-moving")}";
+        var classes = new List<string>
+        {
+            "robot-token",
+            robot.IsDestroyed ? "destroyed"
+                : !robot.IsOperational ? "shutdown"
+                : robot.Policy.ToString().ToLowerInvariant()
+        };
+
+        if (robot.Movement is not null)
+            classes.Add("is-moving");
+        if (robot.ActionCompletesAt is not null
+            || robot.CurrentTask.Contains("repair", StringComparison.OrdinalIgnoreCase)
+            || robot.CurrentTask.Contains("inspection", StringComparison.OrdinalIgnoreCase))
+            classes.Add("is-working");
+        if (robot.CurrentTask.Contains("charging", StringComparison.OrdinalIgnoreCase))
+            classes.Add("is-charging");
+        if (SelectedRobot?.Id == robot.Id)
+            classes.Add("selected");
+
+        return string.Join(' ', classes);
     }
 
     private static string Initials(string name) =>
