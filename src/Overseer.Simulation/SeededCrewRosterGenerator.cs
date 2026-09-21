@@ -20,7 +20,7 @@ public static class SeededCrewRosterGenerator
         var npc = new Npc
         {
             Id = DeterministicGuid(seed, roleIndex),
-            Name = profile.Names[Pick(seed, roleIndex * 17 + 1, profile.Names.Length)],
+            Name = profile.Names[Pick(seed, roleIndex * 17 + 1, profile.Names.Count)],
             Role = role,
             CurrentRoomId = profile.StartRoom,
             Personality = new Personality(
