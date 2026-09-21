@@ -66,17 +66,20 @@ public static class StationGenerator
     private static readonly IReadOnlyDictionary<string, RoomProfile> CanonicalProfiles =
         new Dictionary<string, RoomProfile>(StringComparer.OrdinalIgnoreCase)
         {
-            ["quarters"] = new("quarters", "Crew Quarters", RoomType.CrewQuarters, 15, 22, 17, 25, 100),
-            ["kitchen"] = new("kitchen", "Kitchen", RoomType.Kitchen, 11, 16, 13, 19, 70),
-            ["lounge"] = new("lounge", "Recreation Lounge", RoomType.Recreation, 12, 19, 14, 22, 55),
-            ["hydroponics"] = new("hydroponics", "Hydroponics Bay", RoomType.Hydroponics, 14, 22, 17, 26, 70),
-            ["medical"] = new("medical", "Medical", RoomType.Medical, 11, 17, 13, 20, 80),
-            ["control"] = new("control", "Control Room", RoomType.ControlRoom, 13, 20, 14, 22, 100),
-            ["washroom"] = new("washroom", "Washroom", RoomType.Washroom, 9, 14, 11, 17, 45),
-            ["storage"] = new("storage", "Storage", RoomType.Storage, 11, 18, 13, 22, 55),
-            ["engineering"] = new("engineering", "Engineering", RoomType.Engineering, 14, 22, 17, 26, 100),
-            ["generator"] = new("generator", "Generator", RoomType.Generator, 13, 20, 16, 24, 90),
-            ["reactor"] = new("reactor", "Reactor", RoomType.Reactor, 16, 25, 18, 29, 100),
+            // Defaults are deliberately roomier than the pre-V0.13 generator, but
+            // not so large that the hard status-plate envelopes make established
+            // deterministic seeds impossible to pack.
+            ["quarters"] = new("quarters", "Crew Quarters", RoomType.CrewQuarters, 13, 20, 15, 23, 100),
+            ["kitchen"] = new("kitchen", "Kitchen", RoomType.Kitchen, 10, 15, 12, 18, 70),
+            ["lounge"] = new("lounge", "Recreation Lounge", RoomType.Recreation, 11, 18, 13, 21, 55),
+            ["hydroponics"] = new("hydroponics", "Hydroponics Bay", RoomType.Hydroponics, 12, 20, 15, 24, 70),
+            ["medical"] = new("medical", "Medical", RoomType.Medical, 10, 16, 12, 19, 80),
+            ["control"] = new("control", "Control Room", RoomType.ControlRoom, 12, 19, 13, 21, 100),
+            ["washroom"] = new("washroom", "Washroom", RoomType.Washroom, 9, 13, 11, 17, 45),
+            ["storage"] = new("storage", "Storage", RoomType.Storage, 10, 17, 12, 21, 55),
+            ["engineering"] = new("engineering", "Engineering", RoomType.Engineering, 13, 21, 15, 24, 100),
+            ["generator"] = new("generator", "Generator", RoomType.Generator, 12, 19, 15, 23, 90),
+            ["reactor"] = new("reactor", "Reactor", RoomType.Reactor, 15, 24, 17, 28, 100),
             ["airlock"] = new("airlock", "Airlock", RoomType.Airlock, 8, 12, 10, 14, 100),
             ["containment"] = new("containment", "Secure Containment", RoomType.Containment, 14, 22, 16, 24, 90),
             ["isolation"] = new("isolation", "Overseer Isolation", RoomType.ControlRoom, 8, 12, 10, 16, 100)
