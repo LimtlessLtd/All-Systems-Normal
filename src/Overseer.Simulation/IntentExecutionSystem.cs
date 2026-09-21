@@ -62,6 +62,37 @@ public sealed class IntentExecutionSystem
                     ExecuteRoomIntent(state, npc, intent);
                     break;
 
+                case ActionKind.MedicalCheckup:
+                case ActionKind.TreatInjury:
+                case ActionKind.AdministerMedication:
+                case ActionKind.ResurrectCrew:
+                    // Clinical outcomes are simulation-authoritative. A model may
+                    // express the intent, but MedicalSystem owns eligibility,
+                    // timing, supplies, power and health mutation.
+                    npc.CurrentAction = new NpcAction(
+                        ActionKind.Idle,
+                        intent.TargetId,
+                        "Clinical request noted; medbay protocols determine the outcome.");
+                    npc.Intent = null;
+                    break;
+
+                case ActionKind.CleanBlood:
+                    var cleaningRoom = ResolveRoom(state, intent.TargetId)
+                        ?? state.Facility.Rooms[npc.CurrentRoomId];
+                    if (!npc.CurrentRoomId.Equals(cleaningRoom.Id, StringComparison.OrdinalIgnoreCase))
+                    {
+                        MoveTowardRoom(state, npc, intent, cleaningRoom.Id);
+                    }
+                    else
+                    {
+                        npc.CurrentAction = new NpcAction(
+                            ActionKind.CleanBlood,
+                            cleaningRoom.Id,
+                            intent.Reason);
+                        npc.Intent = null;
+                    }
+                    break;
+
                 case ActionKind.Talk:
                 case ActionKind.Socialize:
                 case ActionKind.Argue:
