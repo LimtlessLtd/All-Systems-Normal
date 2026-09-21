@@ -1213,7 +1213,7 @@ button:hover:not(:disabled) {
     filter: brightness(1.08);
 }
 
-button:not(.room-node):not(.crew-token):not(.map-door):active:not(:disabled) {
+button:not([data-station-interactive]):not(.room-node):not(.crew-token):not(.map-door):active:not(:disabled) {
     transform: translateY(1px);
 }
 
@@ -7671,3 +7671,316 @@ button.turret-token {
         radial-gradient(circle at 50% 30%, #f16c76 0 16%, transparent 18%),
         linear-gradient(180deg, #b4c0c3, #66777d);
 }
+
+/* ---- Playtest correction pass: interaction, movement and hierarchy ---- */
+
+/* Station entities use transform for authoritative map positioning. Never let
+   generic button press feedback replace that transform and visually teleport
+   interactive machinery, robots, turrets, doors, rooms or crew. */
+button[data-station-interactive]:active:not(:disabled) {
+    transform: var(--station-active-transform, translate(-50%, -50%));
+}
+
+/* The map is a physical white/grey hull around a dark tiled deck. Selection
+   changes the rim, never the floor, so hover cannot make the deck disappear. */
+.station-authority-layer > .room-node:not(.hallway):not(.main-corridor) {
+    --deck-grid: rgba(202, 211, 214, .075);
+    background:
+        linear-gradient(var(--deck-grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--deck-grid) 1px, transparent 1px),
+        linear-gradient(180deg, #171b1e 0%, #0d1012 60%, #080a0b 100%);
+    background-size: 22px 22px, 22px 22px, auto;
+}
+
+.station-authority-layer > .room-node:not(.hallway):not(.main-corridor):hover,
+.station-authority-layer > .room-node:not(.hallway):not(.main-corridor).selected {
+    background:
+        linear-gradient(var(--deck-grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--deck-grid) 1px, transparent 1px),
+        linear-gradient(180deg, #171b1e 0%, #0d1012 60%, #080a0b 100%);
+    background-size: 22px 22px, 22px 22px, auto;
+    border-color: #5f666b;
+}
+
+.station-authority-layer > .room-node.no-power:not(.hallway):not(.main-corridor) {
+    --deck-grid: rgba(177, 118, 118, .075);
+    background:
+        linear-gradient(var(--deck-grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--deck-grid) 1px, transparent 1px),
+        linear-gradient(180deg, #171313, #0b0909);
+    background-size: 22px 22px, 22px 22px, auto;
+}
+
+/* Make the station-view window visibly separate from the white station floor. */
+.station-panel .panel-heading,
+.station-panel .map-footer {
+    background: #d8dde0;
+    color: #30363a;
+    border-color: #aeb5b9;
+}
+
+.station-panel .map-toolbar {
+    background: #e7eaec;
+    color: #3f464a;
+    border-color: #b8bec2;
+}
+
+/* The current assignment and the Corporation's experimental directives are
+   intentionally visually distinct. */
+.mission-directive-panel {
+    border-left: 4px solid #5f806f;
+    background:
+        linear-gradient(90deg, rgba(95,128,111,.11), transparent 34%),
+        var(--panel);
+}
+
+.directive-board {
+    border-left: 4px solid #765052;
+    background:
+        linear-gradient(90deg, rgba(118,80,82,.12), transparent 34%),
+        var(--panel);
+}
+
+.objective-section-label {
+    display: flex;
+    align-items: baseline;
+    gap: .6rem;
+    margin-top: .75rem;
+    padding-top: .6rem;
+    border-top: 1px solid var(--line);
+}
+
+.objective-section-label span {
+    font-size: .68rem;
+    font-weight: 900;
+    letter-spacing: .1em;
+}
+
+.objective-section-label small {
+    color: var(--muted);
+}
+
+.comms-primary {
+    width: 100%;
+    margin: 0 0 12px;
+}
+
+/* Immediate deterministic walking intent. The dotted line is presentation-only
+   and points to the next physical door/portal segment already owned by C#. */
+.crew-route-lines {
+    position: absolute;
+    inset: 0;
+    z-index: 9;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.crew-route-lines line {
+    stroke: #58b77a;
+    stroke-width: .16;
+    stroke-linecap: round;
+    stroke-dasharray: .8 .75;
+    opacity: .78;
+    vector-effect: non-scaling-stroke;
+    animation: crew-route-march 1.25s linear infinite;
+}
+
+@keyframes crew-route-march {
+    from { stroke-dashoffset: 0; }
+    to { stroke-dashoffset: -3.1; }
+}
+
+/* A smoother closed walking cycle: every animated part returns to the same
+   pose at 100%, so there is no end-of-loop snap. */
+.crew-token.is-walking .person-icon {
+    animation: crew-walk-cycle .52s linear infinite;
+}
+
+.crew-token.is-walking .person-leg-left {
+    animation: crew-step-left .52s linear infinite;
+}
+
+.crew-token.is-walking .person-leg-right {
+    animation: crew-step-right .52s linear infinite;
+}
+
+.crew-token.is-walking .person-arm-left {
+    animation: crew-swing-left .52s linear infinite;
+}
+
+.crew-token.is-walking .person-arm-right {
+    animation: crew-swing-right .52s linear infinite;
+}
+
+.crew-token.is-walking .crew-shadow {
+    animation: crew-shadow-cycle .52s linear infinite;
+}
+
+@keyframes crew-walk-cycle {
+    0%, 100% { transform: translateX(-50%) translateY(0) rotate(var(--crew-facing, 0deg)); }
+    25% { transform: translateX(-50%) translateY(-1.6px) rotate(var(--crew-facing, 0deg)); }
+    50% { transform: translateX(-50%) translateY(.3px) rotate(var(--crew-facing, 0deg)); }
+    75% { transform: translateX(-50%) translateY(-1.6px) rotate(var(--crew-facing, 0deg)); }
+}
+
+@keyframes crew-step-left {
+    0%, 100% { transform: translateY(1px) rotate(8deg); }
+    25% { transform: translateY(-2px) rotate(-11deg); }
+    50% { transform: translateY(1px) rotate(-6deg); }
+    75% { transform: translateY(2px) rotate(10deg); }
+}
+
+@keyframes crew-step-right {
+    0%, 100% { transform: translateY(1px) rotate(-8deg); }
+    25% { transform: translateY(2px) rotate(-10deg); }
+    50% { transform: translateY(1px) rotate(6deg); }
+    75% { transform: translateY(-2px) rotate(11deg); }
+}
+
+@keyframes crew-swing-left {
+    0%, 100% { transform: rotate(22deg); }
+    25% { transform: rotate(5deg); }
+    50% { transform: rotate(12deg); }
+    75% { transform: rotate(31deg); }
+}
+
+@keyframes crew-swing-right {
+    0%, 100% { transform: rotate(-22deg); }
+    25% { transform: rotate(-31deg); }
+    50% { transform: rotate(-12deg); }
+    75% { transform: rotate(-5deg); }
+}
+
+@keyframes crew-shadow-cycle {
+    0%, 50%, 100% { transform: translate(-50%, -50%) scaleX(1); opacity: .76; }
+    25%, 75% { transform: translate(-50%, -50%) scaleX(.9); opacity: .62; }
+}
+
+/* MR units use the same top-down visual language as crew: tracks flank a
+   compact chassis and the entire machine rotates toward its physical route. */
+.station-authority-layer .robot-token:not(.turret-token) {
+    width: 52px;
+    height: 52px;
+    min-width: 52px;
+    min-height: 52px;
+    --station-active-transform: translate(-50%, -50%);
+}
+
+.station-authority-layer .robot-token:not(.turret-token):hover,
+.station-authority-layer .robot-token:not(.turret-token).selected {
+    --station-active-transform: translate(-50%, -50%) scale(1.08);
+}
+
+.station-authority-layer .robot-machine {
+    left: 50%;
+    top: 50%;
+    width: 42px;
+    height: 42px;
+    inset: auto;
+    transform: translate(-50%, -50%) rotate(var(--robot-facing, 0deg));
+    transform-origin: 50% 50%;
+    transition: transform .18s ease;
+}
+
+.station-authority-layer .robot-shadow {
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    height: 12px;
+    opacity: .5;
+}
+
+.station-authority-layer .robot-track {
+    top: 7px;
+    width: 8px;
+    height: 28px;
+    border-width: 2px;
+    background: repeating-linear-gradient(0deg, #4c5357 0 4px, #92989c 4px 6px);
+}
+
+.station-authority-layer .robot-track-left { left: 1px; }
+.station-authority-layer .robot-track-right { right: 1px; }
+
+.station-authority-layer .robot-body {
+    left: 10px;
+    top: 6px;
+    width: 22px;
+    height: 30px;
+    border-radius: 7px;
+    background:
+        linear-gradient(90deg, #cfd4d6, #ffffff 48%, #b7bdc0);
+}
+
+.station-authority-layer .robot-head {
+    left: 14px;
+    top: 1px;
+    width: 14px;
+    height: 12px;
+    border-radius: 6px;
+}
+
+.station-authority-layer .robot-eye {
+    top: 2px;
+    width: 7px;
+    height: 3px;
+    transform: translateX(-50%);
+}
+
+.station-authority-layer .robot-arm {
+    top: 13px;
+    width: 6px;
+    height: 17px;
+}
+
+.station-authority-layer .robot-arm-left { left: 7px; }
+.station-authority-layer .robot-arm-right { right: 7px; }
+
+.station-authority-layer .robot-tool {
+    right: 3px;
+    top: 29px;
+}
+
+/* Linear repeating textures advance exactly one texture period, while pulses
+   return to their initial state. This makes machine loops visually seamless. */
+.station-authority-layer .fixture-pipe::after {
+    animation: pipe-flow 2.1s linear infinite;
+}
+
+.station-authority-layer .fixture-kitchencounter::after {
+    animation: appliance-blink 2.8s ease-in-out infinite;
+}
+
+@keyframes pipe-flow {
+    from { transform: none; background-position-x: 0; }
+    to { transform: none; background-position-x: 18px; }
+}
+
+@keyframes track-roll {
+    from { background-position-y: 0; }
+    to { background-position-y: 6px; }
+}
+
+@keyframes console-status {
+    0%, 100% { opacity: .45; }
+    50% { opacity: .9; }
+}
+
+@keyframes appliance-blink {
+    0%, 100% { opacity: .35; }
+    45%, 55% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .crew-route-lines line,
+    .crew-token.is-walking .person-icon,
+    .crew-token.is-walking .person-leg-left,
+    .crew-token.is-walking .person-leg-right,
+    .crew-token.is-walking .person-arm-left,
+    .crew-token.is-walking .person-arm-right,
+    .crew-token.is-walking .crew-shadow {
+        animation: none !important;
+    }
+}
+
