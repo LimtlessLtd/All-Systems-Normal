@@ -3,7 +3,7 @@
 Repository: https://github.com/LimtlessLtd/All-Systems-Normal
 Playable Pages build: https://limtlessltd.github.io/All-Systems-Normal/
 
-**Current state:** V0.10E — Inspector/Debug Separation, Door Interaction + Broader Crew Agency
+**Current state:** V0.10F — Interactive Station Overview & Functional Infrastructure
 **Next recommended milestone:** V0.11 — Contained Security-Network Malware & Crew Recovery
 
 This file is the authoritative technical handoff. Keep it concise and update sections in place; do not append milestone diaries.
@@ -150,12 +150,13 @@ Primary presentation helper: `src/Overseer.Simulation/StationPresentationSystem.
 - Functional-room labels/status UI are **external callouts**, built by `StationRoomCalloutSystem`, placed only in the outer 10% deck margin and joined to rooms by leader lines. Callouts must not cover authoritative room/corridor geometry or one another. They always show full room name + power/temperature/O₂ health.
 - Hull mass is drawn only from real room/corridor footprints. Do not reintroduce decorative rails/links that imply nonexistent navigation.
 - `FacilitySeeder.ApplyIdentityDrivenDetails` adds deterministic room-aware fixtures. Wall equipment is bulkhead-aligned; floor equipment uses collision-aware work bays; all generated fixtures stay inside their owning room.
-- V0.10D art direction is bright white/grey aerospace interiors with restrained green/orange/red status colour. Avoid neon cyan/blue, dark card-like rooms, global black/grey room fills, brown grime filters or UI labels painted over the physical room floor.
+- Station interiors are bright white/grey aerospace hardware with restrained green/orange/red status colour, surrounded by a dark JWST space backdrop. Avoid neon cyan/blue interiors, brown grime filters or UI labels painted over the physical room floor.
 - Room-specific interiors should be visually rich and active: consoles/screens, vents, irrigation, pipes, medical equipment, cameras, airlocks, generator/reactor machinery etc. Operational animation is presentation-only and should remain subtle enough not to become visual noise.
 - Browser and server `Home.razor` / `Home.razor.css` / `layout.js` must stay mirrored.
 - Robots are selectable map entities with a dedicated Inspector state and explicit machine silhouette; do not render them as generic dots/cards.
 - Desktop workspace is map-first. **Do not keep Facility Systems as a permanent primary-workspace panel.** Remove it or move non-contextual controls into a secondary utility surface so the station map + Inspector own the valuable screen area.
-- The right-side **Inspector is the universal contextual surface for anything clickable**: crew, rooms, doors, robots, turrets/automated defences and future interactable station entities. Selection must show that entity's relevant status, state, goals/motivations where applicable, diagnostics and permitted controls.
+- The right-side **Inspector is the universal contextual surface for anything clickable**: crew, rooms, doors, functional fixtures/machinery, robots, turrets/automated defences and future interactable station entities. The station overview is the player's primary interaction surface; do not add separate robot/system control panels.
+- Map camera drag must never steal clicks from `[data-station-interactable]`. Pointer capture starts only after an empty-space drag threshold; regression tests protect this contract.
 - **Telemetry/debugging is not an Inspector tab beside the live station.** Move it to a separate full-screen debug view/route where the station map is not rendered. It must contain no player-critical information because normal release builds may hide/disable the debug view entirely.
 
 Visual invariants: never invent hull/corridor/door geometry, never offset one physical entity separately for aesthetics, and never let decorative fixtures become simulation-authoritative unless the domain contract is explicitly extended.
@@ -168,7 +169,7 @@ Current shared mechanics include:
 
 - rooms/corridors/doors/fixtures and deterministic A* movement
 - door lock/open/manual override/bypass/damage/repair/weld/barricade counterplay
-- power, equipment wear/repair, life support and environmental propagation
+- condition-driven generation, switchboard capacity, capacitor charge/discharge, progressive brownout/load shedding, door actuator buses, equipment wear/repair, life support and environmental propagation
 - physical airlocks, pressure cycling and decompression
 - hydroponics, provisions, cooking, eating and human routines
 - autonomous crew with skills, traits, relationships, beliefs, memories and persistent intents
@@ -181,13 +182,15 @@ Current shared mechanics include:
 - mirrored Pages/server station UI, resizable panels, large pannable deck camera, wheel/WASD/drag zoom/pan, audio/music, speech/thought bubbles and physical entity animation
 - external room telemetry callouts with leader lines and no room/corridor overlap
 - bright white/grey spacecraft interior art direction with animated consoles/screens/vents/irrigation/pipes/medical/camera/airlock/machinery cues
-- one shared `StationSelection` / `StationInspectionSystem` contract drives the contextual Inspector for rooms, crew, doors, MR robots and ST turrets
+- one shared `StationSelection` / `StationInspectionSystem` contract drives the contextual Inspector for rooms, crew, doors, functional fixtures/machinery, MR robots and ST turrets
 - the primary workspace is map + Inspector + comms; the old permanent Facility Systems panel is removed
 - `/debug` is a separate full-screen non-gameplay diagnostics surface; it contains cognition traces, raw Ollama prompt/response data, event logs and generation diagnostics and can be disabled without changing simulation authority
-- authoritative sliding doors animate from `Door.IsOpen`; ordinary crew automatically open traversable closed/unlocked hatches and they auto-close after traffic, while deterministic role/skill rules gate lock/unlock
+- authoritative sliding doors animate from `Door.IsOpen`, retract fully clear of the passage, render beneath mobile entities, and visibly distinguish open/closed/locked/unpowered; ordinary crew operate normal hatches and deterministic role/skill rules gate lock/unlock
 - `CrewAffordanceSystem` is the shared capability catalog for Ollama and browser fallback; deterministic systems still validate knowledge, targets, routes, skills, permissions and outcomes
 - expanded grounded crew agency includes cooperative, investigative, deceptive, safety and local door intentions; deception never directly edits another NPC's beliefs
-- selectable MR robots with dedicated Inspector telemetry; crew and friendly robots physically approach actual fixtures/equipment while working where an interaction point exists
+- selectable MR robots use the same universal Inspector; crew and friendly robots physically approach actual fixtures/equipment while working
+- `StationInfrastructureSystem` maps visible room/door controls and machinery to authoritative systems; current backbone includes generators/reactor, switchboard, capacitor bank, coolant pump, oxygen generator, CO₂ scrubber, thermal loop, local lighting/camera/ventilation/climate service points and door controls
+- maintenance crew are assigned by discipline/skill and physically walk to the actual failing machine or hatch hardware before repairs progress
 - transient cognition diagnostics via `CognitionTelemetrySystem`; Ollama traces retain prompt/raw response/validated intent, browser/rule-based minds emit the same decision shape
 - missing-person logic treats routine separation as normal: concern is measured in hours, Concerned-stage absence does not pre-empt work, and shared concern does not instantly interrupt the listener
 - server/Ollama already generates fresh six-person rosters with 1–3 mechanically meaningful traits for new non-continuing sessions; browser Pages remains model-free
@@ -202,6 +205,8 @@ Useful subsystem anchors:
 - src/Overseer.Simulation/EnvironmentSystem.cs
 - src/Overseer.Simulation/StationUpkeepSystem.cs
 - src/Overseer.Simulation/StationInteractionSystems.cs
+- src/Overseer.Simulation/StationInfrastructureSystem.cs
+- src/Overseer.Simulation/CrewMaintenanceSystem.cs
 - src/Overseer.Simulation/CrewProvisioningSystem.cs
 - src/Overseer.Simulation/BrowserMindSystem.cs
 - src/Overseer.AI/NpcPromptBuilder.cs
@@ -239,15 +244,15 @@ Standard gate:
 
 ---
 
-## Completed V0.10E contracts
+## Recent interaction/infrastructure contracts
 
-- Debug telemetry is isolated on `/debug`; no station map or player-critical controls live there.
-- The live workspace no longer carries the permanent Facility Systems panel.
-- Rooms, crew, doors, MR robots and ST turrets use one extensible Inspector selection contract.
-- Closed/unlocked powered doors are normal crew-traversable affordances: crew physically opens them at the portal, crossing revalidates live state, and traffic-driven auto-close is authoritative.
-- Engineer/Technician plus deterministic Security/Commander skill rules gate crew lock/unlock; existing damaged/manual/bypass/weld/barricade rules remain authoritative.
-- Ollama consumes a shared capability-oriented affordance catalog instead of a duplicated hardcoded menu; the model-free browser mind uses the same action contracts.
-- V0.10E regression coverage lives in `V010EInteractionTests.cs` plus existing navigation/browser-mind tests.
+- `/debug` remains isolated and non-gameplay; the live workspace is station overview + universal Inspector + comms.
+- Rooms, crew, doors, functional machinery, MR robots and ST turrets must all be selectable directly from the station overview.
+- `layout.js` must not pointer-capture station entity clicks; `StationOverviewInfrastructureTests` protects mirrored click hooks, source contracts, sliding-door state and the space backdrop.
+- Functional fixtures carry `SystemId` and resolve through `StationInspectionSystem`; decorative fixtures remain non-authoritative.
+- Grid degradation order is deterministic: generation/distribution/capacitor limits → auxiliary lighting/camera loss → door actuator availability/load shedding → essential life-support loss.
+- Oxygen generation, CO₂ scrubbing, thermal exchange and reactor coolant are separate maintainable machines with deterministic consequences.
+- Maintenance work uses real device fixtures/hatch positions and real crew routing.
 
 ## Next milestone — V0.11 Contained Security-Network Malware & Crew Recovery
 
