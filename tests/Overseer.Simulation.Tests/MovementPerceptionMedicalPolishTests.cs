@@ -43,6 +43,42 @@ public sealed class MovementPerceptionMedicalPolishTests
     }
 
     [Fact]
+    public void SeedOneStorageDoorApproach_DoesNotStallOnFixtureWaypoints()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+
+        marcus.CurrentRoomId = "storage";
+        marcus.PositionX = 25.9;
+        marcus.PositionY = 21.9;
+        marcus.Movement = null;
+        marcus.Intent = new NpcIntent(
+            ActionKind.Eat,
+            null,
+            "Get something to eat.",
+            "I am hungry.",
+            75,
+            "Test",
+            state.Elapsed);
+
+        var intents = new IntentExecutionSystem();
+        var movement = new LocalMovementSystem();
+
+        for (var minute = 0;
+             minute < 12 && marcus.CurrentRoomId.Equals("storage", StringComparison.OrdinalIgnoreCase);
+             minute++)
+        {
+            intents.Tick(state);
+            movement.Tick(state, TimeSpan.FromMinutes(1));
+            state.Elapsed += TimeSpan.FromMinutes(1);
+        }
+
+        Assert.False(
+            marcus.CurrentRoomId.Equals("storage", StringComparison.OrdinalIgnoreCase),
+            $"Marcus stalled in Storage at {marcus.PositionX:0.0},{marcus.PositionY:0.0}.");
+    }
+
+    [Fact]
     public void HumanLos_UsesForwardConeAndOpenDoorGeometry()
     {
         var state = TwoRoomState();
