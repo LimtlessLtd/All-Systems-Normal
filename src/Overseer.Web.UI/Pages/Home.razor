@@ -52,7 +52,7 @@
             <button type="button"
                     class="status-tile @(Session.AlertCount > 0 ? "has-alerts" : "")"
                     data-station-interactive
-                    title="Show what the alerts are"
+                    title="@AlertHoverTitle"
                     @onclick="ShowAlertsAsync">
                 <span>ALERTS</span>
                 <strong>@Session.AlertCount</strong>
@@ -353,7 +353,7 @@
                     <button type="button"
                             class="mini station-alerts station-popup-toggle @(Session.AlertCount > 0 ? "has-alerts" : "no-alerts") @(_stationOverlay == "alerts" ? "active" : "")"
                             aria-pressed="@(_stationOverlay == "alerts")"
-                            title="Show what the alerts are"
+                            title="@AlertHoverTitle"
                             @onclick='() => ToggleStationOverlay("alerts")'>@Session.AlertCount ALERT@(Session.AlertCount == 1 ? "" : "S")</button>
                     <button type="button"
                             class="secondary mini pause-toggle @(_paused ? "is-paused" : "")"
@@ -595,7 +595,7 @@
                                 <button type="button"
                                         class="station-alert-entry @(alert.Severity == StationAlertSeverity.Critical ? "critical" : "warning")"
                                         disabled="@(alert.Target is null)"
-                                        @onclick="() => InspectAlert(alert)">
+                                        @onclick="() => InspectAlertAsync(alert)">
                                     <b>@(alert.Severity == StationAlertSeverity.Critical ? "CRITICAL" : "WARNING")</b>
                                     <span>@alert.Message</span>
                                 </button>
@@ -698,6 +698,7 @@
                          style="@RoomStyle(room)"
                          role="button"
                          tabindex="0"
+                         data-room-id="@room.Id"
                          data-station-interactive
                          aria-label="@($"Select {room.Name}")"
                          @onclick="() => SelectRoom(room.Id)">
@@ -710,8 +711,10 @@
                                             type="button"
                                             class="@FixtureClass(fixture)"
                                             style="@FixtureStyle(fixture)"
-                                            title="@StationPresentationSystem.FixtureDisplayName(fixture)"
-                                            aria-label="@($"Inspect {StationPresentationSystem.FixtureDisplayName(fixture)}")"
+                                            title="@FixtureTitle(room, fixture)"
+                                            aria-label="@($"Inspect {FixtureTitle(room, fixture)}")"
+                                            data-device-id="@deviceId"
+                                            data-crop="@CropFixtureLabel(room, fixture)"
                                             data-station-interactive
                                             @onclick:stopPropagation="true"
                                             @onclick="() => SelectDevice(deviceId)"></button>
@@ -721,7 +724,8 @@
                                     <i @key="fixture"
                                        class="@FixtureClass(fixture)"
                                        style="@FixtureStyle(fixture)"
-                                       title="@StationPresentationSystem.FixtureDisplayName(fixture)"
+                                       title="@FixtureTitle(room, fixture)"
+                                       data-crop="@CropFixtureLabel(room, fixture)"
                                        aria-hidden="true"></i>
                                 }
                             }
@@ -746,6 +750,7 @@
                             style="@DoorStyle(door)"
                             title="@DoorTitle(door)"
                             aria-label="@DoorTitle(door)"
+                            data-door-id="@door.Id"
                             data-station-interactive
                             @onclick="() => SelectDoor(door.Id)">
                         <span class="door-leaf door-leaf-a" aria-hidden="true"></span>
@@ -758,6 +763,10 @@
                     </button>
                 }
 
+                @{
+                    var selectedRoute = SelectedRoutePoints();
+                    var selectedDestination = SelectedRouteDestination();
+                }
                 <svg class="crew-route-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                     @foreach (var movingCrew in Session.State.Crew.Where(npc => npc.IsAlive && CanSee(npc) && npc.Movement is not null))
                     {
@@ -765,6 +774,22 @@
                               y1="@CrewMapY(movingCrew)"
                               x2="@CrewNextMapX(movingCrew)"
                               y2="@CrewNextMapY(movingCrew)"></line>
+                    }
+                    @if (selectedRoute.Count > 1)
+                    {
+                        <polyline class="selected-route-path"
+                                  points="@RoutePointString(selectedRoute)"></polyline>
+                        var finalPoint = selectedRoute[^1];
+                        <circle class="selected-route-destination"
+                                cx="@finalPoint.X"
+                                cy="@finalPoint.Y"
+                                r="1.25"></circle>
+                        @if (!string.IsNullOrWhiteSpace(selectedDestination))
+                        {
+                            <text class="selected-route-label"
+                                  x="@finalPoint.X"
+                                  y="@(finalPoint.Y - 2)">@selectedDestination</text>
+                        }
                     }
                 </svg>
 
@@ -786,6 +811,7 @@
                             style="@RobotStyle(mapRobot)"
                             title="@($"{mapRobot.Name} — {mapRobot.Policy} — {mapRobot.CurrentTask}")"
                             aria-label="@($"Select {mapRobot.Name}, {mapRobot.Policy} policy")"
+                            data-robot-id="@mapRobot.Id"
                             data-station-interactive
                             @onclick="() => SelectRobot(mapRobot.Id)">
                         <span class="robot-shadow" aria-hidden="true"></span>
@@ -810,6 +836,7 @@
                             style="@TurretStyle(mapTurret)"
                             title="@($"{mapTurret.Name} — {mapTurret.Policy} — {mapTurret.CurrentTask}")"
                             aria-label="@($"Select {mapTurret.Name}, {mapTurret.Policy} policy, {(mapTurret.IsArmed ? "armed" : "disarmed")}")"
+                            data-turret-id="@mapTurret.Id"
                             data-station-interactive
                             @onclick="() => SelectTurret(mapTurret.Id)">
                         <span class="robot-icon" aria-hidden="true"></span>
@@ -1164,6 +1191,28 @@
                 </div>
 
                 <p class="role-line">@selectedCrew.Role · @crewRoom.Name</p>
+
+                <div class="environment-grid crew-condition-grid">
+                    <div><span>FATIGUE</span><strong>@selectedCrew.Fatigue.ToString("0")%</strong></div>
+                    <div><span>SLEEP DEBT</span><strong>@selectedCrew.SleepDebtMinutes.ToString("0") min</strong></div>
+                    <div><span>CONDITION</span><strong>@CrewConditionRules.ImpairmentLabel(selectedCrew).ToUpperInvariant()</strong></div>
+                    <div><span>MOVE RATE</span><strong>@((CrewConditionRules.MovementMultiplier(selectedCrew) * 100).ToString("0"))%</strong></div>
+                </div>
+
+                <div class="belief-card food-preference-card">
+                    <span>FOOD PREFERENCES</span>
+                    <p><strong>LIKES</strong> @string.Join(", ", selectedCrew.FoodLikes.OrderBy(crop => crop))</p>
+                    <p><strong>DISLIKES</strong> @string.Join(", ", selectedCrew.FoodDislikes.OrderBy(crop => crop))</p>
+                    <small>Raw crops are emergency food: weaker nutrition and a stress penalty, amplified by dislikes.</small>
+                </div>
+
+                @if (selectedCrew.IsPrisoner)
+                {
+                    <div class="belief-card containment-card">
+                        <span>CONTAINMENT PROFILE</span>
+                        <p><strong>@selectedCrew.PrisonerDangerLevel.ToString().ToUpperInvariant()</strong> danger classification · violence bias @selectedCrew.PrisonerViolenceBias.ToString("0")</p>
+                    </div>
+                }
 
                 <div class="belief-card">
                     <span>MAIN PERSONALITY TRAITS · @selectedCrew.GenerationSource.ToUpperInvariant()</span>
@@ -1788,6 +1837,7 @@
     private long _lastAudioSequence;
     private CancellationTokenSource? _clockCts;
     private Task? _clockTask;
+    private readonly NavigationSystem _routeNavigation = new();
 
     private Room? SelectedRoom =>
         StationInspectionSystem.Room(Session.State, _selection);
@@ -1895,11 +1945,44 @@
         }
     }
 
-    private void InspectAlert(StationAlert alert)
+    private async Task InspectAlertAsync(StationAlert alert)
     {
-        if (alert.Target is not null)
+        if (alert.Target is not { } target)
+            return;
+
+        _selection = target;
+        _stationOverlay = null;
+        await InvokeAsync(StateHasChanged);
+
+        var selector = target.Kind switch
         {
-            _selection = alert.Target;
+            StationSelectionKind.Room => $"[data-room-id='{target.Id}']",
+            StationSelectionKind.Crew => $"[data-crew-id='{target.Id}']",
+            StationSelectionKind.Door => $"[data-door-id='{target.Id}']",
+            StationSelectionKind.Robot => $"[data-robot-id='{target.Id}']",
+            StationSelectionKind.Turret => $"[data-turret-id='{target.Id}']",
+            StationSelectionKind.Device => $"[data-device-id='{target.Id}']",
+            _ => null
+        };
+
+        if (selector is not null)
+        {
+            await JS.InvokeAsync<bool>("overseerLayout.focusEntity", selector);
+        }
+    }
+
+    private string AlertHoverTitle
+    {
+        get
+        {
+            var recent = Session.RecentAlerts;
+            if (recent.Count == 0)
+                return "No recent alerts.";
+
+            return "Last 5 alerts:\n" + string.Join(
+                "\n",
+                recent.Select(alert =>
+                    $"{(alert.Severity == StationAlertSeverity.Critical ? "CRITICAL" : "WARNING")}: {alert.Message}"));
         }
     }
 
@@ -2523,11 +2606,40 @@
         CrewRole.Doctor => "+",
         CrewRole.Technician => "◇",
         CrewRole.Scientist => "●",
+        CrewRole.Prisoner => "▣",
         _ => "•"
     };
 
     private static double CrewFacingAngle(Npc npc) =>
         npc.FacingDegrees + 90;
+
+    private string CropFixtureLabel(Room room, RoomFixture fixture)
+    {
+        if (fixture.Type != FixtureType.GrowBed)
+            return string.Empty;
+
+        var fixtures = room.Fixtures
+            .Where(candidate => candidate.Type == FixtureType.GrowBed)
+            .OrderBy(candidate => candidate.Label, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var index = fixtures.IndexOf(fixture);
+        if (index < 0)
+            return string.Empty;
+
+        var bed = Session.State.CropBeds
+            .Where(candidate => candidate.RoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(candidate => candidate.Id, StringComparer.OrdinalIgnoreCase)
+            .ElementAtOrDefault(index);
+
+        return bed?.Crop.ToString().ToUpperInvariant() ?? string.Empty;
+    }
+
+    private string FixtureTitle(Room room, RoomFixture fixture)
+    {
+        var display = StationPresentationSystem.FixtureDisplayName(fixture);
+        var crop = CropFixtureLabel(room, fixture);
+        return string.IsNullOrWhiteSpace(crop) ? display : $"{display} — {crop}";
+    }
 
     private static string FixtureClass(RoomFixture fixture)
     {
@@ -2657,6 +2769,75 @@
         FormattableString.Invariant(
             $"left:{room.MapX}%;top:{room.MapY}%;width:{room.MapWidth}%;height:{room.MapHeight}%;");
 
+    private readonly record struct RoutePoint(double X, double Y);
+
+    private IReadOnlyList<RoutePoint> SelectedRoutePoints()
+    {
+        IReadOnlyList<string> path;
+        var points = new List<RoutePoint>();
+
+        if (SelectedCrew is { IsAlive: true, PlannedDestinationRoomId: { } crewDestination } crew
+            && Session.State.Facility.Rooms.ContainsKey(crewDestination))
+        {
+            path = _routeNavigation.FindPathForCrew(
+                Session.State,
+                crew,
+                crew.CurrentRoomId,
+                crewDestination);
+            if (path.Count < 2)
+                return [];
+
+            points.Add(new(CrewMapX(crew), CrewMapY(crew)));
+        }
+        else if (SelectedRobot is { TargetRoomId: { } robotDestination } robot
+                 && Session.State.Facility.Rooms.ContainsKey(robotDestination))
+        {
+            path = _routeNavigation.FindPath(
+                Session.State.Facility,
+                robot.CurrentRoomId,
+                robotDestination);
+            if (path.Count < 2)
+                return [];
+
+            points.Add(new(RobotMapX(robot), RobotMapY(robot)));
+        }
+        else
+        {
+            return [];
+        }
+
+        for (var index = 0; index < path.Count - 1; index++)
+        {
+            var first = Session.State.Facility.Rooms[path[index]];
+            var second = Session.State.Facility.Rooms[path[index + 1]];
+            try
+            {
+                var portal = StationGeometry.FindSharedPortal(first, second);
+                points.Add(new(portal.X, portal.Y));
+            }
+            catch (InvalidOperationException)
+            {
+                points.Add(new(second.MapX, second.MapY));
+            }
+        }
+
+        var destinationRoom = Session.State.Facility.Rooms[path[^1]];
+        points.Add(new(destinationRoom.MapX, destinationRoom.MapY));
+        return points;
+    }
+
+    private string? SelectedRouteDestination()
+    {
+        var roomId = SelectedCrew?.PlannedDestinationRoomId ?? SelectedRobot?.TargetRoomId;
+        return roomId is not null && Session.State.Facility.Rooms.TryGetValue(roomId, out var room)
+            ? room.Name
+            : null;
+    }
+
+    private static string RoutePointString(IReadOnlyList<RoutePoint> points) =>
+        string.Join(" ", points.Select(point =>
+            FormattableString.Invariant($"{point.X:0.###},{point.Y:0.###}")));
+
     private double CrewMapX(Npc npc)
     {
         var room = Session.State.Facility.Rooms[npc.CurrentRoomId];
@@ -2702,17 +2883,24 @@
             $"left:{mapX:0.###}%;top:{mapY:0.###}%;--blood-size:{size:0.#}px;");
     }
 
-    private string RobotStyle(StationRobot robot)
+    private double RobotMapX(StationRobot robot)
     {
         var room = Session.State.Facility.Rooms[robot.CurrentRoomId];
-        var mapX = room.MapX
-            + (((robot.PositionX - 50) / 100) * room.MapWidth);
-        var mapY = room.MapY
-            + (((robot.PositionY - 50) / 100) * room.MapHeight);
+        return room.MapX + (((robot.PositionX - 50) / 100) * room.MapWidth);
+    }
+
+    private double RobotMapY(StationRobot robot)
+    {
+        var room = Session.State.Facility.Rooms[robot.CurrentRoomId];
+        return room.MapY + (((robot.PositionY - 50) / 100) * room.MapHeight);
+    }
+
+    private string RobotStyle(StationRobot robot)
+    {
         var facing = RobotFacingAngle(robot);
 
         return FormattableString.Invariant(
-            $"left:{mapX}%;top:{mapY}%;--robot-facing:{facing:0.##}deg;");
+            $"left:{RobotMapX(robot)}%;top:{RobotMapY(robot)}%;--robot-facing:{facing:0.##}deg;");
     }
 
     private static double RobotFacingAngle(StationRobot robot) =>
