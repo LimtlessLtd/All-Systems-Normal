@@ -43,9 +43,9 @@ public sealed class ScenarioProgressSystem
 
                 case ScenarioObjectiveKind.KeepCrewAlive:
                     progress.Current = livingCrew;
-                    progress.IsFailed = livingCrew < objective.Target;
+                    progress.IsFailed = livingCrew < progress.Target;
                     progress.StatusText =
-                        $"{livingCrew}/{objective.Target:0} crew alive";
+                        $"{livingCrew}/{progress.Target:0} crew alive";
                     break;
 
                 case ScenarioObjectiveKind.LifeSupportUptimePercent:
@@ -104,7 +104,7 @@ public sealed class ScenarioProgressSystem
             switch (objective.Kind)
             {
                 case ScenarioObjectiveKind.KeepCrewAlive:
-                    progress.IsComplete = livingCrew >= objective.Target;
+                    progress.IsComplete = livingCrew >= progress.Target;
                     progress.IsFailed = !progress.IsComplete;
                     break;
 
