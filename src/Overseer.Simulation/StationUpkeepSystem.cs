@@ -674,6 +674,16 @@ public sealed class StationUpkeepSystem
                 && state.Power.DistributionEfficiencyPercent >= 22;
         }
 
+        var network = Find(state, StationSystemKind.DataNetwork);
+        var controlPowered = state.Facility.Rooms.TryGetValue("control", out var control)
+            && control.IsPowered;
+        state.ControlNetworkOnline = controlPowered
+            && network is { IsOperational: true }
+            && state.Power.DistributionEfficiencyPercent >= 18;
+
+        foreach (var room in state.Facility.Rooms.Values)
+            room.CameraNetworkReachable = state.ControlNetworkOnline;
+
         var engineeringPowered = state.Facility.Rooms.TryGetValue("engineering", out var engineering)
             && engineering.IsPowered;
         var core = Find(state, StationSystemKind.LifeSupport);
