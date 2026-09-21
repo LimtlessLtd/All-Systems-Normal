@@ -791,13 +791,12 @@
                         <circle class="selected-route-destination"
                                 cx="@finalPoint.X"
                                 cy="@finalPoint.Y"
-                                r="1.25"></circle>
-                        @if (!string.IsNullOrWhiteSpace(selectedDestination))
-                        {
-                            <text class="selected-route-label"
-                                  x="@finalPoint.X"
-                                  y="@(finalPoint.Y - 2)">@selectedDestination</text>
-                        }
+                                r="1.25">
+                            @if (!string.IsNullOrWhiteSpace(selectedDestination))
+                            {
+                                <title>Destination: @selectedDestination</title>
+                            }
+                        </circle>
                     }
                 </svg>
 
