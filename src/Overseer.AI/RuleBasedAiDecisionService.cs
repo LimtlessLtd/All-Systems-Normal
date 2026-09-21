@@ -52,6 +52,10 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                     98);
             }
         }
+        else if (FindSecurityMalwareResponse(state, npc) is { } malwareResponse)
+        {
+            intent = malwareResponse;
+        }
         else if (FindTurretCountermeasure(state, npc) is { } turretCountermeasure)
         {
             intent = turretCountermeasure;
@@ -254,6 +258,84 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
             intent);
 
         return Task.FromResult(intent);
+    }
+
+    private static NpcIntent? FindSecurityMalwareResponse(GameState state, Npc npc)
+    {
+        if (!state.SecurityMalware.IsActive
+            || !SecurityMalwareSystem.HasMalwareEvidence(npc))
+        {
+            return null;
+        }
+
+        var technical = CrewCounterplaySystem.BestTechnicalSkill(npc);
+        var controller = state.Facility.Rooms[SecurityMalwareSystem.ControllerRoomId];
+
+        if (state.SecurityMalware.Stage == SecurityMalwareStage.Active)
+        {
+            if (SecurityMalwareSystem.CanIsolate(state, npc))
+            {
+                return Create(
+                    npc,
+                    state,
+                    ActionKind.IsolateSecurityController,
+                    SecurityMalwareSystem.ControllerTargetId,
+                    "Physically isolate the compromised MR/ST security controller.",
+                    "I physically diagnosed malicious MR/ST commands and need to contain their controller before cleanup.",
+                    99);
+            }
+
+            if (technical >= 55
+                && !npc.CurrentRoomId.Equals(
+                    SecurityMalwareSystem.ControllerRoomId,
+                    StringComparison.OrdinalIgnoreCase)
+                && ReachableRooms(state.Facility, npc.CurrentRoomId)
+                    .Contains(SecurityMalwareSystem.ControllerRoomId))
+            {
+                return Create(
+                    npc,
+                    state,
+                    ActionKind.Move,
+                    controller.Id,
+                    $"Reach {controller.Name} to diagnose and contain the security-controller anomaly.",
+                    "I witnessed suspicious MR/ST control behaviour and need physical controller access before assuming its cause or scope.",
+                    96);
+            }
+        }
+
+        if (state.SecurityMalware.Stage == SecurityMalwareStage.Isolated)
+        {
+            if (SecurityMalwareSystem.CanPurge(state, npc))
+            {
+                return Create(
+                    npc,
+                    state,
+                    ActionKind.PurgeSecurityController,
+                    SecurityMalwareSystem.ControllerTargetId,
+                    "Purge and reimage the isolated MR/ST security controller.",
+                    "I diagnosed the compromise and the controller is physically isolated, so a clean local reimage is now appropriate.",
+                    98);
+            }
+
+            if (technical >= 65
+                && !npc.CurrentRoomId.Equals(
+                    SecurityMalwareSystem.ControllerRoomId,
+                    StringComparison.OrdinalIgnoreCase)
+                && ReachableRooms(state.Facility, npc.CurrentRoomId)
+                    .Contains(SecurityMalwareSystem.ControllerRoomId))
+            {
+                return Create(
+                    npc,
+                    state,
+                    ActionKind.Move,
+                    controller.Id,
+                    $"Reach {controller.Name} to finish security-controller recovery.",
+                    "The incident is contained, but I need physical access to verify and reimage the controller.",
+                    93);
+            }
+        }
+
+        return null;
     }
 
     private static NpcIntent? FindTurretCountermeasure(GameState state, Npc npc)

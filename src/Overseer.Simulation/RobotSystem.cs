@@ -32,6 +32,12 @@ public sealed class RobotSystem
             return false;
         }
 
+        if (robot.IsControlLinkCompromised)
+        {
+            message = $"{robot.Name} refused direct policy update: CONTROL LINK COMPROMISED.";
+            return false;
+        }
+
         if (robot.Policy == policy)
         {
             message = $"{robot.Name} policy is already {policy}.";
@@ -67,6 +73,12 @@ public sealed class RobotSystem
         if (!robot.HasRemoteControlLink)
         {
             message = $"{robot.Name} refused remote shutdown command: CONTROL LINK ISOLATED.";
+            return false;
+        }
+
+        if (robot.IsControlLinkCompromised)
+        {
+            message = $"{robot.Name} refused direct shutdown command: CONTROL LINK COMPROMISED.";
             return false;
         }
 

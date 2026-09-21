@@ -318,6 +318,8 @@ public enum ActionKind
     DisableTurretPower,
     DamageTurret,
     ReprogramTurret,
+    IsolateSecurityController,
+    PurgeSecurityController,
 
     // V0.10E open-ended crew affordances. These remain high-level intentions:
     // deterministic simulation validates targets, access, skills and outcomes.
@@ -521,6 +523,7 @@ public sealed class StationRobot : IStationMobileEntity
     public double BatteryPercent { get; set; } = 100;
     public bool ChargingEnabled { get; set; } = true;
     public bool IsNetworkIsolated { get; set; }
+    public bool IsControlLinkCompromised { get; set; }
     public bool IsLocallyShutdown { get; set; }
     public bool IsRemotelyShutdown { get; set; }
     public string CurrentTask { get; set; } = "Awaiting assignment.";
@@ -557,6 +560,7 @@ public sealed class SecurityTurret
     public double Integrity { get; set; } = 100;
     public bool IsArmed { get; set; }
     public bool IsNetworkIsolated { get; set; }
+    public bool IsControlLinkCompromised { get; set; }
     public bool PowerFeedEnabled { get; set; } = true;
     public int Ammunition { get; set; } = 12;
     public double Heat { get; set; }
@@ -882,6 +886,7 @@ public sealed class GameState
 
     public PowerGrid Power { get; } = new();
     public bool ControlNetworkOnline { get; set; } = true;
+    public SecurityMalwareState SecurityMalware { get; } = new();
 
     // The food chain: beds in hydroponics, stores the galley draws on.
     public List<CropBed> CropBeds { get; } = [];

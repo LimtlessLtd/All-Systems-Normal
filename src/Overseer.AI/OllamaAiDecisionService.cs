@@ -318,6 +318,28 @@ public sealed class OllamaAiDecisionService(
                 target = turret.Id;
             }
         }
+        else if (action is ActionKind.IsolateSecurityController
+            or ActionKind.PurgeSecurityController)
+        {
+            var allowed = action switch
+            {
+                ActionKind.IsolateSecurityController =>
+                    SecurityMalwareSystem.CanIsolate(state, npc),
+                ActionKind.PurgeSecurityController =>
+                    SecurityMalwareSystem.CanPurge(state, npc),
+                _ => false
+            };
+
+            if (!allowed)
+            {
+                action = ActionKind.Idle;
+                target = null;
+            }
+            else
+            {
+                target = SecurityMalwareSystem.ControllerTargetId;
+            }
+        }
         else if (action == ActionKind.ShutdownOverseer)
         {
             var mechanism = state.ShutdownMechanisms.FirstOrDefault(candidate =>

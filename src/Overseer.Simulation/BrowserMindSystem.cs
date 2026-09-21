@@ -197,6 +197,11 @@ public sealed class BrowserMindSystem
 
         var repairSkill = CrewCounterplaySystem.BestRepairSkill(npc);
 
+        if (FindSecurityMalwareResponse(state, npc) is { } malwareResponse)
+        {
+            return malwareResponse;
+        }
+
         if (FindTurretCountermeasure(state, npc) is { } turretCountermeasure)
         {
             return turretCountermeasure;
@@ -482,6 +487,86 @@ public sealed class BrowserMindSystem
             "Stay alert and continue normal duties.",
             "Nothing feels urgent enough to interrupt my routine.",
             15);
+    }
+
+    private NpcIntent? FindSecurityMalwareResponse(GameState state, Npc npc)
+    {
+        if (!state.SecurityMalware.IsActive
+            || !SecurityMalwareSystem.HasMalwareEvidence(npc))
+        {
+            return null;
+        }
+
+        var technical = CrewCounterplaySystem.BestTechnicalSkill(npc);
+        var controllerRoom = state.Facility.Rooms[SecurityMalwareSystem.ControllerRoomId];
+
+        if (state.SecurityMalware.Stage == SecurityMalwareStage.Active)
+        {
+            if (SecurityMalwareSystem.CanIsolate(state, npc))
+            {
+                return Create(
+                    state,
+                    ActionKind.IsolateSecurityController,
+                    SecurityMalwareSystem.ControllerTargetId,
+                    "Physically isolate the compromised MR/ST security controller.",
+                    "Local diagnostics show malicious signed commands on the security controller. I want to cut its remote links before attempting cleanup.",
+                    99);
+            }
+
+            if (technical >= 55
+                && !npc.CurrentRoomId.Equals(
+                    SecurityMalwareSystem.ControllerRoomId,
+                    StringComparison.OrdinalIgnoreCase)
+                && _navigation.FindPathForCrew(
+                    state,
+                    npc,
+                    npc.CurrentRoomId,
+                    SecurityMalwareSystem.ControllerRoomId).Count >= 2)
+            {
+                return Create(
+                    state,
+                    ActionKind.Move,
+                    controllerRoom.Id,
+                    $"Reach {controllerRoom.Name} to isolate the compromised security controller.",
+                    "I have grounded diagnostics of a security-controller compromise and need physical access to contain it.",
+                    96);
+            }
+        }
+
+        if (state.SecurityMalware.Stage == SecurityMalwareStage.Isolated)
+        {
+            if (SecurityMalwareSystem.CanPurge(state, npc))
+            {
+                return Create(
+                    state,
+                    ActionKind.PurgeSecurityController,
+                    SecurityMalwareSystem.ControllerTargetId,
+                    "Purge and reimage the isolated MR/ST security controller.",
+                    "The malicious controller is physically isolated. A clean reimage can remove the compromised policies without delegating any combat outcome to software.",
+                    98);
+            }
+
+            if (technical >= 65
+                && !npc.CurrentRoomId.Equals(
+                    SecurityMalwareSystem.ControllerRoomId,
+                    StringComparison.OrdinalIgnoreCase)
+                && _navigation.FindPathForCrew(
+                    state,
+                    npc,
+                    npc.CurrentRoomId,
+                    SecurityMalwareSystem.ControllerRoomId).Count >= 2)
+            {
+                return Create(
+                    state,
+                    ActionKind.Move,
+                    controllerRoom.Id,
+                    $"Reach {controllerRoom.Name} to reimage the isolated security controller.",
+                    "The controller is contained but still compromised; I have the technical skill to finish recovery locally.",
+                    93);
+            }
+        }
+
+        return null;
     }
 
     private static NpcIntent? FindTurretCountermeasure(GameState state, Npc npc)

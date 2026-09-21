@@ -571,6 +571,27 @@
                         <small>O₂ reserve @Session.State.LifeSupport.OxygenReservePercent.ToString("0.0")% · water @Session.State.LifeSupport.WaterReservePercent.ToString("0.0")%.</small>
                     </div>
                 }
+                else if (selectedDevice.Kind == StationSystemKind.DataNetwork)
+                {
+                    <div class="belief-card">
+                        <span>MR/ST SECURITY CONTROLLER</span>
+                        <p>
+                            Malware state @Session.State.SecurityMalware.Stage ·
+                            @Session.State.SecurityMalware.CompromisedAssetIds.Count compromised link(s).
+                        </p>
+                        <small>
+                            Entry path @(Session.State.SecurityMalware.EntryPath ?? "none") ·
+                            controller @(Session.State.SecurityMalware.ControllerIsolated ? "PHYSICALLY ISOLATED" : "CONNECTED").
+                        </small>
+                    </div>
+                    <div class="control-stack">
+                        <button class="wide danger"
+                                disabled="@(Session.State.SecurityMalware.IsActive || !Session.State.ControlNetworkOnline || selectedDevice.IsFailed || !selectedDevice.IsEnabled)"
+                                @onclick="() => Session.DeploySecurityMalware()">
+                            DEPLOY CONTAINED SECURITY MALWARE
+                        </button>
+                    </div>
+                }
 
                 @if (selectedDevice.DoorId is { } controlledDoorId)
                 {
@@ -622,7 +643,7 @@
                     <div><span>HEALTH</span><strong>@selectedRobot.Health.ToString("0")%</strong></div>
                     <div><span>BATTERY</span><strong>@selectedRobot.BatteryPercent.ToString("0")%</strong></div>
                     <div><span>POLICY</span><strong>@selectedRobot.Policy</strong></div>
-                    <div><span>LINK</span><strong>@(selectedRobot.IsNetworkIsolated ? "ISOLATED" : "ONLINE")</strong></div>
+                    <div><span>LINK</span><strong>@(selectedRobot.IsControlLinkCompromised ? "COMPROMISED" : selectedRobot.IsNetworkIsolated ? "ISOLATED" : "ONLINE")</strong></div>
                     <div><span>CHARGING</span><strong>@(selectedRobot.ChargingEnabled ? "ENABLED" : "DENIED")</strong></div>
                     <div><span>STATE</span><strong>@(selectedRobot.IsOperational ? "ACTIVE" : "SHUT DOWN")</strong></div>
                 </div>
@@ -639,16 +660,16 @@
 
                 <div class="robot-policy-controls">
                     <button class="mini secondary"
-                            disabled="@(!selectedRobot.HasRemoteControlLink)"
+                            disabled="@(!selectedRobot.HasRemoteControlLink || selectedRobot.IsControlLinkCompromised)"
                             @onclick="() => Session.SetRobotPolicy(selectedRobot.Id, RobotPolicy.Friendly)">FRIENDLY</button>
                     <button class="mini secondary"
-                            disabled="@(!selectedRobot.HasRemoteControlLink)"
+                            disabled="@(!selectedRobot.HasRemoteControlLink || selectedRobot.IsControlLinkCompromised)"
                             @onclick="() => Session.SetRobotPolicy(selectedRobot.Id, RobotPolicy.Neutral)">NEUTRAL</button>
                     <button class="mini danger"
-                            disabled="@(!selectedRobot.HasRemoteControlLink)"
+                            disabled="@(!selectedRobot.HasRemoteControlLink || selectedRobot.IsControlLinkCompromised)"
                             @onclick="() => Session.SetRobotPolicy(selectedRobot.Id, RobotPolicy.Hostile)">HOSTILE</button>
                     <button class="mini secondary"
-                            disabled="@(!selectedRobot.HasRemoteControlLink)"
+                            disabled="@(!selectedRobot.HasRemoteControlLink || selectedRobot.IsControlLinkCompromised)"
                             @onclick="() => Session.ToggleRobotRemoteShutdown(selectedRobot.Id)">
                         @(selectedRobot.IsRemotelyShutdown ? "REMOTE RESTART" : "REMOTE SHUTDOWN")
                     </button>
@@ -736,7 +757,7 @@
                     <div><span>AMMO</span><strong>@selectedTurret.Ammunition</strong></div>
                     <div><span>HEAT</span><strong>@selectedTurret.Heat.ToString("0")%</strong></div>
                     <div><span>POWER</span><strong>@(TurretSystem.HasPower(Session.State, selectedTurret) ? "ONLINE" : "OFFLINE")</strong></div>
-                    <div><span>LINK</span><strong>@(selectedTurret.IsNetworkIsolated ? "ISOLATED" : "ONLINE")</strong></div>
+                    <div><span>LINK</span><strong>@(selectedTurret.IsControlLinkCompromised ? "COMPROMISED" : selectedTurret.IsNetworkIsolated ? "ISOLATED" : "ONLINE")</strong></div>
                     <div><span>TARGET</span><strong>@(trackedCrew?.Name ?? "NONE")</strong></div>
                 </div>
 
@@ -748,16 +769,16 @@
 
                 <div class="robot-policy-controls">
                     <button class="mini secondary"
-                            disabled="@(!selectedTurret.HasRemoteControlLink)"
+                            disabled="@(!selectedTurret.HasRemoteControlLink || selectedTurret.IsControlLinkCompromised)"
                             @onclick="() => Session.SetTurretPolicy(selectedTurret.Id, TurretPolicy.Safe)">SAFE</button>
                     <button class="mini secondary"
-                            disabled="@(!selectedTurret.HasRemoteControlLink)"
+                            disabled="@(!selectedTurret.HasRemoteControlLink || selectedTurret.IsControlLinkCompromised)"
                             @onclick="() => Session.SetTurretPolicy(selectedTurret.Id, TurretPolicy.ProtectOverseer)">PROTECT</button>
                     <button class="mini danger"
-                            disabled="@(!selectedTurret.HasRemoteControlLink)"
+                            disabled="@(!selectedTurret.HasRemoteControlLink || selectedTurret.IsControlLinkCompromised)"
                             @onclick="() => Session.SetTurretPolicy(selectedTurret.Id, TurretPolicy.SuppressCrew)">SUPPRESS</button>
                     <button class="mini secondary"
-                            disabled="@(!selectedTurret.HasRemoteControlLink)"
+                            disabled="@(!selectedTurret.HasRemoteControlLink || selectedTurret.IsControlLinkCompromised)"
                             @onclick="() => Session.SetTurretArmed(selectedTurret.Id, !selectedTurret.IsArmed)">
                         @(selectedTurret.IsArmed ? "DISARM" : "ARM")
                     </button>

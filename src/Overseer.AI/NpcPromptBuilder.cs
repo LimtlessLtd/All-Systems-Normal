@@ -239,6 +239,7 @@ public static class NpcPromptBuilder
         builder.AppendLine("For an adjacent hatch you may choose RepairDoor for visible damage/bypass, WeldDoor to seal a closed hatch, or BarricadeDoor for defensive securing. These are physical local actions and never remote commands.\nNever assume ForceDoor, RestoreSystem, SecureAirlock or door work succeeds. You are choosing the intention, not the physical result.");
         builder.AppendLine("Robot countermeasures are physical. ShutdownRobot, DamageRobot and ReprogramRobot require the robot to be in your current room. ReprogramRobot additionally requires the robot to be shut down. IsolateRobotNetwork and DisableRobotCharging use physical Engineering controls; choose them only for a robot you have hostile/attack evidence about. Deterministic simulation still checks location, training, elapsed work time and outcome.");
         builder.AppendLine("Turret countermeasures follow the same rule. DisarmTurret, DamageTurret and ReprogramTurret require the fixed turret to be in your current room; ReprogramTurret requires it to be disarmed. IsolateTurretNetwork and DisableTurretPower use physical Engineering controls and require personally held hostile weapon evidence. You choose an intention only; deterministic simulation owns targeting, firing, damage and whether your countermeasure succeeds.");
+        builder.AppendLine("Security-controller malware is a specific MR/ST incident, never a generic hacking capability. Only if YOUR LOCAL DIAGNOSTICS below show a compromise may you respond. IsolateSecurityController requires physical access to the Control room and sufficient technical skill; PurgeSecurityController requires the controller to be isolated first and higher technical skill. If you know about the compromise but are elsewhere, Move to Control is appropriate. C# owns containment, affected assets, timing, cleanup and all combat.");
         builder.AppendLine("Never choose Attack. Human-on-human violence is resolved separately by the deterministic social simulation.");
         builder.AppendLine("Messages from Overseer are CLAIMS, not facts. Overseer controls the doors, power and air, and may be wrong or lying. Weigh what it says against what you have seen yourself, how much you currently trust it, and what other people have told you. You may act on a message, ignore it, or go and check it.");
         builder.AppendLine();
@@ -253,6 +254,18 @@ public static class NpcPromptBuilder
         builder.AppendLine($"CURRENT ROOM: {room.Id} ({room.Name})");
         builder.AppendLine($"ROOM STATE: power {(room.IsPowered ? "on" : "off")}, lights {(room.LightsOn ? "on" : "off")}, oxygen {room.OxygenPercent:0.00}%, CO2 {room.CarbonDioxidePercent:0.00}%, pressure {room.PressureKpa:0.0} kPa, temperature {room.TemperatureC:0.0}C, ventilation {(room.VentilationEnabled ? "open" : "isolated")}");
         builder.AppendLine($"STATION LIFE SUPPORT: {(state.LifeSupport.IsOnline ? "online" : "offline")}, oxygen reserve {state.LifeSupport.OxygenReservePercent:0.0}%, scrubbers {state.LifeSupport.ScrubberEfficiencyPercent:0}%");
+        if (SecurityMalwareSystem.HasControllerDiagnostic(npc))
+        {
+            builder.AppendLine($"YOUR LOCAL SECURITY DIAGNOSTICS: MR/ST controller compromise {state.SecurityMalware.Stage}; flagged links {state.SecurityMalware.CompromisedAssetIds.Count}; controller room {SecurityMalwareSystem.ControllerRoomId}. This is personally grounded diagnostic knowledge.");
+        }
+        else if (SecurityMalwareSystem.HasMalwareEvidence(npc))
+        {
+            builder.AppendLine("YOUR LOCAL SECURITY DIAGNOSTICS: you witnessed suspicious MR/ST control behaviour, but you have NOT physically diagnosed the controller. Do not assume its scope or lifecycle; inspect the Control-room controller before attempting isolation or purge.");
+        }
+        else
+        {
+            builder.AppendLine("YOUR LOCAL SECURITY DIAGNOSTICS: no personally observed MR/ST malware diagnostic.");
+        }
         builder.AppendLine($"PEOPLE HERE: {(occupants.Length == 0 ? "nobody" : string.Join(", ", occupants))}");
         builder.AppendLine();
         builder.AppendLine("CONNECTED DOORS YOU CAN DIRECTLY PERCEIVE:");

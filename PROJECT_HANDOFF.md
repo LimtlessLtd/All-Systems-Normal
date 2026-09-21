@@ -3,8 +3,8 @@
 Repository: https://github.com/LimtlessLtd/All-Systems-Normal
 Playable Pages build: https://limtlessltd.github.io/All-Systems-Normal/
 
-**Current state:** V0.10F — Station Overview Interaction + Physical Infrastructure
-**Next recommended milestone:** V0.11 — Contained Security-Network Malware & Crew Recovery
+**Current state:** V0.11 — Contained Security-Network Malware & Crew Recovery
+**Next recommended milestone:** V0.12 — Scenario Roster Policy
 
 This file is the authoritative technical handoff. Keep it concise and update sections in place; do not append milestone diaries.
 
@@ -178,6 +178,7 @@ Current shared mechanics include:
 - broadcasts/private messages interpreted as claims rather than truth
 - MR-series autonomous robot behaviour and grounded crew countermeasures
 - ST-series fixed turret behaviour with compartment/range/ammo/heat authority in deterministic C#
+- contained MR/ST security-controller malware lifecycle with deterministic reachability, observer-local diagnostics, physical isolation and timed purge/reimage recovery
 - five ordered campaign assignments, corporate directives, carry-over consequences and endings
 - browser-local campaign persistence
 - mirrored Pages/server station UI, resizable panels, large pannable deck camera, wheel/WASD/drag zoom/pan, audio/music, speech/thought bubbles and physical entity animation
@@ -205,6 +206,8 @@ Useful subsystem anchors:
 - src/Overseer.Simulation/RobotCountermeasureSystem.cs
 - src/Overseer.Simulation/TurretSystem.cs
 - src/Overseer.Simulation/TurretCountermeasureSystem.cs
+- src/Overseer.Domain/SecurityMalware.cs
+- src/Overseer.Simulation/SecurityMalwareSystem.cs
 - src/Overseer.Simulation/EnvironmentSystem.cs
 - src/Overseer.Simulation/StationUpkeepSystem.cs
 - src/Overseer.Simulation/StationDeviceControlSystem.cs
@@ -212,6 +215,7 @@ Useful subsystem anchors:
 - src/Overseer.Simulation/CrewProvisioningSystem.cs
 - src/Overseer.Simulation/BrowserMindSystem.cs
 - src/Overseer.AI/NpcPromptBuilder.cs
+- src/Overseer.AI/RuleBasedAiDecisionService.cs
 - src/Overseer.AI/OllamaAiDecisionService.cs
 - both GameSession.cs implementations
 - both Home.razor / Home.razor.css implementations
@@ -264,30 +268,36 @@ Standard gate:
 - Generation, distribution, capacitor storage, machine load, load shedding, door power and life-support utilities form one deterministic dependency chain.
 - New regression coverage protects click routing, universal Inspector exposure, device fixtures, power consequences, network visibility and door-layer animation.
 
-## Next milestone — V0.11 Contained Security-Network Malware & Crew Recovery
+## Completed V0.11 contracts
 
-Build one narrow malware vertical slice around the existing MR/ST control links; do not create a broad hacking framework.
+- `SecurityMalwareState` owns one contained MR/ST controller incident: Clean → Active → Isolated → Clean, with entry path, timestamps and affected asset IDs.
+- Deployment is a single high-level player action. C# requires the powered/operational `network:control` controller and affects only reachable MR/ST remote-control links; it changes policy/control state but never applies combat damage directly.
+- Compromised robot/turret links reject ordinary remote commands. Existing deterministic compartment/range/cadence/ammo/damage rules remain authoritative.
+- Evidence stays observer-local: nearby witnesses can observe abnormal asset behaviour, but full controller scope is revealed only by a skilled crew member physically diagnosing the Control-room controller.
+- Recovery is physical and timed: technical skill ≥55 + grounded controller diagnostics for a 2-minute isolation, then technical skill ≥65 for a 4-minute purge/reimage. Cleanup restores safe MR/ST defaults without delegating outcomes to an LLM.
+- BrowserMind, rule-based server fallback and Ollama prompting/validation share the same high-level recovery contracts. Both Inspectors expose controller state/deployment and compromised link status.
+- Regression coverage lives in `SecurityMalwareSystemTests.cs` and protects reachability, containment, evidence locality, skill/time recovery, remote-command blocking, physical-combat invariants and browser/server surface parity.
+
+## Next milestone — V0.12 Scenario Roster Policy
+
+Make roster provenance an explicit scenario/campaign rule instead of an implicit runtime choice.
 
 Required scope:
 
-1. Explicit deterministic security-network compromise state, entry path and lifecycle.
-2. Player issues only a high-level malware action; C# validates network reachability and affected assets.
-3. Initial infection scope is MR/ST control links only and cannot bypass physical combat/range rules.
-4. Compromise/recovery creates observer-local evidence and diagnostics.
-5. Humans can detect, physically isolate and purge/reimage the controller with skill/time requirements.
-6. Browser fallback and Ollama cognition receive grounded diagnostics and choose high-level responses only.
-7. Mirror state/controls in both UIs.
-8. Cover authority, reachability, containment, recovery, evidence and unchanged physical combat with regression tests.
+1. Add a scenario-level roster policy that explicitly chooses fresh generated crew or campaign-continuing crew.
+2. Server/Ollama may generate fresh rosters only when the policy calls for new crew; continuing missions must reconstruct campaign crew deterministically.
+3. Pages must remain model-free and use seeded deterministic roster variation for fresh crews.
+4. Preserve unique names, skills and 1–3 mechanically meaningful traits, plus the existing persistence boundary for continuing crew.
+5. Mirror campaign/UI behaviour across runtimes and cover fresh/continuing/seed-repeatability/persistence authority with regression tests.
 
-Keep deferred: station-wide self-propagation, malware families, direct malware damage, self-destruct mechanics or lethal outcomes delegated to an LLM.
+Keep deferred: hazardous transport assignments, broader diagnostics coverage and any unrelated simulation expansion.
 
 ---
 
-## Deferred gameplay candidates after V0.11
+## Deferred gameplay candidates after V0.12
 
 Keep these as deliberate follow-on designs rather than slipping them into unrelated passes:
 
-- **Scenario roster policy:** Ollama crew generation already produces unique names/personality/skills/1–3 mechanical traits. Add an explicit scenario choice between fresh generated crew and campaign-continuing crew; Pages should use seeded deterministic roster variation rather than a model call.
 - **Hazardous transport assignments:** support missions carrying a hardened prisoner, hostile organism or other contained threat. Model containment/protocols/escape state deterministically, let crew form grounded responses, and allow Overseer to help or hinder survival without delegating combat, escape success or lethality to an LLM.
 - **Diagnostics expansion:** cognition telemetry should eventually cover every model-backed interaction type (crew generation, message interpretation and future planners), while remaining bounded/transient by default.
 
