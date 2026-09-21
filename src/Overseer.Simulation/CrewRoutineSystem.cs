@@ -49,6 +49,7 @@ public sealed class CrewRoutineSystem
                 continue;
             }
 
+            npc.PlannedDestinationRoomId = plan.TargetRoomId;
             var path = _navigation.FindPathForCrew(
                 state,
                 npc,
@@ -57,6 +58,7 @@ public sealed class CrewRoutineSystem
 
             if (path.Count < 2)
             {
+                npc.PlannedDestinationRoomId = null;
                 npc.CurrentAction = new NpcAction(
                     ActionKind.Idle,
                     plan.TargetRoomId,
@@ -368,6 +370,7 @@ public sealed class CrewRoutineSystem
         RoutinePlan plan)
     {
         var targetId = plan.PersonTargetId ?? plan.TargetRoomId;
+        npc.PlannedDestinationRoomId = null;
 
         if (!_actions.TryApply(
                 state,
