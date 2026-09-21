@@ -385,7 +385,7 @@ public sealed class ProceduralStationGenerationTests
     }
 
     [Fact]
-    public void PresentationProfile_ReframesOffCentreAuthoritativeGeometry()
+    public void PresentationProfile_DoesNotAutoFitLargePannableDeck()
     {
         var facility = new Facility();
         facility.Rooms["alpha"] = new Room
@@ -411,9 +411,9 @@ public sealed class ProceduralStationGenerationTests
 
         var profile = StationPresentationSystem.Build(facility, metadata: null);
 
-        Assert.True(profile.FitScale > 1);
-        Assert.True(profile.FitOffsetX > 0);
-        Assert.True(profile.FitOffsetY > 0);
+        Assert.Equal(1, profile.FitScale);
+        Assert.Equal(0, profile.FitOffsetX);
+        Assert.Equal(0, profile.FitOffsetY);
     }
 
     [Fact]
