@@ -273,6 +273,7 @@ public sealed class CrewDoorInteractionSystem
             || !npc.IsAlive
             || !npc.IsPresent
             || !door.IsPowered
+            || !door.GridPowerAvailable
             || door.IsLocked
             || door.HasPhysicalSecuring
             || door.IsManuallyOverridden)
