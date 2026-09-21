@@ -1058,10 +1058,10 @@ public static class FacilitySeeder
         // Secure containment is optional and only exists for constrained
         // scenarios. Keep the centre aisle clear so guards, prisoners and
         // emergency responders can physically move between cell-side fixtures.
-        AddFixture(facility, "containment", FixtureType.Bunk, "Cell Bunk A", 14, 20, 18, 18);
-        AddFixture(facility, "containment", FixtureType.Bunk, "Cell Bunk B", 14, 43, 18, 18);
-        AddFixture(facility, "containment", FixtureType.Bunk, "Cell Bunk C", 86, 20, 18, 18);
-        AddFixture(facility, "containment", FixtureType.Bunk, "Cell Bunk D", 86, 43, 18, 18);
+        AddFixture(facility, "containment", FixtureType.Bed, "Cell Bunk A", 14, 20, 18, 18);
+        AddFixture(facility, "containment", FixtureType.Bed, "Cell Bunk B", 14, 43, 18, 18);
+        AddFixture(facility, "containment", FixtureType.Bed, "Cell Bunk C", 86, 20, 18, 18);
+        AddFixture(facility, "containment", FixtureType.Bed, "Cell Bunk D", 86, 43, 18, 18);
         AddFixture(facility, "containment", FixtureType.Locker, "Secure Property Locker", 14, 76, 16, 18);
         AddFixture(facility, "containment", FixtureType.UtilityPanel, "Containment Interlock", 86, 76, 16, 18);
         AddFixture(facility, "containment", FixtureType.Camera, "Containment Camera", 50, 10, 10, 10);
