@@ -353,12 +353,33 @@ public static class FacilitySeeder
                 continue;
             }
 
-            room.Fixtures.Add(new RoomFixture(type, label, x, y, width, height));
+            room.Fixtures.Add(
+                new RoomFixture(
+                    type,
+                    label,
+                    x,
+                    y,
+                    width,
+                    height,
+                    null,
+                    null,
+                    GeneratedFixtureUsePose(type),
+                    0));
             return true;
         }
 
         return false;
     }
+
+    private static FixtureUsePose GeneratedFixtureUsePose(FixtureType type) =>
+        type switch
+        {
+            FixtureType.Chair or FixtureType.Sofa or FixtureType.Bench => FixtureUsePose.Sit,
+            FixtureType.Bed or FixtureType.MedicalBed => FixtureUsePose.Lie,
+            FixtureType.Shower => FixtureUsePose.Shower,
+            FixtureType.Toilet => FixtureUsePose.Toilet,
+            _ => FixtureUsePose.Stand
+        };
 
     private static (double MinWidth, double MaxWidth, double MinHeight, double MaxHeight)
         GeneratedFixtureSize(FixtureType type) =>
