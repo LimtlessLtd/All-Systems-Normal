@@ -150,15 +150,15 @@ Primary presentation helper: `src/Overseer.Simulation/StationPresentationSystem.
 - Functional-room labels/status UI are **external callouts**, built by `StationRoomCalloutSystem`, placed only in the outer 10% deck margin and joined to rooms by leader lines. Callouts must not cover authoritative room/corridor geometry or one another. They always show full room name + power/temperature/O₂ health.
 - Hull mass is drawn only from real room/corridor footprints. Do not reintroduce decorative rails/links that imply nonexistent navigation.
 - `FacilitySeeder.ApplyIdentityDrivenDetails` adds deterministic room-aware fixtures. Wall equipment is bulkhead-aligned; floor equipment uses collision-aware work bays; all generated fixtures stay inside their owning room.
-- V0.10D art direction is bright white/grey aerospace interiors with restrained green/orange/red status colour. Avoid neon cyan/blue, dark card-like rooms, global black/grey room fills, brown grime filters or UI labels painted over the physical room floor.
-- Room-specific interiors should be visually rich and active: consoles/screens, vents, irrigation, pipes, medical equipment, cameras, airlocks, generator/reactor machinery etc. Operational animation is presentation-only and should remain subtle enough not to become visual noise.
+- Current art direction uses bright white/grey aerospace hulls, walls and machinery around a dark black tiled deck floor in every functional room, with restrained green/orange/red status colour. Room hover/selection must never replace or hide the tiled floor. Avoid neon cyan/blue, brown grime filters or UI labels painted over the physical room floor.
+- Room-specific interiors should be visually rich and active: consoles/screens, vents, irrigation, pipes, medical equipment, cameras, airlocks, generator/reactor machinery etc. Repeating presentation animations must use closed/seamless cycles without visible snap-back.
 - Browser and server `Home.razor` / `Home.razor.css` / `layout.js` must stay mirrored.
-- Robots are selectable map entities with a dedicated Inspector state and explicit machine silhouette; do not render them as generic dots/cards.
-- Desktop workspace is map-first. **Do not keep Facility Systems as a permanent primary-workspace panel.** Remove it or move non-contextual controls into a secondary utility surface so the station map + Inspector own the valuable screen area.
+- Robots are selectable map entities with a dedicated Inspector state and explicit **top-down** machine silhouette consistent with the crew camera angle; do not render them as generic dots/cards.
+- Desktop workspace is map-first. Overseer Comms sits full-width directly above the station workspace, beneath mission/corporate objectives. **Do not keep Facility Systems as a permanent primary-workspace panel.** Remove it or move non-contextual controls into a secondary utility surface so the station map + Inspector own the valuable screen area.
 - The right-side **Inspector is the universal contextual surface for anything clickable**: crew, rooms, doors, robots, turrets/automated defences and future interactable station entities. Selection must show that entity's relevant status, state, goals/motivations where applicable, diagnostics and permitted controls.
 - **Telemetry/debugging is not an Inspector tab beside the live station.** Move it to a separate full-screen debug view/route where the station map is not rendered. It must contain no player-critical information because normal release builds may hide/disable the debug view entirely.
 
-Visual invariants: never invent hull/corridor/door geometry, never offset one physical entity separately for aesthetics, and never let decorative fixtures become simulation-authoritative unless the domain contract is explicitly extended.
+Visual invariants: never invent hull/corridor/door geometry, never offset one physical entity separately for aesthetics, and never let decorative fixtures become simulation-authoritative unless the domain contract is explicitly extended. Interactive station buttons must never receive generic `:active` transforms because rooms/fixtures/crew/robots use transforms for authoritative map positioning.
 
 ---
 
@@ -181,11 +181,11 @@ Current shared mechanics include:
 - contained MR/ST security-controller malware lifecycle with deterministic reachability, observer-local diagnostics, physical isolation and timed purge/reimage recovery
 - five ordered campaign assignments, corporate directives, carry-over consequences and endings
 - browser-local campaign persistence
-- mirrored Pages/server station UI, resizable panels, large pannable deck camera, wheel/WASD/drag zoom/pan, audio/music, speech/thought bubbles and physical entity animation
+- mirrored Pages/server station UI, resizable panels, large pannable deck camera, wheel/WASD/drag zoom/pan, audio/music, speech/thought bubbles, seamless physical entity animation and dotted green next-segment crew movement intent
 - external room telemetry callouts with leader lines and no room/corridor overlap
 - bright white/grey spacecraft interior art direction with animated consoles/screens/vents/irrigation/pipes/medical/camera/airlock/machinery cues
 - one shared `StationSelection` / `StationInspectionSystem` contract drives the contextual Inspector for rooms, crew, doors, MR robots and ST turrets
-- the primary workspace is map + Inspector + comms; the old permanent Facility Systems panel is removed
+- the primary workspace is objectives/directives + full-width Overseer Comms + map/Inspector; the old permanent Facility Systems panel is removed
 - map camera panning must never pointer-capture events that originate on `[data-station-interactive]` entities; this is regression-tested in both runtimes
 - rooms, crew, doors, MR robots, ST turrets, physical machinery and key overview status readouts all route through the same Inspector
 - maintainable machinery is bound to physical room fixtures via `RoomFixture.DeviceId`; door entities carry visible local control pads without cluttering corridor fixture geometry
@@ -226,7 +226,7 @@ Useful subsystem anchors:
 
 Implementation: src/Overseer.Persistence/CampaignStateSerializer.cs, format version 1, browser key all-systems-normal.campaign.v1.
 
-Persist deliberate campaign continuity such as mission history, sponsor state, continuing crew identity/traits/skills, relationships, bounded important memories, credibility/suspicion, health/presence consequences, equipment condition and provisions.
+Persist deliberate campaign continuity such as mission history, corporate directive state, continuing crew identity/traits/skills, relationships, bounded important memories, credibility/suspicion, health/presence consequences, equipment condition and provisions.
 
 Do not persist live movement, intents, jobs, investigations or cognition telemetry unless the save contract is explicitly redesigned.
 
@@ -277,6 +277,14 @@ Standard gate:
 - Recovery is physical and timed: technical skill ≥55 + grounded controller diagnostics for a 2-minute isolation, then technical skill ≥65 for a 4-minute purge/reimage. Cleanup restores safe MR/ST defaults without delegating outcomes to an LLM.
 - BrowserMind, rule-based server fallback and Ollama prompting/validation share the same high-level recovery contracts. Both Inspectors expose controller state/deployment and compromised link status.
 - Regression coverage lives in `SecurityMalwareSystemTests.cs` and protects reachability, containment, evidence locality, skill/time recovery, remote-command blocking, physical-combat invariants and browser/server surface parity.
+
+### Latest playtest presentation contracts
+
+- Click/press feedback must not override transforms on `[data-station-interactive]`; this prevents the historical bottom-right teleport regression on fixtures, robots and other map entities.
+- Functional rooms retain the dark tiled deck floor through hover/selection; Station Overview uses light-grey window chrome to stay visually distinct from the station interior.
+- MR robots use a top-down silhouette. Walking crew use closed-cycle limb/body animation and a dotted green line for their immediate deterministic movement segment only.
+- Player-facing hierarchy is **Mission Directive / Mission Objectives** versus **The Corporation / Corporate Directives**. Do not reintroduce “Sponsor” as visible UI/campaign copy; internal compatibility identifiers may retain it.
+- Regression coverage for this pass lives in `PlaytestUiPolishTests.cs`.
 
 ## Next milestone — V0.12 Scenario Roster Policy
 
