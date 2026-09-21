@@ -57,7 +57,11 @@
         </div>
 
         <div class="time-controls">
-            <span class="live-indicator">AUTO TURNS</span>
+            <button type="button"
+                    class="secondary pause-toggle @(_paused ? "is-paused" : "")"
+                    aria-pressed="@_paused"
+                    title="Pause or resume the station (Space)"
+                    @onclick="TogglePause">@(_paused ? "▶ RESUME" : "❚❚ PAUSE")</button>
             <button class="secondary @(_delayMs == 2800 ? "selected-speed" : "")" @onclick="() => SetSpeed(2800)">1×</button>
             <button class="secondary @(_delayMs == 1600 ? "selected-speed" : "")" @onclick="() => SetSpeed(1600)">2×</button>
             <button class="secondary @(_delayMs == 850 ? "selected-speed" : "")" @onclick="() => SetSpeed(850)">4×</button>
@@ -71,7 +75,10 @@
             {
                 <a class="debug-link" href="debug">DEBUG</a>
             }
-            <button class="secondary" @onclick="ResetGame">RESET</button>
+            <button type="button"
+                    class="@(_confirmingReset ? "danger" : "secondary")"
+                    title="Discard this run and campaign progress"
+                    @onclick="RequestResetAsync">@(_confirmingReset ? "CONFIRM RESET?" : "RESET RUN")</button>
         </div>
     </header>
 
@@ -336,9 +343,19 @@
                     <h2>STATION OVERVIEW</h2>
                 </div>
                 <div class="station-header-actions">
-                    <span class="@(Session.State.ScenarioStatus == ScenarioStatus.Running ? "sim-running" : "sim-paused")">
-                        @TurnStatusLabel
+                    <span class="station-clock @(Session.State.ScenarioStatus == ScenarioStatus.Running && !_paused ? "sim-running" : "sim-paused")"
+                          title="Mission time">
+                        T+@Session.State.Elapsed.ToString(@"hh\:mm") · @TurnStatusLabel
                     </span>
+                    @if (Session.AlertCount > 0)
+                    {
+                        <span class="station-alerts" title="Active station alerts">@Session.AlertCount ALERT@(Session.AlertCount == 1 ? "" : "S")</span>
+                    }
+                    <button type="button"
+                            class="secondary mini pause-toggle @(_paused ? "is-paused" : "")"
+                            aria-pressed="@_paused"
+                            title="Pause or resume the station (Space)"
+                            @onclick="TogglePause">@(_paused ? "▶ RESUME" : "❚❚ PAUSE")</button>
                     <div class="station-speed-controls" aria-label="Simulation speed">
                         <button type="button" class="secondary mini @(_delayMs == 2800 ? "selected-speed" : "")" @onclick="() => SetSpeed(2800)">1×</button>
                         <button type="button" class="secondary mini @(_delayMs == 1600 ? "selected-speed" : "")" @onclick="() => SetSpeed(1600)">2×</button>
@@ -348,7 +365,16 @@
                         <button type="button" class="secondary mini" data-map-zoom-out aria-label="Zoom map out">−</button>
                         <button type="button" class="secondary zoom-readout" data-map-camera-reset title="Reset pan and zoom"><span data-map-zoom-readout>100%</span></button>
                         <button type="button" class="secondary mini" data-map-zoom-in aria-label="Zoom map in">+</button>
+                        <button type="button" class="secondary mini" data-map-zoom-fit title="Frame the whole station">FIT</button>
                     </div>
+                    <button type="button"
+                            class="secondary mini station-popup-toggle @(_stationOverlay == "crew" ? "active" : "")"
+                            aria-pressed="@(_stationOverlay == "crew")"
+                            @onclick='() => ToggleStationOverlay("crew")'>CREW</button>
+                    <button type="button"
+                            class="secondary mini station-popup-toggle @(_stationOverlay == "log" ? "active" : "")"
+                            aria-pressed="@(_stationOverlay == "log")"
+                            @onclick='() => ToggleStationOverlay("log")'>LOG</button>
                     <button type="button"
                             class="secondary mini station-popup-toggle @(_stationOverlay == "messages" ? "active" : "")"
                             aria-pressed="@(_stationOverlay == "messages")"
@@ -379,12 +405,17 @@
                     <button type="button"
                             class="secondary mini layout-reset"
                             data-layout-reset
-                            title="Restore default panel and map sizes">RESET</button>
+                            title="Restore default panel and map sizes">LAYOUT</button>
+                    <button type="button"
+                            class="secondary mini station-popup-toggle @(_stationOverlay == "menu" ? "active" : "")"
+                            aria-pressed="@(_stationOverlay == "menu")"
+                            @onclick='() => ToggleStationOverlay("menu")'>MENU</button>
                     <button type="button"
                             class="secondary mini station-focus-toggle @(_stationFullscreen ? "active" : "")"
                             aria-pressed="@_stationFullscreen"
-                            @onclick="ToggleStationFullscreen">
-                        @(_stationFullscreen ? "EXIT" : "FULLSCREEN")
+                            title="@(_stationFullscreen ? "Show the full console with objectives and comms" : "Give the station the whole screen")"
+                            @onclick="ToggleStationFullscreenAsync">
+                        @(_stationFullscreen ? "CONSOLE" : "FULLSCREEN")
                     </button>
                 </div>
             </div>
@@ -498,6 +529,91 @@
                             }
                         }
                     </div>
+                </section>
+            }
+
+            @if (_stationOverlay == "crew")
+            {
+                <section class="station-overlay-popover station-crew-popover" aria-label="Crew roster">
+                    <header>
+                        <div>
+                            <span class="overline">CREW MANIFEST</span>
+                            <strong>@Session.State.Crew.Count(member => member.IsAlive && member.IsPresent) ABOARD</strong>
+                        </div>
+                        <button type="button" class="secondary mini" @onclick='() => ToggleStationOverlay("crew")'>CLOSE</button>
+                    </header>
+
+                    <div class="crew-roster">
+                        @foreach (var member in Session.State.Crew.OrderBy(member => member.Name))
+                        {
+                            var onCamera = CanSee(member);
+                            <button type="button"
+                                    class="crew-roster-row @(SelectedCrew?.Id == member.Id ? "selected" : "") @(!member.IsAlive ? "deceased" : "")"
+                                    @onclick="() => FocusCrewAsync(member)">
+                                <span class="crew-roster-name">
+                                    <b>@member.Name</b>
+                                    <small>@member.Role · @CrewRosterLocation(member, onCamera)</small>
+                                </span>
+                                <span class="crew-roster-doing">@CrewRosterActivity(member, onCamera)</span>
+                                <span class="crew-roster-meters" aria-hidden="true">
+                                    <i class="health" title="Health @member.Health.ToString("0")"><em style="@MeterStyle(member.Health)"></em></i>
+                                    <i class="stress" title="Stress @member.Stress.ToString("0")"><em style="@MeterStyle(member.Stress)"></em></i>
+                                    <i class="suspicion" title="Suspicion of Overseer @member.OverseerSuspicion.ToString("0")"><em style="@MeterStyle(member.OverseerSuspicion)"></em></i>
+                                </span>
+                            </button>
+                        }
+                    </div>
+                    <small class="crew-roster-legend">Bars: health · stress · suspicion of Overseer. Location and activity need a live camera feed.</small>
+                </section>
+            }
+
+            @if (_stationOverlay == "log")
+            {
+                <section class="station-overlay-popover station-log-popover" aria-label="Station log">
+                    <header>
+                        <div>
+                            <span class="overline">OVERSEER RECORDS</span>
+                            <strong>STATION LOG</strong>
+                        </div>
+                        <button type="button" class="secondary mini" @onclick='() => ToggleStationOverlay("log")'>CLOSE</button>
+                    </header>
+                    <p class="station-popup-briefing">Notable events, newest first. Routine movement is omitted.</p>
+                    <div class="station-log">
+                        @foreach (var entry in StationLogPresentation.Notable(Session.State.EventLog, 80))
+                        {
+                            <p class="station-log-entry @StationLogPresentation.Severity(entry)">@entry</p>
+                        }
+                    </div>
+                </section>
+            }
+
+            @if (_stationOverlay == "menu")
+            {
+                <section class="station-overlay-popover station-menu-popover" aria-label="Overseer console menu">
+                    <header>
+                        <div>
+                            <span class="overline">OVERSEER CONSOLE</span>
+                            <strong>MENU</strong>
+                        </div>
+                        <button type="button" class="secondary mini" @onclick='() => ToggleStationOverlay("menu")'>CLOSE</button>
+                    </header>
+                    <div class="station-menu-actions">
+                        <button type="button" class="secondary sound-toggle @(_soundEnabled ? "sound-on" : "")" @onclick="ToggleSoundAsync">
+                            @(_soundEnabled ? "SOUND ON" : "ENABLE SOUND")
+                        </button>
+                        <button type="button" class="secondary sound-toggle @(_musicEnabled ? "sound-on" : "")" @onclick="ToggleMusicAsync">
+                            @(_musicEnabled ? "MUSIC ON" : "MUSIC OFF")
+                        </button>
+                        @if (DebugTelemetrySystem.UiEnabled)
+                        {
+                            <a class="debug-link" href="debug">DEBUG</a>
+                        }
+                        <button type="button"
+                                class="@(_confirmingReset ? "danger" : "secondary")"
+                                title="Discard this run and campaign progress"
+                                @onclick="RequestResetAsync">@(_confirmingReset ? "CONFIRM RESET?" : "RESET RUN")</button>
+                    </div>
+                    <small>Space pauses and resumes the station. WASD or arrow keys pan; the mouse wheel zooms.</small>
                 </section>
             }
 
@@ -667,6 +783,7 @@
                 {
                     <button @key="npc.Id"
                             class="@CrewTokenClass(npc)"
+                            data-crew-id="@npc.Id"
                             style="@CrewStyle(npc)"
                             title="@($"{npc.Name} — {npc.Role}{(!npc.IsAlive ? " — DECEASED" : "")}")"
                             aria-label="@($"Select {npc.Name}")"
@@ -1622,8 +1739,14 @@
     private int _delayMs = 2800;
     private bool _soundEnabled;
     private bool _musicEnabled;
-    private bool _stationFullscreen;
+    private const string StationFocusStorageKey = "all-systems-normal.station-focus.v1";
+
+    // The station view is the game; the full console is one click away.
+    private bool _stationFullscreen = true;
     private string? _stationOverlay;
+    private bool _paused;
+    private bool _confirmingReset;
+    private DotNetObjectReference<Home>? _selfReference;
     private long _lastAudioSequence;
     private CancellationTokenSource? _clockCts;
     private Task? _clockTask;
@@ -1655,14 +1778,98 @@
             ? "workspace-shell station-focus-mode"
             : "workspace-shell";
 
-    private void ToggleStationFullscreen()
+    private async Task ToggleStationFullscreenAsync()
     {
         _stationFullscreen = !_stationFullscreen;
         if (!_stationFullscreen)
         {
             _stationOverlay = null;
         }
+
+        try
+        {
+            await JS.InvokeVoidAsync(
+                "localStorage.setItem",
+                StationFocusStorageKey,
+                _stationFullscreen ? "on" : "off");
+        }
+        catch (JSException)
+        {
+            // Storage can be unavailable (private windows); the toggle still works.
+        }
     }
+
+    private void TogglePause()
+    {
+        if (_paused)
+        {
+            _paused = false;
+            StartAutoClock();
+        }
+        else
+        {
+            _paused = true;
+            StopClock();
+        }
+    }
+
+    [JSInvokable]
+    public Task TogglePauseFromKeyboard() =>
+        InvokeAsync(() =>
+        {
+            TogglePause();
+            StateHasChanged();
+        });
+
+    private async Task RequestResetAsync()
+    {
+        if (!_confirmingReset)
+        {
+            _confirmingReset = true;
+            _ = ExpireResetConfirmationAsync();
+            return;
+        }
+
+        _confirmingReset = false;
+        await ResetGame();
+    }
+
+    private async Task ExpireResetConfirmationAsync()
+    {
+        await Task.Delay(TimeSpan.FromSeconds(4));
+
+        if (!_confirmingReset)
+            return;
+
+        _confirmingReset = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task FocusCrewAsync(Npc member)
+    {
+        SelectCrew(member.Id);
+
+        if (!CanSee(member))
+            return;
+
+        await JS.InvokeAsync<bool>(
+            "overseerLayout.focusEntity",
+            $"[data-crew-id='{member.Id}']");
+    }
+
+    private string CrewRosterLocation(Npc member, bool onCamera) =>
+        !member.IsPresent ? "not aboard"
+        : onCamera ? Session.State.Facility.Rooms[member.CurrentRoomId].Name
+        : "no camera feed";
+
+    private static string CrewRosterActivity(Npc member, bool onCamera) =>
+        !member.IsAlive ? member.CauseOfDeath ?? "Deceased."
+        : !member.IsPresent ? "Not aboard the station."
+        : onCamera ? member.CurrentAction.Reason
+        : "Location unknown.";
+
+    private static string MeterStyle(double value) =>
+        FormattableString.Invariant($"width:{Math.Clamp(value, 0, 100):0}%");
 
     private void ToggleStationOverlay(string overlay) =>
         _stationOverlay = string.Equals(_stationOverlay, overlay, StringComparison.Ordinal)
@@ -1813,7 +2020,8 @@
     {
         ScenarioStatus.Won => "SCENARIO COMPLETE",
         ScenarioStatus.Failed => "OVERSEER OFFLINE",
-        _ => $"LIVE TURNS {SpeedLabel}"
+        _ when _paused => "PAUSED",
+        _ => $"LIVE {SpeedLabel}"
     };
 
     private StationPresentationProfile StationPresentation =>
@@ -1905,6 +2113,13 @@
     private void SetSpeed(int delayMs)
     {
         _delayMs = delayMs;
+
+        // Choosing a speed means "run at this speed".
+        if (_paused)
+        {
+            _paused = false;
+            StartAutoClock();
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -1912,6 +2127,21 @@
         if (firstRender)
         {
             await JS.InvokeVoidAsync("overseerLayout.init", "#overseer-workspace");
+            _selfReference = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("overseerLayout.registerPauseHandler", _selfReference);
+
+            try
+            {
+                var focusPreference = await JS.InvokeAsync<string?>(
+                    "localStorage.getItem",
+                    StationFocusStorageKey);
+                _stationFullscreen = focusPreference != "off";
+            }
+            catch (JSException)
+            {
+                // Storage unavailable; keep the default station view.
+            }
+
             await RestorePersistedCampaignAsync();
             StartAutoClock();
             StateHasChanged();
@@ -1953,7 +2183,9 @@
 
     private void StartAutoClock()
     {
-        if (Session.IsRunning || Session.State.ScenarioStatus != ScenarioStatus.Running)
+        if (_paused
+            || Session.IsRunning
+            || Session.State.ScenarioStatus != ScenarioStatus.Running)
         {
             return;
         }
@@ -2552,6 +2784,23 @@
             catch (OperationCanceledException)
             {
             }
+        }
+
+        if (_selfReference is not null)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("overseerLayout.unregisterPauseHandler");
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (JSException)
+            {
+            }
+
+            _selfReference.Dispose();
+            _selfReference = null;
         }
     }
 }
