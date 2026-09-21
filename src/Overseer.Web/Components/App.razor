@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -11,15 +11,26 @@
     <link rel="stylesheet" href="@Assets["Overseer.Web.styles.css"]" />
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
-    <HeadOutlet />
+    <HeadOutlet @rendermode="PageRenderMode" />
 </head>
 
 <body>
-    <Routes />
+    <Routes @rendermode="PageRenderMode" />
     <ReconnectModal />
-    <script src="@Assets["audio.js"]"></script>
-    <script src="@Assets["layout.js"]"></script>
+    <script src="@Assets["_content/Overseer.Web.UI/audio.js"]"></script>
+    <script src="@Assets["_content/Overseer.Web.UI/layout.js"]"></script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 
 </html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    // The shared station pages carry no render mode of their own (the static
+    // WebAssembly build has no server), so the server makes routing
+    // interactive here. Pages that need the raw request, such as /Error, opt out.
+    private IComponentRenderMode? PageRenderMode =>
+        HttpContext.AcceptsInteractiveRouting() ? InteractiveServer : null;
+}

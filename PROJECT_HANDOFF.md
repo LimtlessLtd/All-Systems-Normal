@@ -49,11 +49,14 @@ Projects:
 - Overseer.Simulation — deterministic mechanics/generation/validation
 - Overseer.AI — Ollama cognition and structured adapters
 - Overseer.Persistence — versioned campaign persistence
-- Overseer.Web — server/Ollama runtime
-- Overseer.Web.Client — deterministic static Pages runtime
+- Overseer.Web.UI — the one station console (Razor Class Library): `Pages/Home.razor(.css)`, `Pages/Debug.razor(.css)`, `wwwroot/layout.js`, `wwwroot/audio.js`
+- Overseer.Web — server/Ollama host
+- Overseer.Web.Client — deterministic static Pages host
 - Overseer.Simulation.Tests — regression contract
 
 Shared mechanics belong in Domain/Simulation and must not be independently reimplemented in each UI.
+
+One UI, two hosts. `StationSession` (Overseer.Simulation) owns the station, the tick pipeline and every operator verb; each host's `GameSession` subclass supplies only crew creation and the think step (Ollama on the server, `BrowserMindSystem` on Pages). Pages inject `StationSession` and carry no `@rendermode` — the server applies `InteractiveServer` globally on `<Routes>` (with `/Error` excluded) and registers the library with `AddAdditionalAssemblies` on both `MapRazorComponents` and its router; the client router does the same. Scripts load from `_content/Overseer.Web.UI/`. Never add a host-local copy of a console page or script (`StationSessionTests` guards this).
 
 ---
 
@@ -152,7 +155,7 @@ Primary presentation helper: `src/Overseer.Simulation/StationPresentationSystem.
 - `FacilitySeeder.ApplyIdentityDrivenDetails` adds deterministic room-aware fixtures. Wall equipment is bulkhead-aligned; floor equipment uses collision-aware work bays; all generated fixtures stay inside their owning room.
 - Current art direction uses bright white/grey aerospace hulls, walls and machinery around a dark black tiled deck floor in every functional room, with restrained green/orange/red status colour. Room hover/selection must never replace or hide the tiled floor. Avoid neon cyan/blue, brown grime filters or UI labels painted over the physical room floor.
 - Room-specific interiors should be visually rich and active: consoles/screens, vents, irrigation, pipes, medical equipment, cameras, airlocks, generator/reactor machinery etc. Repeating presentation animations must use closed/seamless cycles without visible snap-back.
-- Browser and server `Home.razor` / `Home.razor.css` / `layout.js` must stay mirrored.
+- Both runtimes render the same `src/Overseer.Web.UI` console; change it once.
 - Robots are selectable map entities with a dedicated Inspector state and explicit **top-down** machine silhouette consistent with the crew camera angle; do not render them as generic dots/cards.
 - Desktop workspace is map-first. The default view is the station focus view (map + Inspector) whose toolbar carries mission clock, alerts, pause, speed, zoom/FIT and the CREW / LOG / MESSAGES / OBJECTIVES / MENU overlays; CONSOLE switches to the full console, where Overseer Comms sits full-width directly above the station workspace beneath mission/corporate objectives. The choice is remembered per browser. Pause is a button and the Space key; picking a speed resumes. RESET RUN always asks for confirmation. The player LOG uses `StationLogPresentation` to omit routine movement. **Do not keep Facility Systems as a permanent primary-workspace panel.** Remove it or move non-contextual controls into a secondary utility surface so the station map + Inspector own the valuable screen area.
 - The right-side **Inspector is the universal contextual surface for anything clickable**: crew, rooms, doors, robots, turrets/automated defences and future interactable station entities. Selection must show that entity's relevant status, state, goals/motivations where applicable, diagnostics and permitted controls.
@@ -183,12 +186,12 @@ Current shared mechanics include:
 - contained MR/ST security-controller malware lifecycle with deterministic reachability, observer-local diagnostics, physical isolation and timed purge/reimage recovery
 - five ordered campaign assignments, corporate directives, carry-over consequences and endings
 - browser-local campaign persistence
-- mirrored Pages/server station UI, resizable panels, large pannable deck camera, wheel/WASD/drag zoom/pan, audio/music, speech/thought bubbles, seamless physical entity animation and dotted green next-segment crew movement intent
+- one shared Pages/server station UI, resizable panels, large pannable deck camera, wheel/WASD/drag zoom/pan, audio/music, speech/thought bubbles, seamless physical entity animation and dotted green next-segment crew movement intent
 - room telemetry attaches directly to the owning room's top/bottom edge rather than floating elsewhere
 - bright white/grey spacecraft interior art direction with animated consoles/screens/vents/irrigation/pipes/medical/camera/airlock/machinery cues
 - one shared `StationSelection` / `StationInspectionSystem` contract drives the contextual Inspector for rooms, crew, doors, MR robots and ST turrets
 - the default workspace is the station focus view with pause, crew roster, notable-event log and menu overlays; CONSOLE shows objectives/directives + full-width Overseer Comms + map/Inspector; the old permanent Facility Systems panel is removed
-- map camera panning never pointer-captures on pointerdown; capture begins only once a press moves past the pan threshold, so plain clicks on `[data-station-interactive]` entities still reach them while drags that start on rooms/corridors still pan (and do not select); this is regression-tested in both runtimes
+- map camera panning never pointer-captures on pointerdown; capture begins only once a press moves past the pan threshold, so plain clicks on `[data-station-interactive]` entities still reach them while drags that start on rooms/corridors still pan (and do not select); this is regression-tested in the shared console
 - rooms, crew, doors, MR robots, ST turrets, physical machinery and key overview status readouts all route through the same Inspector
 - maintainable machinery is bound to physical room fixtures via `RoomFixture.DeviceId`; door entities carry visible local control pads without cluttering corridor fixture geometry
 - `/debug` is a separate full-screen non-gameplay diagnostics surface; it contains cognition traces, raw Ollama prompt/response data, event logs and generation diagnostics and can be disabled without changing simulation authority
@@ -229,8 +232,8 @@ Useful subsystem anchors:
 - src/Overseer.AI/NpcPromptBuilder.cs
 - src/Overseer.AI/RuleBasedAiDecisionService.cs
 - src/Overseer.AI/OllamaAiDecisionService.cs
-- both GameSession.cs implementations
-- both Home.razor / Home.razor.css implementations
+- src/Overseer.Simulation/StationSession.cs (shared session; runtime `GameSession` subclasses in each host)
+- src/Overseer.Web.UI/Pages/Home.razor / Home.razor.css
 
 ---
 
@@ -265,7 +268,7 @@ Standard gate:
 ## Current implementation contracts
 
 - Universal Inspector, station-map click routing, physical machinery/device bindings, sliding doors, power/life-support dependencies, malware recovery, roster policy and campaign persistence remain authoritative shared systems.
-- Pages remains model/credential-free; server/Ollama and browser surfaces must preserve simulation parity. Mirrored station UI files stay synchronized.
+- Pages remains model/credential-free; server/Ollama and browser surfaces must preserve simulation parity. Both run the same `StationSession` pipeline and the same `Overseer.Web.UI` console.
 - `/debug` is a separate diagnostics surface and may contain cognition traces plus raw LLM request/response data; no player-critical control may depend on it.
 - Fixture collision is authoritative for mobile entities. Local navigation stays freeform visually but uses deterministic collision-aware routing internally. The current visibility-graph safety margin is deliberately small (`0.35`) because physical clearance is already enforced separately; fallbacks must never reselect the actor's current waypoint.
 - The seed-1 Storage regression (`Marcus Reed` at the formerly stuck door approach) protects the 24-hour provisioning/maintenance lifecycle from fixture-routing starvation regressions. Do not weaken the lifecycle assertions.

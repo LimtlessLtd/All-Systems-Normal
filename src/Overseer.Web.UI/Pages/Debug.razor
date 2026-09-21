@@ -1,6 +1,5 @@
 @page "/debug"
-@using Overseer.Simulation
-@inject GameSession Session
+@inject StationSession Session
 
 <PageTitle>All Systems Normal · Debug Telemetry</PageTitle>
 
@@ -118,3 +117,9 @@
     }
 </div>
 
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await Session.InitializeAsync();
+    }
+}

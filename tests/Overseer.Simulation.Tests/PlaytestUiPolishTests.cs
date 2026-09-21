@@ -115,8 +115,7 @@ public sealed class PlaytestUiPolishTests
 
         foreach (var relative in new[]
         {
-            "src/Overseer.Web/Components/Pages/Home.razor",
-            "src/Overseer.Web.Client/Pages/Home.razor"
+            "src/Overseer.Web.UI/Pages/Home.razor"
         })
         {
             yield return File.ReadAllText(Path.Combine(root, relative));
@@ -129,8 +128,7 @@ public sealed class PlaytestUiPolishTests
 
         foreach (var relative in new[]
         {
-            "src/Overseer.Web/Components/Pages/Home.razor.css",
-            "src/Overseer.Web.Client/Pages/Home.razor.css"
+            "src/Overseer.Web.UI/Pages/Home.razor.css"
         })
         {
             yield return File.ReadAllText(Path.Combine(root, relative));
