@@ -370,13 +370,13 @@ public sealed class StationUpkeepSystem
             StationSystemKind.Lighting => 0.28,
             StationSystemKind.Camera => 0.24,
             StationSystemKind.IsolationMechanism => 0.18,
-            StationSystemKind.PowerDistributionBus => 0.36,
-            StationSystemKind.CapacitorBank => 0.42,
-            StationSystemKind.CoolantPump => 0.52,
-            StationSystemKind.WaterRecycler => 0.44,
-            StationSystemKind.OxygenGenerator => 0.48,
-            StationSystemKind.CarbonScrubber => 0.46,
-            StationSystemKind.DataNetwork => 0.26,
+            StationSystemKind.PowerDistributionBus => 0.18,
+            StationSystemKind.CapacitorBank => 0.16,
+            StationSystemKind.CoolantPump => 0.24,
+            StationSystemKind.WaterRecycler => 0.20,
+            StationSystemKind.OxygenGenerator => 0.22,
+            StationSystemKind.CarbonScrubber => 0.21,
+            StationSystemKind.DataNetwork => 0.14,
             _ => 0.3
         };
 
@@ -391,6 +391,13 @@ public sealed class StationUpkeepSystem
             < 0.55 => 60 + (random.NextDouble() * 25),   // used
             _ => 85 + (random.NextDouble() * 15)         // serviceable
         };
+
+        if (template.Kind is StationSystemKind.PowerDistributionBus
+            or StationSystemKind.CapacitorBank
+            or StationSystemKind.CoolantPump)
+        {
+            condition = Math.Max(condition, 68 + (random.NextDouble() * 16));
+        }
 
         var device = new StationDevice
         {
@@ -470,7 +477,7 @@ public sealed class StationUpkeepSystem
                      .OrderBy(device => device.Id, StringComparer.Ordinal))
         {
             var roll = StableUnit($"{state.UpkeepSeed}:{currentSlot}:{device.Id}:fault");
-            if (roll >= 0.0025)
+            if (roll >= 0.00008)
             {
                 continue;
             }
@@ -508,7 +515,7 @@ public sealed class StationUpkeepSystem
             ? 0.18
             : bus.Condition >= bus.DegradedAt
                 ? 1.0
-                : Math.Clamp(bus.Condition / Math.Max(1, bus.DegradedAt), 0.35, 1.0);
+                : Math.Clamp(0.68 + (0.32 * (bus.Condition / Math.Max(1, bus.DegradedAt))), 0.68, 1.0);
 
         state.Power.DistributionEfficiencyPercent = busEfficiency * 100;
         var supply = rawSupply * busEfficiency;
@@ -908,12 +915,20 @@ public sealed class StationUpkeepSystem
                 && state.Facility.Doors.FirstOrDefault(door =>
                     door.Id.Equals(doorId, StringComparison.OrdinalIgnoreCase)) is { } door)
             {
-                AddDoorConsole(state, device, door.RoomAId, side: 0);
-                AddDoorConsole(state, device, door.RoomBId, side: 1);
+                if (state.Facility.Rooms[door.RoomAId].Type != RoomType.Corridor)
+                    AddDoorConsole(state, device, door.RoomAId, side: 0);
+                if (state.Facility.Rooms[door.RoomBId].Type != RoomType.Corridor)
+                    AddDoorConsole(state, device, door.RoomBId, side: 1);
                 continue;
             }
 
             if (!state.Facility.Rooms.TryGetValue(device.RoomId, out var room))
+            {
+                continue;
+            }
+
+            if (room.Type == RoomType.Corridor
+                && device.Kind != StationSystemKind.Camera)
             {
                 continue;
             }
