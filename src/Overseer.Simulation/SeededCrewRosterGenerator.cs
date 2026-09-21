@@ -10,7 +10,9 @@ namespace Overseer.Simulation;
 /// </summary>
 public static class SeededCrewRosterGenerator
 {
-    private static readonly CrewRole[] Roles = Enum.GetValues<CrewRole>();
+    private static readonly CrewRole[] Roles = Enum.GetValues<CrewRole>()
+        .Where(role => role != CrewRole.Prisoner)
+        .ToArray();
 
     public static IReadOnlyList<Npc> Generate(int seed, int count = 12)
     {
