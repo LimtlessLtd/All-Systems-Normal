@@ -4,15 +4,23 @@ namespace Overseer.Simulation;
 
 /// <summary>
 /// Model-free fresh-roster generation for the static browser runtime.
-/// The same seed always produces the same six people, including IDs,
-/// names, personality values, skills and one-to-three mechanical traits.
+/// Fresh stations target twelve people by default. The same seed always
+/// produces the same roster, including IDs, names, personality, skills and
+/// mechanical traits.
 /// </summary>
 public static class SeededCrewRosterGenerator
 {
     private static readonly CrewRole[] Roles = Enum.GetValues<CrewRole>();
 
-    public static IReadOnlyList<Npc> Generate(int seed) =>
-        Roles.Select((role, index) => CreateCrew(seed, role, index)).ToList();
+    public static IReadOnlyList<Npc> Generate(int seed, int count = 12)
+    {
+        if (count <= 0)
+            return [];
+
+        return Enumerable.Range(0, count)
+            .Select(index => CreateCrew(seed, Roles[index % Roles.Length], index))
+            .ToList();
+    }
 
     private static Npc CreateCrew(int seed, CrewRole role, int roleIndex)
     {
