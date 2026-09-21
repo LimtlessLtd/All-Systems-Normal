@@ -29,7 +29,7 @@ public sealed class MovementPerceptionMedicalPolishTests
         npc.CurrentAction = new NpcAction(ActionKind.Work, "room", "Cross-room service test.");
 
         var movement = new LocalMovementSystem();
-        for (var index = 0; index < 18; index++)
+        for (var index = 0; index < 40; index++)
         {
             movement.Tick(state, TimeSpan.FromSeconds(4));
 

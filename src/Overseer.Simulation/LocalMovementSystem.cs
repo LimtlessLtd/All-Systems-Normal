@@ -112,16 +112,20 @@ public sealed class LocalMovementSystem
         }
 
         var toRoom = state.Facility.Rooms[movement.ToRoomId];
+        var entry = FindWalkablePoint(
+            toRoom,
+            Math.Clamp(
+                movement.EntryX + (Math.Sign(50 - movement.EntryX) * 4),
+                2,
+                98),
+            Math.Clamp(
+                movement.EntryY + (Math.Sign(50 - movement.EntryY) * 4),
+                2,
+                98));
 
         entity.CurrentRoomId = movement.ToRoomId;
-        entity.PositionX = Math.Clamp(
-            movement.EntryX + (Math.Sign(50 - movement.EntryX) * 4),
-            2,
-            98);
-        entity.PositionY = Math.Clamp(
-            movement.EntryY + (Math.Sign(50 - movement.EntryY) * 4),
-            2,
-            98);
+        entity.PositionX = entry.X;
+        entity.PositionY = entry.Y;
         entity.Movement = null;
 
         Log(
@@ -449,6 +453,17 @@ public sealed class LocalMovementSystem
         double targetY,
         double maxDistance)
     {
+        // Generated fixtures can move between station seeds, while crew/robot
+        // starting coordinates are intentionally simple. If an entity happens
+        // to begin inside newly-solid equipment, recover it to the nearest
+        // walkable point before routing rather than trapping it forever.
+        if (!IsWalkable(room, entity.PositionX, entity.PositionY))
+        {
+            var recovered = FindWalkablePoint(room, entity.PositionX, entity.PositionY);
+            entity.PositionX = recovered.X;
+            entity.PositionY = recovered.Y;
+        }
+
         var destination = FindWalkablePoint(room, targetX, targetY);
         var dx = destination.X - entity.PositionX;
         var dy = destination.Y - entity.PositionY;
