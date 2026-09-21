@@ -457,7 +457,7 @@ public sealed class StationUpkeepSystem
             .Sum(device => Output(state, device));
 
         var bus = Find(state, StationSystemKind.PowerDistributionBus);
-        var busEfficiency = bus is null || bus.IsFailed
+        var busEfficiency = bus is null || !bus.IsOperational
             ? 0.18
             : bus.Condition >= bus.DegradedAt
                 ? 1.0
@@ -470,7 +470,7 @@ public sealed class StationUpkeepSystem
             .Where(room => room.IsPowered)
             .Sum(Demand);
         var deviceDemand = state.Devices.Values
-            .Where(device => !!device.IsOperational)
+            .Where(device => device.IsOperational)
             .Sum(device => DeviceDraw(state, device));
 
         var demand = roomDemand + deviceDemand;
@@ -559,7 +559,7 @@ public sealed class StationUpkeepSystem
 
         if (coolant is not null)
         {
-            var coolingFactor = coolant.IsFailed
+            var coolingFactor = !coolant.IsOperational
                 ? 0.28
                 : coolant.Condition >= coolant.DegradedAt
                     ? 1.0
@@ -884,7 +884,7 @@ public sealed class StationUpkeepSystem
                 continue;
             }
 
-            var ordinal = Math.Abs(StringComparer.Ordinal.GetHashCode(device.Id));
+            var ordinal = StableHash(device.Id);
             var x = 18 + (ordinal % 5) * 16;
             var y = 18 + ((ordinal / 7) % 4) * 18;
             var size = fixtureType.Value switch
@@ -925,7 +925,7 @@ public sealed class StationUpkeepSystem
             return;
         }
 
-        var hash = Math.Abs(StringComparer.Ordinal.GetHashCode($"{device.Id}:{roomId}"));
+        var hash = StableHash($"{device.Id}:{roomId}");
         var x = side == 0 ? 9d : 91d;
         var y = 22d + (hash % 55);
 
@@ -972,6 +972,21 @@ public sealed class StationUpkeepSystem
         || (kind == StationSystemKind.LifeSupport && fixtureType == FixtureType.Console)
         || (kind is StationSystemKind.ClimateControl or StationSystemKind.Lighting
             && fixtureType == FixtureType.UtilityPanel);
+
+    private static int StableHash(string value)
+    {
+        unchecked
+        {
+            uint hash = 2166136261;
+            foreach (var ch in value)
+            {
+                hash ^= ch;
+                hash *= 16777619;
+            }
+
+            return (int)(hash & 0x7fffffff);
+        }
+    }
 
     private static void Log(GameState state, string message)
     {
