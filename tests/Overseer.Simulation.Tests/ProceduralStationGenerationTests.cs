@@ -416,6 +416,45 @@ public sealed class ProceduralStationGenerationTests
         Assert.True(profile.FitOffsetY > 0);
     }
 
+    [Fact]
+    public void GeneratedWallDetails_HugRealBulkheadsAcrossProceduralSeeds()
+    {
+        var wallMountedTypes = new[]
+        {
+            FixtureType.Pipe,
+            FixtureType.Window,
+            FixtureType.Vent,
+            FixtureType.Screen,
+            FixtureType.UtilityPanel
+        };
+
+        foreach (var seed in Enumerable.Range(0, 24).Select(index => 830_000 + index))
+        {
+            var state = FacilitySeeder.CreateDefault(stationSeed: seed);
+
+            foreach (var room in state.Facility.Rooms.Values)
+            {
+                foreach (var fixture in room.Fixtures.Where(fixture =>
+                             fixture.Label.StartsWith("Generated ", StringComparison.Ordinal)
+                             && wallMountedTypes.Contains(fixture.Type)))
+                {
+                    var edgeDistance = new[]
+                    {
+                        fixture.X - (fixture.Width / 2),
+                        100 - (fixture.X + (fixture.Width / 2)),
+                        fixture.Y - (fixture.Height / 2),
+                        100 - (fixture.Y + (fixture.Height / 2))
+                    }.Min();
+
+                    Assert.InRange(
+                        edgeDistance,
+                        2.99,
+                        3.01);
+                }
+            }
+        }
+    }
+
     private static string Signature(StationGenerationResult result)
     {
         var roomSignature = string.Join(

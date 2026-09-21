@@ -258,33 +258,87 @@ public static class FacilitySeeder
         var (minimumWidth, maximumWidth, minimumHeight, maximumHeight) =
             GeneratedFixtureSize(type);
 
-        for (var attempt = 0; attempt < 14; attempt++)
+        var wallMounted = type is FixtureType.Pipe
+            or FixtureType.Window
+            or FixtureType.Vent
+            or FixtureType.Screen
+            or FixtureType.UtilityPanel;
+
+        // Presentation fixtures use a loose installation grid rather than pure
+        // random scatter. Wall equipment hugs bulkheads; floor equipment prefers
+        // repeatable work bays while retaining deterministic variation.
+        for (var attempt = 0; attempt < 18; attempt++)
         {
             var width = minimumWidth + (random.NextDouble() * (maximumWidth - minimumWidth));
             var height = minimumHeight + (random.NextDouble() * (maximumHeight - minimumHeight));
-            var xMargin = (width / 2) + 3;
-            var yMargin = (height / 2) + 3;
 
-            if (xMargin >= 49 || yMargin >= 49)
+            double x;
+            double y;
+
+            if (wallMounted)
             {
-                continue;
+                var wall = random.Next(4);
+                var verticalWall = wall is 2 or 3;
+
+                if (verticalWall && width > height)
+                {
+                    (width, height) = (height, width);
+                }
+
+                var xMargin = (width / 2) + 3;
+                var yMargin = (height / 2) + 3;
+
+                if (xMargin >= 49 || yMargin >= 49)
+                {
+                    continue;
+                }
+
+                x = wall switch
+                {
+                    2 => xMargin,
+                    3 => 100 - xMargin,
+                    _ => xMargin + (random.NextDouble() * (100 - (2 * xMargin)))
+                };
+
+                y = wall switch
+                {
+                    0 => yMargin,
+                    1 => 100 - yMargin,
+                    _ => yMargin + (random.NextDouble() * (100 - (2 * yMargin)))
+                };
+            }
+            else
+            {
+                var xMargin = (width / 2) + 4;
+                var yMargin = (height / 2) + 4;
+
+                if (xMargin >= 49 || yMargin >= 49)
+                {
+                    continue;
+                }
+
+                var column = random.Next(3) switch
+                {
+                    0 => 24d,
+                    1 => 50d,
+                    _ => 76d
+                };
+                var row = random.Next(3) switch
+                {
+                    0 => 27d,
+                    1 => 52d,
+                    _ => 76d
+                };
+
+                var jitterX = (random.NextDouble() - 0.5) * 8;
+                var jitterY = (random.NextDouble() - 0.5) * 8;
+
+                x = Math.Clamp(column + jitterX, xMargin, 100 - xMargin);
+                y = Math.Clamp(row + jitterY, yMargin, 100 - yMargin);
             }
 
-            var x = xMargin + (random.NextDouble() * (100 - (2 * xMargin)));
-            var y = yMargin + (random.NextDouble() * (100 - (2 * yMargin)));
-
-            var wallMounted = type is FixtureType.Pipe
-                or FixtureType.Window
-                or FixtureType.Vent
-                or FixtureType.Screen
-                or FixtureType.UtilityPanel;
-
-            if (!wallMounted
-                && room.Fixtures.Any(existing =>
-                    existing.Type is not FixtureType.Camera
-                        and not FixtureType.Window
-                        and not FixtureType.Pipe
-                        and not FixtureType.Vent
+            if (room.Fixtures.Any(existing =>
+                    existing.Type != FixtureType.Camera
                     && FixtureRectanglesOverlap(
                         x,
                         y,
@@ -294,17 +348,38 @@ public static class FacilitySeeder
                         existing.Y,
                         existing.Width,
                         existing.Height,
-                        padding: 2.5)))
+                        padding: wallMounted ? 1.2 : 2.8)))
             {
                 continue;
             }
 
-            room.Fixtures.Add(new RoomFixture(type, label, x, y, width, height));
+            room.Fixtures.Add(
+                new RoomFixture(
+                    type,
+                    label,
+                    x,
+                    y,
+                    width,
+                    height,
+                    null,
+                    null,
+                    GeneratedFixtureUsePose(type),
+                    0));
             return true;
         }
 
         return false;
     }
+
+    private static FixtureUsePose GeneratedFixtureUsePose(FixtureType type) =>
+        type switch
+        {
+            FixtureType.Chair or FixtureType.Sofa or FixtureType.Bench => FixtureUsePose.Sit,
+            FixtureType.Bed or FixtureType.MedicalBed => FixtureUsePose.Lie,
+            FixtureType.Shower => FixtureUsePose.Shower,
+            FixtureType.Toilet => FixtureUsePose.Toilet,
+            _ => FixtureUsePose.Stand
+        };
 
     private static (double MinWidth, double MaxWidth, double MinHeight, double MaxHeight)
         GeneratedFixtureSize(FixtureType type) =>
