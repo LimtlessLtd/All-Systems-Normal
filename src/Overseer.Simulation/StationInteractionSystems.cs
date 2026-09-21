@@ -117,7 +117,7 @@ public static class CrewAffordanceSystem
 
         if (IsRoomTarget(action))
         {
-            if (normalizedTarget is null
+            if (requested is null
                 || !state.Facility.Rooms.TryGetValue(requested, out var room))
                 return false;
 
@@ -474,7 +474,7 @@ public sealed record DebugTelemetrySnapshot(
 /// </summary>
 public static class DebugTelemetrySystem
 {
-    public const bool UiEnabled = true;
+    public static bool UiEnabled => true;
     public const bool IsGameplayCritical = false;
 
     public static DebugTelemetrySnapshot Capture(GameState state) =>
