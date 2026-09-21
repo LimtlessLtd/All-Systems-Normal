@@ -246,7 +246,6 @@ public sealed class CrewMaintenanceSystem
 
             case StationSystemKind.LifeSupport:
                 state.LifeSupport.IsAiControllable = true;
-                state.LifeSupport.IsOnline = true;
                 break;
 
             case StationSystemKind.AirlockMechanism:
@@ -287,7 +286,11 @@ public sealed class CrewMaintenanceSystem
 
     private bool CanReach(GameState state, Npc npc, StationDevice device) =>
         npc.CurrentRoomId.Equals(device.RoomId, StringComparison.OrdinalIgnoreCase)
-        || _navigation.FindPath(state.Facility, npc.CurrentRoomId, device.RoomId).Count > 0;
+        || _navigation.FindPathForCrew(
+            state,
+            npc,
+            npc.CurrentRoomId,
+            device.RoomId).Count > 0;
 
     private static void Release(Npc npc)
     {
