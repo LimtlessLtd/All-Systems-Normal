@@ -26,12 +26,37 @@ public sealed class EnvironmentSystem
         var totalCrew = livingCrew.Count;
         var vacuumDepths = FindVacuumDepths(state);
 
-        if (state.LifeSupport.IsOnline && state.LifeSupport.OxygenReservePercent > 0)
+        if (state.LifeSupport.OxygenGeneratorOnline
+            && state.LifeSupport.IsOnline)
+        {
+            state.LifeSupport.OxygenReservePercent = Math.Min(
+                100,
+                state.LifeSupport.OxygenReservePercent
+                + (0.018 * minutes)
+                - (totalCrew * 0.0012 * minutes));
+        }
+        else
         {
             state.LifeSupport.OxygenReservePercent = Math.Max(
                 0,
                 state.LifeSupport.OxygenReservePercent
-                - (totalCrew * 0.0012 * minutes));
+                - ((0.006 + (totalCrew * 0.0018)) * minutes));
+        }
+
+        if (state.LifeSupport.WaterRecyclerOnline && state.LifeSupport.IsOnline)
+        {
+            state.LifeSupport.WaterReservePercent = Math.Min(
+                100,
+                state.LifeSupport.WaterReservePercent
+                + (0.012 * minutes)
+                - (totalCrew * 0.001 * minutes));
+        }
+        else
+        {
+            state.LifeSupport.WaterReservePercent = Math.Max(
+                0,
+                state.LifeSupport.WaterReservePercent
+                - ((0.004 + (totalCrew * 0.0015)) * minutes));
         }
 
         foreach (var room in state.Facility.Rooms.Values)
@@ -146,10 +171,12 @@ public sealed class EnvironmentSystem
                 NominalOxygen,
                 0.075 * minutes);
 
-            var scrubberFactor = Math.Clamp(
-                state.LifeSupport.ScrubberEfficiencyPercent / 100d,
-                0,
-                1);
+            var scrubberFactor = state.LifeSupport.CarbonScrubberOnline
+                ? Math.Clamp(
+                    state.LifeSupport.ScrubberEfficiencyPercent / 100d,
+                    0,
+                    1)
+                : 0;
 
             room.CarbonDioxidePercent = MoveToward(
                 room.CarbonDioxidePercent,
