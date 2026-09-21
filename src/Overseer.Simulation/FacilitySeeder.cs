@@ -487,6 +487,13 @@ public static class FacilitySeeder
                     continue;
                 }
 
+                if (IsWallFixture(fixture.Type)
+                    && TryCompactWallPlacement(fixture, placed, out resolved))
+                {
+                    placed.Add(resolved);
+                    continue;
+                }
+
                 // Extremely crowded authored rooms still need every physical
                 // control/device to remain represented. Use a tiny deterministic
                 // service marker as the final fallback rather than overlap it.
@@ -566,7 +573,9 @@ public static class FacilitySeeder
 
         var scales = IsCentralFixture(fixture.Type)
             ? new[] { 1d, .92, .84 }
-            : new[] { 1d, .92, .84, .76, .68 };
+            : IsWallFixture(fixture.Type)
+                ? new[] { 1d, .9, .8, .7, .6, .5, .42, .36 }
+                : new[] { 1d, .92, .84, .76, .68 };
 
         foreach (var scale in scales)
         {
@@ -584,11 +593,40 @@ public static class FacilitySeeder
                     candidate.Width,
                     candidate.Height);
 
-                if (FitsFixture(moved, placed, padding: 1.6))
+                var padding = IsWallFixture(fixture.Type) ? .75 : 1.6;
+                if (FitsFixture(moved, placed, padding))
                 {
                     resolved = moved;
                     return true;
                 }
+            }
+        }
+
+        resolved = fixture;
+        return false;
+    }
+
+    private static bool TryCompactWallPlacement(
+        RoomFixture fixture,
+        IReadOnlyList<RoomFixture> placed,
+        out RoomFixture resolved)
+    {
+        var compactWidth = Math.Min(fixture.Width, 6);
+        var compactHeight = Math.Min(fixture.Height, 6);
+
+        foreach (var candidate in WallCandidates(compactWidth, compactHeight))
+        {
+            var moved = MoveFixture(
+                fixture,
+                candidate.X,
+                candidate.Y,
+                candidate.Width,
+                candidate.Height);
+
+            if (FitsFixture(moved, placed, padding: .2))
+            {
+                resolved = moved;
+                return true;
             }
         }
 
@@ -629,23 +667,21 @@ public static class FacilitySeeder
         var verticalX = (verticalWidth / 2) + 3;
         var verticalMarginY = (verticalHeight / 2) + 3;
 
-        var slots = new[] { 10d, 20d, 30d, 40d, 50d, 60d, 70d, 80d, 90d };
-
-        foreach (var x in slots)
+        for (var slot = 6d; slot <= 94; slot += 4)
         {
-            if (x >= horizontalMarginX && x <= 100 - horizontalMarginX)
+            if (slot >= horizontalMarginX && slot <= 100 - horizontalMarginX)
             {
-                yield return (x, horizontalY, width, height);
-                yield return (x, 100 - horizontalY, width, height);
+                yield return (slot, horizontalY, width, height);
+                yield return (slot, 100 - horizontalY, width, height);
             }
         }
 
-        foreach (var y in slots)
+        for (var slot = 6d; slot <= 94; slot += 4)
         {
-            if (y >= verticalMarginY && y <= 100 - verticalMarginY)
+            if (slot >= verticalMarginY && slot <= 100 - verticalMarginY)
             {
-                yield return (verticalX, y, verticalWidth, verticalHeight);
-                yield return (100 - verticalX, y, verticalWidth, verticalHeight);
+                yield return (verticalX, slot, verticalWidth, verticalHeight);
+                yield return (100 - verticalX, slot, verticalWidth, verticalHeight);
             }
         }
     }
