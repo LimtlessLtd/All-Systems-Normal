@@ -106,7 +106,11 @@ public static class StationGenerator
 
         IReadOnlyList<string> lastErrors = [];
 
-        for (var attempt = 0; attempt < 24; attempt++)
+        // Keep the first 24 attempts identical to the established generator,
+        // then continue deterministic retries for unusually crowded seeds.
+        // This improves robustness without weakening any geometry validation or
+        // changing successful seeds that already pack inside the original budget.
+        for (var attempt = 0; attempt < 64; attempt++)
         {
             var random = new SeededRandom(MixSeed(seed, 0x7001 + attempt));
             Facility facility;
