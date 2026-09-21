@@ -161,6 +161,67 @@ public sealed class LocalMovementSystemTests
         }
     }
 
+    [Fact]
+    public void MaintenanceWorkerWalksToTheActualFixtureInteractionPoint()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 51515);
+        var npc = state.Crew.First();
+        var room = state.Facility.Rooms["generator"];
+        var fixture = room.Fixtures.Single(item => item.Type == FixtureType.Generator);
+
+        npc.CurrentRoomId = room.Id;
+        npc.PositionX = 10;
+        npc.PositionY = 10;
+        npc.ServicingDeviceId = "generator:generator";
+        npc.CurrentAction = new NpcAction(ActionKind.Repair, room.Id, "Servicing generator.");
+
+        var targetX = fixture.InteractionX ?? fixture.X;
+        var targetY = fixture.InteractionY ?? fixture.Y;
+        var before = Math.Sqrt(
+            Math.Pow(npc.PositionX - targetX, 2)
+            + Math.Pow(npc.PositionY - targetY, 2));
+
+        new LocalMovementSystem().Tick(state, TimeSpan.FromMinutes(1));
+
+        var after = Math.Sqrt(
+            Math.Pow(npc.PositionX - targetX, 2)
+            + Math.Pow(npc.PositionY - targetY, 2));
+
+        Assert.True(after < before);
+    }
+
+    [Fact]
+    public void FriendlyRobotWalksToMachineryWhileRepairingIt()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 61616);
+        var robot = Assert.Single(state.Robots);
+        var room = state.Facility.Rooms["generator"];
+        var fixture = room.Fixtures.Single(item => item.Type == FixtureType.Generator);
+
+        robot.CurrentRoomId = room.Id;
+        robot.PositionX = 10;
+        robot.PositionY = 10;
+        room.IsPowered = false;
+
+        var robots = new RobotSystem();
+        robots.Tick(state, TimeSpan.FromMinutes(1));
+        Assert.NotNull(robot.ActionCompletesAt);
+
+        var targetX = fixture.InteractionX ?? fixture.X;
+        var targetY = fixture.InteractionY ?? fixture.Y;
+        var before = Math.Sqrt(
+            Math.Pow(robot.PositionX - targetX, 2)
+            + Math.Pow(robot.PositionY - targetY, 2));
+
+        new LocalMovementSystem().Tick(state, TimeSpan.FromMinutes(1));
+
+        var after = Math.Sqrt(
+            Math.Pow(robot.PositionX - targetX, 2)
+            + Math.Pow(robot.PositionY - targetY, 2));
+
+        Assert.True(after < before);
+    }
+
     private static Door NetworkDoorForHall(
         GameState state,
         string hallwayId,
