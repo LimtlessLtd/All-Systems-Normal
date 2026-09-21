@@ -37,6 +37,7 @@ public enum FixtureType
     Console,
     MedicalBed,
     TreatmentUnit,
+    ResurrectionChamber,
     ReactorCore,
     Generator,
     Workbench,
@@ -333,6 +334,11 @@ public enum ActionKind
     InspectEquipment,
     CheckOnCrew,
     AssistCrew,
+    MedicalCheckup,
+    TreatInjury,
+    AdministerMedication,
+    CleanBlood,
+    ResurrectCrew,
     CoordinateWork,
     ReassureCrew,
     MisleadCrew,
@@ -523,6 +529,7 @@ public sealed class StationRobot : IStationMobileEntity
     public required string CurrentRoomId { get; set; }
     public double PositionX { get; set; } = 50;
     public double PositionY { get; set; } = 50;
+    public double FacingDegrees { get; set; }
     public NpcMovement? Movement { get; set; }
 
     public RobotPolicy Policy { get; set; } = RobotPolicy.Friendly;
@@ -620,6 +627,23 @@ public sealed record RoomFixture(
     double FacingDegrees = 0,
     string? DeviceId = null);
 
+public sealed record BloodEvidence(
+    string Id,
+    Guid SourceNpcId,
+    string RoomId,
+    double X,
+    double Y,
+    double Severity,
+    TimeSpan CreatedAt);
+
+public sealed class MedicalState
+{
+    public double Supplies { get; set; } = 12;
+    public int MedicationDoses { get; set; } = 8;
+    public int ResurrectionCharges { get; set; } = 1;
+    public double ResurrectionEnergyKwh { get; set; } = 6;
+}
+
 public sealed class Npc : IStationMobileEntity
 {
     public Guid Id { get; init; } = Guid.NewGuid();
@@ -635,9 +659,15 @@ public sealed class Npc : IStationMobileEntity
     // without allowing rendering code to decide where a person really is.
     public double PositionX { get; set; } = 50;
     public double PositionY { get; set; } = 50;
+    public double FacingDegrees { get; set; }
     public NpcMovement? Movement { get; set; }
 
     public double Health { get; set; } = 100;
+    public double LastHealthSnapshot { get; set; } = 100;
+    public TimeSpan? LastBloodEvidenceAt { get; set; }
+    public TimeSpan? LastMedicalCheckupAt { get; set; }
+    public Guid? MedicalPatientId { get; set; }
+    public TimeSpan? MedicalActionCompletesAt { get; set; }
     public double Hunger { get; set; } = 10;
     public double Fatigue { get; set; } = 10;
     public double Fear { get; set; } = 5;
@@ -703,6 +733,8 @@ public sealed class Npc : IStationMobileEntity
     public Dictionary<Guid, CrewSighting> LastSeenCrew { get; } = [];
     public Dictionary<Guid, MissingPersonConcern> MissingPersonConcerns { get; } = [];
     public HashSet<string> ObservedUnsafeAirlocks { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+    public HashSet<string> ObservedBloodEvidenceIds { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
     // Faults this person has personally noticed, keyed "roomId:fault". Cleared
@@ -881,6 +913,8 @@ public sealed class GameState
     public ExperimentTelemetry Telemetry { get; } = new();
     public List<AudioCue> AudioCues { get; } = [];
     public long NextAudioCueSequence { get; set; } = 1;
+    public List<BloodEvidence> BloodEvidence { get; } = [];
+    public MedicalState Medical { get; } = new();
 
     // Overseer's own voice. Messages are the player's only non-physical verb.
     public List<OverseerMessage> OverseerMessages { get; } = [];
