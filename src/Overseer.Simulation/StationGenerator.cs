@@ -1029,9 +1029,13 @@ public static class StationGenerator
             scale *= 0.9 + (identity.IndustrialIntensity / 500d);
         }
 
-        var shrink = attempt < 300
+        // Prefer the deliberately larger profiles, but progressively relax them
+        // on crowded deterministic seeds. Status-plate reservations are hard
+        // geometry now, so late packing needs enough headroom to avoid turning
+        // valid legacy seeds into generation failures.
+        var shrink = attempt < 260
             ? 1d
-            : Math.Clamp(1d - ((attempt - 300) / 1100d), 0.88, 1d);
+            : Math.Clamp(1d - ((attempt - 260) / 820d), 0.76, 1d);
 
         var width = random.NextDouble(profile.MinWidth, profile.MaxWidth) * scale * shrink;
         var height = random.NextDouble(profile.MinHeight, profile.MaxHeight) * scale * shrink;
@@ -1045,10 +1049,12 @@ public static class StationGenerator
         // The default 100% map camera renders the authoritative 0..100 deck
         // inside a 2560x2240px physical layer. These minima therefore guarantee
         // every generated functional room is at least ~200px on both axes.
-        width = Math.Clamp(width, 9.5, 27);
-        // Room status telemetry owns real generation space; height no longer
-        // collapses to tiny fixture-jammed compartments during late attempts.
-        height = Math.Clamp(height, 10.5, 30);
+        width = Math.Clamp(width, 8.5, 27);
+        // Room status telemetry owns real generation space. Keep normal rooms
+        // larger than the old generator, while allowing a bounded late fallback
+        // for compact/retrofit seeds where the reserved plate strip is the
+        // difference between a valid layout and no layout at all.
+        height = Math.Clamp(height, 9.5, 30);
 
         var passageWidth = identity.Budget switch
         {
