@@ -102,8 +102,9 @@ public sealed class BrowserMindSystem
                 continue;
             }
 
-            var saferRoom = FindSaferRoom(state, npc, currentRoom);
-            var blockingDoor = saferRoom is null
+            var fightFire = currentRoom.FireIntensity > 0 && ShouldFightFire(npc, currentRoom);
+            var saferRoom = fightFire ? null : FindSaferRoom(state, npc, currentRoom);
+            var blockingDoor = !fightFire && saferRoom is null
                 ? FindBlockingDoorTowardSaferRoom(state, npc, currentRoom)
                 : null;
 
@@ -123,7 +124,15 @@ public sealed class BrowserMindSystem
             npc.Movement = null;
             npc.RoutineUntil = TimeSpan.Zero;
 
-            var intent = saferRoom is not null
+            var intent = fightFire
+                ? Create(
+                    state,
+                    ActionKind.FightFire,
+                    currentRoom.Id,
+                    $"Suppress the fire in {currentRoom.Name}.",
+                    "There is an active fire here and I believe I can help contain it.",
+                    100)
+                : saferRoom is not null
                 ? Create(
                     state,
                     ActionKind.Move,
@@ -157,6 +166,17 @@ public sealed class BrowserMindSystem
 
         if (CrewEnvironmentSafety.IsDangerous(currentRoom))
         {
+            if (currentRoom.FireIntensity > 0 && ShouldFightFire(npc, currentRoom))
+            {
+                return Create(
+                    state,
+                    ActionKind.FightFire,
+                    currentRoom.Id,
+                    $"Fight the fire in {currentRoom.Name}.",
+                    "The compartment is burning and I think staying to suppress it is worth the risk.",
+                    98);
+            }
+
             var saferRoom = FindSaferRoom(state, npc, currentRoom);
 
             if (saferRoom is not null)
@@ -883,6 +903,21 @@ public sealed class BrowserMindSystem
             : $"I have not seen {concern.PersonName} this shift and they missed expected duty around {expected}.";
     }
 
+    private static bool ShouldFightFire(Npc npc, Room room)
+    {
+        var courage = Math.Clamp(
+            npc.Personality.Courage + CrewTraitMath.Modifier(npc, TraitEffectKind.Courage),
+            0,
+            100);
+        var practical = Math.Max(
+            npc.Skills.GetValueOrDefault("Engineering"),
+            npc.Skills.GetValueOrDefault("Security"));
+        return room.FireIntensity <= 58
+            && npc.Stress < 88
+            && npc.Fatigue < 88
+            && (practical >= 45 || courage >= 72);
+    }
+
     private bool IsAlreadyEscapingToSaferRoom(
         GameState state,
         Npc npc,
@@ -893,7 +928,7 @@ public sealed class BrowserMindSystem
             return true;
         }
 
-        if (npc.Intent is not { Action: ActionKind.Move or ActionKind.SeekSafety, TargetId: { } targetId }
+        if (npc.Intent is not { Action: ActionKind.Move or ActionKind.SeekSafety or ActionKind.EvacuateHazard, TargetId: { } targetId }
             || !state.Facility.Rooms.TryGetValue(targetId, out var targetRoom))
         {
             return false;
