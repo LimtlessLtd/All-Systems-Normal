@@ -1334,6 +1334,9 @@
     private Door? SelectedDoor =>
         StationInspectionSystem.Door(Session.State, _selection);
 
+    private StationFixtureInspection? SelectedFixture =>
+        StationInspectionSystem.Fixture(Session.State, _selection);
+
     private StationRobot? SelectedRobot =>
         StationInspectionSystem.Robot(Session.State, _selection);
 
@@ -1542,6 +1545,11 @@
 
     private void SelectDoor(string doorId) =>
         _selection = new(StationSelectionKind.Door, doorId);
+
+    private void SelectFixture(string roomId, RoomFixture fixture) =>
+        _selection = new(
+            StationSelectionKind.Fixture,
+            StationInspectionSystem.FixtureSelectionId(roomId, fixture));
 
     private void SelectRobot(string robotId) =>
         _selection = new(StationSelectionKind.Robot, robotId);
