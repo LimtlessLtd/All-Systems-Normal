@@ -32,7 +32,7 @@ public sealed class StationDeviceControlSystem
             return false;
         }
 
-        if (device.IsFailed && !device.IsEnabled)
+        if (device.IsFailed)
         {
             message = $"{device.Label} has failed and must be physically serviced.";
             return false;
