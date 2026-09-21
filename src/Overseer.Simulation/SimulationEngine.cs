@@ -80,6 +80,15 @@ public sealed class SimulationEngine
                     : 0.11;
             npc.Hunger = Clamp(npc.Hunger + (hungerDelta * minutes));
 
+            // Crossing into a serious physiological need requests fresh
+            // cognition; it does not choose the response. Browser/LLM minds
+            // still decide what the person wants to do, while C# continues to
+            // own the need, navigation and consequences.
+            if (npc.Hunger >= 72)
+            {
+                npc.NeedsMindReconsideration = true;
+            }
+
             var sleeping = npc.CurrentAction.Kind is ActionKind.Rest or ActionKind.Sleep;
             var scheduledSleep = CrewDutySchedule.IsSleepWindow(npc, state.Elapsed);
 
@@ -94,6 +103,10 @@ public sealed class SimulationEngine
                     + (scheduledSleep ? 0.055 : 0)
                     + (Math.Min(360, npc.SleepDebtMinutes) / 12000d);
             npc.Fatigue = Clamp(npc.Fatigue + (fatigueRate * minutes));
+            if (npc.Fatigue >= 86)
+            {
+                npc.NeedsMindReconsideration = true;
+            }
 
             npc.HygieneNeed = Clamp(
                 npc.HygieneNeed
