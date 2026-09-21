@@ -353,15 +353,6 @@
             </div>
         </aside>
 
-        <div class="layout-splitter layout-splitter-vertical"
-             data-splitter="systems"
-             role="separator"
-             aria-orientation="vertical"
-             aria-label="Resize Systems panel"
-             aria-valuemin="165"
-             aria-valuemax="360"
-             tabindex="0"></div>
-
         <main class="station-panel panel">
             <div class="panel-heading map-heading">
                 <div>
@@ -376,11 +367,11 @@
             <div class="map-toolbar">
                 <span>MAP ZOOM</span>
                 <div class="map-zoom-controls">
-                    <button class="secondary mini" disabled="@(_mapZoom <= MinMapZoom)" @onclick="ZoomOut" aria-label="Zoom map out">−</button>
-                    <button class="secondary zoom-readout" @onclick="ResetMapZoom" title="Reset map zoom">@MapZoomPercent%</button>
-                    <button class="secondary mini" disabled="@(_mapZoom >= MaxMapZoom)" @onclick="ZoomIn" aria-label="Zoom map in">+</button>
+                    <button type="button" class="secondary mini" data-map-zoom-out aria-label="Zoom map out">−</button>
+                    <button type="button" class="secondary zoom-readout" data-map-camera-reset title="Reset pan and zoom"><span data-map-zoom-readout>100%</span></button>
+                    <button type="button" class="secondary mini" data-map-zoom-in aria-label="Zoom map in">+</button>
                 </div>
-                <small>Scroll while zoomed · drag the visible splitters to resize · layout is saved locally.</small>
+                <small>Drag map to pan · WASD / arrows move camera · Ctrl+wheel or ± zoom · RESET returns home.</small>
                 @if (Session.State.StationGeneration is { } generation)
                 {
                     <span class="station-character-chip">
@@ -413,8 +404,9 @@
                         title="Restore default panel and map sizes">RESET LAYOUT</button>
             </div>
 
-            <div class="station-map-viewport">
+            <div class="station-map-viewport" data-map-camera tabindex="0" aria-label="Station map. Drag to pan; use WASD or arrow keys to move the camera.">
                 <div class="@StationMapClass" style="@StationMapStyle">
+                <div class="station-map-camera" data-map-camera-content>
                 <div class="station-world" style="@StationWorldStyle">
                 @foreach (var room in Session.State.Facility.Rooms.Values)
                 {
@@ -429,9 +421,9 @@
                             <i class="room-state-dot @RoomHealthClass(room)" aria-hidden="true"></i>
                         </span>
                         <span class="room-data">
-                            <b>@(room.IsPowered ? "PWR" : "OFF")</b>
-                            <b>@room.TemperatureC.ToString("0")°</b>
-                            <b>O₂ @room.OxygenPercent.ToString("0.0")</b>
+                            <b class="room-status @PowerStatusClass(room)">@(room.IsPowered ? "PWR ON" : "PWR OFF")</b>
+                            <b class="room-status @TemperatureStatusClass(room)">TEMP @room.TemperatureC.ToString("0")°</b>
+                            <b class="room-status @OxygenStatusClass(room)">O₂ @room.OxygenPercent.ToString("0.0")%</b>
                         </span>
 
                         <span class="fixture-layer" aria-hidden="true">
@@ -530,6 +522,7 @@
                 }
                 </div>
                 </div>
+                </div>
             </div>
 
             <div class="layout-splitter layout-splitter-horizontal map-splitter"
@@ -542,7 +535,7 @@
                  tabindex="0"></div>
 
             <div class="map-footer">
-                <span>Click a room or crew member to inspect it.</span>
+                <span>Drag / WASD to pan · ± or Ctrl+wheel to zoom · click rooms and crew to inspect.</span>
                 <span>Crew disappear from the map when a camera feed is lost.</span>
             </div>
         </main>
@@ -557,7 +550,100 @@
              tabindex="0"></div>
 
         <aside class="inspector-panel panel">
-            @if (SelectedCrew is { } selectedCrew)
+            <div class="workspace-tabs" role="tablist" aria-label="Right-side workspace">
+                <button type="button"
+                        class="@(_workspaceTab == "inspector" ? "active" : null)"
+                        @onclick='() => _workspaceTab = "inspector"'>INSPECTOR</button>
+                <button type="button"
+                        class="@(_workspaceTab == "telemetry" ? "active" : null)"
+                        @onclick='() => _workspaceTab = "telemetry"'>TELEMETRY</button>
+            </div>
+
+            @if (_workspaceTab == "telemetry")
+            {
+                <div class="telemetry-pane">
+                    <div class="panel-heading">
+                        <div>
+                            <span class="overline">DIAGNOSTICS</span>
+                            <h2>COGNITION TELEMETRY</h2>
+                        </div>
+                        <span>@Session.State.CognitionTelemetry.Count MIND · @Session.State.EventLog.Count EVENT</span>
+                    </div>
+
+                    <p class="telemetry-help">
+                        Raw model output is retained transiently for this run so NPC decisions can be audited.
+                        Browser/rule-based decisions use the same trace format without a raw LLM response.
+                    </p>
+
+                    <div class="telemetry-list">
+                        @if (Session.State.CognitionTelemetry.Count == 0)
+                        {
+                            <p class="comms-empty">No cognition calls recorded yet.</p>
+                        }
+                        else
+                        {
+                            @foreach (var trace in Session.State.CognitionTelemetry.Take(40))
+                            {
+                                <article class="telemetry-entry">
+                                    <header>
+                                        <strong>T+@trace.CreatedAt.ToString(@"hh\:mm") · @trace.NpcName</strong>
+                                        <span>@trace.Source</span>
+                                    </header>
+                                    @if (trace.Action is { } action)
+                                    {
+                                        <small>
+                                            @action
+                                            @if (!string.IsNullOrWhiteSpace(trace.TargetId))
+                                            {
+                                                <text> → @trace.TargetId</text>
+                                            }
+                                            @if (trace.Urgency is { } urgency)
+                                            {
+                                                <text> · urgency @urgency/100</text>
+                                            }
+                                        </small>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(trace.Goal))
+                                    {
+                                        <p><strong>Goal:</strong> @trace.Goal</p>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(trace.Reason))
+                                    {
+                                        <p><strong>Reason:</strong> @trace.Reason</p>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(trace.Note))
+                                    {
+                                        <p class="telemetry-note">@trace.Note</p>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(trace.RawResponse))
+                                    {
+                                        <details>
+                                            <summary>RAW MODEL RESPONSE</summary>
+                                            <pre>@trace.RawResponse</pre>
+                                        </details>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(trace.Prompt))
+                                    {
+                                        <details>
+                                            <summary>PROMPT</summary>
+                                            <pre>@trace.Prompt</pre>
+                                        </details>
+                                    }
+                                </article>
+                            }
+                        }
+                    </div>
+
+                    <div class="telemetry-events">
+                        <span class="overline">SIMULATION EVENTS</span>
+                        @foreach (var entry in Session.State.EventLog.Take(80))
+                        {
+                            <p>@entry</p>
+                        }
+                    </div>
+                </div>
+            }
+            else if (SelectedCrew is { } selectedCrew)
             {
                 var crewRoom = Session.State.Facility.Rooms[selectedCrew.CurrentRoomId];
 
@@ -1123,31 +1209,6 @@
             </section>
     </div>
 
-    <div class="layout-splitter layout-splitter-horizontal event-splitter"
-         data-splitter="events"
-         role="separator"
-         aria-orientation="horizontal"
-         aria-label="Resize Event Stream"
-         aria-valuemin="140"
-         aria-valuemax="700"
-         tabindex="0"></div>
-
-    <section class="event-panel panel">
-        <div class="panel-heading">
-            <div>
-                <span class="overline">FACILITY MEMORY</span>
-                <h2>EVENT STREAM</h2>
-            </div>
-            <span>@Session.State.EventLog.Count RECORDS</span>
-        </div>
-
-        <div class="event-log">
-            @foreach (var entry in Session.State.EventLog.Take(12))
-            {
-                <p>@entry</p>
-            }
-        </div>
-    </section>
     </div>
 
     @if (Session.State.ScenarioStatus != ScenarioStatus.Running)
@@ -1209,10 +1270,7 @@
     private int _delayMs = 2800;
     private bool _soundEnabled;
     private bool _musicEnabled;
-    private double _mapZoom = 1.0;
-    private const double MinMapZoom = 1.0;
-    private const double MaxMapZoom = 2.2;
-    private const double MapZoomStep = 0.2;
+    private string _workspaceTab = "inspector";
     private long _lastAudioSequence;
     private CancellationTokenSource? _clockCts;
     private Task? _clockTask;
@@ -1376,18 +1434,15 @@
         _ => $"LIVE TURNS {SpeedLabel}"
     };
 
-    private int MapZoomPercent => (int)Math.Round(_mapZoom * 100);
-
     private StationPresentationProfile StationPresentation =>
         StationPresentationSystem.Build(Session.State);
 
     private string StationMapClass =>
-        $"station-map {StationPresentation.CssClasses} " +
-        (_mapZoom < .9 ? "zoom-wide" : _mapZoom > 1.3 ? "zoom-close" : "zoom-normal");
+        $"station-map {StationPresentation.CssClasses} zoom-normal";
 
     private string StationMapStyle =>
         FormattableString.Invariant(
-            $"--crew-step-duration:{(_delayMs >= 2200 ? 2.35 : _delayMs >= 1200 ? 1.25 : 0.62)}s;zoom:{_mapZoom:0.00};");
+            $"--crew-step-duration:{(_delayMs >= 2200 ? 2.35 : _delayMs >= 1200 ? 1.25 : 0.62)}s;");
 
     private string StationWorldStyle
     {
@@ -1442,15 +1497,6 @@
     {
         _delayMs = delayMs;
     }
-
-    private void ZoomIn() =>
-        _mapZoom = Math.Min(MaxMapZoom, Math.Round(_mapZoom + MapZoomStep, 2));
-
-    private void ZoomOut() =>
-        _mapZoom = Math.Max(MinMapZoom, Math.Round(_mapZoom - MapZoomStep, 2));
-
-    private void ResetMapZoom() =>
-        _mapZoom = 1.0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -1797,6 +1843,23 @@
           || room.TemperatureC is < 16 or > 28
             ? "warning"
         : "healthy";
+
+    private static string PowerStatusClass(Room room) =>
+        room.IsPowered ? "good" : "bad";
+
+    private static string TemperatureStatusClass(Room room) =>
+        room.TemperatureC is < 8 or > 35
+            ? "bad"
+            : room.TemperatureC is < 16 or > 28
+                ? "warn"
+                : "good";
+
+    private static string OxygenStatusClass(Room room) =>
+        room.OxygenPercent < 17
+            ? "bad"
+            : room.OxygenPercent < 19.5
+                ? "warn"
+                : "good";
 
     private string RoomClass(Room room)
     {
