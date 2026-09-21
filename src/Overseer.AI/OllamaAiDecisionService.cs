@@ -12,45 +12,6 @@ public sealed class OllamaAiDecisionService(
     private readonly IChatClient _chatClient = chatClient;
     private readonly RuleBasedAiDecisionService _fallback = fallback;
 
-    private static readonly HashSet<ActionKind> AllowedActions =
-    [
-        ActionKind.Idle,
-        ActionKind.Move,
-        ActionKind.Rest,
-        ActionKind.Sleep,
-        ActionKind.Eat,
-        ActionKind.Recreate,
-        ActionKind.Groom,
-        ActionKind.Shower,
-        ActionKind.UseToilet,
-        ActionKind.Work,
-        ActionKind.Investigate,
-        ActionKind.Repair,
-        ActionKind.Talk,
-        ActionKind.Socialize,
-        ActionKind.Argue,
-        ActionKind.RequestHelp,
-        ActionKind.RecruitShutdownAlly,
-        ActionKind.JoinShutdownTeam,
-        ActionKind.ShutdownOverseer,
-        ActionKind.ForceDoor,
-        ActionKind.RestoreSystem,
-        ActionKind.SecureAirlock,
-        ActionKind.RepairDoor,
-        ActionKind.WeldDoor,
-        ActionKind.BarricadeDoor,
-        ActionKind.ShutdownRobot,
-        ActionKind.IsolateRobotNetwork,
-        ActionKind.DisableRobotCharging,
-        ActionKind.DamageRobot,
-        ActionKind.ReprogramRobot,
-        ActionKind.DisarmTurret,
-        ActionKind.IsolateTurretNetwork,
-        ActionKind.DisableTurretPower,
-        ActionKind.DamageTurret,
-        ActionKind.ReprogramTurret
-    ];
-
     public async Task<NpcIntent> DecideAsync(
         Npc npc,
         GameState state,
@@ -150,16 +111,23 @@ public sealed class OllamaAiDecisionService(
         NpcMindDecision decision)
     {
         if (!Enum.TryParse<ActionKind>(decision.Action, true, out var action)
-            || !AllowedActions.Contains(action))
+            || !CrewAffordanceSystem.IsCognitionAction(action))
         {
             action = ActionKind.Idle;
         }
 
         string? target = decision.TargetId?.Trim();
 
-        if (action is ActionKind.Move or ActionKind.Investigate or ActionKind.Repair or ActionKind.Work)
+        if (CrewAffordanceSystem.IsRoomTarget(action)
+            || CrewAffordanceSystem.IsCrewTarget(action)
+            || CrewAffordanceSystem.IsDoorOperation(action))
         {
-            if (target is null || !state.Facility.Rooms.ContainsKey(target))
+            if (!CrewAffordanceSystem.TryNormalizeTarget(
+                    state,
+                    npc,
+                    action,
+                    target,
+                    out target))
             {
                 action = ActionKind.Idle;
                 target = null;
@@ -227,31 +195,6 @@ public sealed class OllamaAiDecisionService(
             else
             {
                 target = airlock.Id;
-            }
-        }
-        else if (action is ActionKind.Talk
-            or ActionKind.Socialize
-            or ActionKind.Argue
-            or ActionKind.RequestHelp
-            or ActionKind.RecruitShutdownAlly)
-        {
-            var person = state.Crew.FirstOrDefault(other =>
-                other.IsAlive
-                && other.IsPresent
-                && other.Id != npc.Id
-                && other.Name.Equals(target, StringComparison.OrdinalIgnoreCase));
-
-            if (person is null
-                || (action == ActionKind.RecruitShutdownAlly
-                    && (npc.OverseerSuspicion < 65
-                        || npc.KnownShutdownMechanismIds.Count == 0)))
-            {
-                action = ActionKind.Idle;
-                target = null;
-            }
-            else
-            {
-                target = person.Name;
             }
         }
         else if (action == ActionKind.JoinShutdownTeam)
