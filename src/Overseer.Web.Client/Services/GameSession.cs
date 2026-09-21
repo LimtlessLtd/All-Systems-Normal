@@ -29,7 +29,8 @@ public sealed class GameSession : StationSession
         int? stationSeed = null)
     {
         var continuingCrew = CampaignProgressionSystem.CreateCrewForScenario(campaign, scenario);
-        var crew = continuingCrew ?? SeededCrewRosterGenerator.Generate(rosterSeed);
+        var baseCrew = continuingCrew ?? SeededCrewRosterGenerator.Generate(rosterSeed);
+        var crew = PrisonerRosterSystem.Compose(baseCrew, scenario);
         var state = FacilitySeeder.CreateDefault(
             crew,
             stationSeed: stationSeed,
