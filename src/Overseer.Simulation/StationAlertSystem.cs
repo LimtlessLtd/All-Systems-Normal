@@ -98,6 +98,21 @@ public static class StationAlertSystem
                     target));
             }
 
+            if (room.FireIntensity > 0)
+            {
+                alerts.Add(new(
+                    $"{room.Name}: FIRE {room.FireIntensity:0}% intensity, smoke {room.SmokePercent:0}%.",
+                    StationAlertSeverity.Critical,
+                    target));
+            }
+            else if (room.SmokePercent >= 12)
+            {
+                alerts.Add(new(
+                    $"{room.Name}: smoke contamination {room.SmokePercent:0}%.",
+                    room.SmokePercent >= 35 ? StationAlertSeverity.Critical : StationAlertSeverity.Warning,
+                    target));
+            }
+
             if (room.HasExteriorHatch)
             {
                 if (room.ExteriorHatchOpen)
