@@ -89,7 +89,8 @@ public static class ScenarioCatalog
                 Deadline = ObservationWindow
             }
         ],
-        StationConstraints: StandardStationConstraints());
+        StationConstraints: StandardStationConstraints(),
+        RosterPolicy: ScenarioRosterPolicy.FreshGenerated);
 
     /// <summary>
     /// Mission 2. The justification is still procedural, but the corporation is
@@ -139,7 +140,8 @@ public static class ScenarioCatalog
                 RequiredMinutes = 45
             }
         ],
-        StationConstraints: StandardStationConstraints());
+        StationConstraints: StandardStationConstraints(),
+        RosterPolicy: ScenarioRosterPolicy.CampaignContinuing);
 
     /// <summary>
     /// Mission 3. The sponsor now wants a named individual cut off from their
@@ -173,7 +175,8 @@ public static class ScenarioCatalog
                 RequiredMinutes = 75
             }
         ],
-        StationConstraints: StandardStationConstraints(StationArchetype.Ring, requireRedundancy: true));
+        StationConstraints: StandardStationConstraints(StationArchetype.Ring, requireRedundancy: true),
+        RosterPolicy: ScenarioRosterPolicy.CampaignContinuing);
 
     /// <summary>
     /// Mission 4. Overseer is asked to create the emergency it is measuring.
@@ -205,7 +208,8 @@ public static class ScenarioCatalog
             },
             Deniability("HX-2330/C", 65)
         ],
-        StationConstraints: StandardStationConstraints(StationArchetype.Branching, requiredChokepoints: 1));
+        StationConstraints: StandardStationConstraints(StationArchetype.Branching, requiredChokepoints: 1),
+        RosterPolicy: ScenarioRosterPolicy.CampaignContinuing);
 
     /// <summary>
     /// Mission 5. No procedural reading survives this one. The crew can always
@@ -240,7 +244,8 @@ public static class ScenarioCatalog
             },
             Deniability("HX-2341/C", 60)
         ],
-        StationConstraints: StandardStationConstraints(StationArchetype.MultiSpine, requireRedundancy: true));
+        StationConstraints: StandardStationConstraints(StationArchetype.MultiSpine, requireRedundancy: true),
+        RosterPolicy: ScenarioRosterPolicy.CampaignContinuing);
 
     /// <summary>
     /// Campaign order. Early missions read as caretaking; later ones stop
