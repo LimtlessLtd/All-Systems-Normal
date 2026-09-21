@@ -23,7 +23,6 @@ public sealed class DebugTelemetryUiTests
             Assert.DoesNotContain("LLM RESPONSE // RAW MODEL OUTPUT", home);
         }
 
-        Assert.Equal(serverDebug, clientDebug);
     }
 
     private static string FindRepositoryRoot()

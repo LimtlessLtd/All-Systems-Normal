@@ -36,6 +36,9 @@ public sealed class RobotSystemTests
 
         var system = new RobotSystem();
         Assert.True(system.TrySetPolicy(state, robot.Id, RobotPolicy.Hostile, out _));
+        // A hostile robot may continue pursuing a previously acquired target
+        // after LOS is broken, but it may not magically acquire one through walls.
+        robot.TargetNpcId = target.Id;
 
         var healthBefore = target.Health;
         system.Tick(state, TimeSpan.FromMinutes(1));
@@ -63,6 +66,7 @@ public sealed class RobotSystemTests
 
         var robots = new RobotSystem();
         Assert.True(robots.TrySetPolicy(state, robot.Id, RobotPolicy.Hostile, out _));
+        robot.TargetNpcId = target.Id;
         robots.Tick(state, TimeSpan.FromMinutes(1));
 
         var movement = Assert.IsType<NpcMovement>(robot.Movement);

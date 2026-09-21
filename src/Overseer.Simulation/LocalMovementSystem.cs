@@ -6,7 +6,8 @@ public sealed class LocalMovementSystem
 {
     private const double SpeedPerMinute = 32;
     private const double DoorApproachMultiplier = 1.35;
-    private const double FixtureClearance = 3.2;
+    private const double FixtureClearance = 1.8;
+    private const double WaypointMargin = 1.1;
     private readonly CrewDoorInteractionSystem _crewDoors = new();
 
     public void Tick(GameState state, TimeSpan delta)
@@ -545,34 +546,119 @@ public sealed class LocalMovementSystem
         double targetX,
         double targetY)
     {
-        var blockers = room.Fixtures
-            .Where(IsCollisionFixture)
-            .Where(fixture => SegmentIntersectsInflatedFixture(
-                fixture, startX, startY, targetX, targetY, FixtureClearance))
-            .OrderBy(fixture => Distance(startX, startY, fixture.X, fixture.Y))
-            .ToList();
-
-        if (blockers.Count == 0)
+        if (!SegmentHitsFixture(room, startX, startY, targetX, targetY))
             return (targetX, targetY);
 
-        var fixture = blockers[0];
-        var offsetX = (fixture.Width / 2) + FixtureClearance + 1.5;
-        var offsetY = (fixture.Height / 2) + FixtureClearance + 1.5;
-        var candidates = new[]
-        {
-            (X: fixture.X - offsetX, Y: fixture.Y - offsetY),
-            (X: fixture.X + offsetX, Y: fixture.Y - offsetY),
-            (X: fixture.X - offsetX, Y: fixture.Y + offsetY),
-            (X: fixture.X + offsetX, Y: fixture.Y + offsetY)
-        };
+        // Build a tiny deterministic visibility graph from the corners of the
+        // physical fixtures. This is internal navigation only: rendering stays
+        // completely freeform while actors can reliably walk around machinery
+        // instead of oscillating at the first blocked straight-line segment.
+        var nodes = new List<(double X, double Y)> { (targetX, targetY) };
 
-        return candidates
-            .Select(point => (X: Math.Clamp(point.X, 4, 96), Y: Math.Clamp(point.Y, 4, 96)))
-            .Where(point => IsWalkable(room, point.X, point.Y))
-            .OrderBy(point =>
-                Distance(startX, startY, point.X, point.Y)
-                + Distance(point.X, point.Y, targetX, targetY))
-            .FirstOrDefault((targetX, targetY));
+        foreach (var fixture in room.Fixtures
+                     .Where(IsCollisionFixture)
+                     .OrderBy(item => item.Label, StringComparer.OrdinalIgnoreCase))
+        {
+            var offsetX = (fixture.Width / 2) + FixtureClearance + WaypointMargin;
+            var offsetY = (fixture.Height / 2) + FixtureClearance + WaypointMargin;
+
+            foreach (var point in new[]
+                     {
+                         (X: fixture.X - offsetX, Y: fixture.Y - offsetY),
+                         (X: fixture.X + offsetX, Y: fixture.Y - offsetY),
+                         (X: fixture.X - offsetX, Y: fixture.Y + offsetY),
+                         (X: fixture.X + offsetX, Y: fixture.Y + offsetY)
+                     })
+            {
+                var candidate = (
+                    X: Math.Clamp(point.X, 3, 97),
+                    Y: Math.Clamp(point.Y, 3, 97));
+
+                if (IsWalkable(room, candidate.X, candidate.Y)
+                    && !nodes.Any(existing =>
+                        Distance(existing.X, existing.Y, candidate.X, candidate.Y) < .25))
+                {
+                    nodes.Add(candidate);
+                }
+            }
+        }
+
+        if (nodes.Count == 1)
+            return (targetX, targetY);
+
+        var distance = Enumerable.Repeat(double.PositiveInfinity, nodes.Count).ToArray();
+        var previous = Enumerable.Repeat(-2, nodes.Count).ToArray();
+        var visited = new bool[nodes.Count];
+
+        // The moving actor is an implicit source node. Seed every waypoint
+        // directly visible from its current position.
+        for (var index = 0; index < nodes.Count; index++)
+        {
+            var node = nodes[index];
+            if (SegmentHitsFixture(room, startX, startY, node.X, node.Y))
+                continue;
+
+            distance[index] = Distance(startX, startY, node.X, node.Y);
+            previous[index] = -1;
+        }
+
+        while (true)
+        {
+            var current = -1;
+            var best = double.PositiveInfinity;
+
+            for (var index = 0; index < nodes.Count; index++)
+            {
+                if (!visited[index] && distance[index] < best)
+                {
+                    best = distance[index];
+                    current = index;
+                }
+            }
+
+            if (current < 0 || current == 0)
+                break;
+
+            visited[current] = true;
+
+            for (var next = 0; next < nodes.Count; next++)
+            {
+                if (next == current || visited[next])
+                    continue;
+
+                var from = nodes[current];
+                var to = nodes[next];
+
+                if (SegmentHitsFixture(room, from.X, from.Y, to.X, to.Y))
+                    continue;
+
+                var proposed = distance[current]
+                    + Distance(from.X, from.Y, to.X, to.Y);
+
+                if (proposed + .001 >= distance[next])
+                    continue;
+
+                distance[next] = proposed;
+                previous[next] = current;
+            }
+        }
+
+        if (double.IsPositiveInfinity(distance[0]))
+        {
+            return nodes
+                .Skip(1)
+                .Where(node => !SegmentHitsFixture(room, startX, startY, node.X, node.Y))
+                .OrderBy(node =>
+                    Distance(startX, startY, node.X, node.Y)
+                    + Distance(node.X, node.Y, targetX, targetY))
+                .FirstOrDefault((targetX, targetY));
+        }
+
+        var waypoint = 0;
+        while (previous[waypoint] >= 0)
+            waypoint = previous[waypoint];
+
+        return nodes[waypoint];
     }
 
     private static bool SegmentHitsFixture(
@@ -620,7 +706,8 @@ public sealed class LocalMovementSystem
             and not FixtureType.Window
             and not FixtureType.Screen
             and not FixtureType.Mirror
-            and not FixtureType.Pipe;
+            and not FixtureType.Pipe
+            and not FixtureType.AirlockDoor;
 
     private static double Distance(double firstX, double firstY, double secondX, double secondY)
     {

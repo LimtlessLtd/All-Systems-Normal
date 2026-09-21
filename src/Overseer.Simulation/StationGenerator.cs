@@ -1041,10 +1041,11 @@ public static class StationGenerator
         // inside a 2560x2240px physical layer. These minima therefore guarantee
         // every generated functional room is at least ~200px on both axes.
         width = Math.Clamp(width, 8.0, 26);
-        // Functional rooms reserve a little extra vertical shell around their
-        // physical floor so the attached status strip never needs to float over
-        // machinery or be pushed out to an unrelated deck margin.
-        height = Math.Clamp(height + 1.8, 10.8, 29);
+        // Status telemetry is physically attached just outside the selected
+        // top/bottom hull edge by StationRoomCalloutSystem. It does not enlarge
+        // authoritative collision geometry, so procedural packing remains
+        // stable across existing deterministic seeds.
+        height = Math.Clamp(height, 9.0, 29);
 
         var passageWidth = identity.Budget switch
         {
