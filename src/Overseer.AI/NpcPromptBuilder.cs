@@ -249,9 +249,12 @@ public static class NpcPromptBuilder
         builder.AppendLine("MAIN TRAITS:");
         if (npc.Traits.Count == 0) builder.AppendLine("- none");
         else foreach (var trait in traits) builder.AppendLine($"- {trait}");
-        builder.AppendLine($"NEEDS: health {npc.Health:0}, hunger {npc.Hunger:0}, fatigue {npc.Fatigue:0}, hygiene {npc.HygieneNeed:0}, bladder {npc.BladderNeed:0}, recreation {npc.RecreationNeed:0}, social {npc.SocialNeed:0}, intimacy {npc.IntimacyNeed:0}, fear {npc.Fear:0}, stress {npc.Stress:0}");
+        builder.AppendLine($"NEEDS: health {npc.Health:0}, hunger {npc.Hunger:0}, fatigue {npc.Fatigue:0}, sleep debt {npc.SleepDebtMinutes:0} min ({CrewConditionRules.ImpairmentLabel(npc)}), hygiene {npc.HygieneNeed:0}, bladder {npc.BladderNeed:0}, recreation {npc.RecreationNeed:0}, social {npc.SocialNeed:0}, intimacy {npc.IntimacyNeed:0}, fear {npc.Fear:0}, stress {npc.Stress:0}");
+        builder.AppendLine($"SHIFT: {(CrewDutySchedule.IsNightShift(npc) ? "night" : "day")}; routine phase {CrewDutySchedule.PhaseFor(npc, state.Elapsed)}.");
+        if (npc.IsPrisoner)
+            builder.AppendLine($"CONTAINMENT STATUS: prisoner; danger {npc.PrisonerDangerLevel}; violence bias {npc.PrisonerViolenceBias:0}. This is context, not permission to ignore physical constraints.");
         builder.AppendLine($"CURRENT ROOM: {room.Id} ({room.Name})");
-        builder.AppendLine($"ROOM STATE: power {(room.IsPowered ? "on" : "off")}, lights {(room.LightsOn ? "on" : "off")}, oxygen {room.OxygenPercent:0.00}%, CO2 {room.CarbonDioxidePercent:0.00}%, pressure {room.PressureKpa:0.0} kPa, temperature {room.TemperatureC:0.0}C, ventilation {(room.VentilationEnabled ? "open" : "isolated")}");
+        builder.AppendLine($"ROOM STATE: power {(room.IsPowered ? "on" : "off")}, lights {(room.LightsOn ? "on" : "off")}, oxygen {room.OxygenPercent:0.00}%, CO2 {room.CarbonDioxidePercent:0.00}%, pressure {room.PressureKpa:0.0} kPa, temperature {room.TemperatureC:0.0}C, ventilation {(room.VentilationEnabled ? "open" : "isolated")}, fire {room.FireIntensity:0}%, smoke {room.SmokePercent:0}%");
         builder.AppendLine($"STATION LIFE SUPPORT: {(state.LifeSupport.IsOnline ? "online" : "offline")}, oxygen reserve {state.LifeSupport.OxygenReservePercent:0.0}%, scrubbers {state.LifeSupport.ScrubberEfficiencyPercent:0}%");
         if (SecurityMalwareSystem.HasControllerDiagnostic(npc))
         {
@@ -343,7 +346,8 @@ public static class NpcPromptBuilder
         builder.AppendLine();
         builder.AppendLine("AVAILABLE CAPABILITIES / TARGET CONTRACTS:");
         builder.AppendLine(CrewAffordanceSystem.PromptCatalog());
-        builder.AppendLine("For room-target actions (including Move, SeekSafety, Investigate, VerifyClaim, InspectEquipment, Work, Repair and StandGuard), TargetId must be a valid room ID.");
+        builder.AppendLine("For room-target actions (including Move, SeekSafety, FightFire, EvacuateHazard, SealHazardRoom, VentHazardRoom, Investigate, VerifyClaim, InspectEquipment, Work, Repair and StandGuard), TargetId must be a valid room ID.");
+        builder.AppendLine("Hazards are not scripted for you: decide what you WANT to do from the available affordances. The simulation will validate reachability, door state, pressure, equipment and consequences.");
         builder.AppendLine("For ForceDoor, TargetId must be the exact ID of a currently connected blocked hatch listed above.");
         builder.AppendLine("For RestoreSystem, TargetId must be one of the DISABLED SYSTEM TARGET IDS (room ID or life-support).");
         builder.AppendLine("For SecureAirlock, TargetId must be the exact airlock room ID shown as NEEDS SECURING in NEARBY AIRLOCK SAFETY PANELS.");
