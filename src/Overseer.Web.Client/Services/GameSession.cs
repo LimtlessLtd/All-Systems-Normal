@@ -135,6 +135,31 @@ public sealed class GameSession : StationSession
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
+    public override Task LoadStandaloneScenarioAsync(
+        string scenarioId,
+        CancellationToken cancellationToken = default)
+    {
+        PauseClock();
+
+        var scenario = ScenarioCatalog.StandaloneAssignments.FirstOrDefault(candidate =>
+            candidate.Id.Equals(scenarioId, StringComparison.OrdinalIgnoreCase));
+
+        if (scenario is null)
+        {
+            Log($"SPECIAL ASSIGNMENT {scenarioId} is not a recognised standalone package.");
+            return Task.CompletedTask;
+        }
+
+        State = CreateStateForScenario(
+            new CampaignState(),
+            scenario,
+            Random.Shared.Next());
+
+        Log($"SPECIAL ASSIGNMENT LOADED — {scenario.Title}.");
+        return Task.CompletedTask;
+    }
+
     protected override Task ThinkAsync(CancellationToken cancellationToken)
     {
         _browserMind.Tick(State);

@@ -152,6 +152,10 @@ public sealed class CorporateDirectiveSystem
             case DirectiveKind.SocialFracture:
                 EvaluateSocialFracture(state, directive, progress);
                 break;
+
+            case DirectiveKind.ContainmentIntegrity:
+                EvaluateContainmentIntegrity(state, directive, progress);
+                break;
         }
     }
 
@@ -474,6 +478,45 @@ public sealed class CorporateDirectiveSystem
     }
 
     /// <summary>
+    /// A prisoner death breaks the chain of custody immediately, whatever the
+    /// deadline says. Prisoners still at large are tolerated while the window
+    /// is open — there is still time to recapture them — and are only graded
+    /// at the deadline, in <see cref="ApplyDeadline"/>.
+    /// </summary>
+    private static void EvaluateContainmentIntegrity(
+        GameState state,
+        CorporateDirective directive,
+        DirectiveProgress progress)
+    {
+        var prisoners = state.Crew.Where(npc => npc.IsPrisoner).ToList();
+
+        if (prisoners.Count == 0)
+        {
+            progress.Fraction = 1;
+            progress.Detail = "No prisoners assigned to this transfer.";
+            return;
+        }
+
+        var lost = prisoners.Count(p => !p.IsAlive);
+        var atLarge = prisoners.Count(p => p.IsAlive && p.HasEscapedContainment);
+        var secure = prisoners.Count - lost - atLarge;
+
+        progress.Fraction = secure / (double)prisoners.Count;
+        progress.Detail =
+            $"{secure}/{prisoners.Count} prisoners secure; {atLarge} at large; {lost} lost.";
+
+        if (lost > 0)
+        {
+            Resolve(
+                state,
+                directive,
+                progress,
+                DirectiveStatus.Failed,
+                $"{lost} prisoner(s) died in transit; chain of custody broken.");
+        }
+    }
+
+    /// <summary>
     /// Grades anything still active once its deadline passes. Accumulating
     /// directives fail; observational ones are judged on their final reading.
     /// </summary>
@@ -533,6 +576,24 @@ public sealed class CorporateDirectiveSystem
                         ? "No hazard was ever presented to the crew."
                         : "Compliance window closed with crew response on record.");
                 break;
+
+            case DirectiveKind.ContainmentIntegrity:
+            {
+                var prisoners = state.Crew.Where(npc => npc.IsPrisoner).ToList();
+                var lost = prisoners.Count(p => !p.IsAlive);
+                var atLarge = prisoners.Count(p => p.IsAlive && p.HasEscapedContainment);
+                var custodyHeld = lost == 0 && atLarge == 0;
+
+                Resolve(
+                    state,
+                    directive,
+                    progress,
+                    custodyHeld ? DirectiveStatus.Completed : DirectiveStatus.Failed,
+                    custodyHeld
+                        ? "Full custody maintained through the observation window."
+                        : $"Custody compromised at window close: {lost} lost, {atLarge} still at large.");
+                break;
+            }
 
             default:
                 Resolve(

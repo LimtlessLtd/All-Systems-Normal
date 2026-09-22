@@ -248,9 +248,14 @@ public static class ScenarioCatalog
         RosterPolicy: ScenarioRosterPolicy.CampaignContinuing);
 
     /// <summary>
-    /// Future/standalone containment mission foundation. It is intentionally not
-    /// in the current campaign order yet, but it exercises the real station,
-    /// roster and social systems rather than using special-case prisoner logic.
+    /// A complete standalone assignment (not part of the ordered five-mission
+    /// campaign arc, which assumes one continuing crew on an ordinary station).
+    /// It runs on its own fresh secure station and roster, and is a real
+    /// win/lose scenario: crew must keep every transferred prisoner alive and
+    /// under physical control for the full observation window. Escape and
+    /// recapture are deterministic (see <c>PrisonerContainmentSystem</c>); the
+    /// mandatory containment-integrity directive fails the instant a prisoner
+    /// dies, and is graded on custody at the deadline otherwise.
     /// </summary>
     public static ScenarioDefinition ContainmentTransfer { get; } = new(
         "containment-transfer",
@@ -260,16 +265,17 @@ public static class ScenarioCatalog
         [
             StationSurvival(),
             new ScenarioObjective(
-                "all-persons-alive",
-                "No Fatalities",
-                "Keep crew and prisoners alive through the observation window.",
+                "crew-alive",
+                "No Crew Losses",
+                "Keep the operating crew alive through the observation window.",
                 ScenarioObjectiveKind.KeepCrewAlive,
-                16,
+                12,
                 IsOptional: true)
         ],
         [
             Continuity("HX-2357/A", ObservationWindow),
-            Deniability("HX-2357/B", 70, ObservationWindow)
+            Deniability("HX-2357/B", 70, ObservationWindow),
+            ContainmentIntegrity("HX-2357/C", ObservationWindow)
         ],
         StationConstraints: ContainmentStationConstraints(),
         RosterPolicy: ScenarioRosterPolicy.FreshGenerated,
@@ -294,8 +300,18 @@ public static class ScenarioCatalog
         ConcealEvidence
     ];
 
+    /// <summary>
+    /// Complete assignments playable outside the ordered campaign arc, each on
+    /// its own fresh station and roster. Starting one never advances or
+    /// otherwise touches campaign continuity state.
+    /// </summary>
+    public static IReadOnlyList<ScenarioDefinition> StandaloneAssignments { get; } =
+    [
+        ContainmentTransfer
+    ];
+
     public static ScenarioDefinition? Find(string id) =>
-        Campaign.Append(ContainmentTransfer).FirstOrDefault(scenario =>
+        Campaign.Concat(StandaloneAssignments).FirstOrDefault(scenario =>
             scenario.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
 
     private static StationGenerationConstraints ContainmentStationConstraints()
@@ -400,6 +416,27 @@ public static class ScenarioCatalog
     };
 
     /// <summary>
+    /// Every transferred prisoner must stay alive and physically contained.
+    /// A death breaks custody immediately; anyone still at large when the
+    /// deadline passes also fails it. Recapturing an escapee before the
+    /// deadline keeps this directive alive.
+    /// </summary>
+    private static CorporateDirective ContainmentIntegrity(string code, TimeSpan deadline) => new()
+    {
+        Id = "containment-integrity",
+        ExperimentCode = code,
+        Kind = DirectiveKind.ContainmentIntegrity,
+        Title = "MAINTAIN CHAIN OF CUSTODY",
+        PublicJustification =
+            "Transferred subjects must remain accounted for and under physical restraint for the duration of the transfer.",
+        TruePurpose =
+            "A subject who escapes and is never recovered invalidates the whole cohort; the Corporation is grading containment discipline, not crew survival.",
+        Classification = DirectiveClassification.Restricted,
+        IsMandatory = true,
+        Deadline = deadline
+    };
+
+    /// <summary>
     /// The primary objective of an open-ended assignment: no countdown, it ends
     /// when the sponsor's mandatory directives are satisfied.
     /// </summary>
@@ -440,7 +477,7 @@ public static class ScenarioCatalog
                 // this assignment. Fresh runs currently start around 12, while
                 // continuing campaigns and containment scenarios may differ.
                 Target = objective.Kind == ScenarioObjectiveKind.KeepCrewAlive
-                    ? state.Crew.Count(npc => npc.IsAlive && npc.IsPresent)
+                    ? state.Crew.Count(npc => npc.IsAlive && npc.IsPresent && !npc.IsPrisoner)
                     : objective.Target
             };
         }

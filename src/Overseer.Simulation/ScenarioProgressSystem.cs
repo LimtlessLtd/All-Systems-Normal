@@ -19,6 +19,8 @@ public sealed class ScenarioProgressSystem
         }
 
         var livingCrew = state.Crew.Count(npc => npc.IsAlive && npc.IsPresent);
+        var livingNonPrisonerCrew = state.Crew.Count(npc =>
+            npc.IsAlive && npc.IsPresent && !npc.IsPrisoner);
         var uptimePercent = state.Telemetry.SimulatedMinutes <= 0
             ? 100
             : (state.Telemetry.LifeSupportOnlineMinutes
@@ -42,10 +44,10 @@ public sealed class ScenarioProgressSystem
                     break;
 
                 case ScenarioObjectiveKind.KeepCrewAlive:
-                    progress.Current = livingCrew;
-                    progress.IsFailed = livingCrew < progress.Target;
+                    progress.Current = livingNonPrisonerCrew;
+                    progress.IsFailed = livingNonPrisonerCrew < progress.Target;
                     progress.StatusText =
-                        $"{livingCrew}/{progress.Target:0} crew alive";
+                        $"{livingNonPrisonerCrew}/{progress.Target:0} crew alive";
                     break;
 
                 case ScenarioObjectiveKind.LifeSupportUptimePercent:
@@ -82,7 +84,7 @@ public sealed class ScenarioProgressSystem
         // and never won once a mandatory one has failed.
         if (requiredComplete && CorporateDirectiveSystem.MandatoryDirectivesSatisfied(state))
         {
-            CompleteScenario(state, livingCrew, uptimePercent);
+            CompleteScenario(state, livingNonPrisonerCrew, uptimePercent);
         }
 
         UpdateScore(state, livingCrew, uptimePercent);

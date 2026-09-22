@@ -370,7 +370,13 @@ public enum ActionKind
     OpenDoor,
     CloseDoor,
     LockDoor,
-    UnlockDoor
+    UnlockDoor,
+
+    /// <summary>
+    /// Physically restrain an escaped prisoner and return them to containment.
+    /// Always resolved deterministically by simulation, never by the mind.
+    /// </summary>
+    RecapturePrisoner
 }
 
 
@@ -769,6 +775,13 @@ public sealed class Npc : IStationMobileEntity
     public bool IsPrisoner { get; set; }
     public PrisonerDangerLevel PrisonerDangerLevel { get; set; } = PrisonerDangerLevel.Low;
     public double PrisonerViolenceBias { get; set; }
+
+    /// <summary>
+    /// True once this prisoner has physically breached containment and is at
+    /// large. Deterministic escape/recapture logic owns this transition; it is
+    /// never set directly by cognition.
+    /// </summary>
+    public bool HasEscapedContainment { get; set; }
     public bool IsAlive => Health > 0;
 
     public HashSet<CropKind> FoodLikes { get; } = [];
