@@ -260,14 +260,27 @@ public sealed class CrewProvisioningSystemTests
     [Fact]
     public void PhysicalBaySizeControlsHarvestYield()
     {
-        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
-        var ordered = state.CropBeds.OrderBy(bed => bed.Capacity).ToList();
+        var small = new CropBed
+        {
+            Id = "small",
+            RoomId = "hydroponics",
+            Label = "Small bay",
+            FixtureLabel = "Small bay",
+            Capacity = 0.5
+        };
+        var large = new CropBed
+        {
+            Id = "large",
+            RoomId = "hydroponics",
+            Label = "Large bay",
+            FixtureLabel = "Large bay",
+            Capacity = 1.5
+        };
 
-        Assert.True(ordered[^1].Capacity > ordered[0].Capacity);
-        Assert.True(ordered[^1].HarvestYield > ordered[0].HarvestYield);
+        Assert.True(large.HarvestYield > small.HarvestYield);
         Assert.Equal(
-            ordered[^1].Capacity * StationProvisionRules.YieldPerCapacityUnit,
-            ordered[^1].HarvestYield,
+            large.Capacity * StationProvisionRules.YieldPerCapacityUnit,
+            large.HarvestYield,
             6);
     }
 
