@@ -157,6 +157,10 @@ public sealed class CrewProvisioningSystemTests
 
         system.Tick(state, Minute);
         Assert.Equal(ActionKind.Harvest, worker.ProvisioningJob);
+        var fixture = state.Facility.Rooms[bed.RoomId].Fixtures.Single(item =>
+            item.Type == FixtureType.GrowBed && item.Label == bed.FixtureLabel);
+        worker.PositionX = fixture.InteractionX ?? fixture.X;
+        worker.PositionY = fixture.InteractionY ?? fixture.Y;
 
         system.Tick(state, Minute);
         Assert.NotNull(worker.ProvisioningCompletesAt);
@@ -193,6 +197,50 @@ public sealed class CrewProvisioningSystemTests
     }
 
     [Fact]
+    public void GrowBayWorkDoesNotStartUntilWorkerReachesThePhysicalFixture()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var worker = state.Crew[0];
+        worker.Skills["Horticulture"] = 100;
+        worker.CurrentRoomId = "hydroponics";
+        worker.PositionX = 5;
+        worker.PositionY = 5;
+        worker.Hunger = 0;
+        worker.Intent = null;
+        worker.CurrentAction = new NpcAction(ActionKind.Idle, null, "Available for planting.");
+
+        foreach (var other in state.Crew.Skip(1))
+        {
+            other.Intent = new NpcIntent(
+                ActionKind.Rest,
+                null,
+                "Protected test activity.",
+                "Keep planting ownership deterministic.",
+                100,
+                "Test",
+                state.Elapsed);
+        }
+
+        var system = new CrewProvisioningSystem();
+        system.Tick(state, Minute);
+        var bed = state.CropBeds.Single(candidate => candidate.Id == worker.TendingBedId);
+
+        system.Tick(state, Minute);
+        Assert.Null(worker.ProvisioningCompletesAt);
+        Assert.Equal(CropLifecycleState.Empty, bed.Lifecycle);
+
+        var fixture = state.Facility.Rooms[bed.RoomId].Fixtures.Single(item =>
+            item.Type == FixtureType.GrowBed && item.Label == bed.FixtureLabel);
+        worker.PositionX = fixture.InteractionX ?? fixture.X;
+        worker.PositionY = fixture.InteractionY ?? fixture.Y;
+
+        system.Tick(state, Minute);
+        Assert.NotNull(worker.ProvisioningCompletesAt);
+        Assert.Equal(CropLifecycleState.Planting, bed.Lifecycle);
+        Assert.Equal(CrewTaskStatus.InProgress, worker.ActiveTask?.Status);
+    }
+
+    [Fact]
     public void PlantingRequiresAWorkerAndConsumesSeedInventory()
     {
         var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
@@ -223,6 +271,10 @@ public sealed class CrewProvisioningSystemTests
         Assert.True(bed.RequestedCrop.HasValue);
         var crop = bed.RequestedCrop.Value;
         var seedsBefore = state.Stores.Seeds[crop];
+        var fixture = state.Facility.Rooms[bed.RoomId].Fixtures.Single(item =>
+            item.Type == FixtureType.GrowBed && item.Label == bed.FixtureLabel);
+        worker.PositionX = fixture.InteractionX ?? fixture.X;
+        worker.PositionY = fixture.InteractionY ?? fixture.Y;
 
         system.Tick(state, Minute);
         Assert.Equal(CropLifecycleState.Planting, bed.Lifecycle);
