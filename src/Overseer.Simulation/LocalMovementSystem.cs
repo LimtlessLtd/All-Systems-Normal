@@ -460,6 +460,19 @@ public sealed class LocalMovementSystem
             .First();
     }
 
+    internal static bool IsAtInteractionPoint(
+        Room room,
+        IStationMobileEntity entity,
+        RoomFixture fixture,
+        double toleranceMapUnits = 0.75)
+    {
+        var destination = InteractionPoint(room, fixture);
+        return PhysicalDistance(
+            room,
+            destination.X - entity.PositionX,
+            destination.Y - entity.PositionY) <= toleranceMapUnits;
+    }
+
     private static (double X, double Y) PersonalIdlePoint(Room room, string name)
     {
         var slots = new (double X, double Y)[]
