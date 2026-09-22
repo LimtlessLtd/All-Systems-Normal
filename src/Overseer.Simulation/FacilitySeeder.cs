@@ -131,7 +131,12 @@ public static class FacilitySeeder
         var seed = upkeepSeed ?? StableDerivedSeed(chosenStationSeed);
         StationUpkeepSystem.Register(state, seed);
         NormalizeFixtureLayout(facility);
-        CrewProvisioningSystem.Plant(state, seed);
+        CrewProvisioningSystem.Plant(
+            state,
+            seed,
+            stationConstraints.AllowedCropKinds.Count > 0
+                ? stationConstraints.AllowedCropKinds
+                : null);
 
         var plannedCrew = stationConstraints.PlannedCrewCount ?? state.Crew.Count;
         var requiredGrowCapacity =
