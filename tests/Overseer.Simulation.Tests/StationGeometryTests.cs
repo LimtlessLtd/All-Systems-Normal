@@ -198,12 +198,21 @@ public sealed class StationGeometryTests
                     })
                     .Single(pair => pair.Other.Type == RoomType.Corridor);
 
-                // Both access passages and spine corridors are axis-aligned
-                // rectangles. Their physical width is the short axis; using the
-                // portal wall here accidentally compared a corridor's full length
-                // (for example ~40 map units) with a ~4-unit tunnel width.
-                var hallwayCrossSection = Math.Min(hallway.MapWidth, hallway.MapHeight);
-                var networkCrossSection = Math.Min(networkDoor.Other.MapWidth, networkDoor.Other.MapHeight);
+                // The access hall may be shorter than it is wide, so its
+                // short axis is not necessarily its cross-section. Its owning
+                // functional room tells us the hall's longitudinal direction.
+                var roomId = hallway.Id["hall-".Length..];
+                var owner = state.Facility.Rooms[roomId];
+                var longitudinalIsHorizontal =
+                    Math.Abs(owner.MapX - hallway.MapX) > Math.Abs(owner.MapY - hallway.MapY);
+                var hallwayCrossSection = longitudinalIsHorizontal
+                    ? hallway.MapHeight
+                    : hallway.MapWidth;
+
+                // Topology/spine corridors are deliberately long in one axis.
+                var networkCrossSection = Math.Min(
+                    networkDoor.Other.MapWidth,
+                    networkDoor.Other.MapHeight);
 
                 Assert.Equal(
                     networkCrossSection,
