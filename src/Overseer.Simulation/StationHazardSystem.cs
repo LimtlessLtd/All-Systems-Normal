@@ -84,6 +84,25 @@ public sealed class StationHazardSystem
             if (!room.IsPowered) growth -= .06 * minutes;
             room.FireIntensity = Math.Clamp(room.FireIntensity + growth, 0, 100);
 
+            // Sustained fire attacks the compartment itself, not just occupants.
+            // Once the pressure hull fails, EnvironmentSystem sees a real vacuum
+            // source and existing decompression propagation owns the consequence.
+            if (!room.HasHullBreach && room.FireIntensity > 35)
+            {
+                room.HullIntegrityPercent = Math.Max(
+                    0,
+                    room.HullIntegrityPercent
+                    - ((room.FireIntensity - 35) * .015 * minutes));
+
+                if (room.HullIntegrityPercent <= 0)
+                {
+                    room.HasHullBreach = true;
+                    room.VentilationEnabled = false;
+                    Log(state, $"STRUCTURAL FAILURE: uncontrolled fire breaches the hull in {room.Name}.");
+                    AudioCueSystem.Emit(state, AudioCueKind.Critical, roomId: room.Id);
+                }
+            }
+
             foreach (var npc in state.Crew.Where(n =>
                          n.IsAlive && n.IsPresent
                          && n.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)))
