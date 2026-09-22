@@ -1219,9 +1219,33 @@
 
                 @if (selectedCrew.IsPrisoner)
                 {
-                    <div class="belief-card containment-card">
+                    <div class="@ContainmentCardClass(selectedCrew)">
                         <span>CONTAINMENT PROFILE</span>
+                        <p class="containment-state">@ContainmentStateLabel(selectedCrew)</p>
                         <p><strong>@selectedCrew.PrisonerDangerLevel.ToString().ToUpperInvariant()</strong> danger classification · violence bias @selectedCrew.PrisonerViolenceBias.ToString("0")</p>
+                        @if (selectedCrew.IsContainmentBreachInProgress)
+                        {
+                            <small>Physical hatch crossing underway. Securing the hatch before the crossing completes can still stop the breach.</small>
+                        }
+                        else if (selectedCrew.HasEscapedContainment)
+                        {
+                            <small>Prisoner is physically outside Containment and remains at large until deterministic recapture succeeds.</small>
+                        }
+                        else
+                        {
+                            <small>Prisoner remains physically contained.</small>
+                        }
+                    </div>
+                }
+                else if (IsRecaptureActive(selectedCrew))
+                {
+                    <div class="belief-card containment-card recapture-card">
+                        <span>CONTAINMENT RESPONSE</span>
+                        <p class="containment-state">RECAPTURE IN PROGRESS</p>
+                        <p><strong>TARGET</strong> @RecaptureTarget(selectedCrew)</p>
+                        <small>@(selectedCrew.CurrentAction.Kind == ActionKind.RecapturePrisoner
+                            ? "Restraining the escaped prisoner in this compartment."
+                            : "Moving to intercept the escaped prisoner.")</small>
                     </div>
                 }
 
@@ -2562,6 +2586,14 @@
         if (npc.IsAlive && (npc.Fear >= 65 || npc.Stress >= 75))
             classes.Add("is-panicked");
 
+        if (npc.IsContainmentBreachInProgress)
+            classes.Add("containment-breach");
+        else if (npc.HasEscapedContainment)
+            classes.Add("containment-at-large");
+
+        if (IsRecaptureActive(npc))
+            classes.Add("containment-recapture");
+
         if (!npc.IsAlive)
             classes.Add("deceased");
         else if (npc.Movement is not null || npc.IsLocallyMoving)
@@ -2605,6 +2637,9 @@
     private static string CrewActivityLabel(Npc npc)
     {
         if (!npc.IsAlive) return "DECEASED";
+        if (npc.IsContainmentBreachInProgress) return "BREACH";
+        if (npc.HasEscapedContainment) return "AT LARGE";
+        if (IsRecaptureActive(npc)) return "RECAPTURE";
         if (npc.Movement is not null || npc.IsLocallyMoving) return "WALK";
         return npc.CurrentAction.Kind switch
         {
@@ -2621,6 +2656,27 @@
             _ => npc.CurrentAction.Kind.ToString().ToUpperInvariant()
         };
     }
+
+    private static bool IsRecaptureActive(Npc npc) =>
+        npc.IsAlive
+        && !npc.IsPrisoner
+        && (npc.CurrentAction.Kind == ActionKind.RecapturePrisoner
+            || npc.Intent?.Action == ActionKind.RecapturePrisoner);
+
+    private static string RecaptureTarget(Npc npc) =>
+        npc.CurrentAction.Kind == ActionKind.RecapturePrisoner
+            ? npc.CurrentAction.TargetId ?? "escaped prisoner"
+            : npc.Intent?.TargetId ?? "escaped prisoner";
+
+    private static string ContainmentStateLabel(Npc npc) =>
+        npc.IsContainmentBreachInProgress
+            ? "BREACH IN PROGRESS"
+            : npc.HasEscapedContainment
+                ? "AT LARGE"
+                : "SECURE";
+
+    private static string ContainmentCardClass(Npc npc) =>
+        $"belief-card containment-card {(npc.IsContainmentBreachInProgress ? "breach-in-progress" : npc.HasEscapedContainment ? "at-large" : "secure")}";
 
     private static string RoomGlyph(RoomType type) => type switch
     {
