@@ -381,7 +381,25 @@
                         <span class="fixture-layer">
                             @foreach (var fixture in room.Fixtures)
                             {
-                                @if (fixture.DeviceId is { } deviceId)
+                                @if (CropBedForFixture(room, fixture) is { } cropBed)
+                                {
+                                    <button @key="fixture"
+                                            type="button"
+                                            class="@($"{FixtureClass(fixture)} cropbed-selectable {(cropBed.IsEnabled ? "enabled" : "disabled")}")"
+                                            style="@FixtureStyle(fixture)"
+                                            title="@FixtureTitle(room, fixture)"
+                                            aria-label="@($"Inspect {cropBed.Label}")"
+                                            data-crop-bed-id="@cropBed.Id"
+                                            data-crop="@CropFixtureLabel(room, fixture)"
+                                            data-growth-stage="@CropGrowthStage(room, fixture)"
+                                            data-active="@((cropBed.IsEnabled && room.IsPowered).ToString().ToLowerInvariant())"
+                                            data-station-interactive
+                                            @onclick:stopPropagation="true"
+                                            @onclick="() => SelectCropBed(cropBed.Id)">
+                                        <span class="growbed-active-lamp" aria-hidden="true"></span>
+                                    </button>
+                                }
+                                else if (fixture.DeviceId is { } deviceId)
                                 {
                                     <button @key="fixture"
                                             type="button"
@@ -390,8 +408,6 @@
                                             title="@FixtureTitle(room, fixture)"
                                             aria-label="@($"Inspect {FixtureTitle(room, fixture)}")"
                                             data-device-id="@deviceId"
-                                            data-crop="@CropFixtureLabel(room, fixture)"
-                                            data-growth-stage="@CropGrowthStage(room, fixture)"
                                             data-station-interactive
                                             @onclick:stopPropagation="true"
                                             @onclick="() => SelectDevice(deviceId)"></button>
@@ -402,8 +418,6 @@
                                        class="@FixtureClass(fixture)"
                                        style="@FixtureStyle(fixture)"
                                        title="@FixtureTitle(room, fixture)"
-                                       data-crop="@CropFixtureLabel(room, fixture)"
-                                       data-growth-stage="@CropGrowthStage(room, fixture)"
                                        aria-hidden="true"></i>
                                 }
                             }
@@ -590,7 +604,62 @@
              tabindex="0"></div>
 
         <aside class="inspector-panel panel">
-            @if (SelectedDevice is { } selectedDevice)
+            @if (SelectedCropBed is { } selectedCropBed)
+            {
+                var cropRoom = Session.State.Facility.Rooms[selectedCropBed.RoomId];
+                <div class="panel-heading">
+                    <div>
+                        <span class="overline">INDIVIDUAL HYDROPONICS BAY</span>
+                        <h2>@selectedCropBed.Label</h2>
+                    </div>
+                    <span class="system-dot @((selectedCropBed.IsEnabled && cropRoom.IsPowered) ? "healthy" : "warning")"></span>
+                </div>
+
+                <p class="role-line">@cropRoom.Name · @selectedCropBed.Lifecycle</p>
+
+                <div class="environment-grid">
+                    <div><span>STATE</span><strong>@selectedCropBed.Lifecycle</strong></div>
+                    <div><span>POWER</span><strong>@((selectedCropBed.IsEnabled && cropRoom.IsPowered) ? "ACTIVE" : "STOPPED")</strong></div>
+                    <div><span>CROP</span><strong>@(selectedCropBed.Crop?.ToString() ?? "NONE")</strong></div>
+                    <div><span>NEXT CROP</span><strong>@(selectedCropBed.RequestedCrop?.ToString() ?? "NONE")</strong></div>
+                    <div><span>GROWTH</span><strong>@selectedCropBed.Growth.ToString("0")%</strong></div>
+                    <div><span>CAPACITY</span><strong>@selectedCropBed.Capacity.ToString("0.00")×</strong></div>
+                    <div><span>WATER</span><strong>@selectedCropBed.Water.ToString("0")%</strong></div>
+                    <div><span>NUTRIENTS</span><strong>@selectedCropBed.Nutrients.ToString("0")%</strong></div>
+                    <div><span>YIELD</span><strong>@selectedCropBed.HarvestYield.ToString("0.0") units</strong></div>
+                    <div><span>SEED STOCK</span><strong>@(selectedCropBed.RequestedCrop is { } requested && Session.State.Stores.Seeds.TryGetValue(requested, out var stock) ? stock.ToString("0") : "—")</strong></div>
+                </div>
+
+                <div class="control-stack">
+                    <button class="wide @(selectedCropBed.IsEnabled ? "danger" : "secondary")"
+                            @onclick="() => Session.SetCropBedEnabled(selectedCropBed.Id, !selectedCropBed.IsEnabled)">
+                        @(selectedCropBed.IsEnabled ? "DISABLE THIS BAY" : "ENABLE THIS BAY")
+                    </button>
+                </div>
+
+                @if (selectedCropBed.Lifecycle == CropLifecycleState.Empty)
+                {
+                    <div class="belief-card">
+                        <span>NEXT PLANTING</span>
+                        <p>A worker must physically plant the selected crop. Selection only creates the requested work.</p>
+                        <div class="crop-choice-grid">
+                            @foreach (var crop in Enum.GetValues<CropKind>().Where(crop => Session.State.Stores.Seeds[crop] >= 1))
+                            {
+                                <button class="mini @(selectedCropBed.RequestedCrop == crop ? "" : "secondary")"
+                                        @onclick="() => Session.SetCropBedRequestedCrop(selectedCropBed.Id, crop)">
+                                    @crop (@Session.State.Stores.Seeds[crop].ToString("0"))
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (!selectedCropBed.IsEnabled && selectedCropBed.Lifecycle is not (CropLifecycleState.Empty or CropLifecycleState.Dead))
+                {
+                    <div class="warning-box">GROWTH STOPPED — planted crop will die after @StationProvisionRules.DisabledCropDeathHours.ToString("0") simulated hours disabled.</div>
+                }
+            }
+            else if (SelectedDevice is { } selectedDevice)
             {
                 var deviceRoom = Session.State.Facility.Rooms[selectedDevice.RoomId];
                 var serviceNpc = selectedDevice.ServicedByNpcId is { } serviceId
@@ -975,6 +1044,20 @@
                     <strong>@selectedCrew.CurrentAction.Kind</strong>
                     <p>@selectedCrew.CurrentAction.Reason</p>
                 </div>
+
+                @if (selectedCrew.ActiveTask is { } crewTask)
+                {
+                    var taskProgress = crewTask.ProgressPercent(Session.State.Elapsed);
+                    <div class="action-card crew-task-progress-card status-@crewTask.Status.ToString().ToLowerInvariant()">
+                        <span>AUTHORITATIVE TASK · @crewTask.Status.ToString().ToUpperInvariant()</span>
+                        <strong>@crewTask.Description</strong>
+                        <div class="crew-task-meter" role="progressbar"
+                             aria-valuemin="0" aria-valuemax="100" aria-valuenow="@taskProgress.ToString("0")">
+                            <span style="@($"width:{taskProgress:0.##}%")"></span>
+                        </div>
+                        <p>@taskProgress.ToString("0")% · @crewTask.Outcome</p>
+                    </div>
+                }
 
                 <div class="belief-card">
                     <span>BELIEF ABOUT OVERSEER</span>
@@ -1555,6 +1638,9 @@
     private StationDevice? SelectedDevice =>
         StationInspectionSystem.Device(Session.State, _selection);
 
+    private CropBed? SelectedCropBed =>
+        StationInspectionSystem.CropBed(Session.State, _selection);
+
     private IReadOnlyList<StationRoomCallout> RoomCallouts =>
         StationRoomCalloutSystem.Build(Session.State.Facility);
 
@@ -1915,6 +2001,9 @@
 
     private void SelectDevice(string deviceId) =>
         _selection = new(StationSelectionKind.Device, deviceId);
+
+    private void SelectCropBed(string bedId) =>
+        _selection = new(StationSelectionKind.CropBed, bedId);
 
     private Task RegenerateSameSeedAsync() =>
         RegenerateStationAsync(Session.State.StationGeneration?.Seed);
@@ -2328,38 +2417,26 @@
         if (fixture.Type != FixtureType.GrowBed)
             return null;
 
-        var fixtures = room.Fixtures
-            .Where(candidate => candidate.Type == FixtureType.GrowBed)
-            .OrderBy(candidate => candidate.Label, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        var index = fixtures.IndexOf(fixture);
-        if (index < 0)
-            return null;
-
-        return Session.State.CropBeds
-            .Where(candidate => candidate.RoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(candidate => candidate.Id, StringComparer.OrdinalIgnoreCase)
-            .ElementAtOrDefault(index);
+        return Session.State.CropBeds.FirstOrDefault(candidate =>
+            candidate.RoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)
+            && candidate.FixtureLabel.Equals(fixture.Label, StringComparison.OrdinalIgnoreCase));
     }
 
     private string CropFixtureLabel(Room room, RoomFixture fixture) =>
-        CropBedForFixture(room, fixture)?.Crop.ToString().ToUpperInvariant() ?? string.Empty;
+        CropBedForFixture(room, fixture)?.Crop?.ToString().ToUpperInvariant() ?? string.Empty;
 
-    private string CropGrowthStage(Room room, RoomFixture fixture)
-    {
-        var bed = CropBedForFixture(room, fixture);
-        if (bed is null)
-            return string.Empty;
-        if (bed.IsDead)
-            return "dead";
-        if (bed.IsReadyToHarvest)
-            return "harvest-ready";
-        if (bed.Growth < 30)
-            return "young";
-        if (bed.Growth < 70)
-            return "growing";
-        return "maturing";
-    }
+    private string CropGrowthStage(Room room, RoomFixture fixture) =>
+        CropBedForFixture(room, fixture)?.Lifecycle switch
+        {
+            CropLifecycleState.Empty => "empty",
+            CropLifecycleState.Planting => "planting",
+            CropLifecycleState.Seedling => "seedling",
+            CropLifecycleState.Maturing => "maturing",
+            CropLifecycleState.ReadyToHarvest => "ready",
+            CropLifecycleState.Harvesting => "harvesting",
+            CropLifecycleState.Dead => "dead",
+            _ => string.Empty
+        };
 
     private string FixtureTitle(Room room, RoomFixture fixture)
     {
