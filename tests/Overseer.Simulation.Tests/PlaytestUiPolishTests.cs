@@ -133,7 +133,8 @@ public sealed class PlaytestUiPolishTests
         foreach (var css in ReadMirroredCss())
         {
             Assert.Contains("🔥  🔥  🔥", css);
-            Assert.Contains(".room-node.has-smoke:not(.has-fire)::after", css);
+            Assert.Contains(".room-node.has-smoke::before", css);
+            Assert.Contains(".room-node.smoke-blackout::before", css);
             Assert.Contains("[data-growth-stage=\"seedling\"]", css);
             Assert.Contains("[data-growth-stage=\"maturing\"]", css);
             Assert.Contains("[data-growth-stage=\"harvest-ready\"][data-crop=\"TOMATO\"]", css);
