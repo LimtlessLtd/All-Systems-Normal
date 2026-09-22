@@ -86,6 +86,55 @@ public sealed class CrewRoutineSystemTests
     }
 
     [Fact]
+    public void AlreadyWorkingInScheduledDutyRoom_IsNotReissuedOrGivenAnotherBubble()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+
+        state.Elapsed = TimeSpan.FromMinutes(30);
+        david.Hunger = 0;
+        david.Fatigue = 0;
+        david.BladderNeed = 0;
+        david.HygieneNeed = 0;
+        david.RecreationNeed = 0;
+        david.SocialNeed = 0;
+        david.IntimacyNeed = 0;
+        david.RoutineUntil = TimeSpan.Zero;
+        david.CurrentRoomId = CrewDutySchedule.ExpectedDutyRoomId(david.Role, state.Elapsed);
+        david.CurrentAction = new NpcAction(ActionKind.Work, david.CurrentRoomId, "Already on duty.");
+        david.Bubble = null;
+
+        new CrewRoutineSystem().Tick(state);
+
+        Assert.Equal(ActionKind.Work, david.CurrentAction.Kind);
+        Assert.Equal("Already on duty.", david.CurrentAction.Reason);
+        Assert.Null(david.Bubble);
+        Assert.Null(david.Movement);
+    }
+
+    [Fact]
+    public void RoutineDutyTravel_UsesContextualChatterInsteadOfBackToWork()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+
+        david.Hunger = 0;
+        david.Fatigue = 0;
+        david.BladderNeed = 0;
+        david.HygieneNeed = 0;
+        david.RecreationNeed = 0;
+        david.SocialNeed = 0;
+        david.IntimacyNeed = 0;
+        david.RoutineUntil = TimeSpan.Zero;
+        state.Elapsed = TimeSpan.FromMinutes(30);
+
+        new CrewRoutineSystem().Tick(state);
+
+        Assert.NotNull(david.Bubble);
+        Assert.DoesNotContain("back to work", david.Bubble!.Text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void MutualIntimacyNeedCoordinatesBothPeopleTowardPrivacy()
     {
         var state = FacilitySeeder.CreateDefault();
