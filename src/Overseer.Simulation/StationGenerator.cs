@@ -653,11 +653,11 @@ public static class StationGenerator
         StationIdentity identity,
         SeededRandom random)
     {
-        var baseWidth = identity.Budget switch
+        var (baseWidth, minimum, maximum) = identity.Budget switch
         {
-            StationBudgetClass.Frugal => 3.8,
-            StationBudgetClass.Premium => 5.1,
-            _ => 4.4
+            StationBudgetClass.Frugal => (3.7, 3.5, 4.0),
+            StationBudgetClass.Premium => (4.7, 4.2, 5.0),
+            _ => (4.1, 3.7, 4.5)
         };
 
         if (identity.Size == StationSizeClass.Compact)
@@ -665,7 +665,11 @@ public static class StationGenerator
             baseWidth -= 0.2;
         }
 
-        return Math.Clamp(baseWidth + random.NextDouble(-0.25, 0.45), 3.5, 5.6);
+        // Keep the station's topology thickness inside the same physical range
+        // that functional access tunnels historically occupied. Access tunnels
+        // now copy this actual cross-section exactly, so alignment improves
+        // without making room packing materially denser than before.
+        return Math.Clamp(baseWidth + random.NextDouble(-0.2, 0.3), minimum, maximum);
     }
 
     private static void BuildTopology(
