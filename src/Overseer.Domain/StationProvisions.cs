@@ -68,35 +68,64 @@ public static class FoodPreferenceRules
     }
 }
 
+public enum CropLifecycleState
+{
+    Empty,
+    Planting,
+    Seedling,
+    Maturing,
+    ReadyToHarvest,
+    Harvesting,
+    Dead
+}
+
 /// <summary>
-/// One planted bed in the hydroponics bay. Crops need water and nutrients to
-/// grow, both of which drain and have to be topped up by somebody.
+/// One physical grow bay. Lifecycle, capacity and shutdown consequences are
+/// deterministic simulation state; rendering only reflects these fields.
 /// </summary>
 public sealed class CropBed
 {
     public required string Id { get; init; }
     public required string RoomId { get; init; }
     public required string Label { get; init; }
-    public CropKind Crop { get; init; } = CropKind.Wheat;
+    public required string FixtureLabel { get; init; }
 
-    /// <summary>0..100. At 100 the bed is ready to harvest.</summary>
+    public CropKind? Crop { get; set; }
+    public CropKind? RequestedCrop { get; set; }
+    public CropLifecycleState Lifecycle { get; set; } = CropLifecycleState.Empty;
+    public bool IsEnabled { get; set; } = true;
+
+    /// <summary>Physical grow-area capacity relative to one standard bay.</summary>
+    public double Capacity { get; init; } = 1;
+
+    /// <summary>0..100 biological maturity after planting.</summary>
     public double Growth { get; set; }
 
-    /// <summary>0..100. Growth stops dry and the crop starts dying.</summary>
     public double Water { get; set; } = 100;
-
-    /// <summary>0..100. Same again for feed.</summary>
     public double Nutrients { get; set; } = 100;
+    public TimeSpan? DisabledSince { get; set; }
+    public TimeSpan? LifecycleChangedAt { get; set; }
 
-    /// <summary>A bed left too long without water has to be replanted.</summary>
-    public bool IsDead { get; set; }
+    public bool IsDead
+    {
+        get => Lifecycle == CropLifecycleState.Dead;
+        set
+        {
+            if (value) Lifecycle = CropLifecycleState.Dead;
+            else if (Lifecycle == CropLifecycleState.Dead) Lifecycle = CropLifecycleState.Empty;
+        }
+    }
 
-    public bool IsReadyToHarvest => !IsDead && Growth >= 100;
+    public bool IsReadyToHarvest => Lifecycle == CropLifecycleState.ReadyToHarvest;
 
-    /// <summary>Whether this bed needs somebody's attention, and how badly.</summary>
-    public double TendUrgency => IsDead
-        ? 60
-        : Math.Max(0, 60 - Math.Min(Water, Nutrients));
+    public double HarvestYield =>
+        Math.Max(0.5, Capacity) * StationProvisionRules.YieldPerCapacityUnit;
+
+    public double TendUrgency => Lifecycle is CropLifecycleState.Empty or CropLifecycleState.Planting
+        ? 0
+        : Lifecycle == CropLifecycleState.Dead
+            ? 60
+            : Math.Max(0, 60 - Math.Min(Water, Nutrients));
 }
 
 /// <summary>
@@ -113,6 +142,10 @@ public sealed class StationStores
     /// Produce remains the galley's aggregate cooking stock for compatibility.
     /// </summary>
     public Dictionary<CropKind, double> RawCrops { get; } =
+        Enum.GetValues<CropKind>().ToDictionary(crop => crop, _ => 0d);
+
+    /// <summary>Generated planting inventory; a planting job consumes one unit.</summary>
+    public Dictionary<CropKind, double> Seeds { get; } =
         Enum.GetValues<CropKind>().ToDictionary(crop => crop, _ => 0d);
 
     /// <summary>Ready to eat.</summary>
@@ -135,8 +168,17 @@ public static class StationProvisionRules
     /// <summary>Water and nutrient draw per bed per hour.</summary>
     public const double ConsumptionPerHour = 2.4;
 
-    /// <summary>Produce yielded by harvesting one mature bed.</summary>
-    public const double YieldPerHarvest = 6;
+    /// <summary>Produce yielded per standard unit of physical grow capacity.</summary>
+    public const double YieldPerCapacityUnit = 6;
+
+    /// <summary>Compatibility alias for one standard bay.</summary>
+    public const double YieldPerHarvest = YieldPerCapacityUnit;
+
+    /// <summary>A disabled planted bay dies after this deterministic interval.</summary>
+    public const double DisabledCropDeathHours = 12;
+
+    /// <summary>Seedling becomes maturing at this biological maturity.</summary>
+    public const double SeedlingEndsAtGrowth = 35;
 
     /// <summary>Produce consumed and meals produced by one cooking session.</summary>
     public const double ProducePerCookingSession = 3;
@@ -165,6 +207,8 @@ public static class StationProvisionRules
 
     /// <summary>Simulated minutes each job takes.</summary>
     public const int TendMinutes = 8;
+
+    public const int PlantMinutes = 8;
 
     public const int HarvestMinutes = 10;
 
