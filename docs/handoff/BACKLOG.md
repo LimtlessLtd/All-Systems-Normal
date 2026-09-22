@@ -54,7 +54,7 @@ This has already shipped a bug (a hunger-ordering fix reached only one file). Pr
 
 - [x] Airlock rules — PR #88: `AirlockSafetySystem` now delegates to `Overseer.Domain/AirlockSafetyRules`.
 - [x] Reachability — PR #91: `RuleBasedAiDecisionService.ReachableRooms` and `NpcPromptBuilder.ReachableRooms` were byte-for-byte duplicate BFS implementations; both now delegate to a new public `NavigationSystem.ReachableRoomsForCrew`. `NavigationSystem.FindPathForCrew` (Dijkstra/A*, returns a costed path) stays separate on purpose: some call sites use its `.Count > 0`/`== 0` as a reachability proxy, but it computes something genuinely different from a reachable-set BFS, and folding it in would change return semantics at those sites. A future slice could still give it a shared `ReachableRoomsForCrew`-backed fast path for the boolean call sites if it turns out to matter.
-- [ ] Skill formula (one repair-skill score)
+- [x] Skill formula — `RuleBasedAiDecisionService.BestRepairScore` (single-clamp `baseSkill + Technical + Repair`) is gone; its 3 call sites now delegate to `CrewCounterplaySystem.BestRepairSkill` (double-clamp: technical component capped at 120 before the repair modifier, then the total capped at 130), the formula the actual repair/restore mechanics already used. Parity test in `AiDecisionServiceTests.cs` reproduces a case (technical +40, repair −70, `baseSkill` 100) where the two formulas used to disagree on crossing the `>= 55` repair-attempt threshold (50 vs 70).
 - [ ] Need thresholds (one table)
 - [ ] Ladder convergence onto one utility scorer
 

@@ -259,6 +259,39 @@ public sealed class AiDecisionServiceTests
     }
 
     [Fact]
+    public async Task FallbackMind_UsesTheSharedRepairSkillFormulaForDoorRepairDecisions()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+
+        david.Skills["Engineering"] = 100;
+        david.Skills["Electrical"] = 0;
+        david.Skills["Operations"] = 0;
+        david.Skills["Reactor"] = 0;
+        david.Traits.Clear();
+        david.Traits.Add(new CrewTrait(
+            "Test Rig",
+            "Deliberately unbalanced for this test.",
+            [
+                new CrewTraitEffect(TraitEffectKind.Technical, 40),
+                new CrewTraitEffect(TraitEffectKind.Repair, -70)
+            ]));
+
+        // CrewCounterplaySystem.BestRepairSkill clamps the technical component to 120
+        // before applying the repair modifier: clamp(100 + 40, 0, 120) - 70 = 50.
+        // A naive single-sum formula (100 + 40 - 70 = 70) would cross the >= 55 repair
+        // threshold below and choose RepairDoor; the converged formula must not.
+        Assert.Equal(50, CrewCounterplaySystem.BestRepairSkill(david));
+
+        var door = state.Facility.FindDoorBetween("control", "hall-control")!;
+        door.IsDamaged = true;
+
+        var intent = await new RuleBasedAiDecisionService().DecideAsync(david, state);
+
+        Assert.NotEqual(ActionKind.RepairDoor, intent.Action);
+    }
+
+    [Fact]
     public async Task ModelCanChooseAdjacentBlockedDoorCounterplay()
     {
         var state = FacilitySeeder.CreateDefault();

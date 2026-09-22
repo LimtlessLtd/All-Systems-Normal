@@ -75,13 +75,13 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                 "I can see the airlock safety state is compromised and I know the emergency controls.",
                 94);
         }
-        else if (FindAdjacentDamagedDoor(state, npc) is { } damagedDoor && BestRepairScore(npc) >= 55)
+        else if (FindAdjacentDamagedDoor(state, npc) is { } damagedDoor && CrewCounterplaySystem.BestRepairSkill(npc) >= 55)
         {
             intent = Create(npc, state, ActionKind.RepairDoor, damagedDoor.Id,
                 $"Repair {damagedDoor.Id}.",
                 "This hatch has visible structural or bypass damage and I can repair it locally.", 72);
         }
-        else if (!state.LifeSupport.IsOnline && BestRepairScore(npc) >= 55)
+        else if (!state.LifeSupport.IsOnline && CrewCounterplaySystem.BestRepairSkill(npc) >= 55)
         {
             intent = Create(
                 npc,
@@ -191,7 +191,7 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                     98);
             }
         }
-        else if (HasLocalRestorableProblem(room) && BestRepairScore(npc) >= 55)
+        else if (HasLocalRestorableProblem(room) && CrewCounterplaySystem.BestRepairSkill(npc) >= 55)
         {
             intent = Create(
                 npc,
@@ -688,21 +688,6 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                 CrewTraitMath.Modifier(npc, TraitEffectKind.Technical)),
             0,
             120);
-    }
-
-    private static int BestRepairScore(Npc npc)
-    {
-        var baseSkill = new[] { "Engineering", "Electrical", "Operations", "Reactor" }
-            .Select(skill => npc.Skills.TryGetValue(skill, out var value) ? value : 0)
-            .DefaultIfEmpty(0)
-            .Max();
-
-        return Math.Clamp(
-            baseSkill
-            + CrewTraitMath.Modifier(npc, TraitEffectKind.Technical)
-            + CrewTraitMath.Modifier(npc, TraitEffectKind.Repair),
-            0,
-            130);
     }
 
     private static Room? FindSaferRoom(GameState state, Npc npc, Room currentRoom)
