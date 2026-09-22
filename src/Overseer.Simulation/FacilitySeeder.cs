@@ -241,10 +241,13 @@ public static class FacilitySeeder
                 [FixtureType.Pipe, FixtureType.UtilityPanel, FixtureType.Console, FixtureType.Vent],
             RoomType.Generator =>
                 [FixtureType.Pipe, FixtureType.UtilityPanel, FixtureType.Console, FixtureType.ToolCabinet],
+            // These rooms already receive substantial authored floor
+            // machinery. Identity dressing should enrich their bulkheads, not
+            // inject duplicate workstations/grow beds into circulation lanes.
             RoomType.Engineering =>
-                [FixtureType.Workbench, FixtureType.ToolCabinet, FixtureType.Pipe, FixtureType.UtilityPanel, FixtureType.Crate],
+                [FixtureType.ToolCabinet, FixtureType.Pipe, FixtureType.UtilityPanel, FixtureType.Console],
             RoomType.Hydroponics =>
-                [FixtureType.GrowBed, FixtureType.IrrigationTank, FixtureType.Pipe, FixtureType.UtilityPanel],
+                [FixtureType.IrrigationTank, FixtureType.Pipe, FixtureType.UtilityPanel],
             RoomType.Storage =>
                 [FixtureType.StorageRack, FixtureType.Crate, FixtureType.Locker, FixtureType.ToolCabinet],
             RoomType.Airlock =>
@@ -708,7 +711,7 @@ public static class FacilitySeeder
             ? new[] { 1d, .92, .84 }
             : IsWallFixture(fixture.Type)
                 ? new[] { 1d, .9, .8, .7, .6, .5, .42, .36 }
-                : new[] { 1d, .92, .84, .76, .68 };
+                : new[] { 1d, .92, .84, .76, .68, .6, .54 };
 
         foreach (var scale in scales)
         {
