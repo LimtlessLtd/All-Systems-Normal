@@ -2103,6 +2103,7 @@ public static class StationGenerator
         || constraints.RequiredRobotRoomIds.Count > 0
         || constraints.PlannedCrewCount is not null
         || Math.Abs(constraints.HydroponicsCapacityMultiplier - 1) > 0.0001
+        || constraints.AllowedCropKinds.Count > 0
         || constraints.RequireRedundantPaths is not null
         || constraints.ForbidRedundantPaths is not null
         || constraints.RequiredChokepointCount is not null
