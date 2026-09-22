@@ -517,17 +517,14 @@ public sealed class CrewTaskState
     public required TimeSpan CompletesAt { get; init; }
     public CrewTaskStatus Status { get; set; } = CrewTaskStatus.InProgress;
     public string Outcome { get; set; } = "In progress.";
+    public double? FinalProgressPercent { get; set; }
 
     public double ProgressPercent(TimeSpan now)
     {
         if (Status == CrewTaskStatus.Succeeded)
             return 100;
         if (Status != CrewTaskStatus.InProgress)
-            return Math.Clamp(
-                (now - StartedAt).TotalSeconds
-                / Math.Max(1, (CompletesAt - StartedAt).TotalSeconds) * 100,
-                0,
-                99.9);
+            return Math.Clamp(FinalProgressPercent ?? 0, 0, 99.9);
 
         return Math.Clamp(
             (now - StartedAt).TotalSeconds
