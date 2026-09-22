@@ -41,15 +41,117 @@ public sealed class CrewProvisioningSystemTests
     }
 
     [Fact]
-    public void TheHydroponicsBayIsPlantedWithStaggeredBeds()
+    public void TheHydroponicsBayStartsEmptyAndMapsEveryPhysicalGrowBay()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var fixtures = state.Facility.Rooms["hydroponics"].Fixtures
+            .Where(fixture => fixture.Type == FixtureType.GrowBed)
+            .ToList();
+
+        Assert.NotEmpty(state.CropBeds);
+        Assert.Equal(fixtures.Count, state.CropBeds.Count);
+        Assert.All(state.CropBeds, bed =>
+        {
+            Assert.Equal("hydroponics", bed.RoomId);
+            Assert.Equal(CropLifecycleState.Empty, bed.Lifecycle);
+            Assert.Equal(0, bed.Growth);
+            Assert.Contains(fixtures, fixture => fixture.Label == bed.FixtureLabel);
+            Assert.NotNull(bed.RequestedCrop);
+        });
+    }
+
+    [Fact]
+    public void HydroponicsStartupLeavesCrewCapacityForOtherStationDuties()
     {
         var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
 
-        Assert.NotEmpty(state.CropBeds);
-        Assert.All(state.CropBeds, bed => Assert.Equal("hydroponics", bed.RoomId));
+        foreach (var device in state.Devices.Values)
+            device.Condition = 100;
 
-        // A rolling harvest rather than everything ripening at once.
-        Assert.True(state.CropBeds.Select(b => Math.Round(b.Growth)).Distinct().Count() > 1);
+        new CrewProvisioningSystem().Tick(state, Minute);
+
+        var cropWorkers = state.Crew.Count(npc =>
+            npc.ProvisioningJob is ActionKind.TendCrops or ActionKind.Harvest);
+        var expectedLimit = Math.Max(1, (int)Math.Ceiling(state.Crew.Count / 4d));
+
+        Assert.InRange(cropWorkers, 1, expectedLimit);
+        Assert.True(
+            state.Crew.Any(npc => npc.ProvisioningJob is null),
+            "Hydroponics startup must leave crew available for maintenance, medicine and emergencies.");
+    }
+
+    [Fact]
+    public void CriticalMaintenanceReservesAQualifiedWorkerBeforeCropStartup()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var device = state.Devices["lighting:medical"];
+        device.Condition = 0;
+
+        var worker = state.Crew.First(npc =>
+            StationUpkeepRules.CanAttempt(npc, device)
+            && StationUpkeepRules.SkillOf(npc, MaintenanceDiscipline.Horticulture) >= 25);
+
+        foreach (var other in state.Crew.Where(npc => npc.Id != worker.Id))
+        {
+            other.Intent = new NpcIntent(
+                ActionKind.Rest,
+                null,
+                "Protected test activity.",
+                "Keep maintenance ownership deterministic.",
+                100,
+                "Test",
+                state.Elapsed);
+        }
+
+        var provisioning = new CrewProvisioningSystem();
+        provisioning.Tick(state, Minute);
+
+        Assert.Null(worker.ProvisioningJob);
+
+        new CrewMaintenanceSystem().Tick(state);
+
+        Assert.Equal(device.Id, worker.ServicingDeviceId);
+        Assert.Equal(ActionKind.Repair, worker.Intent?.Action);
+    }
+
+    [Fact]
+    public void ProvisioningDoesNotStealPatientOrClinicianFromActiveMedicalCare()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var medbay = state.Facility.Rooms["medical"];
+        var doctor = state.Crew.First(npc => npc.Role == CrewRole.Doctor);
+        var patient = state.Crew.First(npc => npc.Id != doctor.Id);
+
+        doctor.CurrentRoomId = medbay.Id;
+        doctor.Intent = null;
+        doctor.MedicalPatientId = patient.Id;
+        doctor.MedicalActionKind = ActionKind.TreatInjury;
+        doctor.MedicalActionCompletesAt = state.Elapsed + TimeSpan.FromMinutes(6);
+
+        patient.CurrentRoomId = medbay.Id;
+        patient.Health = 60;
+        patient.LastHealthSnapshot = 60;
+        patient.Intent = null;
+
+        foreach (var other in state.Crew.Where(npc =>
+                     npc.Id != doctor.Id && npc.Id != patient.Id))
+        {
+            other.Intent = new NpcIntent(
+                ActionKind.Rest,
+                null,
+                "Protected test activity.",
+                "Keep medical ownership deterministic.",
+                100,
+                "Test",
+                state.Elapsed);
+        }
+
+        Assert.True(MedicalSystem.IsAwaitingCare(state, patient));
+
+        new CrewProvisioningSystem().Tick(state, Minute);
+
+        Assert.Null(patient.ProvisioningJob);
+        Assert.Null(doctor.ProvisioningJob);
     }
 
     [Fact]
@@ -57,6 +159,7 @@ public sealed class CrewProvisioningSystemTests
     {
         var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
         var bed = state.CropBeds[0];
+        bed.Lifecycle = CropLifecycleState.Seedling;
         bed.Growth = 10;
         bed.Water = 100;
         bed.Nutrients = 100;
@@ -76,6 +179,7 @@ public sealed class CrewProvisioningSystemTests
     {
         var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
         var bed = state.CropBeds[0];
+        bed.Lifecycle = CropLifecycleState.Maturing;
         bed.Growth = 50;
         bed.Water = 100;
         bed.Nutrients = 100;
@@ -98,6 +202,7 @@ public sealed class CrewProvisioningSystemTests
     {
         var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
         var bed = state.CropBeds[0];
+        bed.Lifecycle = CropLifecycleState.Maturing;
         bed.Growth = 40;
         bed.Water = 0;
         bed.Nutrients = 100;
@@ -113,6 +218,7 @@ public sealed class CrewProvisioningSystemTests
     {
         var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
         var bed = state.CropBeds[0];
+        bed.Lifecycle = CropLifecycleState.ReadyToHarvest;
         bed.Growth = 100;
         bed.Water = 100;
         bed.Nutrients = 100;
@@ -145,6 +251,10 @@ public sealed class CrewProvisioningSystemTests
 
         system.Tick(state, Minute);
         Assert.Equal(ActionKind.Harvest, worker.ProvisioningJob);
+        var fixture = state.Facility.Rooms[bed.RoomId].Fixtures.Single(item =>
+            item.Type == FixtureType.GrowBed && item.Label == bed.FixtureLabel);
+        worker.PositionX = fixture.InteractionX ?? fixture.X;
+        worker.PositionY = fixture.InteractionY ?? fixture.Y;
 
         system.Tick(state, Minute);
         Assert.NotNull(worker.ProvisioningCompletesAt);
@@ -154,6 +264,199 @@ public sealed class CrewProvisioningSystemTests
 
         Assert.True(state.Stores.Produce > before);
         Assert.Equal(0, bed.Growth);
+        Assert.Equal(CropLifecycleState.Empty, bed.Lifecycle);
+        Assert.Equal(CrewTaskStatus.Succeeded, worker.ActiveTask?.Status);
+    }
+
+    [Fact]
+    public void EveryPhysicalGrowBayIsIndependentlySelectable()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var physicalBeds = state.Facility.Rooms["hydroponics"].Fixtures
+            .Count(fixture => fixture.Type == FixtureType.GrowBed);
+
+        Assert.Equal(physicalBeds, state.CropBeds.Count);
+        Assert.Equal(state.CropBeds.Count, state.CropBeds.Select(bed => bed.Id).Distinct().Count());
+
+        foreach (var bed in state.CropBeds)
+        {
+            Assert.True(StationInspectionSystem.Exists(
+                state,
+                new StationSelection(StationSelectionKind.CropBed, bed.Id)));
+        }
+
+        state.CropBeds[0].IsEnabled = false;
+        Assert.False(state.CropBeds[0].IsEnabled);
+        Assert.True(state.CropBeds[1].IsEnabled);
+    }
+
+    [Fact]
+    public void GrowBayWorkDoesNotStartUntilWorkerReachesThePhysicalFixture()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var worker = state.Crew[0];
+        worker.Skills["Horticulture"] = 100;
+        worker.CurrentRoomId = "hydroponics";
+        worker.PositionX = 5;
+        worker.PositionY = 5;
+        worker.Hunger = 0;
+        worker.Intent = null;
+        worker.CurrentAction = new NpcAction(ActionKind.Idle, null, "Available for planting.");
+
+        foreach (var other in state.Crew.Skip(1))
+        {
+            other.Intent = new NpcIntent(
+                ActionKind.Rest,
+                null,
+                "Protected test activity.",
+                "Keep planting ownership deterministic.",
+                100,
+                "Test",
+                state.Elapsed);
+        }
+
+        var system = new CrewProvisioningSystem();
+        system.Tick(state, Minute);
+        var bed = state.CropBeds.Single(candidate => candidate.Id == worker.TendingBedId);
+
+        system.Tick(state, Minute);
+        Assert.Null(worker.ProvisioningCompletesAt);
+        Assert.Equal(CropLifecycleState.Empty, bed.Lifecycle);
+
+        var fixture = state.Facility.Rooms[bed.RoomId].Fixtures.Single(item =>
+            item.Type == FixtureType.GrowBed && item.Label == bed.FixtureLabel);
+        worker.PositionX = fixture.InteractionX ?? fixture.X;
+        worker.PositionY = fixture.InteractionY ?? fixture.Y;
+
+        system.Tick(state, Minute);
+        Assert.NotNull(worker.ProvisioningCompletesAt);
+        Assert.Equal(CropLifecycleState.Planting, bed.Lifecycle);
+        Assert.Equal(CrewTaskStatus.InProgress, worker.ActiveTask?.Status);
+    }
+
+    [Fact]
+    public void PlantingRequiresAWorkerAndConsumesSeedInventory()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var worker = state.Crew[0];
+        worker.Skills["Horticulture"] = 100;
+        worker.CurrentRoomId = "hydroponics";
+        worker.Hunger = 0;
+        worker.Intent = null;
+        worker.CurrentAction = new NpcAction(ActionKind.Idle, null, "Available for planting.");
+
+        foreach (var other in state.Crew.Skip(1))
+        {
+            other.Intent = new NpcIntent(
+                ActionKind.Rest,
+                null,
+                "Protected test activity.",
+                "Keep planting ownership deterministic.",
+                100,
+                "Test",
+                state.Elapsed);
+        }
+
+        var system = new CrewProvisioningSystem();
+        system.Tick(state, Minute);
+
+        Assert.Equal(ActionKind.TendCrops, worker.ProvisioningJob);
+        var bed = state.CropBeds.Single(candidate => candidate.Id == worker.TendingBedId);
+        Assert.True(bed.RequestedCrop.HasValue);
+        var crop = bed.RequestedCrop.Value;
+        var seedsBefore = state.Stores.Seeds[crop];
+        var fixture = state.Facility.Rooms[bed.RoomId].Fixtures.Single(item =>
+            item.Type == FixtureType.GrowBed && item.Label == bed.FixtureLabel);
+        worker.PositionX = fixture.InteractionX ?? fixture.X;
+        worker.PositionY = fixture.InteractionY ?? fixture.Y;
+
+        system.Tick(state, Minute);
+        Assert.Equal(CropLifecycleState.Planting, bed.Lifecycle);
+        Assert.Equal(CrewTaskStatus.InProgress, worker.ActiveTask?.Status);
+
+        state.Elapsed = worker.ProvisioningCompletesAt!.Value;
+        system.Tick(state, Minute);
+
+        Assert.Equal(CropLifecycleState.Seedling, bed.Lifecycle);
+        Assert.Equal(crop, bed.Crop);
+        Assert.Equal(seedsBefore - 1, state.Stores.Seeds[crop], 6);
+        Assert.Equal(CrewTaskStatus.Succeeded, worker.ActiveTask?.Status);
+    }
+
+    [Fact]
+    public void CorporateSeedSupplyConstraintLimitsAvailableCropTypes()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+
+        CrewProvisioningSystem.Plant(
+            state,
+            4242,
+            new HashSet<CropKind> { CropKind.Potato });
+
+        Assert.True(state.Stores.Seeds[CropKind.Potato] > 0);
+        Assert.All(
+            Enum.GetValues<CropKind>().Where(crop => crop != CropKind.Potato),
+            crop => Assert.Equal(0, state.Stores.Seeds[crop]));
+        Assert.All(state.CropBeds, bed => Assert.Equal(CropKind.Potato, bed.RequestedCrop));
+    }
+
+    [Fact]
+    public void DisabledPlantedBayStopsGrowingThenDiesDeterministically()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var bed = state.CropBeds[0];
+        bed.Lifecycle = CropLifecycleState.Maturing;
+        bed.Growth = 60;
+        bed.Water = 100;
+        bed.Nutrients = 100;
+        bed.IsEnabled = false;
+        state.Elapsed = TimeSpan.FromHours(StationProvisionRules.DisabledCropDeathHours + 1);
+        bed.DisabledSince = TimeSpan.Zero;
+
+        var before = bed.Growth;
+        new CrewProvisioningSystem().Tick(state, Minute);
+
+        Assert.Equal(before, bed.Growth);
+        Assert.Equal(CropLifecycleState.Dead, bed.Lifecycle);
+    }
+
+    [Fact]
+    public void PhysicalBaySizeControlsHarvestYield()
+    {
+        var small = new CropBed
+        {
+            Id = "small",
+            RoomId = "hydroponics",
+            Label = "Small bay",
+            FixtureLabel = "Small bay",
+            Capacity = 0.5
+        };
+        var large = new CropBed
+        {
+            Id = "large",
+            RoomId = "hydroponics",
+            Label = "Large bay",
+            FixtureLabel = "Large bay",
+            Capacity = 1.5
+        };
+
+        Assert.True(large.HarvestYield > small.HarvestYield);
+        Assert.Equal(
+            large.Capacity * StationProvisionRules.YieldPerCapacityUnit,
+            large.HarvestYield,
+            6);
+    }
+
+    [Fact]
+    public void DefaultStationGrowCapacitySustainsItsPlannedCrew()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var installed = state.CropBeds.Sum(bed => bed.Capacity);
+        var required = StationProvisionRules.RequiredHydroponicsCapacity(12);
+
+        Assert.True(
+            installed >= required,
+            $"Installed hydroponics capacity {installed:0.00} is below 12-crew requirement {required:0.00}.");
     }
 
     [Fact]

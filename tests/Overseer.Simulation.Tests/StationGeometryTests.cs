@@ -180,6 +180,49 @@ public sealed class StationGeometryTests
     }
 
     [Fact]
+    public void AccessTunnelsMatchTheConnectedCorridorCrossSectionExactly()
+    {
+        foreach (var seed in new[] { 17, 14142, 31415 })
+        {
+            var state = FacilitySeeder.CreateDefault(stationSeed: seed);
+
+            foreach (var hallway in state.Facility.Rooms.Values.Where(IsConnectorHallway))
+            {
+                var networkDoor = state.Facility.Doors
+                    .Where(door => door.RoomAId == hallway.Id || door.RoomBId == hallway.Id)
+                    .Select(door => new
+                    {
+                        Door = door,
+                        Other = state.Facility.Rooms[
+                            door.RoomAId == hallway.Id ? door.RoomBId : door.RoomAId]
+                    })
+                    .Single(pair => pair.Other.Type == RoomType.Corridor);
+
+                // The access hall may be shorter than it is wide, so its
+                // short axis is not necessarily its cross-section. Its owning
+                // functional room tells us the hall's longitudinal direction.
+                var roomId = hallway.Id["hall-".Length..];
+                var owner = state.Facility.Rooms[roomId];
+                var longitudinalIsHorizontal =
+                    Math.Abs(owner.MapX - hallway.MapX) > Math.Abs(owner.MapY - hallway.MapY);
+                var hallwayCrossSection = longitudinalIsHorizontal
+                    ? hallway.MapHeight
+                    : hallway.MapWidth;
+
+                // Topology/spine corridors are deliberately long in one axis.
+                var networkCrossSection = Math.Min(
+                    networkDoor.Other.MapWidth,
+                    networkDoor.Other.MapHeight);
+
+                Assert.Equal(
+                    networkCrossSection,
+                    hallwayCrossSection,
+                    6);
+            }
+        }
+    }
+
+    [Fact]
     public void CorridorsUseOnlyRestrainedWindowSeatingAndCameraFixtures()
     {
         var corridorFixtures = FacilitySeeder.CreateDefault(stationSeed: 1337).Facility.Rooms.Values

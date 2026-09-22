@@ -219,13 +219,59 @@ public sealed class LocalMovementSystemTests
             Math.Pow(robot.PositionX - targetX, 2)
             + Math.Pow(robot.PositionY - targetY, 2));
 
-        new LocalMovementSystem().Tick(state, TimeSpan.FromMinutes(1));
+        var movement = new LocalMovementSystem();
+        for (var step = 0; step < 12; step++)
+        {
+            movement.Tick(state, TimeSpan.FromMinutes(1));
+        }
 
         var after = Math.Sqrt(
             Math.Pow(robot.PositionX - targetX, 2)
             + Math.Pow(robot.PositionY - targetY, 2));
 
-        Assert.True(after < before);
+        // A collision-safe route is not required to reduce straight-line
+        // distance on every intermediate waypoint. The dedicated blocker test
+        // below guards against geometry skipping; this integration check verifies
+        // the repair robot still makes real progress toward its machinery.
+        Assert.True(
+            after + 5 < before,
+            $"Robot did not physically approach generator after detour route: {before:0.0} -> {after:0.0}.");
+    }
+
+    [Fact]
+    public void LocalMovement_DoesNotSnapThroughAFixtureWhenTargetFitsInsideOneTick()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 51515);
+        var npc = state.Crew.First();
+        var room = state.Facility.Rooms["hydroponics"];
+        var bed = state.CropBeds.First();
+        var targetFixture = room.Fixtures.Single(fixture => fixture.Label == bed.FixtureLabel);
+        var targetX = targetFixture.InteractionX ?? targetFixture.X;
+        var targetY = targetFixture.InteractionY ?? targetFixture.Y;
+
+        npc.CurrentRoomId = room.Id;
+        npc.PositionX = 75;
+        npc.PositionY = targetY;
+        npc.ProvisioningJob = ActionKind.TendCrops;
+        npc.TendingBedId = bed.Id;
+        npc.CurrentAction = new NpcAction(ActionKind.TendCrops, bed.Id, "Walk to the grow bay.");
+
+        room.Fixtures.Add(new RoomFixture(
+            FixtureType.Crate,
+            "Regression blocker",
+            52,
+            targetY,
+            12,
+            18));
+
+        new LocalMovementSystem().Tick(state, TimeSpan.FromMinutes(5));
+
+        Assert.True(
+            Math.Abs(npc.PositionX - targetX) > 0.5 || Math.Abs(npc.PositionY - targetY) > 0.5,
+            "The worker snapped directly through the blocking fixture to a later waypoint.");
+        Assert.True(
+            Math.Abs(npc.PositionY - targetY) > 0.5,
+            $"Expected a visible detour around the blocker, got {npc.PositionX:0.0},{npc.PositionY:0.0}.");
     }
 
     private static Door NetworkDoorForHall(

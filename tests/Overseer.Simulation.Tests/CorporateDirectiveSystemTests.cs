@@ -316,6 +316,65 @@ public class CorporateDirectiveSystemTests
     }
 
     [Fact]
+    public void FoodVarietyResearchMeasuresRealAvailableFoodChoices()
+    {
+        var directive = new CorporateDirective
+        {
+            Id = "diet-variety",
+            ExperimentCode = "TEST/FOOD-A",
+            Kind = DirectiveKind.FoodVarietyRestriction,
+            Title = "RESTRICT DIETARY VARIETY",
+            PublicJustification = "Test restricted stores.",
+            IsMandatory = false,
+            RequiredCount = 2,
+            RequiredMinutes = 3
+        };
+        var state = CreateState(directive);
+        state.Stores.Meals = 0;
+        foreach (var crop in Enum.GetValues<CropKind>())
+            state.Stores.RawCrops[crop] = 0;
+        state.Stores.RawCrops[CropKind.Potato] = 3;
+        state.Stores.RawCrops[CropKind.Tomato] = 3;
+
+        var system = new CorporateDirectiveSystem();
+        Advance(state, system, 3);
+
+        var progress = CorporateDirectiveSystem.Progress(state, directive);
+        Assert.Equal(DirectiveStatus.Completed, progress.Status);
+        Assert.Contains("2 choice", progress.Detail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void DislikedFoodResearchUsesObservedConsumptionMinutesFromNamedSubject()
+    {
+        var state = CreateState();
+        var subject = state.Crew[0];
+        var directive = new CorporateDirective
+        {
+            Id = "diet-aversion",
+            ExperimentCode = "TEST/FOOD-B",
+            Kind = DirectiveKind.DislikedFoodExposure,
+            Title = "SUSTAIN AVERSION DIET EXPOSURE",
+            PublicJustification = "Test aversion diet.",
+            IsMandatory = false,
+            TargetId = subject.Name,
+            RequiredMinutes = 4
+        };
+        state.Directives.Add(directive);
+
+        var system = new CorporateDirectiveSystem();
+        Advance(state, system, 1); // captures the real telemetry baseline
+
+        subject.DislikedFoodExposureMinutes += 4;
+        Advance(state, system, 1);
+
+        var progress = CorporateDirectiveSystem.Progress(state, directive);
+        Assert.Equal(DirectiveStatus.Completed, progress.Status);
+        Assert.Equal(4, progress.AccumulatedMinutes, 6);
+        Assert.Contains(subject.Name, progress.Detail);
+    }
+
+    [Fact]
     public void SeededScenarioInstallsCorporateDirectives()
     {
         var state = FacilitySeeder.CreateDefault();

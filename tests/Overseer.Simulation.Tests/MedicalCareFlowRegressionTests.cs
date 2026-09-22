@@ -186,7 +186,19 @@ public sealed class MedicalCareFlowRegressionTests
             station.Advance(state);
         }
 
-        Assert.True(patient.Health > 60, $"Seed {seed}: patient still at {patient.Health:0}% after four hours.");
+        var doctor = state.Crew.First(npc => npc.Role == CrewRole.Doctor);
+        Assert.True(
+            patient.Health > 60,
+            $"Seed {seed}: patient still at {patient.Health:0}% after four hours. " +
+            $"Patient room={patient.CurrentRoomId}, pos={patient.PositionX:0.0},{patient.PositionY:0.0}, " +
+            $"action={patient.CurrentAction.Kind}/{patient.CurrentAction.TargetId}, intent={patient.Intent?.Action}/{patient.Intent?.TargetId}, " +
+            $"movement={patient.Movement?.FromRoomId}->{patient.Movement?.ToRoomId}/{patient.Movement?.DoorId}; " +
+            $"doctor room={doctor.CurrentRoomId}, pos={doctor.PositionX:0.0},{doctor.PositionY:0.0}, " +
+            $"action={doctor.CurrentAction.Kind}/{doctor.CurrentAction.TargetId}, intent={doctor.Intent?.Action}/{doctor.Intent?.TargetId}, " +
+            $"movement={doctor.Movement?.FromRoomId}->{doctor.Movement?.ToRoomId}/{doctor.Movement?.DoorId}, " +
+            $"procedure={doctor.MedicalActionKind}/{doctor.MedicalPatientId}; " +
+            $"path(patient->medical)={string.Join(">", new NavigationSystem().FindPathForCrew(state, patient, patient.CurrentRoomId, "medical"))}; " +
+            $"path(doctor->medical)={string.Join(">", new NavigationSystem().FindPathForCrew(state, doctor, doctor.CurrentRoomId, "medical"))}.");
     }
 
     private static (GameState State, Room Medbay, Npc Doctor, Npc Patient) CareScene()

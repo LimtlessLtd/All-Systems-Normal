@@ -347,6 +347,10 @@ public static class StationGenerator
             15,
             100);
 
+        // StationIdentity.CrewCapacity describes the procedurally generated
+        // physical station, not the active/scenario roster. Keep this seeded draw
+        // stable; PlannedCrewCount is a provisioning contract used by hydroponics
+        // sizing and must not shift identity/topology generation.
         var crewCapacity = size switch
         {
             StationSizeClass.Compact => random.NextInt(6, 13),
@@ -665,6 +669,9 @@ public static class StationGenerator
             baseWidth -= 0.2;
         }
 
+        // Preserve the established topology profile. Access tunnels align to the
+        // corridor they actually meet; topology widths must not be globally
+        // narrowed just to make those local junctions easier to pack.
         return Math.Clamp(baseWidth + random.NextDouble(-0.25, 0.45), 3.5, 5.6);
     }
 
@@ -1031,6 +1038,18 @@ public static class StationGenerator
             scale *= Math.Clamp(identity.CrewCapacity / 16d, 0.86, 1.22);
         }
 
+        if (profile.Type == RoomType.Hydroponics)
+        {
+            // Size food production from the explicit scenario crew contract.
+            // Identity.CrewCapacity is aesthetic/procedural capacity and may be
+            // much larger than the actual roster; using it here made ordinary
+            // legacy seeds randomly inflate hydroponics and fail spatial packing.
+            var plannedCrew = constraints.PlannedCrewCount ?? 12;
+            var crewScale = Math.Sqrt(Math.Max(1, plannedCrew) / 12d);
+            var policyScale = Math.Sqrt(Math.Max(0.1, constraints.HydroponicsCapacityMultiplier));
+            scale *= Math.Clamp(crewScale * policyScale, 0.82, 1.38);
+        }
+
         if (profile.Type is RoomType.Engineering or RoomType.Generator or RoomType.Reactor or RoomType.Storage)
         {
             scale *= 0.9 + (identity.IndustrialIntensity / 500d);
@@ -1063,12 +1082,22 @@ public static class StationGenerator
         // difference between a valid layout and no layout at all.
         height = Math.Clamp(height, 9.0, 30);
 
-        var passageWidth = identity.Budget switch
+        // Preserve the generator's historical random-consumption order.
+        // Previous code sampled an independent access width here; removing the
+        // sample changed every later placement decision for established seeds,
+        // causing otherwise-valid layouts to become unpackable. The sampled
+        // value is deliberately discarded: physical width now comes from the
+        // corridor so the junction is exactly flush.
+        _ = identity.Budget switch
         {
             StationBudgetClass.Frugal => random.NextDouble(3.4, 4.0),
             StationBudgetClass.Premium => random.NextDouble(4.2, 5.0),
             _ => random.NextDouble(3.7, 4.5)
         };
+
+        var passageWidth = corridor.MapWidth >= corridor.MapHeight
+            ? corridor.MapHeight
+            : corridor.MapWidth;
 
         var retrofitFactor = identity.ExpansionHistory switch
         {
@@ -1099,7 +1128,7 @@ public static class StationGenerator
         {
             case AttachmentSide.North:
             {
-                if (corridorBounds.Width < passageWidth + 0.2)
+                if (corridorBounds.Width + OverlapTolerance < passageWidth)
                 {
                     return null;
                 }
@@ -1119,7 +1148,7 @@ public static class StationGenerator
 
             case AttachmentSide.South:
             {
-                if (corridorBounds.Width < passageWidth + 0.2)
+                if (corridorBounds.Width + OverlapTolerance < passageWidth)
                 {
                     return null;
                 }
@@ -1139,7 +1168,7 @@ public static class StationGenerator
 
             case AttachmentSide.West:
             {
-                if (corridorBounds.Height < passageWidth + 0.2)
+                if (corridorBounds.Height + OverlapTolerance < passageWidth)
                 {
                     return null;
                 }
@@ -1159,7 +1188,7 @@ public static class StationGenerator
 
             case AttachmentSide.East:
             {
-                if (corridorBounds.Height < passageWidth + 0.2)
+                if (corridorBounds.Height + OverlapTolerance < passageWidth)
                 {
                     return null;
                 }
@@ -2080,6 +2109,9 @@ public static class StationGenerator
         || constraints.RequiredTurretRoomIds.Count > 0
         || constraints.RequiredRobotCount is not null
         || constraints.RequiredRobotRoomIds.Count > 0
+        || constraints.PlannedCrewCount is not null
+        || Math.Abs(constraints.HydroponicsCapacityMultiplier - 1) > 0.0001
+        || constraints.AllowedCropKinds.Count > 0
         || constraints.RequireRedundantPaths is not null
         || constraints.ForbidRedundantPaths is not null
         || constraints.RequiredChokepointCount is not null
@@ -2100,6 +2132,20 @@ public static class StationGenerator
             throw new StationGenerationException(
                 "Station constraints both require and forbid redundant paths.",
                 ["RequireRedundantPaths and ForbidRedundantPaths cannot both be true."]);
+        }
+
+        if (constraints.PlannedCrewCount is <= 0)
+        {
+            throw new StationGenerationException(
+                "Planned crew count must be positive.",
+                [$"PlannedCrewCount={constraints.PlannedCrewCount}"]);
+        }
+
+        if (constraints.HydroponicsCapacityMultiplier <= 0)
+        {
+            throw new StationGenerationException(
+                "Hydroponics capacity multiplier must be positive.",
+                [$"HydroponicsCapacityMultiplier={constraints.HydroponicsCapacityMultiplier}"]);
         }
 
         if (constraints.MinimumFunctionalRoomCount is { } minimum

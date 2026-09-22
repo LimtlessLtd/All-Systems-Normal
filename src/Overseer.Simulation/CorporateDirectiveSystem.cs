@@ -156,6 +156,14 @@ public sealed class CorporateDirectiveSystem
             case DirectiveKind.ContainmentIntegrity:
                 EvaluateContainmentIntegrity(state, directive, progress);
                 break;
+
+            case DirectiveKind.FoodVarietyRestriction:
+                EvaluateFoodVarietyRestriction(state, directive, progress, minutes);
+                break;
+
+            case DirectiveKind.DislikedFoodExposure:
+                EvaluateDislikedFoodExposure(state, directive, progress);
+                break;
         }
     }
 
@@ -396,6 +404,74 @@ public sealed class CorporateDirectiveSystem
                 progress,
                 DirectiveStatus.Failed,
                 "Crew failed to respond to the hazard in time.");
+        }
+    }
+
+    private static void EvaluateFoodVarietyRestriction(
+        GameState state,
+        CorporateDirective directive,
+        DirectiveProgress progress,
+        double minutes)
+    {
+        var availableRawFoods = state.Stores.RawCrops
+            .Count(pair => pair.Value >= 0.5 && CropRules.IsEdibleRaw(pair.Key));
+        var availableChoices = availableRawFoods + (state.Stores.Meals >= 1 ? 1 : 0);
+        var maximumChoices = Math.Max(1, directive.RequiredCount);
+
+        if (availableChoices <= maximumChoices)
+        {
+            progress.AccumulatedMinutes += minutes;
+        }
+
+        progress.Fraction = Fraction(progress, directive);
+        progress.Detail =
+            $"{availableChoices} food choice(s) physically available; "
+            + $"target ≤{maximumChoices} for {progress.AccumulatedMinutes:0}/{directive.RequiredMinutes} min.";
+
+        if (progress.AccumulatedMinutes >= directive.RequiredMinutes)
+        {
+            Resolve(
+                state,
+                directive,
+                progress,
+                DirectiveStatus.Completed,
+                $"Food availability held to {maximumChoices} choice(s) for the required observation window.");
+        }
+    }
+
+    private static void EvaluateDislikedFoodExposure(
+        GameState state,
+        CorporateDirective directive,
+        DirectiveProgress progress)
+    {
+        var subject = FindCrew(state, directive.TargetId);
+        if (subject is null || !subject.IsAlive)
+        {
+            Resolve(
+                state,
+                directive,
+                progress,
+                DirectiveStatus.Failed,
+                "The selected dietary subject is unavailable.");
+            return;
+        }
+
+        progress.BaselineValue ??= subject.DislikedFoodExposureMinutes;
+        progress.AccumulatedMinutes =
+            Math.Max(0, subject.DislikedFoodExposureMinutes - progress.BaselineValue.Value);
+        progress.Fraction = Fraction(progress, directive);
+        progress.Detail =
+            $"{subject.Name}: {progress.AccumulatedMinutes:0}/{directive.RequiredMinutes} min "
+            + $"consuming strongly disliked food; stress {subject.Stress:0}, hunger {subject.Hunger:0}.";
+
+        if (progress.AccumulatedMinutes >= directive.RequiredMinutes)
+        {
+            Resolve(
+                state,
+                directive,
+                progress,
+                DirectiveStatus.Completed,
+                $"Dietary aversion sample for {subject.Name} reached {progress.AccumulatedMinutes:0} min; final stress {subject.Stress:0}.");
         }
     }
 

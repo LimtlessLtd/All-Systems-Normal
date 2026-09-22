@@ -486,6 +486,9 @@ public static class StationInspectionSystem
                     turret.Id.Equals(selection.Id, StringComparison.OrdinalIgnoreCase)),
             StationSelectionKind.Device =>
                 state.Devices.ContainsKey(selection.Id),
+            StationSelectionKind.CropBed =>
+                state.CropBeds.Any(bed =>
+                    bed.Id.Equals(selection.Id, StringComparison.OrdinalIgnoreCase)),
             _ => false
         };
 
@@ -523,6 +526,12 @@ public static class StationInspectionSystem
         selection is { Kind: StationSelectionKind.Device }
         && state.Devices.TryGetValue(selection.Id, out var device)
             ? device
+            : null;
+
+    public static CropBed? CropBed(GameState state, StationSelection? selection) =>
+        selection is { Kind: StationSelectionKind.CropBed }
+            ? state.CropBeds.FirstOrDefault(bed =>
+                bed.Id.Equals(selection.Id, StringComparison.OrdinalIgnoreCase))
             : null;
 }
 

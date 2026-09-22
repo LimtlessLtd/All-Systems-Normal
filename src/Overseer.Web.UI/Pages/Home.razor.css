@@ -852,10 +852,10 @@ button:not([data-station-interactive]):not(.room-node):not(.crew-token):not(.map
     padding: 0;
     overflow: visible;
     color: var(--text);
-    transition:
-        left var(--crew-step-duration, 2.65s) linear,
-        top var(--crew-step-duration, 2.65s) linear,
-        filter .16s ease;
+    /* Render authoritative waypoint positions directly. Long CSS position
+       tweening drew a straight visual chord through corners even when the
+       deterministic mover had correctly selected a detour waypoint. */
+    transition: filter .16s ease;
 }
 
 .crew-token:hover,
@@ -2619,7 +2619,9 @@ button.sound-toggle.sound-on {
 
 .robot-policy-controls .danger {
     border-color: var(--danger);
-    color: var(--danger);
+    background: var(--danger);
+    color: #180507;
+    font-weight: 900;
 }
 
 .robot-token {
@@ -4746,7 +4748,7 @@ button.sound-toggle.sound-on {
 }
 
 .station-authority-layer .fixture-growbed {
-    --crop-symbol: "🌿";
+    --crop-symbol: "·";
     --crop-stage-scale: .72;
     --crop-stage-opacity: .68;
     border-color: #8e9990;
@@ -6994,18 +6996,20 @@ button.turret-token {
 /* Emergent-routine / hazard / route presentation. */
 .crew-route-lines .selected-route-path {
     fill: none;
-    stroke: rgba(94, 220, 255, .92);
-    stroke-width: .42;
-    stroke-dasharray: 1.45 1.0;
+    stroke: #58b77a;
+    stroke-width: 3.2px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1px 8px;
     vector-effect: non-scaling-stroke;
-    filter: drop-shadow(0 0 2px rgba(73, 200, 244, .72));
+    filter: drop-shadow(0 0 2px rgba(56, 232, 111, .92));
     animation: selected-route-flow 1.25s linear infinite;
 }
 
 .crew-route-lines .selected-route-destination {
-    fill: rgba(230, 251, 255, .92);
-    stroke: rgba(37, 160, 207, .95);
-    stroke-width: .42;
+    fill: #baffca;
+    stroke: #38e86f;
+    stroke-width: 2px;
     vector-effect: non-scaling-stroke;
     filter: drop-shadow(0 0 3px rgba(80, 211, 255, .85));
 }
@@ -7047,64 +7051,115 @@ button.turret-token {
     pointer-events: none;
 }
 
-/* Each visible hydroponic bed announces its actual crop and live growth stage. */
-.station-authority-layer .fixture-growbed[data-crop="TOMATO"] { --crop-symbol: "🍅"; }
-.station-authority-layer .fixture-growbed[data-crop="POTATO"] { --crop-symbol: "🥔"; }
-.station-authority-layer .fixture-growbed[data-crop="APPLE"] { --crop-symbol: "🍎"; }
-.station-authority-layer .fixture-growbed[data-crop="GRAPE"] { --crop-symbol: "🍇"; }
-.station-authority-layer .fixture-growbed[data-crop="BANANA"] { --crop-symbol: "🍌"; }
-.station-authority-layer .fixture-growbed[data-crop="TOBACCO"] { --crop-symbol: "🌿"; }
-.station-authority-layer .fixture-growbed[data-crop="WHEAT"] { --crop-symbol: "🌾"; }
-
-.station-authority-layer .fixture-growbed[data-growth-stage="young"] {
-    --crop-stage-scale: .48;
-    --crop-stage-opacity: .48;
+/* Each physical grow bay reflects authoritative lifecycle state. Produce
+   appears only when the crop is actually ready to harvest. */
+.station-authority-layer .fixture-growbed[data-growth-stage="empty"] {
+    --crop-symbol: "·";
+    --crop-stage-scale: 1;
+    --crop-stage-opacity: .35;
 }
-
-.station-authority-layer .fixture-growbed[data-growth-stage="growing"] {
-    --crop-stage-scale: .76;
+.station-authority-layer .fixture-growbed[data-growth-stage="planting"] {
+    --crop-symbol: "⋯";
+    --crop-stage-scale: .8;
+    --crop-stage-opacity: .65;
+}
+.station-authority-layer .fixture-growbed[data-growth-stage="seedling"] {
+    --crop-symbol: "🌱";
+    --crop-stage-scale: .58;
     --crop-stage-opacity: .72;
 }
-
 .station-authority-layer .fixture-growbed[data-growth-stage="maturing"] {
-    --crop-stage-scale: 1;
-    --crop-stage-opacity: .9;
+    --crop-symbol: "🌿";
+    --crop-stage-scale: .96;
+    --crop-stage-opacity: .92;
 }
+.station-authority-layer .fixture-growbed[data-growth-stage="harvesting"] {
+    --crop-symbol: "🌿";
+    --crop-stage-scale: 1;
+    --crop-stage-opacity: .7;
+}
+.station-authority-layer .fixture-growbed[data-growth-stage="harvest-ready"][data-crop="TOMATO"] { --crop-symbol: "🍅"; }
+.station-authority-layer .fixture-growbed[data-growth-stage="harvest-ready"][data-crop="POTATO"] { --crop-symbol: "🥔"; }
+.station-authority-layer .fixture-growbed[data-growth-stage="harvest-ready"][data-crop="APPLE"] { --crop-symbol: "🍎"; }
+.station-authority-layer .fixture-growbed[data-growth-stage="harvest-ready"][data-crop="GRAPE"] { --crop-symbol: "🍇"; }
+.station-authority-layer .fixture-growbed[data-growth-stage="harvest-ready"][data-crop="BANANA"] { --crop-symbol: "🍌"; }
+.station-authority-layer .fixture-growbed[data-growth-stage="harvest-ready"][data-crop="TOBACCO"] { --crop-symbol: "🌿"; }
+.station-authority-layer .fixture-growbed[data-growth-stage="harvest-ready"][data-crop="WHEAT"] { --crop-symbol: "🌾"; }
 
 .station-authority-layer .fixture-growbed[data-growth-stage="harvest-ready"] {
     --crop-stage-scale: 1.22;
     --crop-stage-opacity: 1;
-    box-shadow:
-        inset 0 0 0 2px rgba(37, 103, 58, .42),
-        0 0 9px rgba(91, 166, 89, .34);
+    box-shadow: inset 0 0 0 2px rgba(37,103,58,.5), 0 0 11px rgba(91,210,108,.55);
 }
 
 .station-authority-layer .fixture-growbed[data-growth-stage="dead"] {
-    --crop-stage-scale: .58;
-    --crop-stage-opacity: .34;
-    filter: grayscale(.9);
+    --crop-symbol: "🥀";
+    --crop-stage-scale: .78;
+    --crop-stage-opacity: .6;
+    filter: grayscale(.9) brightness(.65);
 }
 
-.station-authority-layer .fixture-growbed[data-crop]:not([data-crop=""])::before {
-    content: attr(data-crop) " · " attr(data-growth-stage);
+.station-authority-layer .fixture-growbed[data-crop-bed-id]::before {
+    content: attr(data-growth-stage);
     position: absolute;
     z-index: 3;
     left: 50%;
-    top: 12%;
+    top: 8%;
     max-width: 90%;
     transform: translate(-50%, 0);
     padding: 2px 4px;
-    border: 1px solid rgba(196, 231, 204, .72);
+    border: 1px solid rgba(196,231,204,.72);
     border-radius: 3px;
-    background: rgba(5, 27, 17, .78);
+    background: rgba(5,27,17,.82);
     color: #d7f4df;
     font: 800 7px/1 "Cascadia Code", Consolas, monospace;
     letter-spacing: .03em;
-    text-overflow: ellipsis;
     text-transform: uppercase;
     white-space: nowrap;
-    overflow: hidden;
     pointer-events: none;
+}
+
+.growbed-active-lamp {
+    position: absolute;
+    z-index: 8;
+    right: 5%;
+    top: 7%;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #5b6265;
+    box-shadow: 0 0 0 1px #071015;
+    pointer-events: none;
+}
+.fixture-growbed[data-active="true"] .growbed-active-lamp {
+    background: #45f56f;
+    box-shadow: 0 0 0 1px #071015, 0 0 9px #45f56f;
+    animation: growbed-active-blink 1s steps(2,end) infinite;
+}
+@keyframes growbed-active-blink { 50% { opacity: .28; } }
+
+.crew-task-meter {
+    height: 10px;
+    margin: .45rem 0;
+    overflow: hidden;
+    border: 1px solid var(--line-bright);
+    border-radius: 999px;
+    background: rgba(0,0,0,.28);
+}
+.crew-task-meter > span {
+    display: block;
+    height: 100%;
+    background: #58d785;
+    transition: width .18s linear;
+}
+.crew-task-progress-card.status-interrupted .crew-task-meter > span,
+.crew-task-progress-card.status-failed .crew-task-meter > span { background: var(--danger); }
+
+.crop-choice-grid {
+    display: grid;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: .3rem;
+    margin-top: .45rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -7115,23 +7170,40 @@ button.turret-token {
 }
 
 
-.station-authority-layer .room-node.has-fire::after {
-    content: "";
-    position: absolute;
-    inset: 3%;
-    z-index: 6;
-    border-radius: 6px;
-    pointer-events: none;
-    background:
-        radial-gradient(ellipse at 28% 72%, rgba(255, 203, 84, .72) 0 3%, rgba(245, 102, 42, .58) 4% 7%, transparent 10%),
-        radial-gradient(ellipse at 67% 38%, rgba(255, 226, 121, .68) 0 2%, rgba(229, 72, 35, .48) 4% 8%, transparent 11%),
-        radial-gradient(ellipse at 54% 78%, rgba(255, 157, 60, .55) 0 3%, transparent 10%),
-        linear-gradient(rgba(91, 19, 7, .08), rgba(55, 12, 5, .20));
-    box-shadow: inset 0 0 18px rgba(205, 62, 24, .28);
-    animation: compartment-fire-flicker .8s ease-in-out infinite alternate;
+.station-authority-layer .room-node.has-fire {
+    box-shadow:
+        0 0 0 3px #3b1208,
+        0 0 22px rgba(255, 81, 24, .82),
+        0 0 46px rgba(255, 136, 27, .42),
+        inset 0 0 32px rgba(255, 67, 12, .45);
 }
 
-.station-authority-layer .room-node.has-smoke::after {
+.station-authority-layer .room-node.has-fire::after {
+    content: "🔥  🔥  🔥";
+    position: absolute;
+    inset: 2%;
+    z-index: 20;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    padding: 3%;
+    border-radius: 6px;
+    pointer-events: none;
+    overflow: hidden;
+    color: #ffd568;
+    font-size: clamp(16px, 1.8vw, 34px);
+    line-height: 1;
+    text-shadow:
+        0 -8px 12px rgba(255, 85, 18, .95),
+        0 0 20px rgba(255, 185, 51, .9);
+    background:
+        repeating-radial-gradient(circle at 25% 85%, rgba(255, 199, 65, .24) 0 2px, transparent 3px 12px),
+        radial-gradient(ellipse at 50% 100%, rgba(255, 72, 12, .52), transparent 68%),
+        linear-gradient(to top, rgba(49, 10, 5, .55), rgba(37, 41, 43, .28) 72%, rgba(79, 86, 88, .14));
+    animation: compartment-fire-flicker .34s steps(2, end) infinite alternate;
+}
+
+.station-authority-layer .room-node.has-smoke:not(.has-fire)::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -7144,8 +7216,8 @@ button.turret-token {
 }
 
 @keyframes compartment-fire-flicker {
-    from { opacity: .58; filter: brightness(.92); }
-    to { opacity: .86; filter: brightness(1.12); }
+    from { opacity: .72; filter: brightness(.88) contrast(1.08); transform: translateY(1px); }
+    to { opacity: 1; filter: brightness(1.28) contrast(1.18); transform: translateY(-2px); }
 }
 
 @media (prefers-reduced-motion: reduce) {

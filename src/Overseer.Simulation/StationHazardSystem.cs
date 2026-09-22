@@ -84,6 +84,25 @@ public sealed class StationHazardSystem
             if (!room.IsPowered) growth -= .06 * minutes;
             room.FireIntensity = Math.Clamp(room.FireIntensity + growth, 0, 100);
 
+            // Sustained fire attacks the compartment itself, not just occupants.
+            // Once the pressure hull fails, EnvironmentSystem sees a real vacuum
+            // source and existing decompression propagation owns the consequence.
+            if (!room.HasHullBreach && room.FireIntensity > 35)
+            {
+                room.HullIntegrityPercent = Math.Max(
+                    0,
+                    room.HullIntegrityPercent
+                    - ((room.FireIntensity - 35) * .015 * minutes));
+
+                if (room.HullIntegrityPercent <= 0)
+                {
+                    room.HasHullBreach = true;
+                    room.VentilationEnabled = false;
+                    Log(state, $"STRUCTURAL FAILURE: uncontrolled fire breaches the hull in {room.Name}.");
+                    AudioCueSystem.Emit(state, AudioCueKind.Critical, roomId: room.Id);
+                }
+            }
+
             foreach (var npc in state.Crew.Where(n =>
                          n.IsAlive && n.IsPresent
                          && n.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)))
@@ -121,12 +140,13 @@ public sealed class StationHazardSystem
             var otherId = door.RoomAId.Equals(source.Id, StringComparison.OrdinalIgnoreCase)
                 ? door.RoomBId : door.RoomAId;
             if (!state.Facility.Rooms.TryGetValue(otherId, out var other)
-                || other.Type == RoomType.Corridor
                 || other.FireIntensity > 0)
                 continue;
 
             var chance = Math.Clamp(source.FireIntensity / 900d, .02, .11);
-            if (StableRoll(state.UpkeepSeed, minute, source.Id, other.Id, "spread") >= chance)
+            var flashover = source.FireIntensity >= 75;
+            if (!flashover
+                && StableRoll(state.UpkeepSeed, minute, source.Id, other.Id, "spread") >= chance)
                 continue;
 
             other.FireIntensity = Math.Clamp(source.FireIntensity * .32, 10, 28);

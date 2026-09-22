@@ -681,6 +681,59 @@ public abstract class StationSession
         return false;
     }
 
+    public bool SetCropBedEnabled(string bedId, bool enabled)
+    {
+        var bed = State.CropBeds.FirstOrDefault(candidate =>
+            candidate.Id.Equals(bedId, StringComparison.OrdinalIgnoreCase));
+        if (bed is null)
+        {
+            Log($"Unknown grow bay {bedId}.");
+            return false;
+        }
+
+        if (bed.IsEnabled == enabled)
+            return true;
+
+        bed.IsEnabled = enabled;
+        bed.DisabledSince = enabled ? null : State.Elapsed;
+
+        var worker = State.Crew.FirstOrDefault(npc =>
+            npc.ActiveTask is { Status: CrewTaskStatus.InProgress } task
+            && task.TargetId?.Equals(bed.Id, StringComparison.OrdinalIgnoreCase) == true);
+        if (worker is not null)
+        {
+            CrewProvisioningSystem.InterruptForExternalPriority(
+                State,
+                worker,
+                enabled ? "Grow bay control state changed." : "Grow bay was disabled by Overseer.");
+        }
+
+        Log($"{bed.Label} {(enabled ? "ENABLED" : "DISABLED")}. Growth {(enabled ? "may resume" : "is stopped")}.");
+        AudioCueSystem.Emit(State, enabled ? AudioCueKind.System : AudioCueKind.Warning, roomId: bed.RoomId);
+        return true;
+    }
+
+    public bool SetCropBedRequestedCrop(string bedId, CropKind crop)
+    {
+        var bed = State.CropBeds.FirstOrDefault(candidate =>
+            candidate.Id.Equals(bedId, StringComparison.OrdinalIgnoreCase));
+        if (bed is null || bed.Lifecycle != CropLifecycleState.Empty)
+        {
+            Log($"Crop selection refused for {bedId}: bay must be Empty.");
+            return false;
+        }
+
+        if (!State.Stores.Seeds.TryGetValue(crop, out var seeds) || seeds < 1)
+        {
+            Log($"Crop selection refused for {bed.Label}: no {crop} seed inventory.");
+            return false;
+        }
+
+        bed.RequestedCrop = crop;
+        Log($"{bed.Label} planting request set to {crop}; a worker must physically plant it.");
+        return true;
+    }
+
     public bool DeploySecurityMalware()
     {
         if (_malware.TryDeploy(State, out var message))

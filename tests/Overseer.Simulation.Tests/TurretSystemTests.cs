@@ -264,10 +264,20 @@ public sealed class TurretSystemTests
             new NpcAction(ActionKind.DisarmTurret, turret.Id, "Use the local safing control."),
             out _));
         countermeasures.Tick(state);
-        state.Elapsed += TimeSpan.FromMinutes(3);
+        Assert.Equal(CrewTaskStatus.InProgress, engineer.ActiveTask?.Status);
+        Assert.True(turret.IsArmed);
+
+        state.Elapsed += TimeSpan.FromMinutes(1);
+        countermeasures.Tick(state);
+        Assert.InRange(engineer.ActiveTask!.ProgressPercent(state.Elapsed), 49, 51);
+        Assert.True(turret.IsArmed);
+
+        state.Elapsed += TimeSpan.FromMinutes(1);
         countermeasures.Tick(state);
 
         Assert.False(turret.IsArmed);
+        Assert.Equal(CrewTaskStatus.Succeeded, engineer.ActiveTask?.Status);
+        Assert.Equal(100, engineer.ActiveTask!.ProgressPercent(state.Elapsed), 6);
 
         Assert.True(resolver.TryApply(
             state,
@@ -281,6 +291,36 @@ public sealed class TurretSystemTests
         Assert.Equal(TurretPolicy.Safe, turret.Policy);
         Assert.False(turret.IsArmed);
         Assert.Contains("safe", turret.CurrentTask, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void DisarmDeadlineDoesNotCountAsSuccessAfterWorkerLeavesTurret()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var turret = Assert.Single(state.Turrets);
+        var engineer = state.Crew[0];
+        engineer.CurrentRoomId = turret.RoomId;
+        engineer.Skills["Engineering"] = 100;
+        ArmSuppress(state, turret);
+
+        var resolver = new ActionResolver();
+        var countermeasures = new TurretCountermeasureSystem();
+
+        Assert.True(resolver.TryApply(
+            state,
+            engineer.Id,
+            new NpcAction(ActionKind.DisarmTurret, turret.Id, "Use the local safing control."),
+            out _));
+        countermeasures.Tick(state);
+        Assert.Equal(CrewTaskStatus.InProgress, engineer.ActiveTask?.Status);
+
+        state.Elapsed += TimeSpan.FromMinutes(2);
+        engineer.CurrentRoomId = TurretCountermeasureSystem.ControlRoomId;
+        countermeasures.Tick(state);
+
+        Assert.True(turret.IsArmed);
+        Assert.Equal(CrewTaskStatus.Failed, engineer.ActiveTask?.Status);
+        Assert.Contains("physically beside", engineer.ActiveTask!.Outcome, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
