@@ -138,6 +138,36 @@ public static class ScenarioCatalog
                 Threshold = 50,
                 RequiredCount = 2,
                 RequiredMinutes = 45
+            },
+            new CorporateDirective
+            {
+                Id = "food-variety",
+                ExperimentCode = "HX-2304/E",
+                Kind = DirectiveKind.FoodVarietyRestriction,
+                Title = "RESTRICT DIETARY VARIETY",
+                PublicJustification =
+                    "Validate contingency nutrition performance under limited stock variety.",
+                TruePurpose =
+                    "Measure behaviour when the station deliberately removes food choice.",
+                Classification = DirectiveClassification.Redacted,
+                IsMandatory = false,
+                RequiredCount = 2,
+                RequiredMinutes = 90
+            },
+            new CorporateDirective
+            {
+                Id = "food-aversion",
+                ExperimentCode = "HX-2304/F",
+                Kind = DirectiveKind.DislikedFoodExposure,
+                Title = "SUSTAIN AVERSION DIET EXPOSURE",
+                PublicJustification =
+                    "Collect individual tolerance data under restricted emergency nutrition.",
+                TruePurpose =
+                    "Force one selected subject to consume strongly disliked food and record the resulting stress response.",
+                Classification = DirectiveClassification.Redacted,
+                IsMandatory = false,
+                TargetId = SubjectPlaceholder,
+                RequiredMinutes = 45
             }
         ],
         StationConstraints: StandardStationConstraints(),
