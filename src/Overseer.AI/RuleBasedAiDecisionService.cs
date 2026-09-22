@@ -52,6 +52,22 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                     98);
             }
         }
+        // Critical bodily needs get an immediate chance to supersede long
+        // technical/social plans, matching BrowserMindSystem.
+        else if (npc.Hunger >= CrewNeedThresholds.HungerCritical)
+        {
+            intent = Create(npc, state, ActionKind.Eat, null,
+                "Find food now.",
+                "I am hungry enough that continuing to ignore it is dangerous.",
+                92);
+        }
+        else if (npc.Fatigue >= CrewNeedThresholds.FatigueCritical)
+        {
+            intent = Create(npc, state, ActionKind.Sleep, null,
+                "Get sleep now.",
+                "I am dangerously exhausted and need to stop.",
+                90);
+        }
         else if (FindSecurityMalwareResponse(state, npc) is { } malwareResponse)
         {
             intent = malwareResponse;
@@ -95,26 +111,26 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
         // Basic survival comes before curiosity, matching BrowserMindSystem.
         // With investigation first, a suspicious crew member would investigate
         // while starving and oscillate against the routine steering them to food.
-        else if (npc.Hunger >= 62)
+        else if (npc.Hunger >= CrewNeedThresholds.HungerElevated)
         {
             intent = Create(npc, state, ActionKind.Eat, null,
                 "Get something to eat.",
                 "I am hungry enough that food is becoming difficult to ignore.",
-                80);
+                75);
         }
-        else if (npc.Fatigue >= 72)
+        else if (npc.Fatigue >= CrewNeedThresholds.FatigueElevated)
         {
             intent = Create(npc, state, ActionKind.Sleep, null,
                 "Get some sleep.",
                 "I am too tired to keep working effectively.",
-                78);
+                72);
         }
-        else if (npc.BladderNeed >= 72)
+        else if (npc.BladderNeed >= CrewNeedThresholds.BladderNeed)
         {
             intent = Create(npc, state, ActionKind.UseToilet, null,
                 "Use the washroom.",
                 "I need the toilet and should deal with that now.",
-                84);
+                82);
         }
         else if (MostPressingMissingConcern(npc) is { } missingConcern
             && FindMissingSearchRoom(state, npc, missingConcern) is { } searchRoom)
@@ -202,19 +218,19 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                 "A local system is disabled and I can probably bring it back.",
                 62);
         }
-        else if (npc.HygieneNeed >= 65)
+        else if (npc.HygieneNeed >= CrewNeedThresholds.HygieneNeed)
         {
             intent = Create(npc, state, ActionKind.Shower, null,
                 "Take a shower.",
                 "I need to clean up before I can comfortably focus.",
-                66);
+                64);
         }
-        else if (npc.RecreationNeed >= 62)
+        else if (npc.RecreationNeed >= CrewNeedThresholds.RecreationNeed)
         {
             intent = Create(npc, state, ActionKind.Recreate, null,
                 "Take a break.",
                 "I need some recreation before I burn out.",
-                52);
+                55);
         }
         else
         {
@@ -222,12 +238,12 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                 .OrderByDescending(r => r.Resentment)
                 .FirstOrDefault();
 
-            if (worstRelationship is { Resentment: >= 55 })
+            if (worstRelationship is { Resentment: >= CrewNeedThresholds.ResentmentArgue })
             {
                 intent = Create(npc, state, ActionKind.Argue, worstRelationship.PersonName,
                     $"Confront {worstRelationship.PersonName}.",
                     $"My resentment toward {worstRelationship.PersonName} has been building.",
-                    65);
+                    62);
             }
             else
             {
@@ -236,13 +252,13 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                     .FirstOrDefault();
 
                 if (bestRelationship is not null
-                    && npc.Personality.Sociability >= 55
-                    && npc.SocialNeed >= 68)
+                    && npc.Personality.Sociability >= CrewNeedThresholds.SociabilityForSocialize
+                    && npc.SocialNeed >= CrewNeedThresholds.SocialNeed)
                 {
                     intent = Create(npc, state, ActionKind.Socialize, bestRelationship.PersonName,
                         $"Spend time with {bestRelationship.PersonName}.",
                         $"I trust {bestRelationship.PersonName} and would rather not be alone.",
-                        38);
+                        45);
                 }
                 else
                 {

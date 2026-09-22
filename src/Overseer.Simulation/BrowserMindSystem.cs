@@ -64,8 +64,8 @@ public sealed class BrowserMindSystem
                     state.Facility.Rooms[candidate.CurrentRoomId])
                 && (candidate.Intent is null
                     || candidate.Intent.Urgency < 85
-                    || candidate.Hunger >= 72
-                    || candidate.Fatigue >= 86))
+                    || candidate.Hunger >= CrewNeedThresholds.HungerCritical
+                    || candidate.Fatigue >= CrewNeedThresholds.FatigueCritical))
             .OrderByDescending(candidate =>
                 candidate.MissingPersonConcerns.Values.Any(concern =>
                     concern.Stage == MissingPersonConcernStage.Escalated))
@@ -230,7 +230,7 @@ public sealed class BrowserMindSystem
         // Critical bodily needs get an immediate chance to supersede long
         // technical/social plans. This is still cognition choosing the goal,
         // not the world layer issuing a scripted command.
-        if (npc.Hunger >= 72)
+        if (npc.Hunger >= CrewNeedThresholds.HungerCritical)
         {
             return Create(
                 state,
@@ -241,7 +241,7 @@ public sealed class BrowserMindSystem
                 92);
         }
 
-        if (npc.Fatigue >= 86)
+        if (npc.Fatigue >= CrewNeedThresholds.FatigueCritical)
         {
             return Create(
                 state,
@@ -296,7 +296,7 @@ public sealed class BrowserMindSystem
         // Overseer would investigate indefinitely while starving — and, because
         // the deterministic routine was meanwhile steering them to the kitchen,
         // they oscillated across a doorway and never arrived anywhere at all.
-        if (npc.Hunger >= 58)
+        if (npc.Hunger >= CrewNeedThresholds.HungerElevated)
         {
             return Create(
                 state,
@@ -307,7 +307,7 @@ public sealed class BrowserMindSystem
                 75);
         }
 
-        if (npc.Fatigue >= 68)
+        if (npc.Fatigue >= CrewNeedThresholds.FatigueElevated)
         {
             return Create(
                 state,
@@ -318,7 +318,7 @@ public sealed class BrowserMindSystem
                 72);
         }
 
-        if (npc.BladderNeed >= 72)
+        if (npc.BladderNeed >= CrewNeedThresholds.BladderNeed)
         {
             return Create(
                 state,
@@ -409,7 +409,7 @@ public sealed class BrowserMindSystem
         }
 
 
-        if (npc.HygieneNeed >= 60)
+        if (npc.HygieneNeed >= CrewNeedThresholds.HygieneNeed)
         {
             return Create(
                 state,
@@ -420,7 +420,7 @@ public sealed class BrowserMindSystem
                 64);
         }
 
-        if (npc.RecreationNeed >= 58)
+        if (npc.RecreationNeed >= CrewNeedThresholds.RecreationNeed)
         {
             return Create(
                 state,
@@ -435,7 +435,7 @@ public sealed class BrowserMindSystem
             .OrderByDescending(r => r.Resentment)
             .FirstOrDefault();
 
-        if (tense is { Resentment: >= 48 })
+        if (tense is { Resentment: >= CrewNeedThresholds.ResentmentArgue })
         {
             return Create(
                 state,
@@ -451,8 +451,8 @@ public sealed class BrowserMindSystem
             .FirstOrDefault();
 
         if (trusted is not null
-            && npc.Personality.Sociability >= 50
-            && npc.SocialNeed >= 68)
+            && npc.Personality.Sociability >= CrewNeedThresholds.SociabilityForSocialize
+            && npc.SocialNeed >= CrewNeedThresholds.SocialNeed)
         {
             return Create(
                 state,
