@@ -693,7 +693,17 @@ public static class FacilitySeeder
             or FixtureType.Locker
             or FixtureType.SuitLocker
             or FixtureType.ToolCabinet
-            or FixtureType.KitchenCounter;
+            or FixtureType.KitchenCounter
+            // Infrastructure service banks are substantial physical fixtures,
+            // but they are installed against a bulkhead so the centre of a
+            // compartment remains a usable circulation/work aisle.
+            or FixtureType.CapacitorBank
+            or FixtureType.PowerBus
+            or FixtureType.CoolantPump
+            or FixtureType.WaterRecycler
+            or FixtureType.OxygenGenerator
+            or FixtureType.CarbonScrubber
+            or FixtureType.NetworkRack;
 
     private static bool TryResolveFixturePlacement(
         RoomFixture fixture,
