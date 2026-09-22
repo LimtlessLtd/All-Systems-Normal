@@ -341,6 +341,14 @@ public sealed class CrewProvisioningSystem
             return;
         }
 
+        if (job is ActionKind.TendCrops or ActionKind.Harvest
+            && !IsAtAssignedGrowBay(state, npc, room))
+        {
+            if (npc.ProvisioningCompletesAt is not null)
+                InterruptJob(state, npc, "Worker left the assigned grow bay before completion.");
+            return;
+        }
+
         var minutes = job switch
         {
             ActionKind.Harvest => StationProvisionRules.HarvestMinutes,
@@ -568,6 +576,33 @@ public sealed class CrewProvisioningSystem
             stores.RawCrops[crop] -= used;
             remaining -= used;
         }
+    }
+
+    private static bool IsAtAssignedGrowBay(GameState state, Npc npc, Room room)
+    {
+        if (npc.TendingBedId is null)
+            return false;
+
+        var bed = state.CropBeds.FirstOrDefault(candidate =>
+            candidate.Id.Equals(npc.TendingBedId, StringComparison.OrdinalIgnoreCase));
+        if (bed is null || !bed.RoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var fixture = room.Fixtures.FirstOrDefault(candidate =>
+            candidate.Type == FixtureType.GrowBed
+            && candidate.Label.Equals(bed.FixtureLabel, StringComparison.OrdinalIgnoreCase));
+        if (fixture is null)
+            return false;
+
+        var targetX = fixture.InteractionX ?? fixture.X;
+        var targetY = fixture.InteractionY ?? fixture.Y;
+        var dx = npc.PositionX - targetX;
+        var dy = npc.PositionY - targetY;
+
+        // Fixture interaction coordinates are local room percentages. This
+        // radius allows normal animation jitter while still requiring the
+        // worker to be physically beside the selected bay.
+        return Math.Sqrt((dx * dx) + (dy * dy)) <= 8;
     }
 
     private static bool Qualified(Npc npc, MaintenanceDiscipline discipline) =>
