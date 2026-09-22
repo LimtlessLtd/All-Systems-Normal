@@ -3,7 +3,7 @@
 Repository: https://github.com/LimtlessLtd/All-Systems-Normal
 Playable Pages build: https://limtlessltd.github.io/All-Systems-Normal/
 
-**Current state:** V0.13 — Complete Hazardous Transport Assignments shipped, plus the latest playtest polish: station-only gameplay workspace, wider collision-aware fixture access, staged crop visuals, quieter/contextual crew presentation and raw Ollama cognition diagnostics
+**Current state:** V0.13 — Complete Hazardous Transport Assignments shipped, plus the latest playtest polish: collision-safe local waypoint movement, authoritative timed task progress/outcomes, fire-to-hull-breach/decompression hazards, controllable physical hydroponics lifecycle/capacity, station-only gameplay workspace, quieter/contextual crew presentation and raw Ollama cognition diagnostics
 **Next recommended milestone:** pick up a V0.13 follow-up below, or an item from "Known issues and audit follow-ups"
 
 `PROJECT_HANDOFF.md` is the **single authoritative source** for repository architecture, invariants, roadmap, priorities and developer handoff state. Other documents may provide historical or explanatory context only; they must not define competing requirements or future-work plans. If another document conflicts with this file, this file wins. Keep it concise, update sections in place and do not append milestone diaries.
@@ -25,7 +25,8 @@ Core invariants:
 - Npc.CurrentRoomId is authoritative containment.
 - PositionX / PositionY / Movement are local physical/presentation state.
 - Door.IsPassable is crossing truth; crossings revalidate live door state. Crew route planning (`FindPathForCrew`) also plans through closed, unlocked, powered hatches via `CrewDoorInteractionSystem.CanTraverseWhenReached`, because crew open those at the portal. Robots plan with `IsPassable` only.
-- Strategic routing is deterministic A* over real room/corridor/door topology.
+- Strategic routing is deterministic A* over real room/corridor/door topology. Local movement follows collision-safe fixture/wall/door waypoints; actors must never visually shortcut a later waypoint through geometry.
+- Timed physical work is authoritative `CrewTaskState`: deterministic C# starts, progresses, interrupts/fails and completes it. A new low-priority thought cannot silently abandon committed work; success is recorded only after the world mutation actually occurs.
 - Visible map connections must be real navigable geometry; never draw fake corridor edges.
 - Knowledge/evidence is observer-specific and provenance-aware.
 - Stable Blazor @key identity is required for map entities.
@@ -108,6 +109,7 @@ Supported hooks include:
 - mandatory shutdown room
 - initially accessible/inaccessible rooms
 - environment/system overrides
+- planned crew count, hydroponics-capacity multiplier and allowed crop/seed contracts
 - procedurally packed authored/set-piece rooms
 - fully authored room geometry + connections
 
@@ -122,7 +124,7 @@ Generated stations must preserve:
 - real non-overlapping rooms
 - real physical corridor rooms and connector passages
 - doors only on actual shared boundaries
-- usable passage cross-sections
+- usable passage cross-sections; each functional-room access tunnel matches the connected spine/corridor short-axis width exactly
 - all geometry inside the station canvas
 - functional-room area greater than circulation area
 - structurally reachable required rooms unless explicitly authored otherwise
@@ -161,7 +163,7 @@ Primary presentation helper: `src/Overseer.Simulation/StationPresentationSystem.
 - `Home.razor.css` was pruned of dead and overridden rules only (computed styles verified identical). When restyling, edit the existing rule instead of appending another override layer at the end of the file.
 - Robots are selectable map entities with a dedicated Inspector state and explicit **top-down** machine silhouette consistent with the crew camera angle; do not render them as generic dots/cards.
 - Desktop workspace is the game surface: `Home.razor` renders the Station Overview + Inspector directly, with mission clock, alerts, pause, speed, zoom/FIT and CREW / LOG / MESSAGES / OBJECTIVES / MENU in the station toolbar/overlays. Do not restore duplicated mission/directive/comms panels above the map or a CONSOLE/focus toggle. Pause is a button and the Space key; picking a speed resumes. RESET RUN always asks for confirmation. The player LOG uses `StationLogPresentation` to omit routine movement. **Do not keep Facility Systems as a permanent primary-workspace panel.**
-- The right-side **Inspector is the universal contextual surface for anything clickable**: crew, rooms, doors, robots, turrets/automated defences and future interactable station entities. Selection must show that entity's relevant status, state, goals/motivations where applicable, diagnostics and permitted controls.
+- The right-side **Inspector is the universal contextual surface for anything clickable**: crew, rooms, doors, robots, turrets/automated defences, individual grow bays and future interactable station entities. Crew selection shows authoritative task status/progress/outcome; grow-bay selection exposes only deterministic enable/crop-request controls and physical lifecycle state.
 - **Telemetry/debugging is not an Inspector tab beside the live station.** Move it to a separate full-screen debug view/route where the station map is not rendered. It must contain no player-critical information because normal release builds may hide/disable the debug view entirely.
 
 Visual invariants: never invent hull/corridor/door geometry, never offset one physical entity separately for aesthetics, and never let decorative fixtures become simulation-authoritative unless the domain contract is explicitly extended. Interactive station buttons must never receive generic `:active` transforms because rooms/fixtures/crew/robots use transforms for authoritative map positioning.
@@ -172,17 +174,17 @@ Visual invariants: never invent hull/corridor/door geometry, never offset one ph
 
 Current shared mechanics include:
 
-- rooms/corridors/doors/fixtures, deterministic strategic A* routing and collision-aware local movement around physical fixtures
+- rooms/corridors/doors/fixtures, deterministic strategic A* routing and collision-safe local waypoint movement around physical fixtures/walls/doors; the selected-unit route is rendered as a clearly visible thick green dotted path without changing authoritative coordinates
 - door lock/open/manual override/bypass/damage/repair/weld/barricade counterplay
 - physical electrical/mechanical infrastructure: reactor/generator output, distribution bus efficiency, capacitor energy buffering, machine loads, load shedding, powered door actuators, coolant pumps, oxygen generation, CO₂ scrubbing, water recycling and control-network camera reachability
 - deterministic equipment wear/repair plus rare seeded unexpected fault events; qualified crew physically travel to and service degraded machinery
 - life support and environmental propagation depend on the actual powered utility chain rather than a standalone boolean
 - physical airlocks, pressure cycling and decompression
-- hydroponics with typed visible crops (tomato, potato, apple, grape, banana, tobacco, wheat); each grow bed exposes its real crop plus young → growing → maturing → harvest-ready (or dead) presentation, alongside provisions, cooked meals, raw-food fallback, food preferences and mood/stress consequences
+- hydroponics is physical per grow bay: `Empty → Planting → Seedling → Maturing → ReadyToHarvest → Harvesting → Empty` plus `Dead`; crew must physically plant/harvest, planting consumes generated seed inventory, disabled planted bays stop growing and die after the deterministic shutdown interval, produce appears only at harvest readiness, powered/active state is visible, yield derives from physical bay capacity, and station/scenario constraints can size capacity for planned crew or restrict crop availability. Raw-food fallback, food preferences and mood/stress consequences remain deterministic.
 - deterministic daily routines with day/night shifts, scheduled sleep, sleep debt, fatigue-driven movement slowdown and cognitive skill penalties; critical personal needs pre-empt ordinary/timed routine holds instead of allowing a crew member to remain on duty while starving or dangerously exhausted
 - fresh scenarios scale to roughly 12 crew while preserving campaign-continuing roster provenance; Ollama may generate the six specialist roles first and deterministic supplementation fills the larger roster, while `Prisoner` is scenario-composed and never part of the generated-role contract
 - spontaneous social conflict pressure can escalate into deterministic fights from stress, personality, relationships, grievances and circumstances
-- deterministic fire/smoke hazards expose composable crew affordances (fight fire, evacuate, seal, vent) rather than scripted response trees; LLM/browser cognition chooses desired responses and C# validates reachability, equipment, pressure and outcomes
+- deterministic fire/smoke hazards expose composable crew affordances (fight fire, evacuate, seal, vent) rather than scripted response trees; severe fire visibly spreads through passable compartment connections, damages structural hull integrity, can create a real hull breach, and then existing atmosphere/decompression systems own pressure consequences. LLM/browser cognition chooses desired responses and C# validates reachability, equipment, pressure and outcomes
 - prisoner/containment: prisoner roles, danger levels, violence bias and secure containment rooms; `containment-transfer` is a complete standalone assignment (see V0.13 section below) with deterministic escape opportunity/pressure, recapture, prisoner-guard combat/lethality and a mandatory chain-of-custody directive
 - autonomous crew with skills, traits, relationships, beliefs, memories and persistent intents; every fresh roster (demo, seeded-browser or Ollama-generated) starts with deterministic relationship texture rather than a flat 50/50 — `FacilitySeeder.InitialBond` hashes each unordered name pair to seed a small, reproducible slice of rivalries and close bonds (with per-direction jitter so a bond need not be perfectly symmetric) before any explicit demo overrides are layered on
 - memory fades: `MemorySalience` scores importance × a half-life that grows with importance (trivia fades in hours, defining moments last about a day); prompts use the most salient memories now, and `MemoryRetentionSystem` caps each crew member at 40 memories every 30 minutes and forgets faded trivia older than a day. Campaign carry-over still keeps the most important memories.
@@ -192,9 +194,9 @@ Current shared mechanics include:
 - MR-series autonomous robot behaviour and grounded crew countermeasures
 - ST-series fixed turret behaviour with compartment/range/ammo/heat authority in deterministic C#
 - contained MR/ST security-controller malware lifecycle with deterministic reachability, observer-local diagnostics, physical isolation and timed purge/reimage recovery
-- five ordered campaign assignments, corporate directives, carry-over consequences and endings
+- five ordered campaign assignments, corporate directives, carry-over consequences and endings; resource-dependency research can measure restricted food variety and actual strongly-disliked raw-food exposure from deterministic consumption telemetry
 - browser-local campaign persistence
-- one shared Pages/server station UI, resizable panels, large pannable deck camera, wheel/WASD/drag zoom/pan, audio/music, contextual speech/thought bubbles, full-name-only map nameplates, seamless physical entity animation and selected-unit destination/route visualization; routine scheduling must not reissue `Work` or refresh work chatter when a crew member is already working in the scheduled duty room
+- one shared Pages/server station UI, resizable panels, large pannable deck camera, wheel/WASD/drag zoom/pan, audio/music, contextual speech/thought bubbles, full-name-only map nameplates, seamless physical entity animation and a thick green dotted selected-unit route; routine scheduling must not reissue `Work` or refresh work chatter when a crew member is already working in the scheduled duty room
 - room telemetry attaches directly to a generation-owned top/bottom edge reservation; procedural packing treats the status-plate strip as occupied geometry so plates cannot overlap rooms, corridors or each other
 - bright white/grey spacecraft interior art direction with animated consoles/screens/vents/irrigation/pipes/medical/camera/airlock/machinery cues
 - one shared `StationSelection` / `StationInspectionSystem` contract drives the contextual Inspector for rooms, crew, doors, MR robots and ST turrets
@@ -345,8 +347,8 @@ A code/behaviour/UI audit was run and its fixes merged in PRs #52–#62. These i
 
 - ~~On first load the server generates the crew twice~~ fixed: `Components/App.razor`'s `PageRenderMode` now disables prerender (`new InteractiveServerRenderMode(prerender: false)`), so only the real interactive circuit runs `GameSession.InitializeAsync`. Guarded by `StationSessionTests.ServerHostDoesNotPrerenderTheInteractiveRoute`. Note the tradeoff: the server now sends no prerendered HTML, so first paint is blank until the SignalR circuit connects and finishes crew generation.
 - `GameSession` is scoped per circuit, so opening `/debug` in a **new tab** shows a fresh session, not the player's game. In-app navigation keeps the same circuit.
-- The Ollama decision call never sets `num_ctx`. The prompt is about 3.9k tokens (every one of the 49 actions plus every room's atmosphere), so a 4B model's default context may silently cut off the rules at the top. Check the raw prompts in `/debug`.
-- Invalid model output quietly becomes `ActionKind.Idle` (`OllamaAiDecisionService`). One retry with the validation error would recover most of these.
+- ~~The Ollama decision call never sets `num_ctx`~~ fixed: `OllamaAiDecisionService` now sets `num_ctx` to 8192 via OllamaSharp's `ChatOptions.AddOllamaOption(OllamaOption.NumCtx, ...)`, well clear of the ~3.9k-token prompt (every action plus every room's atmosphere) that could previously be silently truncated against Ollama's 2048-token default. Visible in the `/debug` request trace.
+- ~~Invalid model output quietly becomes `ActionKind.Idle`~~ fixed: `OllamaAiDecisionService` now retries once with a corrective instruction appended to the same prompt when the model's output cannot be parsed as the decision schema, before falling back to `RuleBasedAiDecisionService`. Covered by `AiDecisionServiceTests` (context window option, successful retry, and fallback after two failed parses).
 - `dotnet run` in Production mode serves no static assets (no static-web-assets manifest). Use Development locally, or `dotnet publish` for Production.
 
 **Emergent behaviour:**
