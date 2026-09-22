@@ -676,6 +676,7 @@ public static class ScenarioCatalog
                     door.IsManuallyOverridden = true;
                     door.IsOpen = true;
                     door.IsLocked = false;
+                    door.LockedByOverseer = false;
                 }
                 break;
         }
@@ -1160,6 +1161,7 @@ public sealed class ManualOverrideSystem
 
             door.IsManuallyOverridden = true;
             door.IsLocked = false;
+            door.LockedByOverseer = false;
             door.IsOpen = true;
             npc.RoutineUntil = TimeSpan.Zero;
             npc.CurrentAction = new NpcAction(

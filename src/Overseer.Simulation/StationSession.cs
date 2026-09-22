@@ -290,6 +290,7 @@ public abstract class StationSession
         }
 
         door.IsLocked = !door.IsLocked;
+        door.LockedByOverseer = door.IsLocked;
         if (door.IsLocked)
         {
             State.Telemetry.RestrictiveDoorCommands++;

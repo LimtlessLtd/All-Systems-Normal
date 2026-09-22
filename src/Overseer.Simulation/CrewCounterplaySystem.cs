@@ -188,6 +188,7 @@ public sealed class CrewCounterplaySystem
         }
 
         door.IsLocked = false;
+        door.LockedByOverseer = false;
         door.IsOpen = true;
         door.IsManuallyOverridden = true;
         door.IsAiControllable = false;

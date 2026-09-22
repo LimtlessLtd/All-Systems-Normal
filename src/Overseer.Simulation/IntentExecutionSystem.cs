@@ -745,11 +745,7 @@ public sealed class IntentExecutionSystem
 
         if (path.Count < 2)
         {
-            npc.PlannedDestinationRoomId = null;
-            npc.CurrentAction = new NpcAction(
-                ActionKind.Idle,
-                targetRoomId,
-                $"I want to: {intent.Goal}, but every known route is sealed.");
+            ReportSealedRoute(state, npc, intent, targetRoomId);
             return;
         }
 
@@ -835,11 +831,7 @@ public sealed class IntentExecutionSystem
 
         if (path.Count < 2)
         {
-            npc.PlannedDestinationRoomId = null;
-            npc.CurrentAction = new NpcAction(
-                ActionKind.Idle,
-                targetRoomId,
-                $"I want to: {intent.Goal}, but every known route is sealed.");
+            ReportSealedRoute(state, npc, intent, targetRoomId);
             return;
         }
 
@@ -950,6 +942,68 @@ public sealed class IntentExecutionSystem
 
         return state.Facility.Rooms.Values.FirstOrDefault(room =>
             room.Name.Equals(targetId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// A crew member's known route to <paramref name="targetRoomId"/> is fully
+    /// sealed. When a still-locked Overseer hatch is the identifiable cause,
+    /// name it specifically and let the crew member witness their own denial
+    /// of access as suspicion evidence, rather than a generic dead end.
+    /// </summary>
+    private void ReportSealedRoute(
+        GameState state,
+        Npc npc,
+        NpcIntent intent,
+        string targetRoomId)
+    {
+        npc.PlannedDestinationRoomId = null;
+
+        var sealedRoom = FindOverseerSealedRoom(state, npc.CurrentRoomId, targetRoomId);
+        npc.CurrentAction = new NpcAction(
+            ActionKind.Idle,
+            targetRoomId,
+            sealedRoom is not null
+                ? $"I want to: {intent.Goal}, but Overseer sealed {sealedRoom.Name}."
+                : $"I want to: {intent.Goal}, but every known route is sealed.");
+
+        if (sealedRoom is null)
+        {
+            return;
+        }
+
+        SuspicionSystem.AddEvidence(
+            state,
+            npc,
+            $"I was blocked from reaching {sealedRoom.Name} because Overseer sealed the way in.",
+            12,
+            origin: EvidenceOrigin.DirectObservation,
+            locationId: npc.CurrentRoomId,
+            evidenceId: $"route-sealed:{npc.Id:N}:{sealedRoom.Id}:{state.Elapsed.Ticks}",
+            claim: EvidenceClaim.AccessRestricted);
+    }
+
+    /// <summary>
+    /// Walks the pure topology route (ignoring live door state) toward
+    /// <paramref name="toRoomId"/> and returns the room just past the first
+    /// still-locked Overseer hatch blocking it, or null if the block cannot
+    /// be attributed to an Overseer lock.
+    /// </summary>
+    private Room? FindOverseerSealedRoom(GameState state, string fromRoomId, string toRoomId)
+    {
+        var topologyPath = _navigation.FindPathIgnoringDoorState(state.Facility, fromRoomId, toRoomId);
+
+        for (var i = 0; i < topologyPath.Count - 1; i++)
+        {
+            var door = state.Facility.FindDoorBetween(topologyPath[i], topologyPath[i + 1]);
+
+            if (door is { LockedByOverseer: true, IsPassable: false }
+                && state.Facility.Rooms.TryGetValue(topologyPath[i + 1], out var room))
+            {
+                return room;
+            }
+        }
+
+        return null;
     }
 
     private static void FailIntent(GameState state, Npc npc, string reason)

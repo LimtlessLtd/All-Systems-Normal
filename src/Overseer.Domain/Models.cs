@@ -1001,6 +1001,12 @@ public sealed class Door
 
     public bool IsOpen { get; set; } = true;
     public bool IsLocked { get; set; }
+
+    // True only while the current IsLocked=true state was set directly by the
+    // Overseer lock verb (StationSession.ToggleLock), never by a crew member's
+    // own LockDoor action. Every other code path that changes IsLocked resets
+    // this back to false so it never survives a hand-off to a different cause.
+    public bool LockedByOverseer { get; set; }
     public bool IsPowered { get; set; } = true;
     public bool IsAiControllable { get; set; } = true;
     public bool ManualOverrideAvailable { get; set; }
