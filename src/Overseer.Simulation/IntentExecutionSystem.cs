@@ -13,20 +13,19 @@ public sealed class IntentExecutionSystem
         {
             var intent = npc.Intent!;
 
-            // Physical timed work is sticky. A fresh thought does not make a
-            // technician casually walk away from a half-finished disarm/harvest.
-            // Only a genuinely urgent deterministic interruption may pre-empt it,
-            // and that interruption is recorded explicitly.
+            // Physical timed work is sticky. Urgency is a mind hint, not a
+            // magic cancellation token. Once hands-on work starts, only a
+            // deterministic immediate survival threat can pre-empt it.
             if (npc.ActiveTask is { Status: CrewTaskStatus.InProgress } task
                 && intent.Action != task.Action)
             {
-                if (intent.Urgency < CrewTaskSystem.CommitmentUrgency)
+                if (!CrewTaskSystem.CanInterruptForLifeThreat(state, npc, intent))
                 {
                     npc.Intent = null;
                     continue;
                 }
 
-                var reason = $"Pre-empted by {intent.Action} at urgency {intent.Urgency}.";
+                var reason = $"Emergency interruption: {intent.Action} in an immediate life-threatening situation.";
                 if (npc.ProvisioningJob is not null)
                     CrewProvisioningSystem.InterruptForExternalPriority(state, npc, reason);
                 else
