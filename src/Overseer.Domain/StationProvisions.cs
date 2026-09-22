@@ -171,6 +171,14 @@ public static class StationProvisionRules
     /// <summary>Produce yielded per standard unit of physical grow capacity.</summary>
     public const double YieldPerCapacityUnit = 6;
 
+    /// <summary>One standard bay occupies about this many physical map-square units.</summary>
+    public const double StandardGrowAreaMapUnits = 8;
+
+    /// <summary>Expected food demand used when sizing a normally self-sufficient station.</summary>
+    public const double ExpectedMealsPerCrewPerDay = 4;
+
+    public const double CapacitySafetyFactor = 1.35;
+
     /// <summary>Compatibility alias for one standard bay.</summary>
     public const double YieldPerHarvest = YieldPerCapacityUnit;
 
@@ -213,4 +221,23 @@ public static class StationProvisionRules
     public const int HarvestMinutes = 10;
 
     public const int CookMinutes = 14;
+
+    public static double RequiredHydroponicsCapacity(int crewCount)
+    {
+        if (crewCount <= 0)
+            return 0;
+
+        var maturityHours = 100d / GrowthPerHour;
+        var harvestsPerCapacityPerDay = 24d / maturityHours;
+        var mealsPerCapacityPerDay =
+            harvestsPerCapacityPerDay
+            * YieldPerCapacityUnit
+            / ProducePerCookingSession
+            * MealsPerCookingSession;
+
+        return crewCount
+            * ExpectedMealsPerCrewPerDay
+            / mealsPerCapacityPerDay
+            * CapacitySafetyFactor;
+    }
 }
