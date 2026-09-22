@@ -222,40 +222,55 @@ public sealed class CrewProvisioningSystem
         var kitchen = state.Facility.Rooms.Values
             .FirstOrDefault(room => room.Type == RoomType.Kitchen);
 
+        // Hydroponics is a specialist workstream, not an all-hands startup
+        // event. Keeping a crew-size-aware ceiling on simultaneous crop work
+        // leaves deterministic capacity for maintenance, medicine, meals and
+        // emergencies while still scaling up on larger stations.
+        var horticultureLimit = Math.Max(1, (int)Math.Ceiling(state.Crew.Count / 4d));
+        var horticultureWorkers = state.Crew.Count(npc =>
+            npc.IsAlive
+            && npc.ProvisioningJob is ActionKind.TendCrops or ActionKind.Harvest);
+
         foreach (var npc in state.Crew
                      .Where(npc => IsAvailable(state, npc))
                      .OrderBy(n => n.Name, StringComparer.Ordinal))
         {
-            // Mature produce is time-sensitive.
-            var ripe = Unclaimed(state, bed => bed.IsReadyToHarvest)
-                .FirstOrDefault(bed => CanReach(state, npc, bed.RoomId));
-
-            if (ripe is not null && Qualified(npc, MaintenanceDiscipline.Horticulture))
+            if (horticultureWorkers < horticultureLimit
+                && Qualified(npc, MaintenanceDiscipline.Horticulture))
             {
-                Assign(state, npc, ActionKind.Harvest, ripe.RoomId, ripe.Id,
-                    $"Harvest {ripe.Label}.",
-                    "The crop is ready and will not keep.",
-                    50);
-                continue;
-            }
+                // Mature produce is time-sensitive.
+                var ripe = Unclaimed(state, bed => bed.IsReadyToHarvest)
+                    .FirstOrDefault(bed => CanReach(state, npc, bed.RoomId));
 
-            // Empty enabled bays need a physical planting visit. The selected
-            // crop must exist in generated seed inventory.
-            var empty = Unclaimed(state, bed =>
-                    bed.IsEnabled
-                    && bed.Lifecycle == CropLifecycleState.Empty
-                    && bed.RequestedCrop is { } crop
-                    && state.Stores.Seeds.TryGetValue(crop, out var seeds)
-                    && seeds >= 1)
-                .FirstOrDefault(bed => CanReach(state, npc, bed.RoomId));
+                if (ripe is not null)
+                {
+                    Assign(state, npc, ActionKind.Harvest, ripe.RoomId, ripe.Id,
+                        $"Harvest {ripe.Label}.",
+                        "The crop is ready and will not keep.",
+                        50);
+                    horticultureWorkers++;
+                    continue;
+                }
 
-            if (empty is not null && Qualified(npc, MaintenanceDiscipline.Horticulture))
-            {
-                Assign(state, npc, ActionKind.TendCrops, empty.RoomId, empty.Id,
-                    $"Plant {empty.RequestedCrop} in {empty.Label}.",
-                    "An enabled grow bay is empty and seed stock is available.",
-                    48);
-                continue;
+                // Empty enabled bays need a physical planting visit. The
+                // selected crop must exist in generated seed inventory.
+                var empty = Unclaimed(state, bed =>
+                        bed.IsEnabled
+                        && bed.Lifecycle == CropLifecycleState.Empty
+                        && bed.RequestedCrop is { } crop
+                        && state.Stores.Seeds.TryGetValue(crop, out var seeds)
+                        && seeds >= 1)
+                    .FirstOrDefault(bed => CanReach(state, npc, bed.RoomId));
+
+                if (empty is not null)
+                {
+                    Assign(state, npc, ActionKind.TendCrops, empty.RoomId, empty.Id,
+                        $"Plant {empty.RequestedCrop} in {empty.Label}.",
+                        "An enabled grow bay is empty and seed stock is available.",
+                        48);
+                    horticultureWorkers++;
+                    continue;
+                }
             }
 
             // Then the galley, if the station is short of meals.
@@ -274,18 +289,23 @@ public sealed class CrewProvisioningSystem
             }
 
             // Then whichever bed is thirstiest.
-            var thirsty = Unclaimed(state, bed => bed.IsEnabled && bed.TendUrgency >= 15)
-                .OrderByDescending(bed => bed.TendUrgency)
-                .FirstOrDefault(bed => CanReach(state, npc, bed.RoomId));
-
-            if (thirsty is not null && Qualified(npc, MaintenanceDiscipline.Horticulture))
+            if (horticultureWorkers < horticultureLimit
+                && Qualified(npc, MaintenanceDiscipline.Horticulture))
             {
-                Assign(state, npc, ActionKind.TendCrops, thirsty.RoomId, thirsty.Id,
-                    $"Water and feed {thirsty.Label}.",
-                    thirsty.IsDead
-                        ? "That bed has died and needs replanting."
-                        : "The bed is running dry.",
-                    45);
+                var thirsty = Unclaimed(state, bed => bed.IsEnabled && bed.TendUrgency >= 15)
+                    .OrderByDescending(bed => bed.TendUrgency)
+                    .FirstOrDefault(bed => CanReach(state, npc, bed.RoomId));
+
+                if (thirsty is not null)
+                {
+                    Assign(state, npc, ActionKind.TendCrops, thirsty.RoomId, thirsty.Id,
+                        $"Water and feed {thirsty.Label}.",
+                        thirsty.IsDead
+                            ? "That bed has died and needs replanting."
+                            : "The bed is running dry.",
+                        45);
+                    horticultureWorkers++;
+                }
             }
         }
     }
