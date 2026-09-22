@@ -883,17 +883,33 @@ public static class FacilitySeeder
             return false;
         }
 
-        return !placed.Any(existing =>
-            FixtureRectanglesOverlap(
-                fixture.X,
-                fixture.Y,
-                fixture.Width,
-                fixture.Height,
-                existing.X,
-                existing.Y,
-                existing.Width,
-                existing.Height,
-                padding));
+        if (placed.Any(existing =>
+                FixtureRectanglesOverlap(
+                    fixture.X,
+                    fixture.Y,
+                    fixture.Width,
+                    fixture.Height,
+                    existing.X,
+                    existing.Y,
+                    existing.Width,
+                    existing.Height,
+                    padding)))
+        {
+            return false;
+        }
+
+        return FixtureInteractionReservations(fixture).All(reservation =>
+            !placed.Any(existing =>
+                FixtureRectanglesOverlap(
+                    reservation.X,
+                    reservation.Y,
+                    reservation.Width,
+                    reservation.Height,
+                    existing.X,
+                    existing.Y,
+                    existing.Width,
+                    existing.Height,
+                    1.8)));
     }
 
     private static void EnsureValidCrewContainment(Facility facility, IEnumerable<Npc> crew)
