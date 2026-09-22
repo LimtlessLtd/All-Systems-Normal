@@ -7222,6 +7222,10 @@ button.turret-token {
     animation: compartment-fire-flicker .46s steps(2, end) infinite alternate;
 }
 
+.station-authority-layer .room-node.fire-minor::after {
+    opacity: .72;
+}
+
 .station-authority-layer .room-node.fire-growing::after {
     content: "🔥  🔥";
     font-size: clamp(17px, 1.8vw, 34px);
@@ -7270,6 +7274,10 @@ button.turret-token {
         radial-gradient(ellipse at 45% 86%, rgba(22, 26, 29, .4), transparent 50%);
     opacity: .18;
     animation: compartment-smoke-drift 3.4s ease-in-out infinite alternate;
+}
+
+.station-authority-layer .room-node.smoke-light::before {
+    opacity: .18;
 }
 
 .station-authority-layer .room-node.smoke-building::before {
