@@ -238,6 +238,71 @@ public sealed class ShutdownCoordinationSystem
         return team;
     }
 
+    /// <summary>
+    /// Whether <paramref name="npc"/> is suspicious and trusting enough to
+    /// accept a pending team invitation. Shared by every mind (LLM fallback
+    /// and browser-demo) that decides whether to join.
+    /// </summary>
+    public static bool ShouldJoinTeam(Npc npc, ShutdownTeamInvitation invitation)
+    {
+        var trust = npc.Relationships.TryGetValue(
+            invitation.FromNpcName,
+            out var relationship)
+            ? relationship.Trust
+            : 50;
+
+        return npc.OverseerSuspicion >= 50 && trust >= 35;
+    }
+
+    /// <summary>
+    /// The shutdown mechanism <paramref name="npc"/> has personally verified,
+    /// if any. Shared decision logic, distinct from <see cref="ChooseKnownMechanism"/>
+    /// (which additionally orders by proximity for active recruitment).
+    /// </summary>
+    public static ShutdownMechanism? FindKnownMechanism(GameState state, Npc npc) =>
+        state.ShutdownMechanisms
+            .Where(mechanism =>
+                mechanism.IsOnline
+                && npc.KnownShutdownMechanismIds.Contains(mechanism.Id))
+            .OrderBy(mechanism => mechanism.Id)
+            .FirstOrDefault();
+
+    /// <summary>
+    /// The active team <paramref name="npc"/> already belongs to for
+    /// <paramref name="mechanism"/>, if any.
+    /// </summary>
+    public static ShutdownTeam? FindTeamFor(
+        GameState state,
+        Npc npc,
+        ShutdownMechanism mechanism) =>
+        state.ShutdownTeams.FirstOrDefault(team =>
+            team.IsActive
+            && team.MechanismId.Equals(mechanism.Id, StringComparison.OrdinalIgnoreCase)
+            && team.MemberIds.Contains(npc.Id));
+
+    /// <summary>
+    /// The crew member <paramref name="npc"/> would most want to recruit for
+    /// <paramref name="team"/>, favouring the most trusted/liked candidate
+    /// not already committed or invited.
+    /// </summary>
+    public static Npc? FindRecruit(GameState state, Npc npc, ShutdownTeam? team)
+    {
+        var excluded = team?.MemberIds ?? new HashSet<Guid>();
+        return state.Crew
+            .Where(other =>
+                other.IsAlive
+                && other.IsPresent
+                && other.Id != npc.Id
+                && !excluded.Contains(other.Id)
+                && (team is null || !team.InvitedNpcIds.Contains(other.Id)))
+            .OrderByDescending(other =>
+                npc.Relationships.TryGetValue(other.Name, out var relation)
+                    ? relation.Trust + relation.Affinity
+                    : 100)
+            .ThenBy(other => other.Name)
+            .FirstOrDefault();
+    }
+
     private static void ExpireOldInvitations(GameState state)
     {
         foreach (var npc in state.Crew.Where(npc =>

@@ -369,16 +369,8 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
 
     private static bool ShouldJoinShutdownTeam(
         Npc npc,
-        ShutdownTeamInvitation invitation)
-    {
-        var trust = npc.Relationships.TryGetValue(
-            invitation.FromNpcName,
-            out var relationship)
-            ? relationship.Trust
-            : 50;
-
-        return npc.OverseerSuspicion >= 50 && trust >= 35;
-    }
+        ShutdownTeamInvitation invitation) =>
+        ShutdownCoordinationSystem.ShouldJoinTeam(npc, invitation);
 
     private static InvestigationLead? FindInvestigationLead(
         GameState state,
@@ -401,42 +393,19 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
     private static ShutdownMechanism? FindKnownShutdownMechanism(
         GameState state,
         Npc npc) =>
-        state.ShutdownMechanisms
-            .Where(mechanism =>
-                mechanism.IsOnline
-                && npc.KnownShutdownMechanismIds.Contains(mechanism.Id))
-            .OrderBy(mechanism => mechanism.Id)
-            .FirstOrDefault();
+        ShutdownCoordinationSystem.FindKnownMechanism(state, npc);
 
     private static ShutdownTeam? FindShutdownTeam(
         GameState state,
         Npc npc,
         ShutdownMechanism mechanism) =>
-        state.ShutdownTeams.FirstOrDefault(team =>
-            team.IsActive
-            && team.MechanismId.Equals(mechanism.Id, StringComparison.OrdinalIgnoreCase)
-            && team.MemberIds.Contains(npc.Id));
+        ShutdownCoordinationSystem.FindTeamFor(state, npc, mechanism);
 
     private static Npc? FindShutdownRecruit(
         GameState state,
         Npc npc,
-        ShutdownTeam? team)
-    {
-        var excluded = team?.MemberIds ?? new HashSet<Guid>();
-        return state.Crew
-            .Where(other =>
-                other.IsAlive
-                && other.IsPresent
-                && other.Id != npc.Id
-                && !excluded.Contains(other.Id)
-                && (team is null || !team.InvitedNpcIds.Contains(other.Id)))
-            .OrderByDescending(other =>
-                npc.Relationships.TryGetValue(other.Name, out var relation)
-                    ? relation.Trust + relation.Affinity
-                    : 100)
-            .ThenBy(other => other.Name)
-            .FirstOrDefault();
-    }
+        ShutdownTeam? team) =>
+        ShutdownCoordinationSystem.FindRecruit(state, npc, team);
 
     private static Room? FindPerceivedUnsafeAirlock(
         GameState state,
@@ -452,11 +421,7 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
             .FirstOrDefault();
 
     private static MissingPersonConcern? MostPressingMissingConcern(Npc npc) =>
-        npc.MissingPersonConcerns.Values
-            .Where(concern => concern.Stage != MissingPersonConcernStage.Concerned)
-            .OrderByDescending(concern => concern.Stage)
-            .ThenBy(concern => concern.FirstConcernAt)
-            .FirstOrDefault();
+        MissingPersonSystem.MostPressingConcern(npc);
 
     private static Room? FindMissingSearchRoom(
         GameState state,
@@ -495,14 +460,8 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
 
     private static string MissingConcernReason(
         GameState state,
-        MissingPersonConcern concern)
-    {
-        var expected = state.Facility.Rooms[concern.ExpectedRoomId].Name;
-
-        return concern.LastSeenAt is { } seenAt
-            ? $"I last saw {concern.PersonName} at T+{seenAt:hh\\:mm}; they missed expected duty around {expected}."
-            : $"I have not seen {concern.PersonName} this shift and they missed expected duty around {expected}.";
-    }
+        MissingPersonConcern concern) =>
+        MissingPersonSystem.ReasonFor(state, concern);
 
     private static Door? FindAdjacentDamagedDoor(GameState state, Npc npc) =>
         state.Facility.Doors.FirstOrDefault(door =>

@@ -389,6 +389,31 @@ public sealed class MissingPersonSystem
         }
     }
 
+    /// <summary>
+    /// The concern <paramref name="npc"/> would act on first if choosing to
+    /// search, favouring the most escalated and then oldest. Shared by every
+    /// mind that decides whether to go looking for someone.
+    /// </summary>
+    public static MissingPersonConcern? MostPressingConcern(Npc npc) =>
+        npc.MissingPersonConcerns.Values
+            .Where(concern => concern.Stage != MissingPersonConcernStage.Concerned)
+            .OrderByDescending(concern => concern.Stage)
+            .ThenBy(concern => concern.FirstConcernAt)
+            .FirstOrDefault();
+
+    /// <summary>
+    /// Human-readable justification for why <paramref name="concern"/> is
+    /// worth acting on, based only on what was actually observed.
+    /// </summary>
+    public static string ReasonFor(GameState state, MissingPersonConcern concern)
+    {
+        var expected = state.Facility.Rooms[concern.ExpectedRoomId].Name;
+
+        return concern.LastSeenAt is { } seenAt
+            ? $"I last saw {concern.PersonName} at T+{seenAt:hh\\:mm}; they missed expected duty around {expected}."
+            : $"I have not seen {concern.PersonName} this shift and they missed expected duty around {expected}.";
+    }
+
     private static bool HasDirectDangerEvidence(
         GameState state,
         Npc observer,
