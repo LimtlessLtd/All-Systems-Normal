@@ -42,8 +42,8 @@ public sealed class CognitionTelemetrySystemTests
                 npc,
                 "test",
                 intent,
-                new string('P', 20_000),
-                new string('R', 10_000));
+                new string('P', 70_000),
+                new string('R', 40_000));
         }
 
         Assert.Equal(240, state.CognitionTelemetry.Count);

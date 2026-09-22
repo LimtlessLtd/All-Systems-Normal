@@ -615,9 +615,14 @@ public sealed class LocalMovementSystem
                          (X: fixture.X + offsetX, Y: fixture.Y + offsetY)
                      })
             {
+                // Keep graph waypoints inside the same safe navigation
+                // domain used by FindWalkablePoint and the grid fallback. The
+                // old 3/97 edge nodes could sit in the hull-side pocket behind
+                // bulkhead equipment, attracting actors into a dead end from
+                // which the 4..96 occupancy grid could not recover them.
                 var candidate = (
-                    X: Math.Clamp(point.X, 3, 97),
-                    Y: Math.Clamp(point.Y, 3, 97));
+                    X: Math.Clamp(point.X, 4, 96),
+                    Y: Math.Clamp(point.Y, 4, 96));
 
                 if (IsWalkable(room, candidate.X, candidate.Y)
                     && !nodes.Any(existing =>
@@ -939,7 +944,11 @@ public sealed class LocalMovementSystem
         && y >= fixture.Y - (fixture.Height / 2) - clearance
         && y <= fixture.Y + (fixture.Height / 2) + clearance;
 
-    private static bool IsCollisionFixture(RoomFixture fixture) =>
+    // Shared with seeded layout validation so generation and live movement
+    // agree on what actually occupies floor space. Bulkhead-integrated details
+    // are visual/interaction surfaces; free-standing machinery and furniture
+    // are physical obstacles.
+    internal static bool IsCollisionFixture(RoomFixture fixture) =>
         fixture.Type is not FixtureType.Camera
             and not FixtureType.Window
             and not FixtureType.Screen

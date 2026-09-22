@@ -55,7 +55,7 @@ public sealed class StationAlertSystemTests
 
         var home = File.ReadAllText(Path.Combine(root, "src/Overseer.Web.UI/Pages/Home.razor"));
         Assert.Contains("ToggleStationOverlay(\"alerts\")", home);
-        Assert.Contains("@onclick=\"ShowAlertsAsync\"", home);
+        Assert.Contains("@Session.AlertCount ALERT", home);
     }
 
     private static string FindRepositoryRoot()

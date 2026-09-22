@@ -36,6 +36,77 @@ public sealed class StationUiPresentationPolishTests
     }
 
     [Fact]
+    public void SeededStations_LeaveVisibleSeparationAroundMajorFloorMachinery()
+    {
+        foreach (var state in RepresentativeStates(6))
+        {
+            foreach (var room in state.Facility.Rooms.Values)
+            {
+                var floorMachinery = room.Fixtures.Where(NeedsFloorAisle).ToList();
+                for (var firstIndex = 0; firstIndex < floorMachinery.Count; firstIndex++)
+                {
+                    for (var secondIndex = firstIndex + 1; secondIndex < floorMachinery.Count; secondIndex++)
+                    {
+                        Assert.False(
+                            OverlapsWithPadding(floorMachinery[firstIndex], floorMachinery[secondIndex], .75),
+                            $"Seed {state.StationGeneration?.Seed}, room {room.Id}: " +
+                            $"'{floorMachinery[firstIndex].Label}' and '{floorMachinery[secondIndex].Label}' are packed together.");
+                    }
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void SeededStations_KeepStandingInteractionPointsClearOfOtherPhysicalFixtures()
+    {
+        foreach (var state in RepresentativeStates(6))
+        {
+            foreach (var room in state.Facility.Rooms.Values)
+            {
+                foreach (var fixture in room.Fixtures.Where(item =>
+                             item.UsePose == FixtureUsePose.Stand
+                             && item.InteractionX is not null
+                             && item.InteractionY is not null))
+                {
+                    foreach (var other in room.Fixtures.Where(item =>
+                                 !ReferenceEquals(item, fixture)
+                                 && IsPhysicalObstacle(item)))
+                    {
+                        Assert.False(
+                            ContainsPoint(other, fixture.InteractionX!.Value, fixture.InteractionY!.Value, 0),
+                            $"Seed {state.StationGeneration?.Seed}, room {room.Id}: interaction point for " +
+                            $"'{fixture.Label}' is blocked by '{other.Label}'.");
+                    }
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void Hydroponics_ExposeDistinctCropTypesAndLiveGrowthStages()
+    {
+        var root = FindRepositoryRoot();
+        var home = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor"));
+        var css = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor.css"));
+
+        Assert.Contains("data-crop=\"@CropFixtureLabel(room, fixture)\"", home);
+        Assert.Contains("data-growth-stage=\"@CropGrowthStage(room, fixture)\"", home);
+        Assert.Contains("\"harvest-ready\"", home);
+        Assert.Contains("\"young\"", home);
+        Assert.Contains("\"growing\"", home);
+        Assert.Contains("\"maturing\"", home);
+
+        foreach (var crop in new[] { "TOMATO", "POTATO", "APPLE", "GRAPE", "BANANA", "TOBACCO", "WHEAT" })
+        {
+            Assert.Contains($"data-crop=\"{crop}\"", css);
+        }
+
+        Assert.Contains("data-growth-stage=\"harvest-ready\"", css);
+        Assert.Contains("var(--crop-symbol)", css);
+    }
+
+    [Fact]
     public void LightingClimateAndAirHandlerControls_HugRoomEdges()
     {
         var states = RepresentativeStates(4);
@@ -193,6 +264,62 @@ public sealed class StationUiPresentationPolishTests
             MapWidth = width,
             MapHeight = height
         };
+
+    private static bool NeedsFloorAisle(RoomFixture fixture) =>
+        fixture.Type is FixtureType.Generator
+            or FixtureType.ReactorCore
+            or FixtureType.ResurrectionChamber
+            or FixtureType.GrowBed
+            or FixtureType.Bed
+            or FixtureType.MedicalBed
+            or FixtureType.OverseerShutdown
+            or FixtureType.Workbench
+            or FixtureType.TreatmentUnit
+            or FixtureType.CapacitorBank
+            or FixtureType.PowerBus
+            or FixtureType.CoolantPump
+            or FixtureType.WaterRecycler
+            or FixtureType.OxygenGenerator
+            or FixtureType.CarbonScrubber
+            or FixtureType.NetworkRack;
+
+    private static bool IsPhysicalObstacle(RoomFixture fixture) =>
+        fixture.Type is not FixtureType.Camera
+            and not FixtureType.Window
+            and not FixtureType.Screen
+            and not FixtureType.Mirror
+            and not FixtureType.Pipe
+            and not FixtureType.AirlockDoor;
+
+    private static bool ContainsPoint(
+        RoomFixture fixture,
+        double x,
+        double y,
+        double clearance) =>
+        x >= fixture.X - (fixture.Width / 2) - clearance
+        && x <= fixture.X + (fixture.Width / 2) + clearance
+        && y >= fixture.Y - (fixture.Height / 2) - clearance
+        && y <= fixture.Y + (fixture.Height / 2) + clearance;
+
+    private static bool OverlapsWithPadding(
+        RoomFixture first,
+        RoomFixture second,
+        double padding)
+    {
+        var firstLeft = first.X - (first.Width / 2) - padding;
+        var firstRight = first.X + (first.Width / 2) + padding;
+        var firstTop = first.Y - (first.Height / 2) - padding;
+        var firstBottom = first.Y + (first.Height / 2) + padding;
+        var secondLeft = second.X - (second.Width / 2);
+        var secondRight = second.X + (second.Width / 2);
+        var secondTop = second.Y - (second.Height / 2);
+        var secondBottom = second.Y + (second.Height / 2);
+
+        return firstLeft < secondRight
+            && firstRight > secondLeft
+            && firstTop < secondBottom
+            && firstBottom > secondTop;
+    }
 
     private static bool Overlaps(RoomFixture first, RoomFixture second)
     {

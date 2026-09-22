@@ -187,7 +187,13 @@ public sealed class LocalMovementSystemTests
             Math.Pow(npc.PositionX - targetX, 2)
             + Math.Pow(npc.PositionY - targetY, 2));
 
-        Assert.True(after < before);
+        Assert.True(
+            after < before,
+            $"worker={npc.PositionX:0.0},{npc.PositionY:0.0}; target={targetX:0.0},{targetY:0.0}; " +
+            $"before={before:0.0}; after={after:0.0}; fixtures=" +
+            string.Join(" | ", room.Fixtures.Select(item =>
+                $"{item.Type}:{item.Label}@{item.X:0.0},{item.Y:0.0}/{item.Width:0.0}x{item.Height:0.0} " +
+                $"use={item.InteractionX:0.0},{item.InteractionY:0.0}")));
     }
 
     [Fact]

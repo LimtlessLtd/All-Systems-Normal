@@ -241,10 +241,13 @@ public static class FacilitySeeder
                 [FixtureType.Pipe, FixtureType.UtilityPanel, FixtureType.Console, FixtureType.Vent],
             RoomType.Generator =>
                 [FixtureType.Pipe, FixtureType.UtilityPanel, FixtureType.Console, FixtureType.ToolCabinet],
+            // These rooms already receive substantial authored floor
+            // machinery. Identity dressing should enrich their bulkheads, not
+            // inject duplicate workstations/grow beds into circulation lanes.
             RoomType.Engineering =>
-                [FixtureType.Workbench, FixtureType.ToolCabinet, FixtureType.Pipe, FixtureType.UtilityPanel, FixtureType.Crate],
+                [FixtureType.ToolCabinet, FixtureType.Pipe, FixtureType.UtilityPanel, FixtureType.Console],
             RoomType.Hydroponics =>
-                [FixtureType.GrowBed, FixtureType.IrrigationTank, FixtureType.Pipe, FixtureType.UtilityPanel],
+                [FixtureType.IrrigationTank, FixtureType.Pipe, FixtureType.UtilityPanel],
             RoomType.Storage =>
                 [FixtureType.StorageRack, FixtureType.Crate, FixtureType.Locker, FixtureType.ToolCabinet],
             RoomType.Airlock =>
@@ -500,6 +503,7 @@ public static class FacilitySeeder
                 {
                     placed.Add(resolved);
                     occupied.Add(resolved);
+                    occupied.AddRange(FixtureInteractionReservations(resolved));
                     continue;
                 }
 
@@ -508,6 +512,7 @@ public static class FacilitySeeder
                 {
                     placed.Add(resolved);
                     occupied.Add(resolved);
+                    occupied.AddRange(FixtureInteractionReservations(resolved));
                     continue;
                 }
 
@@ -533,6 +538,7 @@ public static class FacilitySeeder
                 {
                     placed.Add(resolved);
                     occupied.Add(resolved);
+                    occupied.AddRange(FixtureInteractionReservations(resolved));
                 }
                 else if (!fixture.Label.StartsWith("Generated ", StringComparison.Ordinal))
                 {
@@ -604,6 +610,46 @@ public static class FacilitySeeder
         }
     }
 
+    private static IEnumerable<RoomFixture> FixtureInteractionReservations(
+        RoomFixture fixture)
+    {
+        if (fixture.UsePose != FixtureUsePose.Stand
+            || fixture.InteractionX is not { } interactionX
+            || fixture.InteractionY is not { } interactionY)
+        {
+            yield break;
+        }
+
+        // Stand-use controls need a small patch of floor in front of them that
+        // remains clear of later furnishing. These reservations participate in
+        // packing only; they never become rendered fixtures.
+        yield return new RoomFixture(
+            FixtureType.Camera,
+            $"__interaction:{fixture.Label}",
+            interactionX,
+            interactionY,
+            5,
+            5);
+    }
+
+    private static double FixturePlacementPadding(RoomFixture fixture)
+    {
+        if (!LocalMovementSystem.IsCollisionFixture(fixture))
+        {
+            return 1.15;
+        }
+
+        // Bulkhead equipment may form a continuous service bank; crew need
+        // clear floor in front of it, not an aisle between every adjacent
+        // console. Free-standing machinery gets the wider circulation gap.
+        if (IsWallFixture(fixture.Type))
+        {
+            return 1.45;
+        }
+
+        return IsCentralFixture(fixture.Type) ? 3.6 : 3.25;
+    }
+
     private static int FixturePlacementPriority(RoomFixture fixture) =>
         IsCentralFixture(fixture.Type)
             ? 300
@@ -647,7 +693,17 @@ public static class FacilitySeeder
             or FixtureType.Locker
             or FixtureType.SuitLocker
             or FixtureType.ToolCabinet
-            or FixtureType.KitchenCounter;
+            or FixtureType.KitchenCounter
+            // Infrastructure service banks are substantial physical fixtures,
+            // but they are installed against a bulkhead so the centre of a
+            // compartment remains a usable circulation/work aisle.
+            or FixtureType.CapacitorBank
+            or FixtureType.PowerBus
+            or FixtureType.CoolantPump
+            or FixtureType.WaterRecycler
+            or FixtureType.OxygenGenerator
+            or FixtureType.CarbonScrubber
+            or FixtureType.NetworkRack;
 
     private static bool TryResolveFixturePlacement(
         RoomFixture fixture,
@@ -655,7 +711,7 @@ public static class FacilitySeeder
         out RoomFixture resolved)
     {
         if (IsCentralFixture(fixture.Type)
-            && FitsFixture(fixture, placed, padding: 3.0))
+            && FitsFixture(fixture, placed, padding: FixturePlacementPadding(fixture)))
         {
             resolved = fixture;
             return true;
@@ -665,7 +721,7 @@ public static class FacilitySeeder
             ? new[] { 1d, .92, .84 }
             : IsWallFixture(fixture.Type)
                 ? new[] { 1d, .9, .8, .7, .6, .5, .42, .36 }
-                : new[] { 1d, .92, .84, .76, .68 };
+                : new[] { 1d, .92, .84, .76, .68, .6, .54 };
 
         foreach (var scale in scales)
         {
@@ -683,7 +739,7 @@ public static class FacilitySeeder
                     candidate.Width,
                     candidate.Height);
 
-                var padding = IsWallFixture(fixture.Type) ? 1.15 : 3.0;
+                var padding = FixturePlacementPadding(moved);
                 if (FitsFixture(moved, placed, padding))
                 {
                     resolved = moved;
@@ -713,7 +769,7 @@ public static class FacilitySeeder
                 candidate.Width,
                 candidate.Height);
 
-            if (FitsFixture(moved, placed, padding: .55))
+            if (FitsFixture(moved, placed, padding: .7))
             {
                 resolved = moved;
                 return true;
@@ -734,7 +790,7 @@ public static class FacilitySeeder
             for (var x = 5d; x <= 95; x += 4)
             {
                 var moved = MoveFixture(fixture, x, y, fixture.Width, fixture.Height);
-                if (FitsFixture(moved, placed, padding: .7))
+                if (FitsFixture(moved, placed, padding: .9))
                 {
                     resolved = moved;
                     return true;
@@ -839,17 +895,37 @@ public static class FacilitySeeder
             return false;
         }
 
-        return !placed.Any(existing =>
-            FixtureRectanglesOverlap(
-                fixture.X,
-                fixture.Y,
-                fixture.Width,
-                fixture.Height,
-                existing.X,
-                existing.Y,
-                existing.Width,
-                existing.Height,
-                padding));
+        if (placed.Any(existing =>
+                FixtureRectanglesOverlap(
+                    fixture.X,
+                    fixture.Y,
+                    fixture.Width,
+                    fixture.Height,
+                    existing.X,
+                    existing.Y,
+                    existing.Width,
+                    existing.Height,
+                    padding)))
+        {
+            return false;
+        }
+
+        return FixtureInteractionReservations(fixture).All(reservation =>
+            !placed
+                .Where(existing =>
+                    LocalMovementSystem.IsCollisionFixture(existing)
+                    || existing.Label.StartsWith("__door-approach:", StringComparison.Ordinal))
+                .Any(existing =>
+                    FixtureRectanglesOverlap(
+                        reservation.X,
+                        reservation.Y,
+                        reservation.Width,
+                        reservation.Height,
+                        existing.X,
+                        existing.Y,
+                        existing.Width,
+                        existing.Height,
+                        .25)));
     }
 
     private static void EnsureValidCrewContainment(Facility facility, IEnumerable<Npc> crew)
@@ -1162,15 +1238,17 @@ public static class FacilitySeeder
         AddFixture(facility, "lounge", FixtureType.Table, "Low Table", 50, 62, 22, 16);
         AddFixture(facility, "lounge", FixtureType.Chair, "Reading Chair", 50, 82, 12, 12, 50, 82, FixtureUsePose.Sit, 0);
 
-        // Hydroponics — seven crop beds in two clean banks with a broad centre
-        // aisle. Each logical CropBed maps to one visible fixture by ordinal.
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed A", 14, 29, 15, 23);
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed B", 38, 29, 15, 23);
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed C", 62, 29, 15, 23);
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed D", 86, 29, 15, 23);
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed E", 26, 69, 16, 23);
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed F", 50, 69, 16, 23);
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed G", 74, 69, 16, 23);
+        // Hydroponics — seven crop beds in two vertical banks flanking a
+        // genuinely broad centre aisle. Explicit interaction points face that
+        // aisle, so crop work never places crew in a hull-side pocket behind a
+        // bed bank. Each logical CropBed maps to one visible fixture by ordinal.
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed A", 20, 14, 15, 16, 31, 14);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed B", 20, 38, 15, 16, 31, 38);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed C", 20, 62, 15, 16, 31, 62);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed D", 20, 86, 15, 16, 31, 86);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed E", 80, 20, 16, 18, 68, 20);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed F", 80, 50, 16, 18, 68, 50);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed G", 80, 80, 16, 18, 68, 80);
         AddFixture(facility, "hydroponics", FixtureType.IrrigationTank, "Nutrient Tank", 8, 87, 12, 14);
         AddFixture(facility, "hydroponics", FixtureType.Pipe, "Irrigation Manifold", 50, 91, 52, 6);
         AddFixture(facility, "hydroponics", FixtureType.Console, "Climate Supervisor", 91, 87, 14, 12, 91, 82);

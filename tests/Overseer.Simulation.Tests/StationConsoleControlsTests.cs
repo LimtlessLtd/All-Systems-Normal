@@ -83,7 +83,11 @@ public sealed class StationConsoleControlsTests
 
             Assert.Contains("@onclick=\"RequestResetAsync\"", source);
             Assert.DoesNotContain("@onclick=\"ResetGame\"", source);
-            Assert.Contains("private bool _stationFullscreen = true;", source);
+            Assert.Contains(
+                "private const string StationWorkspaceClass = \"workspace-shell station-focus-mode\";",
+                source);
+            Assert.DoesNotContain("_stationFullscreen", source);
+            Assert.DoesNotContain("ToggleStationFullscreenAsync", source);
         }
     }
 

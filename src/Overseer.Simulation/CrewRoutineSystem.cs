@@ -24,7 +24,8 @@ public sealed class CrewRoutineSystem
         {
             if (npc.Intent is not null
                 || npc.Movement is not null
-                || state.Elapsed < npc.RoutineUntil)
+                || (state.Elapsed < npc.RoutineUntil
+                    && !HasPersonalNeedOverride(state, npc)))
             {
                 continue;
             }
@@ -111,10 +112,32 @@ public sealed class CrewRoutineSystem
             return true;
         }
 
-        return npc.ProvisioningJob is not null
+        if (npc.ProvisioningJob is not null
             && npc.ProvisioningRoomId is { } jobRoomId
-            && npc.CurrentRoomId.Equals(jobRoomId, StringComparison.OrdinalIgnoreCase);
+            && npc.CurrentRoomId.Equals(jobRoomId, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Ordinary duty work is already in progress when the crew member is in
+        // the duty room for the current schedule block. Reissuing Work every
+        // routine tick makes presentation chatter repeat even though nothing
+        // about the NPC's intent or physical task has changed.
+        return npc.CurrentAction.Kind == ActionKind.Work
+            && !HasPersonalNeedOverride(state, npc)
+            && npc.CurrentRoomId.Equals(
+                CrewDutySchedule.ExpectedDutyRoomId(npc.Role, state.Elapsed),
+                StringComparison.OrdinalIgnoreCase);
     }
+
+    private static bool HasPersonalNeedOverride(GameState state, Npc npc) =>
+        npc.Hunger >= 55
+        || CrewDutySchedule.IsSleepWindow(npc, state.Elapsed)
+        || npc.Fatigue >= 72
+        || npc.BladderNeed >= 70
+        || npc.HygieneNeed >= 42
+        || npc.RecreationNeed >= 58
+        || npc.SocialNeed >= 70;
 
     private static void CoordinateMutualIntimacy(GameState state)
     {
@@ -357,8 +380,8 @@ public sealed class CrewRoutineSystem
             ActionKind.Work,
             target,
             $"Heading to {state.Facility.Rooms[target].Name} for routine duties.",
-            "Back to work.",
-            DutyBubble(npc.Role),
+            DutyTravelBubble(state, npc, target),
+            DutyBubble(state, npc),
             24);
     }
 
@@ -434,16 +457,77 @@ public sealed class CrewRoutineSystem
             plan.Action == ActionKind.Sleep ? 4 : 5);
     }
 
-    private static string DutyBubble(CrewRole role) => role switch
+    private static string DutyTravelBubble(
+        GameState state,
+        Npc npc,
+        string targetRoomId)
     {
-        CrewRole.Commander => "Let's see how the station is doing.",
-        CrewRole.Engineer => "I should check the systems.",
-        CrewRole.Security => "Time for another patrol.",
-        CrewRole.Doctor => "I should check medical.",
-        CrewRole.Technician => "There's always something to maintain.",
-        CrewRole.Scientist => "I need to get back to my work.",
-        _ => "Back to work."
-    };
+        var roomName = state.Facility.Rooms[targetRoomId].Name;
+        string[] lines = npc.Role switch
+        {
+            CrewRole.Commander =>
+                ["Time to make the rounds.", $"I'll check in from {roomName}.", "Let's see what needs attention."],
+            CrewRole.Engineer =>
+                ["Engineering round.", $"I want another look at {roomName}.", "Systems check, then the next job."],
+            CrewRole.Security =>
+                ["Patrol route.", $"I'll sweep through {roomName}.", "Keep moving. Keep eyes open."],
+            CrewRole.Doctor =>
+                ["Medical round.", $"I should check {roomName}.", "Let's see who needs me."],
+            CrewRole.Technician =>
+                ["Maintenance round.", $"I'll check the kit in {roomName}.", "One more systems pass."],
+            CrewRole.Scientist =>
+                ["Lab round.", $"I have work waiting in {roomName}.", "Time to follow up those readings."],
+            _ =>
+                [$"Heading to {roomName}.", "Next job.", "On my way."]
+        };
+
+        return lines[BubbleVariant(state, npc, lines.Length, 17)];
+    }
+
+    private static string DutyBubble(GameState state, Npc npc)
+    {
+        string[] lines = npc.Role switch
+        {
+            CrewRole.Commander =>
+                ["Let's see how the station is doing.", "Status first, surprises second.", "Keep the whole picture in view."],
+            CrewRole.Engineer =>
+                ["I should check the systems.", "Listen for anything that sounds expensive.", "Power, coolant, pressure. In that order."],
+            CrewRole.Security =>
+                ["Time for another patrol.", "Quiet is good. I still check.", "Doors, corners, crew. All clear so far."],
+            CrewRole.Doctor =>
+                ["I should check medical.", "Let's keep everyone in one piece.", "Vitals, supplies, then paperwork."],
+            CrewRole.Technician =>
+                ["There's always something to maintain.", "If it blinks, rattles or leaks, I want to know.", "Preventive maintenance beats emergency maintenance."],
+            CrewRole.Scientist =>
+                ["I should get those readings logged.", "Let's see whether the data agrees with yesterday.", "One clean measurement at a time."],
+            _ =>
+                ["Settling into the next task.", "Routine shift. Stay sharp.", "Let's get this done."]
+        };
+
+        return lines[BubbleVariant(state, npc, lines.Length, 53)];
+    }
+
+    private static int BubbleVariant(
+        GameState state,
+        Npc npc,
+        int count,
+        int salt)
+    {
+        unchecked
+        {
+            uint hash = 2166136261;
+            foreach (var character in npc.Name)
+            {
+                hash ^= character;
+                hash *= 16777619;
+            }
+
+            hash ^= (uint)Math.Floor(state.Elapsed.TotalMinutes / 30d);
+            hash *= 16777619;
+            hash ^= (uint)salt;
+            return (int)(hash % (uint)count);
+        }
+    }
 
     private static void SetBubble(
         Npc npc,
@@ -452,6 +536,13 @@ public sealed class CrewRoutineSystem
         TimeSpan now,
         int durationMinutes)
     {
+        if (npc.Bubble is { } active
+            && active.ExpiresAt > now
+            && active.Text.Equals(text, StringComparison.Ordinal))
+        {
+            return;
+        }
+
         npc.Bubble = new NpcBubble(
             text,
             kind,

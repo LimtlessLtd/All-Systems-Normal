@@ -22,35 +22,39 @@ public sealed class OllamaAiDecisionService(
 
         try
         {
-            prompt = NpcPromptBuilder.Build(npc, state);
+            var modelPrompt = NpcPromptBuilder.Build(npc, state);
+            var options = new ChatOptions
+            {
+                Temperature = 0.7f,
+                MaxOutputTokens = 240
+            };
+
+            // Keep the exact prompt that crosses the IChatClient boundary,
+            // together with the options used for the call, so local Ollama play
+            // can be debugged from /debug without guessing what the model saw.
+            prompt = BuildRequestTrace(modelPrompt, options);
 
             var response = await _chatClient.GetResponseAsync<NpcMindDecision>(
-                prompt,
-                options: new ChatOptions
-                {
-                    Temperature = 0.7f,
-                    MaxOutputTokens = 240
-                },
+                modelPrompt,
+                options: options,
                 useJsonSchemaResponseFormat: true,
                 cancellationToken: cancellationToken);
 
-            rawResponse = response.Text;
+            var responseText = response.Text;
+            rawResponse = BuildRawResponseTrace(
+                response.RawRepresentation,
+                responseText);
             NpcMindDecision? decision = null;
 
             if (!response.TryGetResult(out decision) || decision is null)
             {
-                decision = TryParse(rawResponse);
+                decision = TryParse(responseText);
             }
 
             if (decision is null)
             {
                 throw new InvalidOperationException(
                     "The model did not return a valid structured decision.");
-            }
-
-            if (string.IsNullOrWhiteSpace(rawResponse))
-            {
-                rawResponse = JsonSerializer.Serialize(decision);
             }
 
             var intent = Validate(npc, state, decision);
@@ -81,6 +85,58 @@ public sealed class OllamaAiDecisionService(
 
             return await _fallback.DecideAsync(npc, state, cancellationToken);
         }
+    }
+
+    private static string BuildRequestTrace(
+        string modelPrompt,
+        ChatOptions options) =>
+        $"""
+        ICHATCLIENT REQUEST OPTIONS
+        temperature: {options.Temperature}
+        max_output_tokens: {options.MaxOutputTokens}
+        response_format: json-schema (NpcMindDecision)
+
+        EXACT PROMPT SENT TO OLLAMA
+        {modelPrompt}
+        """;
+
+    private static string? BuildRawResponseTrace(
+        object? rawRepresentation,
+        string? responseText)
+    {
+        if (rawRepresentation is null)
+        {
+            return responseText;
+        }
+
+        string raw;
+        try
+        {
+            raw = rawRepresentation is string text
+                ? text
+                : JsonSerializer.Serialize(
+                    rawRepresentation,
+                    rawRepresentation.GetType(),
+                    new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception)
+        {
+            raw = rawRepresentation.ToString() ?? string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(responseText)
+            || raw.Contains(responseText, StringComparison.Ordinal))
+        {
+            return raw;
+        }
+
+        return $"""
+        RAW PROVIDER RESPONSE ({rawRepresentation.GetType().FullName})
+        {raw}
+
+        ICHATCLIENT RESPONSE TEXT
+        {responseText}
+        """;
     }
 
     private static NpcMindDecision? TryParse(string? text)

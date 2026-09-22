@@ -984,16 +984,21 @@ public sealed class StationUpkeepSystem
             var ordinal = StableHash(device.Id);
             var x = 18 + (ordinal % 5) * 16;
             var y = 18 + ((ordinal / 7) % 4) * 18;
+            // Utility hardware is visually substantial but must not consume
+            // most of a compartment's walkable floor. Collision remains
+            // authoritative; smaller footprints leave real circulation lanes
+            // around the machines instead of forcing the packer to overlap or
+            // shrink them only after the room is already saturated.
             var size = fixtureType.Value switch
             {
-                FixtureType.CapacitorBank => (Width: 22d, Height: 18d),
-                FixtureType.PowerBus => (Width: 28d, Height: 12d),
-                FixtureType.CoolantPump => (Width: 18d, Height: 18d),
-                FixtureType.WaterRecycler => (Width: 24d, Height: 22d),
-                FixtureType.OxygenGenerator => (Width: 22d, Height: 22d),
-                FixtureType.CarbonScrubber => (Width: 22d, Height: 22d),
-                FixtureType.NetworkRack => (Width: 20d, Height: 24d),
-                _ => (Width: 18d, Height: 16d)
+                FixtureType.CapacitorBank => (Width: 17d, Height: 14d),
+                FixtureType.PowerBus => (Width: 22d, Height: 10d),
+                FixtureType.CoolantPump => (Width: 14d, Height: 14d),
+                FixtureType.WaterRecycler => (Width: 18d, Height: 17d),
+                FixtureType.OxygenGenerator => (Width: 17d, Height: 17d),
+                FixtureType.CarbonScrubber => (Width: 17d, Height: 17d),
+                FixtureType.NetworkRack => (Width: 16d, Height: 18d),
+                _ => (Width: 14d, Height: 13d)
             };
 
             room.Fixtures.Add(new RoomFixture(

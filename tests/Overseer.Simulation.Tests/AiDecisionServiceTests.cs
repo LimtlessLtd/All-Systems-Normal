@@ -37,6 +37,42 @@ public sealed class AiDecisionServiceTests
     }
 
     [Fact]
+    public async Task OllamaDecision_RecordsExactRequestAndRawProviderResponse()
+    {
+        const string json = """
+            {
+              "Action": "Move",
+              "TargetId": "engineering",
+              "Goal": "Inspect engineering.",
+              "Reason": "I want to check the machinery.",
+              "Urgency": 55
+            }
+            """;
+
+        var raw = new Dictionary<string, object?>
+        {
+            ["model"] = "test-ollama-model",
+            ["provider_marker"] = "raw-provider-payload"
+        };
+
+        using var client = new StubChatClient(json, raw);
+        var service = new OllamaAiDecisionService(
+            client,
+            new RuleBasedAiDecisionService());
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+
+        await service.DecideAsync(david, state);
+
+        var trace = Assert.Single(state.CognitionTelemetry);
+        Assert.Equal("Ollama", trace.Source);
+        Assert.Contains("EXACT PROMPT SENT TO OLLAMA", trace.Prompt);
+        Assert.Contains("temperature: 0.7", trace.Prompt);
+        Assert.Contains("raw-provider-payload", trace.RawResponse);
+        Assert.Contains("test-ollama-model", trace.RawResponse);
+    }
+
+    [Fact]
     public async Task InvalidModelTarget_IsReducedToSafeIdle()
     {
         using var client = new StubChatClient(
@@ -337,8 +373,14 @@ public sealed class AiDecisionServiceTests
     {
         private readonly string? _json;
         private readonly Exception? _exception;
+        private readonly object? _rawRepresentation;
 
-        public StubChatClient(string json) => _json = json;
+        public StubChatClient(string json, object? rawRepresentation = null)
+        {
+            _json = json;
+            _rawRepresentation = rawRepresentation;
+        }
+
         public StubChatClient(Exception exception) => _exception = exception;
 
         public Task<ChatResponse> GetResponseAsync(
@@ -353,7 +395,10 @@ public sealed class AiDecisionServiceTests
 
             return Task.FromResult(
                 new ChatResponse(
-                    new ChatMessage(ChatRole.Assistant, _json!)));
+                    new ChatMessage(ChatRole.Assistant, _json!))
+                {
+                    RawRepresentation = _rawRepresentation
+                });
         }
 
         public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(

@@ -36,41 +36,40 @@ public sealed class PlaytestUiPolishTests
     }
 
     [Fact]
-    public void StationChromeAndObjectives_HaveClearVisualHierarchy()
+    public void MainPage_IsOnlyTheStationWorkspaceAndItsOverlays()
     {
-        foreach (var css in ReadMirroredCss())
-        {
-            Assert.Contains(".mission-directive-panel", css);
-            Assert.Contains(".objective-section-label", css);
-            Assert.Contains(".directive-board", css);
-            Assert.Contains(".station-panel .panel-heading", css);
-            Assert.Contains("background: #d8dde0;", css);
-        }
-
         foreach (var home in ReadMirroredHomes())
         {
-            Assert.Contains("MISSION DIRECTIVE //", home);
-            Assert.Contains("MISSION OBJECTIVES", home);
-            Assert.Contains("THE CORPORATION // EXPERIMENT OVERSIGHT", home);
-            Assert.Contains("CORPORATE DIRECTIVES", home);
-            Assert.DoesNotContain(">SPONSOR", home, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("<header class=\"command-bar\">", home);
+            Assert.DoesNotContain("mission-directive-panel", home);
+            Assert.DoesNotContain("<section class=\"panel directive-board\">", home);
+            Assert.DoesNotContain("comms-primary", home);
+
+            Assert.Contains("<div id=\"overseer-workspace\"", home);
+            Assert.Contains("station-messages-popover", home);
+            Assert.Contains("station-objectives-popover", home);
+            Assert.Contains(">MESSAGES</button>", home);
+            Assert.Contains(">OBJECTIVES</button>", home);
+            Assert.Contains("station-menu-popover", home);
         }
     }
 
     [Fact]
-    public void OverseerComms_IsAboveStationWorkspace()
+    public void CrewMapNameplate_ShowsOnlyTheFullName()
     {
         foreach (var home in ReadMirroredHomes())
         {
-            var comms = home.IndexOf(
-                "<section class=\"panel comms-panel comms-primary\">",
-                StringComparison.Ordinal);
-            var workspace = home.IndexOf(
-                "<div id=\"overseer-workspace\"",
-                StringComparison.Ordinal);
+            var nameplate = home.IndexOf("<span class=\"crew-nameplate\">", StringComparison.Ordinal);
+            Assert.True(nameplate >= 0);
 
-            Assert.True(comms >= 0, "Primary comms panel is missing.");
-            Assert.True(workspace > comms, "Comms must render above the station workspace.");
+            var end = home.IndexOf("</span>", nameplate + 1, StringComparison.Ordinal);
+            var snippet = home[nameplate..(end + "</span>".Length)];
+
+            Assert.Contains("@npc.Name", snippet);
+            Assert.Contains("crew-full-name", snippet);
+            Assert.DoesNotContain("Initials(", snippet);
+            Assert.DoesNotContain("CrewActivityLabel", snippet);
+            Assert.DoesNotContain("crew-motion-dot", snippet);
         }
     }
 
