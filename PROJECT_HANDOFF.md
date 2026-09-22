@@ -26,7 +26,7 @@ This file plus `docs/handoff/*.md` is the **single authoritative source** for ar
 
 In order. Take the first item nobody has claimed; see `BACKLOG.md` for evidence and suggested slices.
 
-1. **P1: converge the two fallback decision ladders** (`BrowserMindSystem` / `RuleBasedAiDecisionService`): shared thresholds, skill formula, reachability and airlock rules. Start with the reachability + airlock-rules slice.
+1. **P1: converge the two fallback decision ladders** (`BrowserMindSystem` / `RuleBasedAiDecisionService`): shared thresholds, skill formula and reachability. Airlock rules are done (#88); next slice is reachability.
 2. **P2: decompose `Home.razor` / `Home.razor.css`** into components with scoped styles, then add a bUnit/Playwright smoke suite.
 3. **P3: tick-loop contract** (`ISystem`, an explicit ordered pipeline, rename `SimulationEngine`).
 4. **P4: share stateless services** (`NavigationSystem`, `CrewDoorInteractionSystem`) through a minimal composition root.

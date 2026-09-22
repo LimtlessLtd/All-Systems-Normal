@@ -29,10 +29,15 @@ Pick up in order. These are structural risk/maintainability items, not user-faci
 
 - ≥7 duplicated need thresholds (hunger, fatigue, bladder, hygiene, recreation, resentment/argue, socialize gate). Example: hunger-critical is a two-tier `≥72`/`≥58` escalation in `BrowserMindSystem` vs a single `≥62` in `RuleBasedAiDecisionService`.
 - Two skill formulas: `CrewCounterplaySystem.BestRepairSkill` vs `RuleBasedAiDecisionService.BestRepairScore` (different clamp order; diverge whenever a modifier is negative).
-- Duplicated airlock safety rules: `Overseer.Simulation/AirlockSafetySystem.NeedsCrewSecuring` vs `Overseer.Domain/AirlockSafetyRules.NeedsCrewSecuring`.
 - BFS reachability hand-rolled three times: `NavigationSystem.FindPathForCrew`, `RuleBasedAiDecisionService.ReachableRooms`, `NpcPromptBuilder.ReachableRooms`.
 
-This has already shipped a bug (a hunger-ordering fix reached only one file). `RuleBasedAiDecisionService` already references `Overseer.Simulation`, so nothing forces the split. Fix: one shared need-scorer/rules library (thresholds, skill formulas, reachability, airlock rules) consumed by both, converging on the single utility model in `ARCHITECTURE.md` → Emergent-agency direction. Suggested slices: (a) reachability + airlock rules, (b) skill formula, (c) thresholds, (d) ladder convergence — each with parity tests.
+This has already shipped a bug (a hunger-ordering fix reached only one file). Project references allow a shared home in `Overseer.Simulation`: `Overseer.AI.csproj` references both `Overseer.Domain` and `Overseer.Simulation`, and `RuleBasedAiDecisionService` already has `using Overseer.Simulation;`. Fix: one shared need-scorer/rules library (thresholds, skill formulas, reachability) consumed by both, converging on the single utility model in `ARCHITECTURE.md` → Emergent-agency direction. Slices, each with parity tests:
+
+- [x] Airlock rules — PR #88: `AirlockSafetySystem` now delegates to `Overseer.Domain/AirlockSafetyRules`.
+- [ ] Reachability (one BFS, used by all three call sites)
+- [ ] Skill formula (one repair-skill score)
+- [ ] Need thresholds (one table)
+- [ ] Ladder convergence onto one utility scorer
 
 ### P2 — Decompose `Home.razor` / `Home.razor.css`
 

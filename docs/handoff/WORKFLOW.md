@@ -9,7 +9,7 @@ Part of the authoritative handoff set; see `PROJECT_HANDOFF.md` for the index. T
 The standard gate needs the **.NET 10 SDK**.
 
 - **Claude Code on the web:** `.claude/hooks/session-start.sh` (registered in `.claude/settings.json`) installs it automatically at session start and runs `dotnet restore`. Check with `dotnet --version`.
-- **Any other Ubuntu 24.04 sandbox:** `apt-get install -y dotnet-sdk-10.0` from the Ubuntu archive. Microsoft's own download host (`builds.dotnet.microsoft.com`, which `dot.net/v1/dotnet-install.sh` redirects to) is blocked by the web sandbox egress policy, but the Ubuntu archive and NuGet are allowed.
+- **Any other Ubuntu 24.04 sandbox:** `apt-get update && apt-get install -y dotnet-sdk-10.0` from the Ubuntu archive (`noble-updates`). Run `apt-get update` first: a stale package index may list only `dotnet-sdk-8.0`, which cannot build this `net10.0` project. Microsoft's own download host (`builds.dotnet.microsoft.com`, which `dot.net/v1/dotnet-install.sh` redirects to) is blocked by the web sandbox egress policy, but the Ubuntu archive and NuGet are allowed.
 - The Ubuntu SDK's compiler is slightly older than CI's, so local builds show a harmless `CS9057` warning about the OllamaSharp source-generator analyzer. CI (`0 warnings`) remains the final authority.
 - If the SDK genuinely cannot be installed, say so in your `[CLAIM]` and limit the run to small changes CI can verify on its own. Do not start large refactors CI-only.
 
