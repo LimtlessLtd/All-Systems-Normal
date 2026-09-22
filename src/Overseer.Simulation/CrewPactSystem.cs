@@ -10,6 +10,16 @@ namespace Overseer.Simulation;
 /// </summary>
 public static class CrewPactSystem
 {
+    public static IReadOnlyList<CrewPact> ActiveFor(GameState state, Guid npcId) =>
+        state.CrewPacts
+            .Where(pact =>
+                pact.Status == CrewPactStatus.Active
+                && (pact.PromisorId == npcId || pact.PromiseeId == npcId))
+            .OrderBy(pact => pact.Deadline ?? TimeSpan.MaxValue)
+            .ThenBy(pact => pact.CreatedAt)
+            .ThenBy(pact => pact.Id, StringComparer.Ordinal)
+            .ToList();
+
     public static bool TryCreate(
         GameState state,
         Guid promisorId,
