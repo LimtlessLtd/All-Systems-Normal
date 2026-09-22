@@ -354,7 +354,11 @@
                             <b class="@PowerStatusClass(calloutRoom)">@(calloutRoom.IsPowered ? "PWR" : "PWR OFF")</b>
                             <b class="@TemperatureStatusClass(calloutRoom)">@calloutRoom.TemperatureC.ToString("0")°C</b>
                             <b class="@OxygenStatusClass(calloutRoom)">O₂ @calloutRoom.OxygenPercent.ToString("0.0")%</b>
-                            @if (calloutRoom.FireIntensity > 0)
+                            @if (calloutRoom.HasHullBreach)
+                            {
+                                <b class="bad">HULL BREACH</b>
+                            }
+                            else if (calloutRoom.FireIntensity > 0)
                             {
                                 <b class="bad">FIRE @calloutRoom.FireIntensity.ToString("0")%</b>
                             }
@@ -1199,6 +1203,7 @@
                     <div><span>OXYGEN</span><strong>@selectedRoom.OxygenPercent.ToString("0.00")%</strong></div>
                     <div><span>CO₂</span><strong>@selectedRoom.CarbonDioxidePercent.ToString("0.00")%</strong></div>
                     <div><span>PRESSURE</span><strong>@selectedRoom.PressureKpa.ToString("0.0") kPa</strong></div>
+                    <div><span>HULL</span><strong>@(selectedRoom.HasHullBreach ? "BREACHED" : $"{selectedRoom.HullIntegrityPercent:0}%")</strong></div>
                     <div><span>FIRE</span><strong>@selectedRoom.FireIntensity.ToString("0")%</strong></div>
                     <div><span>SMOKE</span><strong>@selectedRoom.SmokePercent.ToString("0")%</strong></div>
                     <div><span>OCCUPANTS</span><strong>@VisibleOccupantLabel(selectedRoom)</strong></div>
@@ -2446,7 +2451,7 @@
             CropLifecycleState.Planting => "planting",
             CropLifecycleState.Seedling => "seedling",
             CropLifecycleState.Maturing => "maturing",
-            CropLifecycleState.ReadyToHarvest => "ready",
+            CropLifecycleState.ReadyToHarvest => "harvest-ready",
             CropLifecycleState.Harvesting => "harvesting",
             CropLifecycleState.Dead => "dead",
             _ => string.Empty
@@ -2508,12 +2513,15 @@
 
     private static string RoomHealthClass(Room room) =>
         !room.IsPowered
+        || room.HasHullBreach
+        || room.HullIntegrityPercent < 25
         || room.OxygenPercent < 17
         || room.CarbonDioxidePercent > 3
         || room.PressureKpa < 80
         || room.TemperatureC is < 5 or > 38
             ? "critical"
         : !room.CameraOnline
+          || room.HullIntegrityPercent < 70
           || room.OxygenPercent < 19.5
           || room.CarbonDioxidePercent > 1
           || room.PressureKpa < 90
