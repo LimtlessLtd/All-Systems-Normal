@@ -6,7 +6,7 @@ Playable Pages build: https://limtlessltd.github.io/All-Systems-Normal/
 **Current state:** V0.13 foundations — Emergent Routines, Hazards, Containment & Station Polish
 **Next recommended milestone:** V0.13 — Complete Hazardous Transport Assignments
 
-This file is the authoritative technical handoff. Keep it concise and update sections in place; do not append milestone diaries.
+`PROJECT_HANDOFF.md` is the **single authoritative source** for repository architecture, invariants, roadmap, priorities and developer handoff state. Other documents may provide historical or explanatory context only; they must not define competing requirements or future-work plans. If another document conflicts with this file, this file wins. Keep it concise, update sections in place and do not append milestone diaries.
 
 ---
 
@@ -32,7 +32,6 @@ Core invariants:
 - Pages remains model/credential-free.
 - Campaign persistence stores deliberate continuity, not arbitrary live GameState.
 
-Crew-agency expansion (decision journal, rejection feedback, tag interactions, plans/triggers, claims, metrics) follows `docs/EMERGENT_AGENCY_PLAN.md`: PR sequence, tag-table spec and review checklist.
 
 ---
 
@@ -290,6 +289,25 @@ Standard gate:
 - The procedure in progress lives in `Npc.MedicalActionKind` (never read back from `CurrentAction`, which other systems rewrite). A doctor mid-procedure and a patient waiting in a medbay that can treat them are protected from routine errands; leaving the medbay abandons the procedure. A patient waiting in the medbay calls the doctor in as medical duty. Injured crew are only routed to the medbay when a doctor, supplies and a safe medbay exist; an existing trip is kept rather than recreated, and plans with urgency ≥ 97 are never overridden. Witnesses rethink once per injury (`Npc.NoticedInjuredCrewIds`), not every minute.
 - Movement/perception/medical regression coverage is concentrated in `MovementPerceptionMedicalPolishTests.cs`; emergent routines/hazards/containment coverage is in `EmergentWorldSystemsTests.cs` plus the existing lifecycle, robot, UI and procedural-generation suites.
 - LLM freedom direction: keep expanding deterministic affordances and world-state observability rather than scripted plans; converge browser/server fallback cognition onto one utility scorer; let the model compose multi-step intentions from atomic actions; record failed intentions/frustration as memories; replace omniscient target locations with last-seen/search knowledge; allow hazard-response coordination via shared claims/messages while C# remains sole authority over physics, access, resources, damage and death.
+
+## Deferred emergent-agency architecture
+
+This section is the authoritative replacement for the former `docs/EMERGENT_AGENCY_PLAN.md`. It is deliberately deferred behind the current V0.13 milestone unless the owner explicitly reprioritises it.
+
+Goal: widen NPC/LLM freedom through composable world affordances, not a hard-coded decision tree. The core authority rule remains unchanged: the mind proposes intent; deterministic C# validates capability, applies physics/resources/access/skills and resolves outcomes.
+
+Required architecture:
+
+- Preserve both **rule determinism** (model output never mutates state directly) and **replay determinism** (station seed + recorded mind decisions can reproduce a run).
+- Planned sequence: shared deterministic roll + decision journal/state hash → rejection feedback → generic tag interaction engine → interaction/hazard content → bounded plans/triggers/goal predicates → structured claims/pacts → shared utility scoring and last-seen/search cognition → headless replay/metrics.
+- A future generic interaction verb may compose methods such as strike/pry/cut/heat/cool/rewire/overload/drain/spill/tinker/salvage against deterministic fixture/device/context tags. The LLM chooses the desired interaction; C# owns target validity, matching rules, skill/resource checks and weighted deterministic outcomes.
+- Interaction consequences must flow through a closed/shared effect layer rather than bespoke per-rule mutation code. Ambient world reactions may use the same deterministic rule mechanism so player actions such as power, ventilation, doors and atmosphere naturally change outcomes.
+- Minds may see observable affordances/context and remembered outcomes, but never hidden rule tables or outcome probabilities.
+- New hazards must remain authoritative world state with deterministic decay/spread and real interaction with doors, atmosphere, ventilation, power and existing damage systems. Catastrophic/station-loss outcomes must require escalation and compound preconditions rather than a single healthy-station action.
+- Failed/rejected intentions should become bounded feedback/memories rather than silently collapsing to idle. Browser/server fallback cognition should converge on one shared utility model, while Ollama remains free to choose a different valid action.
+- Tests for this program must cover deterministic replay/state hashing, catalog/rule integrity, representative cascade chains, ambient reactions to player verbs and the existing authority invariant. Never weaken existing simulation tests to make new content pass.
+
+---
 
 ## Next milestone — V0.13 Complete Hazardous Transport Assignments
 
