@@ -496,6 +496,14 @@ public sealed class Relationship
     public int Arguments { get; set; }
 }
 
+public enum CrewPactKind
+{
+    CoverShift,
+    KeepQuiet,
+    OweFavor,
+    Other
+}
+
 public enum CrewPactStatus
 {
     Active,
@@ -513,8 +521,11 @@ public sealed class CrewPact
     public required string Id { get; init; }
     public required Guid PromisorId { get; init; }
     public required Guid PromiseeId { get; init; }
+    public required CrewPactKind Kind { get; init; }
     public required string PromiseText { get; init; }
     public required TimeSpan CreatedAt { get; init; }
+    public TimeSpan? TriggerAt { get; init; }
+    public TimeSpan? Deadline { get; init; }
     public CrewPactStatus Status { get; set; } = CrewPactStatus.Active;
     public TimeSpan? SettledAt { get; set; }
     public string? SettlementNote { get; set; }
