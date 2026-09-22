@@ -1238,15 +1238,17 @@ public static class FacilitySeeder
         AddFixture(facility, "lounge", FixtureType.Table, "Low Table", 50, 62, 22, 16);
         AddFixture(facility, "lounge", FixtureType.Chair, "Reading Chair", 50, 82, 12, 12, 50, 82, FixtureUsePose.Sit, 0);
 
-        // Hydroponics — seven crop beds in two clean banks with a broad centre
-        // aisle. Each logical CropBed maps to one visible fixture by ordinal.
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed A", 14, 29, 15, 23);
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed B", 38, 29, 15, 23);
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed C", 62, 29, 15, 23);
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed D", 86, 29, 15, 23);
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed E", 26, 69, 16, 23);
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed F", 50, 69, 16, 23);
-        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed G", 74, 69, 16, 23);
+        // Hydroponics — seven crop beds in two vertical banks flanking a
+        // genuinely broad centre aisle. Explicit interaction points face that
+        // aisle, so crop work never places crew in a hull-side pocket behind a
+        // bed bank. Each logical CropBed maps to one visible fixture by ordinal.
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed A", 20, 14, 15, 16, 31, 14);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed B", 20, 38, 15, 16, 31, 38);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed C", 20, 62, 15, 16, 31, 62);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed D", 20, 86, 15, 16, 31, 86);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed E", 80, 20, 16, 18, 68, 20);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed F", 80, 50, 16, 18, 68, 50);
+        AddFixture(facility, "hydroponics", FixtureType.GrowBed, "Grow Bed G", 80, 80, 16, 18, 68, 80);
         AddFixture(facility, "hydroponics", FixtureType.IrrigationTank, "Nutrient Tank", 8, 87, 12, 14);
         AddFixture(facility, "hydroponics", FixtureType.Pipe, "Irrigation Manifold", 50, 91, 52, 6);
         AddFixture(facility, "hydroponics", FixtureType.Console, "Climate Supervisor", 91, 87, 14, 12, 91, 82);
