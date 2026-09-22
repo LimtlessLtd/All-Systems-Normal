@@ -68,6 +68,12 @@ public sealed class SimulationEngine
                     >= 2 => -0.04,
                     _ => 0.08
                 };
+
+                if (preference <= -2)
+                {
+                    npc.DislikedFoodExposureMinutes += minutes;
+                }
+
                 npc.Stress = Clamp(
                     npc.Stress
                     + ((StationProvisionRules.RawFoodStressPerMinute + preferenceStress) * minutes));
