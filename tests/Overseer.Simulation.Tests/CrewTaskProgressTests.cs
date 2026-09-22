@@ -67,7 +67,7 @@ public sealed class CrewTaskProgressTests
     }
 
     [Fact]
-    public void LegitimateUrgentInterruptionRecordsWhyTheTaskStopped()
+    public void HighUrgencyAloneCannotInterruptCommittedPhysicalWork()
     {
         var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
         var npc = state.Crew[0];
@@ -82,17 +82,90 @@ public sealed class CrewTaskProgressTests
             TimeSpan.FromMinutes(10));
 
         npc.Intent = new NpcIntent(
-            ActionKind.Move,
-            "medical",
-            "Get clear.",
-            "Immediate emergency movement.",
+            ActionKind.Rest,
+            null,
+            "Stop immediately.",
+            "An ordinary but numerically urgent thought.",
             100,
             "Test",
             state.Elapsed);
 
         new IntentExecutionSystem().Tick(state);
 
+        Assert.Equal(CrewTaskStatus.InProgress, npc.ActiveTask!.Status);
+        Assert.Null(npc.Intent);
+    }
+
+    [Fact]
+    public void GenuineLifeThreatCanInterruptCommittedPhysicalWork()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var npc = state.Crew[0];
+        npc.CurrentAction = new NpcAction(ActionKind.DisarmTurret, "st-1", "Committed work.");
+        state.Facility.Rooms[npc.CurrentRoomId].FireIntensity = 25;
+
+        CrewTaskSystem.Start(
+            state,
+            npc,
+            ActionKind.DisarmTurret,
+            "st-1",
+            "disarming security turret",
+            TimeSpan.FromMinutes(10));
+
+        npc.Intent = new NpcIntent(
+            ActionKind.SeekSafety,
+            "medical",
+            "Escape the fire.",
+            "The compartment is actively burning.",
+            90,
+            "Test",
+            state.Elapsed);
+
+        new IntentExecutionSystem().Tick(state);
+
         Assert.Equal(CrewTaskStatus.Interrupted, npc.ActiveTask!.Status);
-        Assert.Contains("Pre-empted", npc.ActiveTask.Outcome, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Emergency interruption", npc.ActiveTask.Outcome, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void DoorOperationExposesAuthoritativeProgressBeforeChangingDoorState()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var npc = state.Crew[0];
+        npc.CurrentRoomId = "control";
+        var door = state.Facility.Doors.First(candidate =>
+            candidate.RoomAId == "control" || candidate.RoomBId == "control");
+
+        door.IsPowered = true;
+        door.IsLocked = false;
+        door.IsOpen = false;
+        npc.Intent = new NpcIntent(
+            ActionKind.OpenDoor,
+            door.Id,
+            "Open the hatch.",
+            "I need this hatch open.",
+            50,
+            "Test",
+            state.Elapsed);
+
+        var intents = new IntentExecutionSystem();
+        intents.Tick(state);
+
+        Assert.False(door.IsOpen);
+        Assert.Equal(CrewTaskStatus.InProgress, npc.ActiveTask?.Status);
+        Assert.Equal(ActionKind.OpenDoor, npc.ActiveTask?.Action);
+
+        state.Elapsed += TimeSpan.FromSeconds(30);
+        intents.Tick(state);
+        Assert.InRange(CrewTaskSystem.Progress(state, npc), 49.9, 50.1);
+        Assert.False(door.IsOpen);
+
+        state.Elapsed += TimeSpan.FromSeconds(30);
+        intents.Tick(state);
+
+        Assert.True(door.IsOpen);
+        Assert.Equal(CrewTaskStatus.Succeeded, npc.ActiveTask?.Status);
+        Assert.NotNull(npc.ActiveTask);
+        Assert.Equal(100d, npc.ActiveTask!.ProgressPercent(state.Elapsed), 6);
     }
 }

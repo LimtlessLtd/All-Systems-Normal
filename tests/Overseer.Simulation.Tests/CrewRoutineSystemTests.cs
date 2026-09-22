@@ -205,6 +205,126 @@ public sealed class CrewRoutineSystemTests
     }
 
     [Fact]
+    public void ScheduledSleepBecomesAVisiblePhysicalBedRoutineAndRecoversFatigue()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var npc = state.Crew.First(candidate =>
+            !candidate.IsPrisoner
+            && !CrewDutySchedule.IsNightShift(candidate));
+
+        state.Elapsed = TimeSpan.FromHours(16); // 22:00 station-local for day shift.
+        npc.CurrentRoomId = "quarters";
+        npc.PositionX = 1;
+        npc.PositionY = 1;
+        npc.Hunger = 0;
+        npc.BladderNeed = 0;
+        npc.HygieneNeed = 0;
+        npc.RecreationNeed = 0;
+        npc.SocialNeed = 0;
+        npc.Fatigue = 82;
+        npc.SleepDebtMinutes = 240;
+        npc.Intent = null;
+        npc.Movement = null;
+        npc.RoutineUntil = TimeSpan.Zero;
+
+        new CrewRoutineSystem().Tick(state);
+
+        Assert.Equal(ActionKind.Sleep, npc.CurrentAction.Kind);
+        Assert.True(npc.RoutineUntil > state.Elapsed);
+
+        var beforeX = npc.PositionX;
+        var beforeY = npc.PositionY;
+        var sleepTravelTrace = new List<string>();
+        new LocalMovementSystem().Tick(state, TimeSpan.FromMinutes(1));
+        sleepTravelTrace.Add($"0:{npc.PositionX:0.00},{npc.PositionY:0.00}");
+
+        Assert.True(
+            npc.IsLocallyMoving
+            || Math.Abs(npc.PositionX - beforeX) > .001
+            || Math.Abs(npc.PositionY - beforeY) > .001,
+            "Sleeping crew should physically move toward a bed rather than sleep remotely.");
+
+        var fatigueBeforeTravel = npc.Fatigue;
+        var debtBeforeTravel = npc.SleepDebtMinutes;
+        new SimulationEngine().Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.True(
+            npc.Fatigue >= fatigueBeforeTravel,
+            "Merely selecting Sleep must not restore fatigue before reaching a bed.");
+        Assert.True(
+            npc.SleepDebtMinutes >= debtBeforeTravel,
+            "Sleep debt must not recover remotely while walking to bed.");
+
+        for (var step = 0; step < 12; step++)
+        {
+            new LocalMovementSystem().Tick(state, TimeSpan.FromMinutes(1));
+            sleepTravelTrace.Add($"{step + 1}:{npc.PositionX:0.00},{npc.PositionY:0.00}");
+        }
+
+        var fatigueAtBed = npc.Fatigue;
+        var debtAtBed = npc.SleepDebtMinutes;
+        new SimulationEngine().Tick(state, TimeSpan.FromMinutes(60));
+
+        var sleepFixture = state.Facility.Rooms[npc.CurrentRoomId].Fixtures.First(fixture =>
+            fixture.Type is FixtureType.Bed or FixtureType.MedicalBed);
+        Assert.True(
+            npc.Fatigue < fatigueAtBed,
+            $"Sleep travel did not reach a restorative bed point: pos={npc.PositionX:0.00},{npc.PositionY:0.00}; " +
+            $"bed={sleepFixture.X:0.00},{sleepFixture.Y:0.00}/{sleepFixture.Width:0.00}x{sleepFixture.Height:0.00}; " +
+            $"use={sleepFixture.InteractionX:0.00},{sleepFixture.InteractionY:0.00}; " +
+            $"room={state.Facility.Rooms[npc.CurrentRoomId].MapWidth:0.00}x{state.Facility.Rooms[npc.CurrentRoomId].MapHeight:0.00}; " +
+            $"fatigue={fatigueAtBed:0.00}->{npc.Fatigue:0.00}; debt={debtAtBed:0.00}->{npc.SleepDebtMinutes:0.00}; " +
+            $"moving={npc.IsLocallyMoving}; action={npc.CurrentAction.Kind}; " +
+            $"trace={string.Join(" > ", sleepTravelTrace)}; fixtures=" +
+            string.Join(" | ", state.Facility.Rooms[npc.CurrentRoomId].Fixtures.Select(fixture =>
+                $"{fixture.Type}:{fixture.Label}@{fixture.X:0.0},{fixture.Y:0.0}/{fixture.Width:0.0}x{fixture.Height:0.0}")));
+        Assert.True(npc.SleepDebtMinutes < debtAtBed);
+    }
+
+    [Fact]
+    public void CommittedPhysicalTaskCannotBeReplacedByRoutineNeeds()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew[0];
+        state.Elapsed = TimeSpan.FromMinutes(5);
+        npc.Intent = null;
+        npc.Movement = null;
+        npc.Hunger = 100;
+        npc.CurrentAction = new NpcAction(
+            ActionKind.Repair,
+            "test-device",
+            "Committed hands-on repair.");
+
+        CrewTaskSystem.Start(
+            state,
+            npc,
+            ActionKind.Repair,
+            "test-device",
+            "committed repair",
+            TimeSpan.FromMinutes(10));
+
+        new CrewRoutineSystem().Tick(state);
+
+        Assert.Equal(ActionKind.Repair, npc.CurrentAction.Kind);
+        Assert.Equal(CrewTaskStatus.InProgress, npc.ActiveTask?.Status);
+        Assert.Null(npc.Intent);
+    }
+
+    [Fact]
+    public void MissedSleepProducesDeterministicMovementAndCognitionPenalties()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew[0];
+        npc.Fatigue = 88;
+        npc.SleepDebtMinutes = 360;
+
+        Assert.True(CrewConditionRules.MovementMultiplier(npc) < 1);
+        Assert.True(CrewConditionRules.CognitivePenalty(npc) > 0);
+        Assert.True(
+            CrewConditionRules.EffectiveSkill(npc, 70) < 70);
+    }
+
+    [Fact]
     public void HygieneNeedChoosesTheWashroom()
     {
         var state = FacilitySeeder.CreateDefault();

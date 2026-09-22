@@ -17,17 +17,25 @@ public sealed class MedicalCareFlowRegressionTests
 
         medical.Tick(state);
         Assert.NotNull(doctor.MedicalActionCompletesAt);
+        Assert.Equal(CrewTaskStatus.InProgress, doctor.ActiveTask?.Status);
+        Assert.Contains(
+            doctor.ActiveTask!.Action,
+            new[] { ActionKind.TreatInjury, ActionKind.AdministerMedication });
+
+        state.Elapsed += TimeSpan.FromMinutes(3);
+        Assert.InRange(CrewTaskSystem.Progress(state, doctor), 49, 51);
 
         // Movement, routine and social systems rewrite CurrentAction every tick.
         doctor.CurrentAction = new NpcAction(ActionKind.Work, medbay.Id, "Busy.");
 
-        for (var minute = 0; minute < 8; minute++)
+        for (var minute = 0; minute < 8 && patient.Health <= 60; minute++)
         {
             state.Elapsed += TimeSpan.FromMinutes(1);
             medical.Tick(state);
         }
 
         Assert.True(patient.Health > 60, $"Patient health stayed at {patient.Health:0}.");
+        Assert.Equal(CrewTaskStatus.Succeeded, doctor.ActiveTask?.Status);
     }
 
     [Fact]
@@ -70,6 +78,7 @@ public sealed class MedicalCareFlowRegressionTests
 
         Assert.Null(doctor.MedicalActionCompletesAt);
         Assert.Null(doctor.MedicalActionKind);
+        Assert.Equal(CrewTaskStatus.Interrupted, doctor.ActiveTask?.Status);
         Assert.Equal(60, patient.Health);
     }
 

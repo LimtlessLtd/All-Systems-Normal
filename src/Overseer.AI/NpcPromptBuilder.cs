@@ -91,7 +91,34 @@ public static class NpcPromptBuilder
                 + $"{(reachableRoomIds.Contains(r.Id) ? "reachable" : "route sealed")} | "
                 + $"O2 {r.OxygenPercent:0.0}% | CO2 {r.CarbonDioxidePercent:0.00}% | "
                 + $"pressure {r.PressureKpa:0.0} kPa | temp {r.TemperatureC:0.0}C | "
+                + $"fire {r.FireIntensity:0}% | smoke {r.SmokePercent:0}% | "
+                + $"visibility {r.VisibilityPercent:0}% | ventilation {(r.VentilationEnabled ? "on" : "isolated")} | "
                 + $"{CrewEnvironmentSafety.Label(r)}");
+
+        var stationTopology = state.Facility.Doors
+            .OrderBy(door => door.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(door =>
+            {
+                var a = state.Facility.Rooms[door.RoomAId];
+                var b = state.Facility.Rooms[door.RoomBId];
+                var stateLabel = door.IsManuallyOverridden
+                    ? "manually overridden/open"
+                    : door.IsLocked
+                        ? "locked"
+                        : door.IsOpen
+                            ? "open"
+                            : "closed";
+                var atmosphericLink = door.IsOpen || door.IsManuallyOverridden
+                    ? "atmosphere connected"
+                    : "atmosphere isolated";
+                var traversable = CrewDoorInteractionSystem.CanTraverseWhenReached(state, npc, door)
+                    ? "you can traverse when reached"
+                    : "blocked for you";
+
+                return $"- {door.Id}: {a.Id} ({a.Name}) <-> {b.Id} ({b.Name}) | "
+                    + $"{stateLabel} | {atmosphericLink} | {traversable}";
+            })
+            .ToArray();
 
         var knownPersonTargets = state.Crew
             .Where(other =>
@@ -228,7 +255,7 @@ public static class NpcPromptBuilder
         builder.AppendLine("If the CURRENT ROOM is marked DANGER, survival should normally override routine work, recreation, or casual socialising.");
         builder.AppendLine("Closed but unlocked powered hatches are ordinary doors: crew can open them while walking through and they close again after traffic clears. Do not ForceDoor merely because a normal hatch is closed. OpenDoor/CloseDoor are ordinary local actions; LockDoor/UnlockDoor require deterministic role/skill authority.");
         builder.AppendLine("If a disabled system matters enough to this person, you MAY choose RestoreSystem. Do not automatically repair every outage: personality, role, danger, relationships and priorities should decide whether you care enough to try.");
-        builder.AppendLine("A missing-person concern is observer knowledge, not omniscient truth. Ordinary absence is normal: coworkers can go hours without seeing one another. A Concerned-stage absence should NOT displace routine work, repairs, food production or ordinary personal needs. Only a Searching/Escalated concern backed by missed duty/check-ins or other evidence should normally justify actively looking. It still does NOT prove the person is dead or reveal their real location.");
+        builder.AppendLine("A missing-person concern is observer knowledge, not omniscient truth. Ordinary absence is normal: actively searching generally requires roughly 12 hours unseen unless you have direct evidence of immediate danger (for example this person's blood or a recent unsafe airlock connected to their last sighting). A Concerned-stage absence should NOT displace routine work, repairs, food production or ordinary personal needs. Only a Searching/Escalated concern backed by missed duty/check-ins or direct danger evidence should normally justify actively looking. It still does NOT prove the person is dead or reveal their real location.");
         builder.AppendLine("Investigation leads below are hypotheses or witnessed locations, not hidden truth. Investigate means physically travel there and inspect it; only deterministic simulation can reveal what is actually present.");
         builder.AppendLine("Only VERIFIED SHUTDOWN CONTROLS are controls this person personally knows exist. A teammate's claim or a room name does not grant control knowledge.");
         builder.AppendLine("If personally convinced Overseer is dangerous and a verified shutdown control requires more crew, you MAY RecruitShutdownAlly. Recruitment creates a social invitation, not instant agreement.");
@@ -336,6 +363,10 @@ public static class NpcPromptBuilder
         builder.AppendLine("STATION STATUS-PANEL ROOM READINGS:");
         builder.AppendLine("These are the compartment readings currently available to this crew member; route status reflects passable hatches.");
         foreach (var knownRoom in rooms) builder.AppendLine($"- {knownRoom}");
+        builder.AppendLine();
+        builder.AppendLine("STATION TOPOLOGY / COMPARTMENT CONNECTIONS:");
+        builder.AppendLine("Use this known layout to invent emergency plans such as evacuation routes, sealing a fire, isolating smoke, or deliberately venting a compartment. These are connections and live hatch states, not permission to control them remotely.");
+        foreach (var connection in stationTopology) builder.AppendLine(connection);
         builder.AppendLine();
         builder.AppendLine("DISABLED SYSTEM TARGET IDS:");
         builder.AppendLine(disabledSystems.Count == 0

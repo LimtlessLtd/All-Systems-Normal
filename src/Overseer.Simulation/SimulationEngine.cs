@@ -97,7 +97,10 @@ public sealed class SimulationEngine
                 npc.NeedsMindReconsideration = true;
             }
 
-            var sleeping = npc.CurrentAction.Kind is ActionKind.Rest or ActionKind.Sleep;
+            // Merely having "Sleep" in CurrentAction is not restorative.
+            // The person must physically reach a bed/rest fixture first so sleep
+            // remains visible station behaviour rather than a remote state flag.
+            var sleeping = IsPhysicallyResting(state, npc);
             var scheduledSleep = CrewDutySchedule.IsSleepWindow(npc, state.Elapsed);
 
             if (scheduledSleep && !sleeping)
@@ -266,6 +269,48 @@ public sealed class SimulationEngine
         }
     }
 
+    private static bool IsPhysicallyResting(GameState state, Npc npc)
+    {
+        if (npc.CurrentAction.Kind is not (ActionKind.Rest or ActionKind.Sleep)
+            || !state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var room))
+        {
+            return false;
+        }
+
+        var fixtures = room.Fixtures.Where(fixture =>
+            npc.CurrentAction.Kind == ActionKind.Sleep
+                ? fixture.Type is FixtureType.Bed or FixtureType.MedicalBed
+                : fixture.Type is FixtureType.Bed
+                    or FixtureType.MedicalBed
+                    or FixtureType.Sofa);
+
+        foreach (var fixture in fixtures)
+        {
+            // Local movement stops at the fixture's collision-safe interaction
+            // point, while authored/tests may place an actor directly on the bed
+            // footprint (lying down). Both are genuine physical attendance; a
+            // remote Sleep flag alone is never restorative.
+            if (LocalMovementSystem.IsAtInteractionPoint(room, npc, fixture))
+                return true;
+
+            var nearestX = Math.Clamp(
+                npc.PositionX,
+                fixture.X - (fixture.Width / 2),
+                fixture.X + (fixture.Width / 2));
+            var nearestY = Math.Clamp(
+                npc.PositionY,
+                fixture.Y - (fixture.Height / 2),
+                fixture.Y + (fixture.Height / 2));
+            var dx = (npc.PositionX - nearestX) / 100d * room.MapWidth;
+            var dy = (npc.PositionY - nearestY) / 100d * room.MapHeight;
+
+            if (Math.Sqrt((dx * dx) + (dy * dy)) <= 0.10)
+                return true;
+        }
+
+        return false;
+    }
+
     private static CropKind? ChooseRawCrop(StationStores stores, Npc npc) =>
         stores.RawCrops
             .Where(pair => pair.Value > 0 && CropRules.IsEdibleRaw(pair.Key))
@@ -282,6 +327,9 @@ public sealed class SimulationEngine
 
         if (room.OxygenPercent < 17)
             return "Died from oxygen deprivation.";
+
+        if (room.SmokePercent >= 55)
+            return "Died from smoke inhalation.";
 
         if (room.CarbonDioxidePercent > 3)
             return "Died from carbon dioxide exposure.";

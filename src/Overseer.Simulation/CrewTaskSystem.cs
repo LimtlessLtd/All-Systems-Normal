@@ -9,7 +9,61 @@ namespace Overseer.Simulation;
 /// </summary>
 public static class CrewTaskSystem
 {
-    public const int CommitmentUrgency = 80;
+    /// <summary>
+    /// A committed physical task is not pre-empted by an arbitrary high urgency
+    /// number. The world must contain an immediate survival threat and the new
+    /// intention must actually be a response to it.
+    /// </summary>
+    public static bool CanInterruptForLifeThreat(
+        GameState state,
+        Npc npc,
+        NpcIntent intent)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(npc);
+        ArgumentNullException.ThrowIfNull(intent);
+
+        if (!state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var room))
+            return false;
+
+        var hazardousAtmosphere =
+            room.FireIntensity > 0
+            || room.OxygenPercent < 19
+            || room.PressureKpa < 90
+            || room.SmokePercent >= 35
+            || room.CarbonDioxidePercent > 1.25;
+
+        var hostileMachineHere =
+            state.Robots.Any(robot =>
+                !robot.IsDestroyed
+                && robot.IsOperational
+                && robot.Policy == RobotPolicy.Hostile
+                && robot.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+            || state.Turrets.Any(turret =>
+                !turret.IsDestroyed
+                && turret.IsArmed
+                && turret.Policy != TurretPolicy.Safe
+                && turret.RoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase));
+
+        var acuteInjury =
+            npc.Health <= 40
+            || npc.LastHealthSnapshot - npc.Health >= 8;
+
+        var genuineThreat = hazardousAtmosphere || hostileMachineHere || acuteInjury;
+        if (!genuineThreat)
+            return false;
+
+        return intent.Action is
+            ActionKind.Move
+            or ActionKind.SeekSafety
+            or ActionKind.EvacuateHazard
+            or ActionKind.FightFire
+            or ActionKind.SealHazardRoom
+            or ActionKind.VentHazardRoom
+            or ActionKind.ForceDoor
+            or ActionKind.Attack
+            or ActionKind.RequestHelp;
+    }
 
     public static CrewTaskState Start(
         GameState state,

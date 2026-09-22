@@ -335,6 +335,49 @@ public sealed class CrewProvisioningSystemTests
     }
 
     [Fact]
+    public void PlantingReachesTheAuthoritativeBayEvenWhenFixtureInsertionOrderDiffers()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var worker = state.Crew[0];
+        var room = state.Facility.Rooms["hydroponics"];
+        var bed = state.CropBeds.First();
+
+        worker.CurrentRoomId = room.Id;
+        worker.PositionX = 50;
+        worker.PositionY = 50;
+        worker.Hunger = 0;
+        worker.Intent = null;
+        worker.ProvisioningJob = ActionKind.TendCrops;
+        worker.ProvisioningRoomId = room.Id;
+        worker.TendingBedId = bed.Id;
+        worker.CurrentAction = new NpcAction(
+            ActionKind.TendCrops,
+            bed.Id,
+            "Plant the assigned bay.");
+
+        var growFixtures = room.Fixtures
+            .Where(fixture => fixture.Type == FixtureType.GrowBed)
+            .ToList();
+        Assert.True(growFixtures.Count >= 2);
+
+        room.Fixtures.RemoveAll(fixture => fixture.Type == FixtureType.GrowBed);
+        room.Fixtures.AddRange(growFixtures.AsEnumerable().Reverse());
+
+        var movement = new LocalMovementSystem();
+        var provisioning = new CrewProvisioningSystem();
+
+        for (var minute = 0; minute < 30 && bed.Lifecycle != CropLifecycleState.Seedling; minute++)
+        {
+            movement.Tick(state, Minute);
+            state.Elapsed += Minute;
+            provisioning.Tick(state, Minute);
+        }
+
+        Assert.Equal(CropLifecycleState.Seedling, bed.Lifecycle);
+        Assert.Equal(CrewTaskStatus.Succeeded, worker.ActiveTask?.Status);
+    }
+
+    [Fact]
     public void PlantingRequiresAWorkerAndConsumesSeedInventory()
     {
         var state = FacilitySeeder.CreateDefault(stationSeed: 1337);

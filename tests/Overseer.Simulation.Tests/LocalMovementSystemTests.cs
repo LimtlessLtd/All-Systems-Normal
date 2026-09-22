@@ -162,6 +162,69 @@ public sealed class LocalMovementSystemTests
     }
 
     [Fact]
+    public void WalkingSpeedUsesPhysicalMapDistanceRegardlessOfCorridorSize()
+    {
+        static double OneSecondStep(GameState state, Room room)
+        {
+            var npc = state.Crew[0];
+            var door = state.Facility.Doors.First(candidate =>
+                candidate.RoomAId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)
+                || candidate.RoomBId.Equals(room.Id, StringComparison.OrdinalIgnoreCase));
+            var targetRoomId = door.RoomAId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)
+                ? door.RoomBId
+                : door.RoomAId;
+
+            door.IsOpen = true;
+            door.IsLocked = false;
+            door.IsPowered = true;
+            npc.CurrentRoomId = room.Id;
+            npc.PositionX = 50;
+            npc.PositionY = 50;
+            npc.Fatigue = 0;
+            npc.SleepDebtMinutes = 0;
+            npc.Movement = null;
+            npc.CurrentAction = new NpcAction(ActionKind.Idle, null, "Speed regression reset.");
+
+            Assert.True(new ActionResolver().TryApply(
+                state,
+                npc.Id,
+                new NpcAction(ActionKind.Move, targetRoomId, "Walking speed regression."),
+                out var message), message);
+
+            var beforeX = npc.PositionX;
+            var beforeY = npc.PositionY;
+            new LocalMovementSystem().Tick(state, TimeSpan.FromSeconds(1));
+
+            var dx = (npc.PositionX - beforeX) / 100d * room.MapWidth;
+            var dy = (npc.PositionY - beforeY) / 100d * room.MapHeight;
+            return Math.Sqrt((dx * dx) + (dy * dy));
+        }
+
+        var firstState = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var corridors = firstState.Facility.Rooms.Values
+            .Where(room => room.Type == RoomType.Corridor)
+            .OrderBy(room => room.MapWidth * room.MapHeight)
+            .ToList();
+
+        Assert.True(corridors.Count >= 2);
+        var small = corridors.First();
+        var large = corridors.Last();
+        Assert.NotEqual(
+            small.MapWidth * small.MapHeight,
+            large.MapWidth * large.MapHeight);
+
+        var smallStep = OneSecondStep(firstState, small);
+
+        var secondState = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var matchingLarge = secondState.Facility.Rooms[large.Id];
+        var largeStep = OneSecondStep(secondState, matchingLarge);
+
+        Assert.InRange(smallStep, .06, .12);
+        Assert.InRange(largeStep, .06, .12);
+        Assert.InRange(Math.Abs(smallStep - largeStep), 0, .01);
+    }
+
+    [Fact]
     public void MaintenanceWorkerWalksToTheActualFixtureInteractionPoint()
     {
         var state = FacilitySeeder.CreateDefault(stationSeed: 51515);

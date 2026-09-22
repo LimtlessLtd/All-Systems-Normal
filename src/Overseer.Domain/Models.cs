@@ -965,6 +965,13 @@ public sealed class Room
     /// <summary>0..100 visible smoke contamination from fire.</summary>
     public double SmokePercent { get; set; }
 
+    /// <summary>
+    /// Derived line-of-sight remaining in the compartment. At extreme smoke
+    /// density the room is effectively opaque even if its lights still work.
+    /// </summary>
+    public double VisibilityPercent =>
+        Math.Clamp(100 - (SmokePercent * 1.18), 0, 100);
+
     /// <summary>0..100 physical pressure-hull condition for this compartment.</summary>
     public double HullIntegrityPercent { get; set; } = 100;
 

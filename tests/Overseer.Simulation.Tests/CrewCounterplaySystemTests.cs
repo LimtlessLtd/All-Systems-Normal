@@ -30,10 +30,17 @@ public sealed class CrewCounterplaySystemTests
         var system = new CrewCounterplaySystem();
         system.Tick(state);
         Assert.True(sarah.RoutineUntil > state.Elapsed);
+        Assert.Equal(CrewTaskStatus.InProgress, sarah.ActiveTask?.Status);
+        Assert.Equal(ActionKind.ForceDoor, sarah.ActiveTask?.Action);
+
+        var half = (sarah.RoutineUntil - state.Elapsed).TotalMinutes / 2;
+        state.Elapsed += TimeSpan.FromMinutes(half);
+        Assert.InRange(CrewTaskSystem.Progress(state, sarah), 49, 51);
 
         state.Elapsed += TimeSpan.FromMinutes(10);
         system.Tick(state);
 
+        Assert.Equal(CrewTaskStatus.Succeeded, sarah.ActiveTask?.Status);
         Assert.True(door.IsPassable);
         Assert.True(door.IsManuallyOverridden);
         Assert.False(door.IsAiControllable);

@@ -36,11 +36,17 @@ public sealed class SimulationEngineTests
         var state = FacilitySeeder.CreateDefault();
         var npc = state.Crew[0];
 
+        var quarters = state.Facility.Rooms["quarters"];
+        var bed = quarters.Fixtures.First(fixture =>
+            fixture.Type is FixtureType.Bed or FixtureType.MedicalBed);
+        npc.CurrentRoomId = quarters.Id;
+        npc.PositionX = bed.X;
+        npc.PositionY = bed.Y;
         npc.Fatigue = 50;
         npc.CurrentAction = new NpcAction(
             ActionKind.Sleep,
             null,
-            "Sleeping.");
+            "Sleeping physically at a bed.");
 
         new SimulationEngine().Tick(state, TimeSpan.FromMinutes(10));
 

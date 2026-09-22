@@ -110,6 +110,28 @@ public sealed class StationUiPresentationPolishTests
     }
 
     [Fact]
+    public void FireAndSmokePresentationScalesWithAuthoritativeSeverity()
+    {
+        var root = FindRepositoryRoot();
+        var home = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor"));
+        var css = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor.css"));
+
+        foreach (var severity in new[]
+                 {
+                     "fire-minor", "fire-growing", "fire-severe", "fire-inferno",
+                     "smoke-light", "smoke-building", "smoke-heavy", "smoke-blackout"
+                 })
+        {
+            Assert.Contains(severity, home);
+            Assert.Contains($".room-node.{severity}", css);
+        }
+
+        Assert.Contains(".room-node.has-smoke::before", css);
+        Assert.Contains("compartment-smoke-drift", css);
+        Assert.Contains("content: \"🔥  🔥  🔥  🔥\"", css);
+    }
+
+    [Fact]
     public void LightingClimateAndAirHandlerControls_HugRoomEdges()
     {
         var states = RepresentativeStates(4);

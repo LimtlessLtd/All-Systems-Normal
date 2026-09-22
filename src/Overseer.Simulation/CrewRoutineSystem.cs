@@ -22,6 +22,11 @@ public sealed class CrewRoutineSystem
 
         foreach (var npc in state.Crew.Where(npc => npc.IsAlive && npc.IsPresent))
         {
+            if (CrewTaskSystem.IsWorking(npc))
+            {
+                continue;
+            }
+
             if (npc.Intent is not null
                 || npc.Movement is not null
                 || (state.Elapsed < npc.RoutineUntil
@@ -144,6 +149,7 @@ public sealed class CrewRoutineSystem
         var available = state.Crew
             .Where(npc =>
                 npc.IsAlive
+                && !CrewTaskSystem.IsWorking(npc)
                 && npc.Intent is null
                 && npc.Movement is null
                 && state.Elapsed >= npc.RoutineUntil

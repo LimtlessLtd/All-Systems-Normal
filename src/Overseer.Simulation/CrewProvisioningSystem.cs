@@ -342,23 +342,37 @@ public sealed class CrewProvisioningSystem
         if (npc.ProvisioningJob is not { } job || npc.ProvisioningRoomId is not { } jobRoom)
             return;
 
-        if (ShouldYieldToCriticalMaintenance(state, npc))
+        // Arbitration may reassign somebody while they are still travelling
+        // toward a job, but once physical work has begun it is committed.
+        if (npc.ProvisioningCompletesAt is null
+            && ShouldYieldToCriticalMaintenance(state, npc))
         {
             InterruptJob(
                 state,
                 npc,
-                "Critical station maintenance took precedence over provisioning duty.");
+                "Critical station maintenance took precedence before provisioning work began.");
             return;
         }
 
         if (npc.Intent is { } competing
             && competing.Action is not (ActionKind.TendCrops or ActionKind.Harvest or ActionKind.Cook))
         {
-            if (competing.Urgency >= ProtectedUrgency)
+            if (npc.ActiveTask is { Status: CrewTaskStatus.InProgress }
+                && CrewTaskSystem.CanInterruptForLifeThreat(state, npc, competing))
             {
-                InterruptJob(state, npc, $"Higher-priority {competing.Action} intent (urgency {competing.Urgency}) took precedence.");
+                InterruptJob(state, npc, $"Immediate survival threat required {competing.Action}.");
                 return;
             }
+
+            if (npc.ProvisioningCompletesAt is null
+                && competing.Urgency >= ProtectedUrgency)
+            {
+                InterruptJob(state, npc, $"Higher-priority {competing.Action} intent took precedence before hands-on work began.");
+                return;
+            }
+
+            // A thought, routine, hunger, sleep request or ordinary chore cannot
+            // pull a worker off a bay after hands-on progress has started.
             npc.Intent = null;
         }
 
@@ -384,20 +398,23 @@ public sealed class CrewProvisioningSystem
             return;
         }
 
+        var bed = npc.TendingBedId is null
+            ? null
+            : state.CropBeds.FirstOrDefault(candidate =>
+                candidate.Id.Equals(npc.TendingBedId, StringComparison.OrdinalIgnoreCase));
+
         var minutes = job switch
         {
             ActionKind.Harvest => StationProvisionRules.HarvestMinutes,
             ActionKind.Cook => StationProvisionRules.CookMinutes,
+            ActionKind.TendCrops when bed is { Lifecycle: CropLifecycleState.Empty } =>
+                StationProvisionRules.PlantMinutes,
             _ => StationProvisionRules.TendMinutes
         };
 
         if (npc.ProvisioningCompletesAt is null)
         {
             npc.ProvisioningCompletesAt = state.Elapsed + TimeSpan.FromMinutes(minutes);
-
-            var bed = npc.TendingBedId is null
-                ? null
-                : state.CropBeds.FirstOrDefault(candidate => candidate.Id == npc.TendingBedId);
 
             if (job == ActionKind.Harvest && bed is { Lifecycle: CropLifecycleState.ReadyToHarvest })
             {

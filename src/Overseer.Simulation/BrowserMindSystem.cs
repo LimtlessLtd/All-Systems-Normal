@@ -31,7 +31,8 @@ public sealed class BrowserMindSystem
             .Where(npc =>
                 npc.IsAlive
                 && npc.IsPresent
-                && !npc.IsContainmentBreachInProgress)
+                && !npc.IsContainmentBreachInProgress
+                && !CrewTaskSystem.IsWorking(npc))
             .OrderBy(npc => npc.Name)
             .ToList();
 
@@ -58,6 +59,7 @@ public sealed class BrowserMindSystem
                 && candidate.IsPresent
                 && !candidate.IsContainmentBreachInProgress
                 && candidate.NeedsMindReconsideration
+                && !CrewTaskSystem.IsWorking(candidate)
                 && !CrewEnvironmentSafety.IsDangerous(
                     state.Facility.Rooms[candidate.CurrentRoomId])
                 && (candidate.Intent is null

@@ -32,6 +32,81 @@ public sealed class StationHazardPolishTests
     }
 
     [Fact]
+    public void SmokePropagatesThroughOpenCompartmentsButASealedHatchContainsIt()
+    {
+        var openState = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var source = openState.Facility.Rooms["hydroponics"];
+        var door = openState.Facility.Doors.First(candidate =>
+            candidate.RoomAId == source.Id || candidate.RoomBId == source.Id);
+        var neighbourId = door.RoomAId == source.Id ? door.RoomBId : door.RoomAId;
+        var neighbour = openState.Facility.Rooms[neighbourId];
+
+        source.SmokePercent = 100;
+        neighbour.SmokePercent = 0;
+        door.IsOpen = true;
+        door.IsLocked = false;
+
+        new StationHazardSystem().Tick(openState, TimeSpan.FromMinutes(1));
+
+        Assert.True(neighbour.SmokePercent > 0);
+
+        var sealedState = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        source = sealedState.Facility.Rooms["hydroponics"];
+        door = sealedState.Facility.Doors.First(candidate =>
+            candidate.RoomAId == source.Id || candidate.RoomBId == source.Id);
+        neighbourId = door.RoomAId == source.Id ? door.RoomBId : door.RoomAId;
+        neighbour = sealedState.Facility.Rooms[neighbourId];
+
+        source.SmokePercent = 100;
+        neighbour.SmokePercent = 0;
+        door.IsOpen = false;
+        door.IsLocked = false;
+
+        new StationHazardSystem().Tick(sealedState, TimeSpan.FromMinutes(1));
+
+        Assert.Equal(0, neighbour.SmokePercent, 6);
+    }
+
+    [Fact]
+    public void ExtremeSmokeMakesVisibilityNearZeroAndHurtsCrewWithoutLocalFlames()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var npc = state.Crew[0];
+        var room = state.Facility.Rooms[npc.CurrentRoomId];
+        room.FireIntensity = 0;
+        room.SmokePercent = 95;
+        room.VentilationEnabled = false;
+        var healthBefore = npc.Health;
+
+        new StationHazardSystem().Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.InRange(room.VisibilityPercent, 0, 1);
+        Assert.True(npc.Health < healthBefore);
+        Assert.True(npc.NeedsMindReconsideration);
+    }
+
+    [Fact]
+    public void ConventionalFirefightingKnocksFireDownButDoesNotOneClickASevereFire()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var npc = state.Crew[0];
+        var room = state.Facility.Rooms[npc.CurrentRoomId];
+        npc.Skills["Engineering"] = 100;
+        room.FireIntensity = 70;
+        room.SmokePercent = 40;
+
+        Assert.True(StationHazardSystem.TryExecuteCrewAction(
+            state,
+            npc,
+            ActionKind.FightFire,
+            room,
+            out _));
+
+        Assert.InRange(room.FireIntensity, 50, 69);
+        Assert.True(room.SmokePercent >= 30);
+    }
+
+    [Fact]
     public void UncontrolledFireCanBreachHullAndExistingAtmosphereSystemDecompressesRoom()
     {
         var state = FacilitySeeder.CreateDefault(stationSeed: 1337);

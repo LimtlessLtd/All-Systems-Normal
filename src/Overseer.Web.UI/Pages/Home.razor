@@ -389,7 +389,7 @@
                                 {
                                     <button @key="fixture"
                                             type="button"
-                                            class="@($"{FixtureClass(fixture)} cropbed-selectable {(cropBed.IsEnabled ? "enabled" : "disabled")}")"
+                                            class="@($"{FixtureClass(fixture)} fixture-interactive cropbed-selectable {(cropBed.IsEnabled ? "enabled" : "disabled")} {(SelectedCropBed?.Id == cropBed.Id ? "selected" : "")}")"
                                             style="@FixtureStyle(fixture)"
                                             title="@FixtureTitle(room, fixture)"
                                             aria-label="@($"Inspect {cropBed.Label}")"
@@ -2664,9 +2664,28 @@
             classes.Add("lights-off");
 
         if (room.FireIntensity > 0)
+        {
             classes.Add("has-fire");
-        else if (room.SmokePercent >= 12)
+            classes.Add(room.FireIntensity switch
+            {
+                >= 75 => "fire-inferno",
+                >= 50 => "fire-severe",
+                >= 25 => "fire-growing",
+                _ => "fire-minor"
+            });
+        }
+
+        if (room.SmokePercent >= 5)
+        {
             classes.Add("has-smoke");
+            classes.Add(room.SmokePercent switch
+            {
+                >= 80 => "smoke-blackout",
+                >= 55 => "smoke-heavy",
+                >= 25 => "smoke-building",
+                _ => "smoke-light"
+            });
+        }
 
         return string.Join(' ', classes);
     }

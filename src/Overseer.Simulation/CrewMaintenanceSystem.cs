@@ -116,26 +116,55 @@ public sealed class CrewMaintenanceSystem
             return;
         }
 
-        // A goal the crew member has since abandoned releases the job so
-        // somebody else can pick it up.
-        if (npc.Intent is not null && npc.Intent.Action != ActionKind.Repair)
+        // Before hands-on work starts, a different goal may take the assignment.
+        // Once servicing begins, ordinary thoughts/routines are ignored; only a
+        // deterministic immediate survival threat may interrupt the task.
+        if (npc.Intent is { } competing && competing.Action != ActionKind.Repair)
         {
-            device.ServicedByNpcId = null;
-            Release(npc);
-            return;
+            if (npc.ServiceCompletesAt is not null)
+            {
+                if (CrewTaskSystem.CanInterruptForLifeThreat(state, npc, competing))
+                {
+                    CrewTaskSystem.Interrupt(
+                        state,
+                        npc,
+                        $"Emergency interruption while servicing {device.Label}.");
+                    device.ServicedByNpcId = null;
+                    Release(npc);
+                    return;
+                }
+
+                npc.Intent = null;
+            }
+            else
+            {
+                device.ServicedByNpcId = null;
+                Release(npc);
+                return;
+            }
         }
 
         if (!npc.CurrentRoomId.Equals(device.RoomId, StringComparison.OrdinalIgnoreCase))
         {
-            // Still on their way. Hold the job but make no progress.
-            npc.ServiceCompletesAt = null;
+            // Still travelling before work starts. Leaving after hands-on work
+            // begins is a physical invalidation (normally an emergency escape).
+            if (npc.ServiceCompletesAt is not null)
+            {
+                CrewTaskSystem.Interrupt(
+                    state,
+                    npc,
+                    $"Left {device.Label} before servicing completed.");
+                device.ServicedByNpcId = null;
+                Release(npc);
+            }
             return;
         }
 
-        // An unpowered compartment cannot be worked in properly.
+        // Loss of power pauses practical work without silently abandoning the
+        // committed task. The existing deadline remains authoritative and the
+        // outcome is applied only when the worker can physically resume here.
         if (state.Facility.Rooms.TryGetValue(device.RoomId, out var room) && !room.IsPowered)
         {
-            npc.ServiceCompletesAt = null;
             return;
         }
 
@@ -145,13 +174,21 @@ public sealed class CrewMaintenanceSystem
             var speed = Math.Clamp(skill / (double)Math.Max(1, device.ServiceDifficulty), 0.7, 2.0);
             var minutes = Math.Max(4, (int)Math.Round(StationUpkeepRules.ServiceMinutes / speed));
 
-            npc.ServiceCompletesAt = state.Elapsed + TimeSpan.FromMinutes(minutes);
+            var duration = TimeSpan.FromMinutes(minutes);
+            npc.ServiceCompletesAt = state.Elapsed + duration;
             device.ServicedByNpcId = npc.Id;
 
             npc.CurrentAction = new NpcAction(
                 ActionKind.Repair,
-                device.RoomId,
+                device.Id,
                 $"Servicing {device.Label}.");
+            CrewTaskSystem.Start(
+                state,
+                npc,
+                ActionKind.Repair,
+                device.Id,
+                $"servicing {device.Label}",
+                duration);
 
             ConversationPacingSystem.Schedule(
                 npc,
@@ -180,6 +217,10 @@ public sealed class CrewMaintenanceSystem
 
         RestoreFunction(state, device);
 
+        CrewTaskSystem.Succeed(
+            state,
+            npc,
+            $"{device.Label} is serviceable again.");
         npc.CurrentAction = new NpcAction(
             ActionKind.Idle,
             null,
@@ -272,6 +313,7 @@ public sealed class CrewMaintenanceSystem
         npc.IsAlive
         && npc.IsPresent
         && npc.ServicingDeviceId is null
+        && !CrewTaskSystem.IsWorking(npc)
 
         // Somebody already watering the beds or cooking is not free. Two
         // assignment systems overwriting each other's intents meant neither job
