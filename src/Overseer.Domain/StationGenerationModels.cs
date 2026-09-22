@@ -152,6 +152,13 @@ public sealed class StationGenerationConstraints
     /// </summary>
     public double HydroponicsCapacityMultiplier { get; init; } = 1;
 
+    /// <summary>
+    /// Optional campaign/corporate seed-supply contract. Empty means all crop
+    /// kinds may be generated; otherwise only these crops can receive seed stock
+    /// or be requested for planting.
+    /// </summary>
+    public HashSet<CropKind> AllowedCropKinds { get; } = [];
+
     public bool? RequireRedundantPaths { get; init; }
     public bool? ForbidRedundantPaths { get; init; }
     public int? RequiredChokepointCount { get; init; }
