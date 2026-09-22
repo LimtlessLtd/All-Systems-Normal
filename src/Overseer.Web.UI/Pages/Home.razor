@@ -391,6 +391,7 @@
                                             aria-label="@($"Inspect {FixtureTitle(room, fixture)}")"
                                             data-device-id="@deviceId"
                                             data-crop="@CropFixtureLabel(room, fixture)"
+                                            data-growth-stage="@CropGrowthStage(room, fixture)"
                                             data-station-interactive
                                             @onclick:stopPropagation="true"
                                             @onclick="() => SelectDevice(deviceId)"></button>
@@ -1634,10 +1635,10 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    private async Task ShowAlertsAsync()
+    private Task ShowAlertsAsync()
     {
         _stationOverlay = "alerts";
-
+        return Task.CompletedTask;
     }
 
     private async Task InspectAlertAsync(StationAlert alert)
