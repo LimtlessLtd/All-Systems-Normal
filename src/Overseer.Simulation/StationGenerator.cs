@@ -347,12 +347,12 @@ public static class StationGenerator
             15,
             100);
 
-        var crewCapacity = size switch
+        var crewCapacity = constraints.PlannedCrewCount ?? (size switch
         {
             StationSizeClass.Compact => random.NextInt(6, 13),
             StationSizeClass.Large => random.NextInt(20, 49),
             _ => random.NextInt(10, 25)
-        };
+        });
 
         return new StationIdentity(
             purpose,
@@ -1033,6 +1033,13 @@ public static class StationGenerator
         if (profile.Id.Equals("quarters", StringComparison.OrdinalIgnoreCase))
         {
             scale *= Math.Clamp(identity.CrewCapacity / 16d, 0.86, 1.22);
+        }
+
+        if (profile.Type == RoomType.Hydroponics)
+        {
+            var crewScale = Math.Sqrt(Math.Max(1, identity.CrewCapacity) / 12d);
+            var policyScale = Math.Sqrt(Math.Max(0.1, constraints.HydroponicsCapacityMultiplier));
+            scale *= Math.Clamp(crewScale * policyScale, 0.82, 1.38);
         }
 
         if (profile.Type is RoomType.Engineering or RoomType.Generator or RoomType.Reactor or RoomType.Storage)
@@ -2084,6 +2091,8 @@ public static class StationGenerator
         || constraints.RequiredTurretRoomIds.Count > 0
         || constraints.RequiredRobotCount is not null
         || constraints.RequiredRobotRoomIds.Count > 0
+        || constraints.PlannedCrewCount is not null
+        || Math.Abs(constraints.HydroponicsCapacityMultiplier - 1) > 0.0001
         || constraints.RequireRedundantPaths is not null
         || constraints.ForbidRedundantPaths is not null
         || constraints.RequiredChokepointCount is not null
@@ -2104,6 +2113,20 @@ public static class StationGenerator
             throw new StationGenerationException(
                 "Station constraints both require and forbid redundant paths.",
                 ["RequireRedundantPaths and ForbidRedundantPaths cannot both be true."]);
+        }
+
+        if (constraints.PlannedCrewCount is <= 0)
+        {
+            throw new StationGenerationException(
+                "Planned crew count must be positive.",
+                [$"PlannedCrewCount={constraints.PlannedCrewCount}"]);
+        }
+
+        if (constraints.HydroponicsCapacityMultiplier <= 0)
+        {
+            throw new StationGenerationException(
+                "Hydroponics capacity multiplier must be positive.",
+                [$"HydroponicsCapacityMultiplier={constraints.HydroponicsCapacityMultiplier}"]);
         }
 
         if (constraints.MinimumFunctionalRoomCount is { } minimum
