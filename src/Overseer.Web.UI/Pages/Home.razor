@@ -1635,12 +1635,6 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    private Task ShowAlertsAsync()
-    {
-        _stationOverlay = "alerts";
-        return Task.CompletedTask;
-    }
-
     private async Task InspectAlertAsync(StationAlert alert)
     {
         if (alert.Target is not { } target)
