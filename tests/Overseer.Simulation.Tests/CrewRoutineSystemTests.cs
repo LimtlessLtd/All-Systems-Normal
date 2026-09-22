@@ -234,7 +234,9 @@ public sealed class CrewRoutineSystemTests
 
         var beforeX = npc.PositionX;
         var beforeY = npc.PositionY;
+        var sleepTravelTrace = new List<string>();
         new LocalMovementSystem().Tick(state, TimeSpan.FromMinutes(1));
+        sleepTravelTrace.Add($"0:{npc.PositionX:0.00},{npc.PositionY:0.00}");
 
         Assert.True(
             npc.IsLocallyMoving
@@ -254,7 +256,10 @@ public sealed class CrewRoutineSystemTests
             "Sleep debt must not recover remotely while walking to bed.");
 
         for (var step = 0; step < 12; step++)
+        {
             new LocalMovementSystem().Tick(state, TimeSpan.FromMinutes(1));
+            sleepTravelTrace.Add($"{step + 1}:{npc.PositionX:0.00},{npc.PositionY:0.00}");
+        }
 
         var fatigueAtBed = npc.Fatigue;
         var debtAtBed = npc.SleepDebtMinutes;
@@ -269,7 +274,10 @@ public sealed class CrewRoutineSystemTests
             $"use={sleepFixture.InteractionX:0.00},{sleepFixture.InteractionY:0.00}; " +
             $"room={state.Facility.Rooms[npc.CurrentRoomId].MapWidth:0.00}x{state.Facility.Rooms[npc.CurrentRoomId].MapHeight:0.00}; " +
             $"fatigue={fatigueAtBed:0.00}->{npc.Fatigue:0.00}; debt={debtAtBed:0.00}->{npc.SleepDebtMinutes:0.00}; " +
-            $"moving={npc.IsLocallyMoving}; action={npc.CurrentAction.Kind}.");
+            $"moving={npc.IsLocallyMoving}; action={npc.CurrentAction.Kind}; " +
+            $"trace={string.Join(\" > \", sleepTravelTrace)}; fixtures=" +
+            string.Join(" | ", state.Facility.Rooms[npc.CurrentRoomId].Fixtures.Select(fixture =>
+                $"{fixture.Type}:{fixture.Label}@{fixture.X:0.0},{fixture.Y:0.0}/{fixture.Width:0.0}x{fixture.Height:0.0}")));
         Assert.True(npc.SleepDebtMinutes < debtAtBed);
     }
 
