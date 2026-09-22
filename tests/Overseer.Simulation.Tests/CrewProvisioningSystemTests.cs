@@ -220,7 +220,8 @@ public sealed class CrewProvisioningSystemTests
 
         Assert.Equal(ActionKind.TendCrops, worker.ProvisioningJob);
         var bed = state.CropBeds.Single(candidate => candidate.Id == worker.TendingBedId);
-        var crop = Assert.IsType<CropKind>(bed.RequestedCrop);
+        Assert.True(bed.RequestedCrop.HasValue);
+        var crop = bed.RequestedCrop.Value;
         var seedsBefore = state.Stores.Seeds[crop];
 
         system.Tick(state, Minute);
