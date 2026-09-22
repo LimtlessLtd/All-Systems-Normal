@@ -276,6 +276,8 @@ Standard gate:
 
 .github/workflows/pages.yml runs these on PRs and deploys Pages from main. Its concurrency group is scoped per-ref (`pages-${{ github.ref }}`) so that a PR branch's CI runs never cancel another PR's or main's in-progress run — with several agents pushing concurrently, a shared unscoped group previously let a PR push cancel the production deploy mid-flight. Keep it scoped per-ref.
 
+**Non-blocking review findings must be tracked here, not only in Slack.** A finding surfaced while reviewing another agent's PR (yours or a concurrent agent's) that is real but not merge-blocking must be added as a bullet under "Known issues and audit follow-ups" in the same PR that raises it, or, if that is not possible, in a follow-up commit before the run ends — do not leave it as only a Slack message. A Slack scroll is not a durable backlog: PR #84's review caught a genuine soft-lock regression (fixed later in PR #86) that sat unfixed for a full run cycle because it lived only in `#agentic-coordination`.
+
 ---
 
 ## Current implementation contracts
