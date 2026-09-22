@@ -362,7 +362,7 @@ A code/behaviour/UI audit was run and its fixes merged in PRs #52–#62. These i
 **UI/UX:**
 
 - Missions start running immediately. Consider starting paused on the briefing and auto-pausing on a death or an attack.
-- The crew inspector gives equal weight to about 10 bars. Lead with mood, their read on Overseer, the current goal and key relationships.
+- ~~The crew inspector gives equal weight to about 10 bars~~ fixed: the crew Inspector now leads with `MOOD` (derived presentation-only from `Stress`/`Fear`/`Health`, reusing the existing `.disposition` label/colour convention), `DISPOSITION TOWARD OVERSEER` and `CURRENT GOAL` (relocated, unchanged content) and a new compact `KEY RELATIONSHIPS` summary (top ally by `Trust`+`Affinity`, top rival by `Resentment`, both thresholded so a fresh/neutral roster shows "No standout relationships yet"), all before the FATIGUE/food/traits/vitals detail and the flat 10-bar metric list. The full `RELATIONSHIPS` list further down is unchanged. Presentation-only; no simulation-authority change. Verified in a live browser (Elena Marlow: Calm · No reason to question Overseer · Plant Tomato in Grow Bed B · Closest to Arun Mehta/trust 81 · Friction with Emma Voss/resentment 26).
 - The station seed (`GEN // …`) is developer information in the player toolbar and is oversized.
 
 **Aesthetics:**
