@@ -246,6 +246,20 @@ public static class NpcPromptBuilder
             ? $"{invitation.TeamId} from {invitation.FromNpcName}; they CLAIM relevant isolation hardware is in {invitation.TargetRoomId}. You have not personally verified that claim unless it is also listed under VERIFIED SHUTDOWN CONTROLS."
             : "none";
 
+        var activePacts = CrewPactSystem.ActiveFor(state, npc.Id)
+            .Select(pact =>
+            {
+                var counterpartyId = pact.PromisorId == npc.Id ? pact.PromiseeId : pact.PromisorId;
+                var counterparty = state.Crew.FirstOrDefault(other => other.Id == counterpartyId)?.Name ?? "someone no longer aboard";
+                var role = pact.PromisorId == npc.Id ? "I promised" : "promised to me";
+                return $"- {pact.Id}: {role} {counterparty}: {pact.PromiseText}";
+            })
+            .ToArray();
+
+        var pendingPactProposalText = npc.PendingPactProposal is { } proposal
+            ? $"from {proposal.FromNpcName}: \"{proposal.PromiseText}\""
+            : "none";
+
         var builder = new StringBuilder();
         builder.AppendLine("You are choosing ONE high-level intention for a human NPC in a space-station simulation.");
         builder.AppendLine("You are not the station AI and you do not control reality.");
@@ -258,6 +272,8 @@ public static class NpcPromptBuilder
         builder.AppendLine("A missing-person concern is observer knowledge, not omniscient truth. Ordinary absence is normal: actively searching generally requires roughly 12 hours unseen unless you have direct evidence of immediate danger (for example this person's blood or a recent unsafe airlock connected to their last sighting). A Concerned-stage absence should NOT displace routine work, repairs, food production or ordinary personal needs. Only a Searching/Escalated concern backed by missed duty/check-ins or direct danger evidence should normally justify actively looking. It still does NOT prove the person is dead or reveal their real location.");
         builder.AppendLine("Investigation leads below are hypotheses or witnessed locations, not hidden truth. Investigate means physically travel there and inspect it; only deterministic simulation can reveal what is actually present.");
         builder.AppendLine("Only VERIFIED SHUTDOWN CONTROLS are controls this person personally knows exist. A teammate's claim or a room name does not grant control knowledge.");
+        builder.AppendLine("You MAY propose a personal promise or deal to a co-located crew member with ProposePact (put the concrete promise in Reason, e.g. \"I'll cover your night shift\" or \"I won't mention what I saw\"). This only creates an offer; it becomes a real commitment only once they choose AcceptPact. Making or keeping a pact is entirely your own choice grounded in your relationships and personality, not a scripted obligation. Breaking an active pact later is also your choice; deterministic consequences (memories, trust, resentment) follow from whether you honour it.");
+        builder.AppendLine("If a PENDING PACT PROPOSAL is addressed to you, you MAY choose AcceptPact to agree to it, or simply do something else to leave it unanswered (it will expire).");
         builder.AppendLine("If personally convinced Overseer is dangerous and a verified shutdown control requires more crew, you MAY RecruitShutdownAlly. Recruitment creates a social invitation, not instant agreement.");
         builder.AppendLine("If you have a shutdown-team invitation, you MAY JoinShutdownTeam if you trust the recruiter and believe action is justified. Joining does not personally verify their hardware claim; investigating the claimed room can do that.");
         builder.AppendLine("Choose ShutdownOverseer only for a VERIFIED SHUTDOWN CONTROL and only when your committed team is large enough. Deterministic C# still validates physical presence, route access and activation.");
@@ -360,6 +376,11 @@ public static class NpcPromptBuilder
         builder.AppendLine($"SHUTDOWN TEAM: {shutdownTeamText}");
         builder.AppendLine($"PENDING TEAM INVITATION: {invitationText}");
         builder.AppendLine();
+        builder.AppendLine("YOUR ACTIVE PACTS (promises/deals you made or received):");
+        if (activePacts.Length == 0) builder.AppendLine("- none");
+        else foreach (var pact in activePacts) builder.AppendLine(pact);
+        builder.AppendLine($"PENDING PACT PROPOSAL ADDRESSED TO YOU: {pendingPactProposalText}");
+        builder.AppendLine();
         builder.AppendLine("STATION STATUS-PANEL ROOM READINGS:");
         builder.AppendLine("These are the compartment readings currently available to this crew member; route status reflects passable hatches.");
         foreach (var knownRoom in rooms) builder.AppendLine($"- {knownRoom}");
@@ -384,6 +405,8 @@ public static class NpcPromptBuilder
         builder.AppendLine("For SecureAirlock, TargetId must be the exact airlock room ID shown as NEEDS SECURING in NEARBY AIRLOCK SAFETY PANELS.");
         builder.AppendLine("For crew-target social/cooperative/deceptive actions, TargetId must be an exact name from the known crew roster. Physical interaction can still fail later if that person cannot actually be reached.");
         builder.AppendLine("For OpenDoor/CloseDoor/LockDoor/UnlockDoor, TargetId must be an exact adjacent hatch ID. Lock/unlock is only valid when your role/skills grant authority.");
+        builder.AppendLine("For ProposePact, TargetId must be an exact name from the known crew roster, and Reason must state the concrete promise.");
+        builder.AppendLine("For AcceptPact, TargetId must be the exact proposer name from PENDING PACT PROPOSAL ADDRESSED TO YOU.");
         builder.AppendLine("For JoinShutdownTeam, TargetId must be the exact team ID from PENDING TEAM INVITATION.");
         builder.AppendLine("For ShutdownOverseer, TargetId must be the exact mechanism ID from VERIFIED SHUTDOWN CONTROLS.");
         builder.AppendLine("For ShutdownRobot/DamageRobot/ReprogramRobot, TargetId must be the exact robot ID from ROBOTS PHYSICALLY IN YOUR CURRENT ROOM.");

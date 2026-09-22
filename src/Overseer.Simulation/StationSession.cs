@@ -33,6 +33,7 @@ public abstract class StationSession
     private readonly IntentExecutionSystem _intentExecution = new();
     private readonly InvestigationSystem _investigations = new();
     private readonly ShutdownCoordinationSystem _shutdownCoordination = new();
+    private readonly PactCoordinationSystem _pactCoordination = new();
     private readonly ScenarioProgressSystem _scenarioProgress = new();
     private readonly LocalMovementSystem _movement = new();
     private readonly CrewDoorInteractionSystem _crewDoors = new();
@@ -823,6 +824,7 @@ public abstract class StationSession
         _prisonerContainment.Tick(State);
         _manualOverrides.Tick(State);
         _shutdownCoordination.Tick(State);
+        _pactCoordination.Tick(State);
         _social.Tick(State);
         _suspicion.Tick(State);
         _conversationPacing.Tick(State);

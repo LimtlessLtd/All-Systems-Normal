@@ -46,6 +46,8 @@ public static class CrewAffordanceSystem
         new(ActionKind.MisleadCrew, "crew", "Attempt to misdirect another person; no belief changes without deterministic evidence rules."),
         new(ActionKind.ReportConcern, "crew", "Share a concern or observation with another person."),
         new(ActionKind.RequestHelp, "crew", "Ask a specific person for help."),
+        new(ActionKind.ProposePact, "crew", "Propose a personal promise or deal to another crew member (cover a shift, keep quiet, owe a favour, or any other concrete commitment)."),
+        new(ActionKind.AcceptPact, "pact-proposal", "Accept a pending pact proposal made to you, turning it into a real commitment."),
         new(ActionKind.OpenDoor, "adjacent-door", "Open an adjacent unlocked powered hatch."),
         new(ActionKind.CloseDoor, "adjacent-door", "Close an adjacent unlocked powered hatch."),
         new(ActionKind.LockDoor, "adjacent-door", "Lock an adjacent hatch if authorised."),
@@ -102,6 +104,7 @@ public static class CrewAffordanceSystem
             or ActionKind.MisleadCrew
             or ActionKind.ReportConcern
             or ActionKind.RequestHelp
+            or ActionKind.ProposePact
             or ActionKind.RecruitShutdownAlly;
 
     public static bool IsDoorOperation(ActionKind action) =>
