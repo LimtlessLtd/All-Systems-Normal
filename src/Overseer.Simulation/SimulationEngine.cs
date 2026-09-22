@@ -283,6 +283,9 @@ public sealed class SimulationEngine
         if (room.OxygenPercent < 17)
             return "Died from oxygen deprivation.";
 
+        if (room.SmokePercent >= 55)
+            return "Died from smoke inhalation.";
+
         if (room.CarbonDioxidePercent > 3)
             return "Died from carbon dioxide exposure.";
 
