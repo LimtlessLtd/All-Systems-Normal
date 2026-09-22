@@ -625,27 +625,26 @@ public static class FacilitySeeder
             $"__interaction:{fixture.Label}",
             interactionX,
             interactionY,
-            10,
-            10);
+            5,
+            5);
     }
 
     private static double FixturePlacementPadding(RoomFixture fixture)
     {
         if (!LocalMovementSystem.IsCollisionFixture(fixture))
         {
-            return 1.4;
+            return 1.15;
         }
 
-        // A single point actor still needs room on both sides of a route. These
-        // gaps deliberately exceed LocalMovementSystem's 1.8% collision
-        // inflation so authored and generated rooms read as walkable rather
-        // than as tightly packed display cases.
+        // Bulkhead equipment may form a continuous service bank; crew need
+        // clear floor in front of it, not an aisle between every adjacent
+        // console. Free-standing machinery gets the wider circulation gap.
         if (IsWallFixture(fixture.Type))
         {
-            return 3.4;
+            return 1.45;
         }
 
-        return IsCentralFixture(fixture.Type) ? 5.8 : 4.8;
+        return IsCentralFixture(fixture.Type) ? 3.6 : 3.25;
     }
 
     private static int FixturePlacementPriority(RoomFixture fixture) =>
@@ -757,7 +756,7 @@ public static class FacilitySeeder
                 candidate.Width,
                 candidate.Height);
 
-            if (FitsFixture(moved, placed, padding: 3.4))
+            if (FitsFixture(moved, placed, padding: .7))
             {
                 resolved = moved;
                 return true;
@@ -778,7 +777,7 @@ public static class FacilitySeeder
             for (var x = 5d; x <= 95; x += 4)
             {
                 var moved = MoveFixture(fixture, x, y, fixture.Width, fixture.Height);
-                if (FitsFixture(moved, placed, padding: 3.2))
+                if (FitsFixture(moved, placed, padding: .9))
                 {
                     resolved = moved;
                     return true;
@@ -899,17 +898,21 @@ public static class FacilitySeeder
         }
 
         return FixtureInteractionReservations(fixture).All(reservation =>
-            !placed.Any(existing =>
-                FixtureRectanglesOverlap(
-                    reservation.X,
-                    reservation.Y,
-                    reservation.Width,
-                    reservation.Height,
-                    existing.X,
-                    existing.Y,
-                    existing.Width,
-                    existing.Height,
-                    1.8)));
+            !placed
+                .Where(existing =>
+                    LocalMovementSystem.IsCollisionFixture(existing)
+                    || existing.Label.StartsWith("__door-approach:", StringComparison.Ordinal))
+                .Any(existing =>
+                    FixtureRectanglesOverlap(
+                        reservation.X,
+                        reservation.Y,
+                        reservation.Width,
+                        reservation.Height,
+                        existing.X,
+                        existing.Y,
+                        existing.Width,
+                        existing.Height,
+                        .25)));
     }
 
     private static void EnsureValidCrewContainment(Facility facility, IEnumerable<Npc> crew)
