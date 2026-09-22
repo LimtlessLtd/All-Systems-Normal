@@ -184,7 +184,7 @@ Current shared mechanics include:
 - spontaneous social conflict pressure can escalate into deterministic fights from stress, personality, relationships, grievances and circumstances
 - deterministic fire/smoke hazards expose composable crew affordances (fight fire, evacuate, seal, vent) rather than scripted response trees; LLM/browser cognition chooses desired responses and C# validates reachability, equipment, pressure and outcomes
 - prisoner/containment: prisoner roles, danger levels, violence bias and secure containment rooms; `containment-transfer` is a complete standalone assignment (see V0.13 section below) with deterministic escape opportunity/pressure, recapture, prisoner-guard combat/lethality and a mandatory chain-of-custody directive
-- autonomous crew with skills, traits, relationships, beliefs, memories and persistent intents
+- autonomous crew with skills, traits, relationships, beliefs, memories and persistent intents; every fresh roster (demo, seeded-browser or Ollama-generated) starts with deterministic relationship texture rather than a flat 50/50 — `FacilitySeeder.InitialBond` hashes each unordered name pair to seed a small, reproducible slice of rivalries and close bonds (with per-direction jitter so a bond need not be perfectly symmetric) before any explicit demo overrides are layered on
 - memory fades: `MemorySalience` scores importance × a half-life that grows with importance (trivia fades in hours, defining moments last about a day); prompts use the most salient memories now, and `MemoryRetentionSystem` caps each crew member at 40 memories every 30 minutes and forgets faded trivia older than a day. Campaign carry-over still keeps the most important memories.
 - conversations carry content via `ConversationTopicSystem`: doubts about Overseer, gossip about a third crew member (nudges the listener's view of them by trust; friends of the subject push back), passing on recent notable memories (never news about the listener), wellbeing and small talk. Arguments name a cause (Overseer disagreement, grievance). Informative talk leaves listener memories and appears in the player LOG; Overseer beliefs remain evidence-driven. Social rolls include the station seed and pairing order rotates.
 - suspicion/evidence, investigation, testimony and account comparison
@@ -324,7 +324,7 @@ Required architecture:
 
 - Richer per-prisoner goals/relationships/backstory. Prisoners still get only the four `PrisonerDefinition` fields and default 50/50 relationships from `FacilitySeeder`; escape/flee/recapture behaviour is fully deterministic C#, not mind-authored motive.
 - `CrewContinuitySnapshot`/`CampaignStateSerializer` still do not carry `IsPrisoner`/`PrisonerDangerLevel`/`PrisonerViolenceBias`. Not exercised today (the assignment is always `FreshGenerated`), but would need fixing before any future scenario reuses `CampaignContinuing` roster policy with prisoners.
-- No dedicated UI treatment for an escape-in-progress beyond the generic Critical station alert and the existing prisoner inspector card; no distinct "recapture in progress" visual.
+- Dedicated containment activity presentation now projects existing deterministic state in the shared console: prisoner map tokens/Inspector cards distinguish `BREACH IN PROGRESS`, `AT LARGE` and secure custody, while crew pursuing or restraining an escapee show `RECAPTURE`; this is presentation-only and does not alter containment authority.
 
 ---
 
@@ -354,7 +354,6 @@ A code/behaviour/UI audit was run and its fixes merged in PRs #52–#62. These i
 - Crew are omniscient about each other's location: social/check-on goals walk to the target's true room (`IntentExecutionSystem` compares against `target.CurrentRoomId`). Using last-seen positions plus searching would let the player hide or misdirect people.
 - There are two separate rule-based decision ladders with different thresholds: `BrowserMindSystem` (Pages) and `RuleBasedAiDecisionService` (server fallback). Fixes have already failed to reach both (hunger ordering, PR #52). A single utility scorer (need × personality × relationship × evidence, plus seeded noise) should drive both, and the options offered to the LLM.
 - ~~Failures leave no mark~~ fixed: `IntentExecutionSystem.FailIntent` now writes a low-importance `Memory` (the same first-person reason shown in `CurrentAction`) and raises `Npc.Stress` on every failed intent. Still open: a door Overseer controls being in the way should specifically become "Overseer sealed Medical" and feed suspicion, rather than the current generic failure reason/memory.
-- All relationships start at Affinity/Trust 50 (`FacilitySeeder.cs:108`); only the default roster hard-codes one Sarah/Felix pair. Varied starting bonds (rivals, couples) would create tension from minute one.
 - The first assignment can be won passively (in an 8-hour run with no player input, it was won while 2 of 4 directives were logged failed). Worth checking the win gate against directive outcomes.
 
 **UI/UX:**
