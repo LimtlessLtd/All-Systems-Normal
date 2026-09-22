@@ -392,13 +392,41 @@ public sealed class IntentExecutionSystem
             return;
         }
 
-        _actions.TryApply(
-            state,
-            npc.Id,
-            new NpcAction(intent.Action, door.Id, intent.Reason),
-            out _);
+        if (npc.ActiveTask is { Status: CrewTaskStatus.InProgress } doorTask
+            && doorTask.Action == intent.Action
+            && doorTask.TargetId == door.Id)
+        {
+            if (!CrewTaskSystem.IsComplete(state, npc))
+                return;
 
-        npc.Intent = null;
+            if (_actions.TryApply(
+                    state,
+                    npc.Id,
+                    new NpcAction(intent.Action, door.Id, intent.Reason),
+                    out var outcome))
+            {
+                CrewTaskSystem.Succeed(state, npc, outcome);
+            }
+            else
+            {
+                CrewTaskSystem.Fail(state, npc, outcome);
+            }
+
+            npc.Intent = null;
+            return;
+        }
+
+        npc.CurrentAction = new NpcAction(
+            intent.Action,
+            door.Id,
+            $"Operating {door.Id}.");
+        CrewTaskSystem.Start(
+            state,
+            npc,
+            intent.Action,
+            door.Id,
+            $"operating {door.Id}",
+            TimeSpan.FromMinutes(1));
     }
 
     private void ExecuteForceDoorIntent(
@@ -682,20 +710,57 @@ public sealed class IntentExecutionSystem
             return;
         }
 
-        if (!StationHazardSystem.TryExecuteCrewAction(
-                state,
-                npc,
-                intent.Action,
-                room,
-                out var message))
+        if (npc.ActiveTask is { Status: CrewTaskStatus.InProgress } hazardTask
+            && hazardTask.Action == intent.Action
+            && hazardTask.TargetId == room.Id)
         {
-            FailIntent(state, npc, message);
+            if (!CrewTaskSystem.IsComplete(state, npc))
+                return;
+
+            if (!StationHazardSystem.TryExecuteCrewAction(
+                    state,
+                    npc,
+                    intent.Action,
+                    room,
+                    out var message))
+            {
+                CrewTaskSystem.Fail(state, npc, message);
+                FailIntent(state, npc, message);
+                return;
+            }
+
+            CrewTaskSystem.Succeed(state, npc, message);
+            npc.CurrentAction = new NpcAction(intent.Action, room.Id, message);
+            npc.Intent = null;
+            npc.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(2);
             return;
         }
 
-        npc.CurrentAction = new NpcAction(intent.Action, room.Id, message);
-        npc.Intent = null;
-        npc.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(4);
+        var duration = intent.Action switch
+        {
+            ActionKind.FightFire => TimeSpan.FromMinutes(3),
+            ActionKind.SealHazardRoom => TimeSpan.FromMinutes(2),
+            ActionKind.VentHazardRoom => TimeSpan.FromMinutes(2),
+            _ => TimeSpan.FromMinutes(1)
+        };
+
+        npc.CurrentAction = new NpcAction(
+            intent.Action,
+            room.Id,
+            intent.Reason);
+        CrewTaskSystem.Start(
+            state,
+            npc,
+            intent.Action,
+            room.Id,
+            intent.Action switch
+            {
+                ActionKind.FightFire => $"suppressing the fire in {room.Name}",
+                ActionKind.SealHazardRoom => $"sealing hatches around {room.Name}",
+                ActionKind.VentHazardRoom => $"venting {room.Name}",
+                _ => $"responding to the hazard in {room.Name}"
+            },
+            duration);
     }
 
     private void ExecuteRoomIntent(GameState state, Npc npc, NpcIntent intent)
