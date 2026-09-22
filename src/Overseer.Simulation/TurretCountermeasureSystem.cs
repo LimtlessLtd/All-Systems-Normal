@@ -89,7 +89,7 @@ public sealed class TurretCountermeasureSystem
         turret.IsArmed = false;
         turret.TrackedNpcId = null;
         turret.CurrentTask = $"Locally disarmed by {npc.Name}.";
-        End(state, npc, $"{turret.Name} is locally disarmed.");
+        Complete(state, npc, $"{turret.Name} is locally disarmed.");
         AudioCueSystem.Emit(state, AudioCueKind.Important, npc.Id.ToString(), npc.CurrentRoomId);
         Log(state, $"{npc.Name} physically disarms {turret.Name}.");
     }
@@ -131,7 +131,7 @@ public sealed class TurretCountermeasureSystem
         turret.CurrentTask = turret.IsArmed
             ? "Remote control isolated; local armed policy remains active."
             : "Remote control isolated.";
-        End(state, npc, $"{turret.Name}'s remote control link is isolated.");
+        Complete(state, npc, $"{turret.Name}'s remote control link is isolated.");
         Log(state, $"{npc.Name} isolates {turret.Name} from Overseer's security network.");
     }
 
@@ -173,7 +173,7 @@ public sealed class TurretCountermeasureSystem
         turret.CurrentTask = turret.IsArmed
             ? "Armed but offline: dedicated power feed denied."
             : "Power feed denied.";
-        End(state, npc, $"{turret.Name}'s dedicated power feed is disabled.");
+        Complete(state, npc, $"{turret.Name}'s dedicated power feed is disabled.");
         Log(state, $"{npc.Name} disables {turret.Name}'s dedicated security power feed.");
     }
 
@@ -206,7 +206,7 @@ public sealed class TurretCountermeasureSystem
             turret.CurrentTask = "Destroyed by crew sabotage.";
         }
 
-        End(state, npc, turret.IsDestroyed
+        Complete(state, npc, turret.IsDestroyed
             ? $"{turret.Name} is disabled beyond operation."
             : $"Damaged {turret.Name}; integrity is {turret.Integrity:0}%.");
         AudioCueSystem.Emit(state, AudioCueKind.Hostile, npc.Id.ToString(), npc.CurrentRoomId);
@@ -244,7 +244,7 @@ public sealed class TurretCountermeasureSystem
         turret.TrackedNpcId = null;
         turret.NextShotAt = null;
         turret.CurrentTask = "Locally reprogrammed to safe policy.";
-        End(state, npc, $"{turret.Name} is locally reprogrammed to safe policy.");
+        Complete(state, npc, $"{turret.Name} is locally reprogrammed to safe policy.");
         AudioCueSystem.Emit(state, AudioCueKind.Important, npc.Id.ToString(), npc.CurrentRoomId);
         Log(state, $"{npc.Name} locally reprograms {turret.Name} to Safe policy.");
     }
@@ -277,16 +277,28 @@ public sealed class TurretCountermeasureSystem
         return CrewTaskSystem.IsComplete(state, npc);
     }
 
+    private static void Complete(GameState state, Npc npc, string reason)
+    {
+        if (npc.ActiveTask is { Status: CrewTaskStatus.InProgress })
+            CrewTaskSystem.Succeed(state, npc, reason);
+
+        Finish(npc, reason);
+    }
+
     private static void End(GameState state, Npc npc, string reason)
     {
-        if (npc.ActiveTask is { Status: CrewTaskStatus.InProgress } task)
-        {
-            if (state.Elapsed >= task.CompletesAt)
-                CrewTaskSystem.Succeed(state, npc, reason);
-            else
-                CrewTaskSystem.Fail(state, npc, reason);
-        }
+        // Reaching the nominal deadline is not success by itself. If a worker
+        // loses location, skill, evidence, power or a valid target before the
+        // deterministic mutation occurs, record a failed task even when the
+        // clock has reached 100%.
+        if (npc.ActiveTask is { Status: CrewTaskStatus.InProgress })
+            CrewTaskSystem.Fail(state, npc, reason);
 
+        Finish(npc, reason);
+    }
+
+    private static void Finish(Npc npc, string reason)
+    {
         npc.RoutineUntil = TimeSpan.Zero;
         npc.Intent = null;
         npc.CurrentAction = new NpcAction(ActionKind.Idle, null, reason);
