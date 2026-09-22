@@ -92,10 +92,13 @@ public sealed class StationUiPresentationPolishTests
 
         Assert.Contains("data-crop=\"@CropFixtureLabel(room, fixture)\"", home);
         Assert.Contains("data-growth-stage=\"@CropGrowthStage(room, fixture)\"", home);
-        Assert.Contains("\"harvest-ready\"", home);
-        Assert.Contains("\"young\"", home);
-        Assert.Contains("\"growing\"", home);
+        Assert.Contains("\"empty\"", home);
+        Assert.Contains("\"planting\"", home);
+        Assert.Contains("\"seedling\"", home);
         Assert.Contains("\"maturing\"", home);
+        Assert.Contains("\"harvest-ready\"", home);
+        Assert.Contains("\"harvesting\"", home);
+        Assert.Contains("\"dead\"", home);
 
         foreach (var crop in new[] { "TOMATO", "POTATO", "APPLE", "GRAPE", "BANANA", "TOBACCO", "WHEAT" })
         {
