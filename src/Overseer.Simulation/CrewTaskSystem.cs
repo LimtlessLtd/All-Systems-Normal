@@ -54,11 +54,14 @@ public static class CrewTaskSystem
             return false;
 
         return intent.Action is
-            ActionKind.SeekSafety
+            ActionKind.Move
+            or ActionKind.SeekSafety
             or ActionKind.EvacuateHazard
             or ActionKind.FightFire
             or ActionKind.SealHazardRoom
             or ActionKind.VentHazardRoom
+            or ActionKind.ForceDoor
+            or ActionKind.Attack
             or ActionKind.RequestHelp;
     }
 
