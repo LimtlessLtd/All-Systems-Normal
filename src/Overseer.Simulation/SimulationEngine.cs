@@ -97,7 +97,10 @@ public sealed class SimulationEngine
                 npc.NeedsMindReconsideration = true;
             }
 
-            var sleeping = npc.CurrentAction.Kind is ActionKind.Rest or ActionKind.Sleep;
+            // Merely having "Sleep" in CurrentAction is not restorative.
+            // The person must physically reach a bed/rest fixture first so sleep
+            // remains visible station behaviour rather than a remote state flag.
+            var sleeping = IsPhysicallyResting(state, npc);
             var scheduledSleep = CrewDutySchedule.IsSleepWindow(npc, state.Elapsed);
 
             if (scheduledSleep && !sleeping)
@@ -264,6 +267,35 @@ public sealed class SimulationEngine
                     $"T+{state.Elapsed:hh\\:mm}: CRITICAL: {npc.Name} has died — {npc.CauseOfDeath}");
             }
         }
+    }
+
+    private static bool IsPhysicallyResting(GameState state, Npc npc)
+    {
+        if (npc.CurrentAction.Kind is not (ActionKind.Rest or ActionKind.Sleep)
+            || !state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var room))
+        {
+            return false;
+        }
+
+        var fixtures = room.Fixtures.Where(fixture =>
+            npc.CurrentAction.Kind == ActionKind.Sleep
+                ? fixture.Type is FixtureType.Bed or FixtureType.MedicalBed
+                : fixture.Type is FixtureType.Bed
+                    or FixtureType.MedicalBed
+                    or FixtureType.Sofa);
+
+        foreach (var fixture in fixtures)
+        {
+            var targetX = fixture.InteractionX ?? fixture.X;
+            var targetY = fixture.InteractionY ?? fixture.Y;
+            var dx = (npc.PositionX - targetX) / 100d * room.MapWidth;
+            var dy = (npc.PositionY - targetY) / 100d * room.MapHeight;
+
+            if (Math.Sqrt((dx * dx) + (dy * dy)) <= 1.35)
+                return true;
+        }
+
+        return false;
     }
 
     private static CropKind? ChooseRawCrop(StationStores stores, Npc npc) =>
