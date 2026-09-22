@@ -96,6 +96,21 @@ public sealed class StationSessionTests
             File.ReadAllText(Path.Combine(root, "src/Overseer.Web/Components/App.razor")));
     }
 
+    [Fact]
+    public void ServerHostDoesNotPrerenderTheInteractiveRoute()
+    {
+        var root = FindRepositoryRoot();
+
+        // GameSession (StationSession) is registered scoped-per-circuit. A
+        // prerendered pass and the real interactive circuit each get their
+        // own DI scope and their own fresh session, so InitializeAsync (and
+        // its crew-generating Ollama call) would run twice on first load if
+        // prerendering were re-enabled here.
+        Assert.Contains(
+            "new InteractiveServerRenderMode(prerender: false)",
+            File.ReadAllText(Path.Combine(root, "src/Overseer.Web/Components/App.razor")));
+    }
+
     private sealed class RecordingSession()
         : StationSession(new RuleBasedOverseerMessageInterpreter(), FacilitySeeder.CreateDefault(stationSeed: 4242))
     {
