@@ -486,6 +486,67 @@ public sealed class AiDecisionServiceTests
         Assert.Null(distantIntent.TargetId);
     }
 
+    [Fact]
+    public async Task FallbackMind_UsesTheSharedElevatedHungerThresholdMatchingBrowserMind()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+
+        // BrowserMindSystem's elevated-hunger tier fires at 58; the fallback
+        // ladder used to require 62, so a value in between the two used to
+        // silently disagree about whether eating was already the priority.
+        david.Hunger = CrewNeedThresholds.HungerElevated;
+
+        var intent = await new RuleBasedAiDecisionService().DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.Eat, intent.Action);
+    }
+
+    [Fact]
+    public async Task FallbackMind_TreatsCriticalHungerAsAnEmergencyThatSupersedesTechnicalWorkMatchingBrowserMind()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+
+        david.Hunger = CrewNeedThresholds.HungerCritical + 3;
+        state.LifeSupport.IsOnline = false;
+        david.Skills["Engineering"] = 100;
+        david.Skills["Electrical"] = 100;
+        david.Skills["Operations"] = 100;
+        david.Skills["Reactor"] = 100;
+
+        // Without the critical-hunger branch (which BrowserMindSystem already
+        // checks before any technical work), the ladder would otherwise pick
+        // RestoreSystem here: repair skill is comfortably above the threshold.
+        Assert.True(CrewCounterplaySystem.BestRepairSkill(david) >= 55);
+
+        var intent = await new RuleBasedAiDecisionService().DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.Eat, intent.Action);
+    }
+
+    [Fact]
+    public async Task FallbackMind_UsesTheSharedResentmentThresholdMatchingBrowserMind()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+
+        // BrowserMindSystem's argue threshold fires at 48; the fallback ladder
+        // used to require 55, so a resentment value in between the two used
+        // to silently disagree about whether confronting them was warranted.
+        david.Relationships[sarah.Name] = new Relationship
+        {
+            PersonName = sarah.Name,
+            Resentment = CrewNeedThresholds.ResentmentArgue
+        };
+
+        var intent = await new RuleBasedAiDecisionService().DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.Argue, intent.Action);
+        Assert.Equal(sarah.Name, intent.TargetId);
+    }
+
     private sealed class StubChatClient : IChatClient
     {
         private readonly Queue<string>? _jsonResponses;
