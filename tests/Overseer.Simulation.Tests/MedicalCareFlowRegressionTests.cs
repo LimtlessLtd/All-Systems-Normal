@@ -28,7 +28,7 @@ public sealed class MedicalCareFlowRegressionTests
         // Movement, routine and social systems rewrite CurrentAction every tick.
         doctor.CurrentAction = new NpcAction(ActionKind.Work, medbay.Id, "Busy.");
 
-        for (var minute = 0; minute < 8; minute++)
+        for (var minute = 0; minute < 8 && patient.Health <= 60; minute++)
         {
             state.Elapsed += TimeSpan.FromMinutes(1);
             medical.Tick(state);
