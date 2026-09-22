@@ -6643,6 +6643,50 @@ button.turret-token {
     white-space: nowrap;
 }
 
+.crew-token.containment-breach::before,
+.crew-token.containment-at-large::before {
+    transform: translate(-50%, -50%) scale(1);
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px rgba(185, 66, 66, .18);
+}
+
+.crew-token.containment-recapture::before {
+    transform: translate(-50%, -50%) scale(1);
+    border-color: var(--warning);
+    box-shadow: 0 0 0 3px rgba(187, 124, 44, .14);
+}
+
+.crew-token.containment-breach .crew-nameplate,
+.crew-token.containment-at-large .crew-nameplate {
+    border-color: var(--danger);
+}
+
+.crew-token.containment-recapture .crew-nameplate {
+    border-color: var(--warning);
+}
+
+.containment-card {
+    border-left: 3px solid #6f787d;
+}
+
+.containment-card.secure {
+    border-left-color: #4f8068;
+}
+
+.containment-card.breach-in-progress,
+.containment-card.at-large {
+    border-left-color: var(--danger);
+}
+
+.containment-card.recapture-card {
+    border-left-color: var(--warning);
+}
+
+.containment-card .containment-state {
+    font-weight: 900;
+    letter-spacing: .06em;
+}
+
 .crew-token.is-busy:not(.hands-active) .person-arm-right {
     animation: none;
     transform: rotate(-18deg);
