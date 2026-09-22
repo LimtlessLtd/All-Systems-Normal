@@ -16,6 +16,8 @@ public sealed class StationHazardSystem
 
         TryIgniteEquipment(state);
         AdvanceFires(state, delta);
+        PropagateSmoke(state, delta);
+        ApplySmokeExposure(state, delta);
     }
 
     private static void TryIgniteEquipment(GameState state)
@@ -73,14 +75,17 @@ public sealed class StationHazardSystem
             room.CarbonDioxidePercent = Math.Clamp(room.CarbonDioxidePercent + (intensity * .00038 * minutes), 0, 20);
             room.TemperatureC = Math.Clamp(room.TemperatureC + (intensity * .0045 * minutes), -50, 180);
             room.SmokePercent = Math.Clamp(
-                room.SmokePercent + (intensity * .035 * minutes)
-                - (room.VentilationEnabled ? .35 * minutes : 0),
+                room.SmokePercent + (intensity * .05 * minutes),
                 0,
                 100);
 
+            // A healthy oxygen supply lets an unattended fire visibly escalate.
+            // Starving the compartment of oxygen remains a powerful emergent
+            // countermeasure, but conventional firefighting is intentionally
+            // not a one-click reset.
             var growth = room.OxygenPercent >= 18
-                ? .16 * minutes
-                : -.48 * minutes;
+                ? .32 * minutes
+                : -.62 * minutes;
             if (!room.IsPowered) growth -= .06 * minutes;
             room.FireIntensity = Math.Clamp(room.FireIntensity + growth, 0, 100);
 
@@ -110,10 +115,9 @@ public sealed class StationHazardSystem
                 npc.Fear = Math.Clamp(npc.Fear + (.32 * minutes), 0, 100);
                 npc.Stress = Math.Clamp(npc.Stress + (.28 * minutes), 0, 100);
 
-                var damageRate = Math.Max(0, room.FireIntensity - 32) * .008
-                    + Math.Max(0, room.SmokePercent - 35) * .004;
-                if (damageRate > 0)
-                    npc.Health = Math.Max(0, npc.Health - (damageRate * minutes));
+                var fireDamageRate = Math.Max(0, room.FireIntensity - 28) * .012;
+                if (fireDamageRate > 0)
+                    npc.Health = Math.Max(0, npc.Health - (fireDamageRate * minutes));
             }
 
             if (room.FireIntensity < .5)
@@ -124,6 +128,86 @@ public sealed class StationHazardSystem
             }
 
             TrySpread(state, room, (int)Math.Floor(state.Elapsed.TotalMinutes));
+        }
+    }
+
+    private static void PropagateSmoke(GameState state, TimeSpan delta)
+    {
+        var minutes = delta.TotalMinutes;
+        var smokeAtStart = state.Facility.Rooms.Values.ToDictionary(
+            room => room.Id,
+            room => room.SmokePercent,
+            StringComparer.OrdinalIgnoreCase);
+        var change = state.Facility.Rooms.Keys.ToDictionary(
+            id => id,
+            _ => 0d,
+            StringComparer.OrdinalIgnoreCase);
+
+        // Smoke follows the same physical open-compartment graph as atmosphere.
+        // Closed/sealed hatches therefore become a meaningful containment tool.
+        foreach (var door in state.Facility.Doors.Where(door =>
+                     door.IsOpen || door.IsManuallyOverridden))
+        {
+            var a = smokeAtStart[door.RoomAId];
+            var b = smokeAtStart[door.RoomBId];
+            var difference = a - b;
+            if (Math.Abs(difference) < .01)
+                continue;
+
+            var transfer = difference * Math.Min(.18, .045 * minutes);
+            change[door.RoomAId] -= transfer;
+            change[door.RoomBId] += transfer;
+        }
+
+        foreach (var room in state.Facility.Rooms.Values)
+        {
+            var clearing =
+                state.LifeSupport.IsOnline
+                && room.IsPowered
+                && room.VentilationEnabled
+                    ? .45 * minutes
+                    : 0;
+
+            room.SmokePercent = Math.Clamp(
+                smokeAtStart[room.Id] + change[room.Id] - clearing,
+                0,
+                100);
+        }
+    }
+
+    private static void ApplySmokeExposure(GameState state, TimeSpan delta)
+    {
+        var minutes = delta.TotalMinutes;
+
+        foreach (var npc in state.Crew.Where(npc => npc.IsAlive && npc.IsPresent))
+        {
+            if (!state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var room)
+                || room.SmokePercent < 25)
+            {
+                continue;
+            }
+
+            npc.Fear = Math.Clamp(
+                npc.Fear + (Math.Max(0, room.SmokePercent - 25) * .012 * minutes),
+                0,
+                100);
+            npc.Stress = Math.Clamp(
+                npc.Stress + (Math.Max(0, room.SmokePercent - 25) * .01 * minutes),
+                0,
+                100);
+
+            // Thick smoke becomes rapidly unsurvivable even after flames have
+            // been contained or in a neighbouring compartment.
+            var smokeDamageRate =
+                Math.Max(0, room.SmokePercent - 45) * .018
+                + Math.Max(0, room.SmokePercent - 80) * .035;
+            if (smokeDamageRate > 0)
+            {
+                npc.Health = Math.Max(
+                    0,
+                    npc.Health - (smokeDamageRate * minutes));
+                npc.NeedsMindReconsideration = true;
+            }
         }
     }
 
@@ -188,9 +272,9 @@ public sealed class StationHazardSystem
                     npc.Skills.GetValueOrDefault("Engineering"),
                     npc.Skills.GetValueOrDefault("Security"));
                 skill = CrewConditionRules.EffectiveSkill(npc, skill);
-                var reduction = 18 + (skill * .22);
+                var reduction = 6 + (skill * .08);
                 room.FireIntensity = Math.Max(0, room.FireIntensity - reduction);
-                room.SmokePercent = Math.Max(0, room.SmokePercent - 6);
+                room.SmokePercent = Math.Max(0, room.SmokePercent - 3);
                 npc.Stress = Math.Clamp(npc.Stress + 3, 0, 100);
                 message = room.FireIntensity <= 0
                     ? $"{npc.Name} extinguishes the fire in {room.Name}."
