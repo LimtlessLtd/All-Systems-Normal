@@ -41,15 +41,23 @@ public sealed class CrewProvisioningSystemTests
     }
 
     [Fact]
-    public void TheHydroponicsBayIsPlantedWithStaggeredBeds()
+    public void TheHydroponicsBayStartsEmptyAndMapsEveryPhysicalGrowBay()
     {
         var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var fixtures = state.Facility.Rooms["hydroponics"].Fixtures
+            .Where(fixture => fixture.Type == FixtureType.GrowBed)
+            .ToList();
 
         Assert.NotEmpty(state.CropBeds);
-        Assert.All(state.CropBeds, bed => Assert.Equal("hydroponics", bed.RoomId));
-
-        // A rolling harvest rather than everything ripening at once.
-        Assert.True(state.CropBeds.Select(b => Math.Round(b.Growth)).Distinct().Count() > 1);
+        Assert.Equal(fixtures.Count, state.CropBeds.Count);
+        Assert.All(state.CropBeds, bed =>
+        {
+            Assert.Equal("hydroponics", bed.RoomId);
+            Assert.Equal(CropLifecycleState.Empty, bed.Lifecycle);
+            Assert.Equal(0, bed.Growth);
+            Assert.Contains(fixtures, fixture => fixture.Label == bed.FixtureLabel);
+            Assert.NotNull(bed.RequestedCrop);
+        });
     }
 
     [Fact]
@@ -57,6 +65,7 @@ public sealed class CrewProvisioningSystemTests
     {
         var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
         var bed = state.CropBeds[0];
+        bed.Lifecycle = CropLifecycleState.Seedling;
         bed.Growth = 10;
         bed.Water = 100;
         bed.Nutrients = 100;
@@ -76,6 +85,7 @@ public sealed class CrewProvisioningSystemTests
     {
         var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
         var bed = state.CropBeds[0];
+        bed.Lifecycle = CropLifecycleState.Maturing;
         bed.Growth = 50;
         bed.Water = 100;
         bed.Nutrients = 100;
@@ -98,6 +108,7 @@ public sealed class CrewProvisioningSystemTests
     {
         var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
         var bed = state.CropBeds[0];
+        bed.Lifecycle = CropLifecycleState.Maturing;
         bed.Growth = 40;
         bed.Water = 0;
         bed.Nutrients = 100;
@@ -113,6 +124,7 @@ public sealed class CrewProvisioningSystemTests
     {
         var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
         var bed = state.CropBeds[0];
+        bed.Lifecycle = CropLifecycleState.ReadyToHarvest;
         bed.Growth = 100;
         bed.Water = 100;
         bed.Nutrients = 100;
@@ -154,6 +166,8 @@ public sealed class CrewProvisioningSystemTests
 
         Assert.True(state.Stores.Produce > before);
         Assert.Equal(0, bed.Growth);
+        Assert.Equal(CropLifecycleState.Empty, bed.Lifecycle);
+        Assert.Equal(CrewTaskStatus.Succeeded, worker.ActiveTask?.Status);
     }
 
     [Fact]
