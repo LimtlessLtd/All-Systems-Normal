@@ -501,16 +501,19 @@ public sealed class LocalMovementSystem
 
         SetFacing(entity, dx, dy);
 
-        if (distance <= maxDistance || distance <= 0.001)
+        if (distance <= 0.001)
         {
-            if (distance > .05)
-                MarkLocallyMoving(entity);
             entity.PositionX = destination.X;
             entity.PositionY = destination.Y;
             return true;
         }
 
-        var scale = maxDistance / distance;
+        // Never snap to a later waypoint through geometry. The old fast-path
+        // returned before checking the full segment whenever the destination
+        // happened to fit inside this tick's movement budget, which made crew
+        // visibly cut through fixtures and corners.
+        var canReachDestinationThisTick = distance <= maxDistance;
+        var scale = canReachDestinationThisTick ? 1d : maxDistance / distance;
         var nextX = entity.PositionX + (dx * scale);
         var nextY = entity.PositionY + (dy * scale);
 
@@ -536,7 +539,10 @@ public sealed class LocalMovementSystem
         MarkLocallyMoving(entity);
         entity.PositionX = Math.Clamp(nextX, 2, 98);
         entity.PositionY = Math.Clamp(nextY, 2, 98);
-        return false;
+
+        return canReachDestinationThisTick
+            && Math.Abs(entity.PositionX - destination.X) <= 0.001
+            && Math.Abs(entity.PositionY - destination.Y) <= 0.001;
     }
 
     private static void MarkLocallyMoving(IStationMobileEntity entity)
