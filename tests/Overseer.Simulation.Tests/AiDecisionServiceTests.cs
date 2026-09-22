@@ -73,6 +73,90 @@ public sealed class AiDecisionServiceTests
     }
 
     [Fact]
+    public async Task OllamaDecision_SetsAGenerousContextWindowSoTheRulesAreNotTruncated()
+    {
+        using var client = new StubChatClient(
+            """
+            {
+              "Action": "Idle",
+              "Goal": "Wait and watch.",
+              "Reason": "Nothing urgent right now.",
+              "Urgency": 5
+            }
+            """);
+
+        var service = new OllamaAiDecisionService(
+            client,
+            new RuleBasedAiDecisionService());
+
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+
+        await service.DecideAsync(david, state);
+
+        var options = Assert.Single(client.CapturedOptions);
+        Assert.NotNull(options?.AdditionalProperties);
+        Assert.Equal(8192, options!.AdditionalProperties!["num_ctx"]);
+
+        var trace = Assert.Single(state.CognitionTelemetry);
+        Assert.Contains("num_ctx: 8192", trace.Prompt);
+    }
+
+    [Fact]
+    public async Task OllamaDecision_RetriesOnceAfterUnparseableOutputThenSucceeds()
+    {
+        using var client = new StubChatClient(
+            [
+                "this is not JSON at all",
+                """
+                {
+                  "Action": "Move",
+                  "TargetId": "engineering",
+                  "Goal": "Check the engineering systems.",
+                  "Reason": "Recovered after a malformed first response.",
+                  "Urgency": 60
+                }
+                """
+            ]);
+
+        var service = new OllamaAiDecisionService(
+            client,
+            new RuleBasedAiDecisionService());
+
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+
+        var intent = await service.DecideAsync(david, state);
+
+        Assert.Equal(2, client.CallCount);
+        Assert.Equal(ActionKind.Move, intent.Action);
+        Assert.Equal("engineering", intent.TargetId);
+        Assert.Equal("Ollama", intent.Source);
+
+        var trace = Assert.Single(state.CognitionTelemetry);
+        Assert.Contains("RETRY:", trace.Prompt);
+    }
+
+    [Fact]
+    public async Task OllamaDecision_FallsBackAfterASecondUnparseableRetryRatherThanLoopingForever()
+    {
+        using var client = new StubChatClient(
+            ["still not JSON", "also not JSON"]);
+
+        var service = new OllamaAiDecisionService(
+            client,
+            new RuleBasedAiDecisionService());
+
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+
+        var intent = await service.DecideAsync(david, state);
+
+        Assert.Equal(2, client.CallCount);
+        Assert.Equal("Fallback", intent.Source);
+    }
+
+    [Fact]
     public async Task InvalidModelTarget_IsReducedToSafeIdle()
     {
         using var client = new StubChatClient(
@@ -371,13 +455,23 @@ public sealed class AiDecisionServiceTests
 
     private sealed class StubChatClient : IChatClient
     {
-        private readonly string? _json;
+        private readonly Queue<string>? _jsonResponses;
         private readonly Exception? _exception;
         private readonly object? _rawRepresentation;
+        private string? _lastJson;
+
+        public int CallCount { get; private set; }
+
+        public List<ChatOptions?> CapturedOptions { get; } = [];
 
         public StubChatClient(string json, object? rawRepresentation = null)
+            : this([json], rawRepresentation)
         {
-            _json = json;
+        }
+
+        public StubChatClient(IEnumerable<string> jsonResponses, object? rawRepresentation = null)
+        {
+            _jsonResponses = new Queue<string>(jsonResponses);
             _rawRepresentation = rawRepresentation;
         }
 
@@ -388,14 +482,22 @@ public sealed class AiDecisionServiceTests
             ChatOptions? options = null,
             CancellationToken cancellationToken = default)
         {
+            CallCount++;
+            CapturedOptions.Add(options);
+
             if (_exception is not null)
             {
                 return Task.FromException<ChatResponse>(_exception);
             }
 
+            // Repeats the final queued response for any call beyond the
+            // number of responses supplied, so a test can assert exactly
+            // how many attempts a retry made without pre-sizing the queue.
+            _lastJson = _jsonResponses!.Count > 0 ? _jsonResponses.Dequeue() : _lastJson;
+
             return Task.FromResult(
                 new ChatResponse(
-                    new ChatMessage(ChatRole.Assistant, _json!))
+                    new ChatMessage(ChatRole.Assistant, _lastJson!))
                 {
                     RawRepresentation = _rawRepresentation
                 });

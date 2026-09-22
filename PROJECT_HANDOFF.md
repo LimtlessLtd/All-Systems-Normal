@@ -345,8 +345,8 @@ A code/behaviour/UI audit was run and its fixes merged in PRs #52–#62. These i
 
 - ~~On first load the server generates the crew twice~~ fixed: `Components/App.razor`'s `PageRenderMode` now disables prerender (`new InteractiveServerRenderMode(prerender: false)`), so only the real interactive circuit runs `GameSession.InitializeAsync`. Guarded by `StationSessionTests.ServerHostDoesNotPrerenderTheInteractiveRoute`. Note the tradeoff: the server now sends no prerendered HTML, so first paint is blank until the SignalR circuit connects and finishes crew generation.
 - `GameSession` is scoped per circuit, so opening `/debug` in a **new tab** shows a fresh session, not the player's game. In-app navigation keeps the same circuit.
-- The Ollama decision call never sets `num_ctx`. The prompt is about 3.9k tokens (every one of the 49 actions plus every room's atmosphere), so a 4B model's default context may silently cut off the rules at the top. Check the raw prompts in `/debug`.
-- Invalid model output quietly becomes `ActionKind.Idle` (`OllamaAiDecisionService`). One retry with the validation error would recover most of these.
+- ~~The Ollama decision call never sets `num_ctx`~~ fixed: `OllamaAiDecisionService` now sets `num_ctx` to 8192 via OllamaSharp's `ChatOptions.AddOllamaOption(OllamaOption.NumCtx, ...)`, well clear of the ~3.9k-token prompt (every action plus every room's atmosphere) that could previously be silently truncated against Ollama's 2048-token default. Visible in the `/debug` request trace.
+- ~~Invalid model output quietly becomes `ActionKind.Idle`~~ fixed: `OllamaAiDecisionService` now retries once with a corrective instruction appended to the same prompt when the model's output cannot be parsed as the decision schema, before falling back to `RuleBasedAiDecisionService`. Covered by `AiDecisionServiceTests` (context window option, successful retry, and fallback after two failed parses).
 - `dotnet run` in Production mode serves no static assets (no static-web-assets manifest). Use Development locally, or `dotnet publish` for Production.
 
 **Emergent behaviour:**
