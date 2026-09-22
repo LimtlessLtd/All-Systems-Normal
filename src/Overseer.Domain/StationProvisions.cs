@@ -216,7 +216,7 @@ public static class StationProvisionRules
     /// <summary>Simulated minutes each job takes.</summary>
     public const int TendMinutes = 8;
 
-    public const int PlantMinutes = 8;
+    public const int PlantMinutes = 4;
 
     public const int HarvestMinutes = 10;
 
