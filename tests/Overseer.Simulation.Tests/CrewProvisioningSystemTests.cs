@@ -171,6 +171,118 @@ public sealed class CrewProvisioningSystemTests
     }
 
     [Fact]
+    public void EveryPhysicalGrowBayIsIndependentlySelectable()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var physicalBeds = state.Facility.Rooms["hydroponics"].Fixtures
+            .Count(fixture => fixture.Type == FixtureType.GrowBed);
+
+        Assert.Equal(physicalBeds, state.CropBeds.Count);
+        Assert.Equal(state.CropBeds.Count, state.CropBeds.Select(bed => bed.Id).Distinct().Count());
+
+        foreach (var bed in state.CropBeds)
+        {
+            Assert.True(StationInspectionSystem.Exists(
+                state,
+                new StationSelection(StationSelectionKind.CropBed, bed.Id)));
+        }
+
+        state.CropBeds[0].IsEnabled = false;
+        Assert.False(state.CropBeds[0].IsEnabled);
+        Assert.True(state.CropBeds[1].IsEnabled);
+    }
+
+    [Fact]
+    public void PlantingRequiresAWorkerAndConsumesSeedInventory()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var worker = state.Crew[0];
+        worker.Skills["Horticulture"] = 100;
+        worker.CurrentRoomId = "hydroponics";
+        worker.Hunger = 0;
+        worker.Intent = null;
+        worker.CurrentAction = new NpcAction(ActionKind.Idle, null, "Available for planting.");
+
+        foreach (var other in state.Crew.Skip(1))
+        {
+            other.Intent = new NpcIntent(
+                ActionKind.Rest,
+                null,
+                "Protected test activity.",
+                "Keep planting ownership deterministic.",
+                100,
+                "Test",
+                state.Elapsed);
+        }
+
+        var system = new CrewProvisioningSystem();
+        system.Tick(state, Minute);
+
+        Assert.Equal(ActionKind.TendCrops, worker.ProvisioningJob);
+        var bed = state.CropBeds.Single(candidate => candidate.Id == worker.TendingBedId);
+        var crop = Assert.IsType<CropKind>(bed.RequestedCrop);
+        var seedsBefore = state.Stores.Seeds[crop];
+
+        system.Tick(state, Minute);
+        Assert.Equal(CropLifecycleState.Planting, bed.Lifecycle);
+        Assert.Equal(CrewTaskStatus.InProgress, worker.ActiveTask?.Status);
+
+        state.Elapsed = worker.ProvisioningCompletesAt!.Value;
+        system.Tick(state, Minute);
+
+        Assert.Equal(CropLifecycleState.Seedling, bed.Lifecycle);
+        Assert.Equal(crop, bed.Crop);
+        Assert.Equal(seedsBefore - 1, state.Stores.Seeds[crop], 6);
+        Assert.Equal(CrewTaskStatus.Succeeded, worker.ActiveTask?.Status);
+    }
+
+    [Fact]
+    public void DisabledPlantedBayStopsGrowingThenDiesDeterministically()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var bed = state.CropBeds[0];
+        bed.Lifecycle = CropLifecycleState.Maturing;
+        bed.Growth = 60;
+        bed.Water = 100;
+        bed.Nutrients = 100;
+        bed.IsEnabled = false;
+        state.Elapsed = TimeSpan.FromHours(StationProvisionRules.DisabledCropDeathHours + 1);
+        bed.DisabledSince = TimeSpan.Zero;
+
+        var before = bed.Growth;
+        new CrewProvisioningSystem().Tick(state, Minute);
+
+        Assert.Equal(before, bed.Growth);
+        Assert.Equal(CropLifecycleState.Dead, bed.Lifecycle);
+    }
+
+    [Fact]
+    public void PhysicalBaySizeControlsHarvestYield()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var ordered = state.CropBeds.OrderBy(bed => bed.Capacity).ToList();
+
+        Assert.True(ordered[^1].Capacity > ordered[0].Capacity);
+        Assert.True(ordered[^1].HarvestYield > ordered[0].HarvestYield);
+        Assert.Equal(
+            ordered[^1].Capacity * StationProvisionRules.YieldPerCapacityUnit,
+            ordered[^1].HarvestYield,
+            6);
+    }
+
+    [Fact]
+    public void DefaultStationGrowCapacitySustainsItsPlannedCrew()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var installed = state.CropBeds.Sum(bed => bed.Capacity);
+        var required = StationProvisionRules.RequiredHydroponicsCapacity(12);
+
+        Assert.True(
+            installed >= required,
+            $"Installed hydroponics capacity {installed:0.00} is below 12-crew requirement {required:0.00}.");
+    }
+
+    [Fact]
     public void EatingWithNoMealsInStoreDoesNotRelieveHunger()
     {
         var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
