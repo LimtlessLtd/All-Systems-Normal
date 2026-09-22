@@ -657,11 +657,11 @@ public static class StationGenerator
         StationIdentity identity,
         SeededRandom random)
     {
-        var (baseWidth, minimum, maximum) = identity.Budget switch
+        var baseWidth = identity.Budget switch
         {
-            StationBudgetClass.Frugal => (3.7, 3.5, 4.0),
-            StationBudgetClass.Premium => (4.7, 4.2, 5.0),
-            _ => (4.1, 3.7, 4.5)
+            StationBudgetClass.Frugal => 3.8,
+            StationBudgetClass.Premium => 5.1,
+            _ => 4.4
         };
 
         if (identity.Size == StationSizeClass.Compact)
@@ -669,11 +669,10 @@ public static class StationGenerator
             baseWidth -= 0.2;
         }
 
-        // Keep the station's topology thickness inside the same physical range
-        // that functional access tunnels historically occupied. Access tunnels
-        // now copy this actual cross-section exactly, so alignment improves
-        // without making room packing materially denser than before.
-        return Math.Clamp(baseWidth + random.NextDouble(-0.2, 0.3), minimum, maximum);
+        // Preserve the established topology profile. Access tunnels align to the
+        // corridor they actually meet; topology widths must not be globally
+        // narrowed just to make those local junctions easier to pack.
+        return Math.Clamp(baseWidth + random.NextDouble(-0.25, 0.45), 3.5, 5.6);
     }
 
     private static void BuildTopology(
@@ -736,11 +735,11 @@ public static class StationGenerator
             var north = random.NextDouble() < 0.5;
             if (north)
             {
-                AddVertical(facility, "corridor-service", "Service Spur", x, 24, y - (t / 2), t);
+                AddVertical(facility, "corridor-service", "Service Spur", x, 24, y - (t / 2), Math.Min(t, 4.2));
             }
             else
             {
-                AddVertical(facility, "corridor-service", "Service Spur", x, y + (t / 2), 76, t);
+                AddVertical(facility, "corridor-service", "Service Spur", x, y + (t / 2), 76, Math.Min(t, 4.2));
             }
         }
     }
@@ -909,7 +908,7 @@ public static class StationGenerator
                         RoomType.Corridor,
                         x,
                         (top + bottom) / 2,
-                        t,
+                        Math.Min(t, 4.4),
                         bottom - top);
                 }
             }
@@ -932,7 +931,7 @@ public static class StationGenerator
                         (left + right) / 2,
                         y,
                         right - left,
-                        t);
+                        Math.Min(t, 4.4));
                 }
             }
 
@@ -1129,7 +1128,7 @@ public static class StationGenerator
         {
             case AttachmentSide.North:
             {
-                if (corridorBounds.Width < passageWidth + 0.2)
+                if (corridorBounds.Width + OverlapTolerance < passageWidth)
                 {
                     return null;
                 }
@@ -1149,7 +1148,7 @@ public static class StationGenerator
 
             case AttachmentSide.South:
             {
-                if (corridorBounds.Width < passageWidth + 0.2)
+                if (corridorBounds.Width + OverlapTolerance < passageWidth)
                 {
                     return null;
                 }
@@ -1169,7 +1168,7 @@ public static class StationGenerator
 
             case AttachmentSide.West:
             {
-                if (corridorBounds.Height < passageWidth + 0.2)
+                if (corridorBounds.Height + OverlapTolerance < passageWidth)
                 {
                     return null;
                 }
@@ -1189,7 +1188,7 @@ public static class StationGenerator
 
             case AttachmentSide.East:
             {
-                if (corridorBounds.Height < passageWidth + 0.2)
+                if (corridorBounds.Height + OverlapTolerance < passageWidth)
                 {
                     return null;
                 }
