@@ -104,6 +104,39 @@ public sealed class CrewMaintenanceSystemTests
     }
 
     [Fact]
+    public void HandsOnMaintenancePublishesAuthoritativeTaskProgress()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var device = state.Devices["lighting:medical"];
+        device.Condition = 0;
+
+        var worker = state.Crew.First(npc => StationUpkeepRules.CanService(npc, device));
+        worker.CurrentRoomId = device.RoomId;
+        worker.ServicingDeviceId = device.Id;
+        worker.Intent = new NpcIntent(
+            ActionKind.Repair,
+            device.RoomId,
+            "Repair it.",
+            "The light system needs service.",
+            60,
+            "Test",
+            state.Elapsed);
+
+        var maintenance = new CrewMaintenanceSystem();
+        maintenance.Tick(state);
+
+        Assert.NotNull(worker.ServiceCompletesAt);
+        Assert.Equal(CrewTaskStatus.InProgress, worker.ActiveTask?.Status);
+        Assert.Equal(ActionKind.Repair, worker.ActiveTask?.Action);
+        Assert.Equal(device.Id, worker.ActiveTask?.TargetId);
+
+        var duration = worker.ServiceCompletesAt!.Value - state.Elapsed;
+        state.Elapsed += TimeSpan.FromTicks(duration.Ticks / 2);
+
+        Assert.InRange(CrewTaskSystem.Progress(state, worker), 49, 51);
+    }
+
+    [Fact]
     public void WorkCannotProceedInAnUnpoweredCompartment()
     {
         var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
