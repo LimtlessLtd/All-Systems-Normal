@@ -89,7 +89,8 @@ public sealed class EnvironmentSystem
         var queue = new Queue<string>();
 
         foreach (var source in state.Facility.Rooms.Values.Where(room =>
-                     room.HasExteriorHatch && room.ExteriorHatchOpen))
+                     room.HasHullBreach
+                     || (room.HasExteriorHatch && room.ExteriorHatchOpen)))
         {
             depths[source.Id] = 0;
             queue.Enqueue(source.Id);
