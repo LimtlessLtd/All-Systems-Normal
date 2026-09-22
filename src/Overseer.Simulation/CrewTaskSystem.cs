@@ -47,6 +47,7 @@ public static class CrewTaskSystem
     public static void Succeed(GameState state, Npc npc, string outcome)
     {
         if (npc.ActiveTask is not { } task) return;
+        task.FinalProgressPercent = 100;
         task.Status = CrewTaskStatus.Succeeded;
         task.Outcome = outcome;
         Log(state, $"{npc.Name} completes {task.Description}: {outcome}");
@@ -55,6 +56,7 @@ public static class CrewTaskSystem
     public static void Interrupt(GameState state, Npc npc, string reason)
     {
         if (npc.ActiveTask is not { Status: CrewTaskStatus.InProgress } task) return;
+        task.FinalProgressPercent = task.ProgressPercent(state.Elapsed);
         task.Status = CrewTaskStatus.Interrupted;
         task.Outcome = reason;
         Log(state, $"{npc.Name}'s task is interrupted ({task.Description}): {reason}");
@@ -63,6 +65,7 @@ public static class CrewTaskSystem
     public static void Fail(GameState state, Npc npc, string reason)
     {
         if (npc.ActiveTask is not { } task) return;
+        task.FinalProgressPercent = task.ProgressPercent(state.Elapsed);
         task.Status = CrewTaskStatus.Failed;
         task.Outcome = reason;
         Log(state, $"{npc.Name}'s task fails ({task.Description}): {reason}");
