@@ -205,6 +205,66 @@ public sealed class CrewRoutineSystemTests
     }
 
     [Fact]
+    public void ScheduledSleepBecomesAVisiblePhysicalBedRoutineAndRecoversFatigue()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var npc = state.Crew.First(candidate =>
+            !candidate.IsPrisoner
+            && !CrewDutySchedule.IsNightShift(candidate));
+
+        state.Elapsed = TimeSpan.FromHours(16); // 22:00 station-local for day shift.
+        npc.CurrentRoomId = "quarters";
+        npc.PositionX = 50;
+        npc.PositionY = 50;
+        npc.Hunger = 0;
+        npc.BladderNeed = 0;
+        npc.HygieneNeed = 0;
+        npc.RecreationNeed = 0;
+        npc.SocialNeed = 0;
+        npc.Fatigue = 82;
+        npc.SleepDebtMinutes = 240;
+        npc.Intent = null;
+        npc.Movement = null;
+        npc.RoutineUntil = TimeSpan.Zero;
+
+        new CrewRoutineSystem().Tick(state);
+
+        Assert.Equal(ActionKind.Sleep, npc.CurrentAction.Kind);
+        Assert.True(npc.RoutineUntil > state.Elapsed);
+
+        var beforeX = npc.PositionX;
+        var beforeY = npc.PositionY;
+        new LocalMovementSystem().Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.True(
+            npc.IsLocallyMoving
+            || Math.Abs(npc.PositionX - beforeX) > .001
+            || Math.Abs(npc.PositionY - beforeY) > .001,
+            "Sleeping crew should physically move toward a bed rather than sleep remotely.");
+
+        var fatigueBefore = npc.Fatigue;
+        var debtBefore = npc.SleepDebtMinutes;
+        new SimulationEngine().Tick(state, TimeSpan.FromMinutes(60));
+
+        Assert.True(npc.Fatigue < fatigueBefore);
+        Assert.True(npc.SleepDebtMinutes < debtBefore);
+    }
+
+    [Fact]
+    public void MissedSleepProducesDeterministicMovementAndCognitionPenalties()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew[0];
+        npc.Fatigue = 88;
+        npc.SleepDebtMinutes = 360;
+
+        Assert.True(CrewConditionRules.MovementMultiplier(npc) < 1);
+        Assert.True(CrewConditionRules.CognitivePenalty(npc) > 0);
+        Assert.True(
+            CrewConditionRules.EffectiveSkill(npc, 70) < 70);
+    }
+
+    [Fact]
     public void HygieneNeedChoosesTheWashroom()
     {
         var state = FacilitySeeder.CreateDefault();
