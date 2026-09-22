@@ -661,6 +661,21 @@ public sealed class LocalMovementSystem
 
         if (double.IsPositiveInfinity(distance[0]))
         {
+            // Fixture-corner visibility graphs can dead-end when several wall
+            // fixtures form a concave pocket. Fall back to a tiny deterministic
+            // occupancy grid so actors can compose a route through genuine gaps
+            // instead of repeatedly selecting the same attractive dead-end.
+            if (TryGridDetourPoint(
+                    room,
+                    startX,
+                    startY,
+                    targetX,
+                    targetY,
+                    out var gridWaypoint))
+            {
+                return gridWaypoint;
+            }
+
             return nodes
                 .Skip(1)
                 .Where(node =>
@@ -693,6 +708,166 @@ public sealed class LocalMovementSystem
         }
 
         return (targetX, targetY);
+    }
+
+    private static bool TryGridDetourPoint(
+        Room room,
+        double startX,
+        double startY,
+        double targetX,
+        double targetY,
+        out (double X, double Y) waypoint)
+    {
+        const int minimum = 4;
+        const int maximum = 96;
+        const int step = 4;
+        const int count = ((maximum - minimum) / step) + 1;
+        var nodeCount = count * count;
+
+        static int Index(int xIndex, int yIndex) => (yIndex * count) + xIndex;
+        static (int X, int Y) GridIndex(int index) => (index % count, index / count);
+        static (double X, double Y) Point(int xIndex, int yIndex) =>
+            (minimum + (xIndex * step), minimum + (yIndex * step));
+
+        var walkable = new bool[nodeCount];
+        for (var y = 0; y < count; y++)
+        {
+            for (var x = 0; x < count; x++)
+            {
+                var point = Point(x, y);
+                walkable[Index(x, y)] = IsWalkable(room, point.X, point.Y);
+            }
+        }
+
+        var startIndex = Enumerable.Range(0, nodeCount)
+            .Where(index => walkable[index])
+            .Select(index =>
+            {
+                var grid = GridIndex(index);
+                var point = Point(grid.X, grid.Y);
+                return (Index: index, Point: point);
+            })
+            .Where(candidate =>
+                !SegmentHitsFixture(
+                    room,
+                    startX,
+                    startY,
+                    candidate.Point.X,
+                    candidate.Point.Y))
+            .OrderBy(candidate =>
+                Distance(startX, startY, candidate.Point.X, candidate.Point.Y))
+            .ThenBy(candidate => candidate.Index)
+            .Select(candidate => (int?)candidate.Index)
+            .FirstOrDefault();
+
+        if (startIndex is null)
+        {
+            waypoint = default;
+            return false;
+        }
+
+        var distances = Enumerable.Repeat(double.PositiveInfinity, nodeCount).ToArray();
+        var previous = Enumerable.Repeat(-1, nodeCount).ToArray();
+        var queue = new PriorityQueue<int, double>();
+        distances[startIndex.Value] = 0;
+
+        var startGrid = GridIndex(startIndex.Value);
+        var startPoint = Point(startGrid.X, startGrid.Y);
+        queue.Enqueue(
+            startIndex.Value,
+            Distance(startPoint.X, startPoint.Y, targetX, targetY));
+
+        var reached = -1;
+        var directions = new (int X, int Y)[]
+        {
+            (-1, -1), (0, -1), (1, -1),
+            (-1,  0),          (1,  0),
+            (-1,  1), (0,  1), (1,  1)
+        };
+
+        while (queue.TryDequeue(out var current, out _))
+        {
+            var currentGrid = GridIndex(current);
+            var currentPoint = Point(currentGrid.X, currentGrid.Y);
+
+            if (!SegmentHitsFixture(
+                    room,
+                    currentPoint.X,
+                    currentPoint.Y,
+                    targetX,
+                    targetY))
+            {
+                reached = current;
+                break;
+            }
+
+            foreach (var direction in directions)
+            {
+                var nextX = currentGrid.X + direction.X;
+                var nextY = currentGrid.Y + direction.Y;
+                if (nextX < 0 || nextX >= count || nextY < 0 || nextY >= count)
+                    continue;
+
+                var next = Index(nextX, nextY);
+                if (!walkable[next])
+                    continue;
+
+                var nextPoint = Point(nextX, nextY);
+                if (SegmentHitsFixture(
+                        room,
+                        currentPoint.X,
+                        currentPoint.Y,
+                        nextPoint.X,
+                        nextPoint.Y))
+                {
+                    continue;
+                }
+
+                var proposed = distances[current]
+                    + Distance(
+                        currentPoint.X,
+                        currentPoint.Y,
+                        nextPoint.X,
+                        nextPoint.Y);
+
+                if (proposed + .001 >= distances[next])
+                    continue;
+
+                distances[next] = proposed;
+                previous[next] = current;
+                var heuristic = Distance(nextPoint.X, nextPoint.Y, targetX, targetY);
+                queue.Enqueue(next, proposed + heuristic);
+            }
+        }
+
+        if (reached < 0)
+        {
+            waypoint = default;
+            return false;
+        }
+
+        var route = new List<int>();
+        for (var current = reached; current >= 0; current = previous[current])
+        {
+            route.Add(current);
+            if (current == startIndex.Value)
+                break;
+        }
+        route.Reverse();
+
+        foreach (var index in route)
+        {
+            var grid = GridIndex(index);
+            var candidate = Point(grid.X, grid.Y);
+            if (Distance(startX, startY, candidate.X, candidate.Y) > .5)
+            {
+                waypoint = candidate;
+                return true;
+            }
+        }
+
+        waypoint = (targetX, targetY);
+        return true;
     }
 
     private static bool SegmentHitsFixture(
