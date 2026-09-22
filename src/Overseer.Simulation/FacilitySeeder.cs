@@ -106,12 +106,13 @@ public static class FacilitySeeder
 
             foreach (var other in state.Crew.Where(other => other.Id != npc.Id))
             {
+                var bond = InitialBond(npc.Name, other.Name);
                 npc.Relationships[other.Name] = new Relationship
                 {
                     PersonName = other.Name,
-                    Affinity = 50,
-                    Trust = 50,
-                    Resentment = 0,
+                    Affinity = bond.Affinity,
+                    Trust = bond.Trust,
+                    Resentment = bond.Resentment,
                     Attraction = InitialAttraction(npc.Name, other.Name)
                 };
             }
@@ -1074,6 +1075,58 @@ public static class FacilitySeeder
             }
 
             return 20 + (hash % 51);
+        }
+    }
+
+    /// <summary>
+    /// Every crew roster (demo, seeded-browser or Ollama-generated) otherwise starts
+    /// every pair at a flat, identical 50/50 Affinity/Trust with zero Resentment, so
+    /// there is no social texture until play creates one. A small, deterministic
+    /// slice of pairs instead start as rivals or close allies: the same names always
+    /// produce the same bond for a given pairing (order-independent), while each
+    /// direction still gets its own small jitter so a bond need not be perfectly
+    /// symmetric. This never touches the explicit demo overrides layered on afterward
+    /// in <see cref="ApplyDemoSocialHistory"/>.
+    /// </summary>
+    private static (double Affinity, double Trust, double Resentment) InitialBond(string observer, string other)
+    {
+        var pairKey = string.CompareOrdinal(observer, other) <= 0
+            ? $"{observer}~{other}"
+            : $"{other}~{observer}";
+        var pairHash = StableHashText(pairKey);
+        var spread = pairHash % 16; // 0-15, shared magnitude for both sides of the pair.
+        var directionalJitter = (double)(StableHashText($"{observer}>{other}#bond") % 9) - 4; // -4..+4.
+
+        return (pairHash % 100) switch
+        {
+            < 12 => ( // ~12% of pairs start as rivals.
+                Affinity: Math.Clamp(28 - spread + directionalJitter, 5, 40),
+                Trust: Math.Clamp(30 - spread + directionalJitter, 5, 40),
+                Resentment: Math.Clamp(18 + spread + directionalJitter, 10, 45)),
+            < 24 => ( // ~12% of pairs start as close bonds (friends, couples).
+                Affinity: Math.Clamp(68 + spread + directionalJitter, 60, 92),
+                Trust: Math.Clamp(66 + spread + directionalJitter, 58, 90),
+                Resentment: 0),
+            _ => ( // Everyone else keeps a near-neutral start with light variation.
+                Affinity: Math.Clamp(50 + (directionalJitter * 2), 35, 65),
+                Trust: Math.Clamp(50 + (directionalJitter * 2), 35, 65),
+                Resentment: 0)
+        };
+    }
+
+    private static uint StableHashText(string text)
+    {
+        unchecked
+        {
+            uint hash = 2166136261;
+
+            foreach (var ch in text)
+            {
+                hash ^= ch;
+                hash *= 16777619;
+            }
+
+            return hash;
         }
     }
 
