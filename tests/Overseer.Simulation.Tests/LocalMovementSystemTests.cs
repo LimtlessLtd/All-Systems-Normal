@@ -219,13 +219,22 @@ public sealed class LocalMovementSystemTests
             Math.Pow(robot.PositionX - targetX, 2)
             + Math.Pow(robot.PositionY - targetY, 2));
 
-        new LocalMovementSystem().Tick(state, TimeSpan.FromMinutes(1));
+        var movement = new LocalMovementSystem();
+        for (var step = 0; step < 12; step++)
+        {
+            movement.Tick(state, TimeSpan.FromMinutes(1));
+        }
 
         var after = Math.Sqrt(
             Math.Pow(robot.PositionX - targetX, 2)
             + Math.Pow(robot.PositionY - targetY, 2));
 
-        Assert.True(after < before);
+        // A collision-safe route is not required to reduce straight-line
+        // distance on every intermediate waypoint, but it must physically
+        // reach the machinery interaction area after following the detour.
+        Assert.True(
+            after < before / 2,
+            $"Robot did not physically approach generator after detour route: {before:0.0} -> {after:0.0}.");
     }
 
     [Fact]
