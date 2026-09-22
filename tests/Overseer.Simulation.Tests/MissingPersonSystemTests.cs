@@ -82,8 +82,14 @@ public sealed class MissingPersonSystemTests
         var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
         var system = new MissingPersonSystem();
 
-        nadia.CurrentRoomId = "storage";
-        marcus.CurrentRoomId = "storage";
+        var expectedAtConcern = CrewDutySchedule.ExpectedDutyRoomId(
+            marcus.Role,
+            TimeSpan.FromHours(12));
+        var lastSeenRoom = state.Facility.Rooms.Keys.First(id =>
+            !id.Equals(expectedAtConcern, StringComparison.OrdinalIgnoreCase));
+
+        nadia.CurrentRoomId = lastSeenRoom;
+        marcus.CurrentRoomId = lastSeenRoom;
         // Record a direct sighting at the start of the shift. Ordinary separation
         // is allowed for hours before a missed-duty absence becomes notable.
         state.Elapsed = TimeSpan.Zero;
@@ -105,12 +111,12 @@ public sealed class MissingPersonSystemTests
         Assert.Equal(MissingPersonConcernStage.Searching, concern.Stage);
         Assert.Contains(expected, concern.CheckedRoomIds);
 
-        nadia.CurrentRoomId = "storage";
+        nadia.CurrentRoomId = lastSeenRoom;
         state.Elapsed = TimeSpan.FromMinutes(730);
         system.Tick(state);
 
         Assert.Equal(MissingPersonConcernStage.Escalated, concern.Stage);
-        Assert.Contains("storage", concern.CheckedRoomIds);
+        Assert.Contains(lastSeenRoom, concern.CheckedRoomIds);
         Assert.True(concern.CheckedRoomIds.Count >= 2);
     }
 
