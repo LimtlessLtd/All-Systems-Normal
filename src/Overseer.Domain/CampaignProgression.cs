@@ -83,6 +83,9 @@ public sealed class CrewContinuitySnapshot
     public bool IsPresent { get; set; } = true;
     public double OverseerCredibility { get; set; } = 70;
     public double OverseerSuspicion { get; set; }
+    public bool IsPrisoner { get; set; }
+    public PrisonerDangerLevel PrisonerDangerLevel { get; set; } = PrisonerDangerLevel.Low;
+    public double PrisonerViolenceBias { get; set; }
 }
 
 public sealed record RelationshipContinuitySnapshot(
