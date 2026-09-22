@@ -123,10 +123,20 @@ public sealed class CrewRoutineSystem
         // routine tick makes presentation chatter repeat even though nothing
         // about the NPC's intent or physical task has changed.
         return npc.CurrentAction.Kind == ActionKind.Work
+            && !HasPersonalNeedOverride(state, npc)
             && npc.CurrentRoomId.Equals(
                 CrewDutySchedule.ExpectedDutyRoomId(npc.Role, state.Elapsed),
                 StringComparison.OrdinalIgnoreCase);
     }
+
+    private static bool HasPersonalNeedOverride(GameState state, Npc npc) =>
+        npc.Hunger >= 55
+        || CrewDutySchedule.IsSleepWindow(npc, state.Elapsed)
+        || npc.Fatigue >= 72
+        || npc.BladderNeed >= 70
+        || npc.HygieneNeed >= 42
+        || npc.RecreationNeed >= 58
+        || npc.SocialNeed >= 70;
 
     private static void CoordinateMutualIntimacy(GameState state)
     {
