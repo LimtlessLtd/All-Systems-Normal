@@ -304,7 +304,7 @@ public sealed class SimulationEngine
             var dx = (npc.PositionX - nearestX) / 100d * room.MapWidth;
             var dy = (npc.PositionY - nearestY) / 100d * room.MapHeight;
 
-            if (Math.Sqrt((dx * dx) + (dy * dy)) <= 0.75)
+            if (Math.Sqrt((dx * dx) + (dy * dy)) <= 0.10)
                 return true;
         }
 
