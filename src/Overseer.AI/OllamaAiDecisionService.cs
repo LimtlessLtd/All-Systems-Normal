@@ -1,5 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using OllamaSharp;
+using OllamaSharp.Models;
 using Overseer.Domain;
 using Overseer.Simulation;
 
@@ -9,6 +11,17 @@ public sealed class OllamaAiDecisionService(
     IChatClient chatClient,
     RuleBasedAiDecisionService fallback) : IAiDecisionService
 {
+    // NpcPromptBuilder emits every action plus every room's atmosphere, which
+    // runs close to Ollama's 2048-token default context window; a model would
+    // silently drop the rules at the top of the prompt without this.
+    private const int ContextWindowTokens = 8192;
+
+    private const string RetryInstruction = """
+
+
+        RETRY: your previous response could not be parsed as the required JSON decision schema. Respond again with ONLY a single JSON object matching the schema, no other text.
+        """;
+
     private readonly IChatClient _chatClient = chatClient;
     private readonly RuleBasedAiDecisionService _fallback = fallback;
 
@@ -27,34 +40,34 @@ public sealed class OllamaAiDecisionService(
             {
                 Temperature = 0.7f,
                 MaxOutputTokens = 240
-            };
+            }.AddOllamaOption(OllamaOption.NumCtx, ContextWindowTokens);
 
-            // Keep the exact prompt that crosses the IChatClient boundary,
-            // together with the options used for the call, so local Ollama play
-            // can be debugged from /debug without guessing what the model saw.
-            prompt = BuildRequestTrace(modelPrompt, options);
-
-            var response = await _chatClient.GetResponseAsync<NpcMindDecision>(
+            var attempt = await RequestDecisionAsync(
                 modelPrompt,
-                options: options,
-                useJsonSchemaResponseFormat: true,
-                cancellationToken: cancellationToken);
+                options,
+                cancellationToken);
+            prompt = attempt.PromptTrace;
+            rawResponse = attempt.RawResponse;
+            var decision = attempt.Decision;
 
-            var responseText = response.Text;
-            rawResponse = BuildRawResponseTrace(
-                response.RawRepresentation,
-                responseText);
-            NpcMindDecision? decision = null;
-
-            if (!response.TryGetResult(out decision) || decision is null)
+            if (decision is null)
             {
-                decision = TryParse(responseText);
+                // Invalid/unparseable output is usually a one-off formatting
+                // slip; one corrective retry recovers most of these instead of
+                // silently collapsing straight to Idle/fallback.
+                var retry = await RequestDecisionAsync(
+                    modelPrompt + RetryInstruction,
+                    options,
+                    cancellationToken);
+                prompt = retry.PromptTrace;
+                rawResponse = retry.RawResponse;
+                decision = retry.Decision;
             }
 
             if (decision is null)
             {
                 throw new InvalidOperationException(
-                    "The model did not return a valid structured decision.");
+                    "The model did not return a valid structured decision after a retry.");
             }
 
             var intent = Validate(npc, state, decision);
@@ -87,6 +100,35 @@ public sealed class OllamaAiDecisionService(
         }
     }
 
+    private async Task<(NpcMindDecision? Decision, string PromptTrace, string? RawResponse)> RequestDecisionAsync(
+        string modelPrompt,
+        ChatOptions options,
+        CancellationToken cancellationToken)
+    {
+        // Keep the exact prompt that crosses the IChatClient boundary,
+        // together with the options used for the call, so local Ollama play
+        // can be debugged from /debug without guessing what the model saw.
+        var promptTrace = BuildRequestTrace(modelPrompt, options);
+
+        var response = await _chatClient.GetResponseAsync<NpcMindDecision>(
+            modelPrompt,
+            options: options,
+            useJsonSchemaResponseFormat: true,
+            cancellationToken: cancellationToken);
+
+        var responseText = response.Text;
+        var rawResponse = BuildRawResponseTrace(
+            response.RawRepresentation,
+            responseText);
+
+        if (!response.TryGetResult(out var decision) || decision is null)
+        {
+            decision = TryParse(responseText);
+        }
+
+        return (decision, promptTrace, rawResponse);
+    }
+
     private static string BuildRequestTrace(
         string modelPrompt,
         ChatOptions options) =>
@@ -94,6 +136,7 @@ public sealed class OllamaAiDecisionService(
         ICHATCLIENT REQUEST OPTIONS
         temperature: {options.Temperature}
         max_output_tokens: {options.MaxOutputTokens}
+        num_ctx: {ContextWindowTokens}
         response_format: json-schema (NpcMindDecision)
 
         EXACT PROMPT SENT TO OLLAMA
