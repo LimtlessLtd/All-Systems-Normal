@@ -61,6 +61,80 @@ public sealed class CrewProvisioningSystemTests
     }
 
     [Fact]
+    public void CriticalMaintenanceReservesAQualifiedWorkerBeforeCropStartup()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var device = state.Devices["lighting:medical"];
+        device.Condition = 0;
+
+        var worker = state.Crew.First(npc =>
+            StationUpkeepRules.CanAttempt(npc, device)
+            && StationUpkeepRules.SkillOf(npc, MaintenanceDiscipline.Horticulture) >= 25);
+
+        foreach (var other in state.Crew.Where(npc => npc.Id != worker.Id))
+        {
+            other.Intent = new NpcIntent(
+                ActionKind.Rest,
+                null,
+                "Protected test activity.",
+                "Keep maintenance ownership deterministic.",
+                100,
+                "Test",
+                state.Elapsed);
+        }
+
+        var provisioning = new CrewProvisioningSystem();
+        provisioning.Tick(state, Minute);
+
+        Assert.Null(worker.ProvisioningJob);
+
+        new CrewMaintenanceSystem().Tick(state);
+
+        Assert.Equal(device.Id, worker.ServicingDeviceId);
+        Assert.Equal(ActionKind.Repair, worker.Intent?.Action);
+    }
+
+    [Fact]
+    public void ProvisioningDoesNotStealPatientOrClinicianFromActiveMedicalCare()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var medbay = state.Facility.Rooms["medical"];
+        var doctor = state.Crew.First(npc => npc.Role == CrewRole.Doctor);
+        var patient = state.Crew.First(npc => npc.Id != doctor.Id);
+
+        doctor.CurrentRoomId = medbay.Id;
+        doctor.Intent = null;
+        doctor.MedicalPatientId = patient.Id;
+        doctor.MedicalActionKind = ActionKind.TreatInjury;
+        doctor.MedicalActionCompletesAt = state.Elapsed + TimeSpan.FromMinutes(6);
+
+        patient.CurrentRoomId = medbay.Id;
+        patient.Health = 60;
+        patient.LastHealthSnapshot = 60;
+        patient.Intent = null;
+
+        foreach (var other in state.Crew.Where(npc =>
+                     npc.Id != doctor.Id && npc.Id != patient.Id))
+        {
+            other.Intent = new NpcIntent(
+                ActionKind.Rest,
+                null,
+                "Protected test activity.",
+                "Keep medical ownership deterministic.",
+                100,
+                "Test",
+                state.Elapsed);
+        }
+
+        Assert.True(MedicalSystem.IsAwaitingCare(state, patient));
+
+        new CrewProvisioningSystem().Tick(state, Minute);
+
+        Assert.Null(patient.ProvisioningJob);
+        Assert.Null(doctor.ProvisioningJob);
+    }
+
+    [Fact]
     public void CropsGrowWhenWateredFedAndLit()
     {
         var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
