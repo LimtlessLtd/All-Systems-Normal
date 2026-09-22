@@ -96,7 +96,10 @@ public sealed class CrewMaintenanceSystemTests
             $"Medical lighting was never serviced. Crew: {string.Join("; ", state.Crew.Select(npc =>
                 $"{npc.Name}: room={npc.CurrentRoomId}, pos={npc.PositionX:0.0},{npc.PositionY:0.0}, " +
                 $"action={npc.CurrentAction.Kind}/{npc.CurrentAction.TargetId}, intent={npc.Intent?.Action}/{npc.Intent?.TargetId}, " +
-                $"movement={npc.Movement?.FromRoomId}->{npc.Movement?.ToRoomId}/{npc.Movement?.DoorId}, service={npc.ServicingDeviceId}"))}");
+                $"movement={npc.Movement?.FromRoomId}->{npc.Movement?.ToRoomId}/{npc.Movement?.DoorId}, " +
+                $"exit={npc.Movement?.ExitX:0.0},{npc.Movement?.ExitY:0.0}, service={npc.ServicingDeviceId}, fixtures=[" +
+                string.Join(" | ", state.Facility.Rooms[npc.CurrentRoomId].Fixtures.Select(item =>
+                    $"{item.Type}:{item.Label}@{item.X:0.0},{item.Y:0.0}/{item.Width:0.0}x{item.Height:0.0}")) + "]"))}");
         Assert.True(state.Facility.Rooms["medical"].LightsOn);
     }
 
