@@ -198,14 +198,12 @@ public sealed class StationGeometryTests
                     })
                     .Single(pair => pair.Other.Type == RoomType.Corridor);
 
-                var portal = StationGeometry.FindSharedPortal(hallway, networkDoor.Other);
-                var hallwayCrossSection = portal.Wall == StationWall.Horizontal
-                    ? hallway.MapWidth
-                    : hallway.MapHeight;
-                var networkPortal = StationGeometry.FindSharedPortal(networkDoor.Other, hallway);
-                var networkCrossSection = networkPortal.Wall == StationWall.Horizontal
-                    ? networkDoor.Other.MapWidth
-                    : networkDoor.Other.MapHeight;
+                // Both access passages and spine corridors are axis-aligned
+                // rectangles. Their physical width is the short axis; using the
+                // portal wall here accidentally compared a corridor's full length
+                // (for example ~40 map units) with a ~4-unit tunnel width.
+                var hallwayCrossSection = Math.Min(hallway.MapWidth, hallway.MapHeight);
+                var networkCrossSection = Math.Min(networkDoor.Other.MapWidth, networkDoor.Other.MapHeight);
 
                 Assert.Equal(
                     networkCrossSection,
