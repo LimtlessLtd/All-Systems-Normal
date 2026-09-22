@@ -89,4 +89,32 @@ public sealed class NavigationSystemTests
             state.EventLog[0],
             StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void ReachableRoomsForCrew_ExcludesRoomsBehindADoorTheCrewMemberCannotTraverse()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 505);
+        var npc = state.Crew.First();
+        var airlockDoor = state.Facility.FindDoorBetween("airlock", "hall-airlock")!;
+
+        airlockDoor.IsOpen = false;
+        airlockDoor.IsLocked = true;
+
+        var reachable = new NavigationSystem().ReachableRoomsForCrew(state, npc, "corridor");
+
+        Assert.Contains("corridor", reachable);
+        Assert.Contains("hall-airlock", reachable);
+        Assert.DoesNotContain("airlock", reachable);
+    }
+
+    [Fact]
+    public void ReachableRoomsForCrew_IncludesTheStartRoomEvenWhenIsolated()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 606);
+        var npc = state.Crew.First();
+
+        var reachable = new NavigationSystem().ReachableRoomsForCrew(state, npc, "reactor");
+
+        Assert.Contains("reactor", reachable);
+    }
 }
