@@ -776,6 +776,7 @@ public abstract class StationSession
         _robots.Tick(State, turn);
         _turrets.Tick(State, turn);
         _movement.Tick(State, TimeSpan.FromMinutes(1));
+        _prisonerContainment.FinalizeMovement(State);
         _crewDoors.Tick(State);
         _shutdown.Tick(State);
         _provisioning.Tick(State, turn);

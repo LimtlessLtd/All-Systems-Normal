@@ -28,7 +28,10 @@ public sealed class BrowserMindSystem
         }
 
         var crew = state.Crew
-            .Where(npc => npc.IsAlive && npc.IsPresent)
+            .Where(npc =>
+                npc.IsAlive
+                && npc.IsPresent
+                && !npc.IsContainmentBreachInProgress)
             .OrderBy(npc => npc.Name)
             .ToList();
 
@@ -53,6 +56,7 @@ public sealed class BrowserMindSystem
             .Where(candidate =>
                 candidate.IsAlive
                 && candidate.IsPresent
+                && !candidate.IsContainmentBreachInProgress
                 && candidate.NeedsMindReconsideration
                 && !CrewEnvironmentSafety.IsDangerous(
                     state.Facility.Rooms[candidate.CurrentRoomId])
@@ -92,7 +96,10 @@ public sealed class BrowserMindSystem
     private void HandleEmergencyReconsiderations(GameState state)
     {
         foreach (var npc in state.Crew
-                     .Where(npc => npc.IsAlive && npc.IsPresent)
+                     .Where(npc =>
+                         npc.IsAlive
+                         && npc.IsPresent
+                         && !npc.IsContainmentBreachInProgress)
                      .OrderByDescending(npc =>
                          CrewEnvironmentSafety.RiskScore(
                              state.Facility.Rooms[npc.CurrentRoomId])))

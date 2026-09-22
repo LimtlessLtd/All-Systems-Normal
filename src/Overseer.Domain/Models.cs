@@ -782,6 +782,13 @@ public sealed class Npc : IStationMobileEntity
     /// never set directly by cognition.
     /// </summary>
     public bool HasEscapedContainment { get; set; }
+
+    /// <summary>
+    /// True while deterministic containment logic has committed the prisoner
+    /// to a physical hatch crossing that has not yet succeeded or been blocked.
+    /// </summary>
+    public bool IsContainmentBreachInProgress { get; set; }
+
     public bool IsAlive => Health > 0;
 
     public HashSet<CropKind> FoodLikes { get; } = [];
