@@ -620,7 +620,7 @@
                 <div class="environment-grid">
                     <div><span>STATE</span><strong>@selectedCropBed.Lifecycle</strong></div>
                     <div><span>POWER</span><strong>@((selectedCropBed.IsEnabled && cropRoom.IsPowered) ? "ACTIVE" : "STOPPED")</strong></div>
-                    <div><span>CROP</span><strong>@(selectedCropBed.Crop?.ToString() ?? "NONE")</strong></div>
+                    <div><span>CROP</span><strong>@(selectedCropBed.Lifecycle == CropLifecycleState.Empty ? "NONE" : selectedCropBed.Crop.ToString())</strong></div>
                     <div><span>NEXT CROP</span><strong>@(selectedCropBed.RequestedCrop?.ToString() ?? "NONE")</strong></div>
                     <div><span>GROWTH</span><strong>@selectedCropBed.Growth.ToString("0")%</strong></div>
                     <div><span>CAPACITY</span><strong>@selectedCropBed.Capacity.ToString("0.00")×</strong></div>
@@ -2423,7 +2423,9 @@
     }
 
     private string CropFixtureLabel(Room room, RoomFixture fixture) =>
-        CropBedForFixture(room, fixture)?.Crop?.ToString().ToUpperInvariant() ?? string.Empty;
+        CropBedForFixture(room, fixture) is { } bed && bed.Lifecycle != CropLifecycleState.Empty
+            ? bed.Crop.ToString().ToUpperInvariant()
+            : string.Empty;
 
     private string CropGrowthStage(Room room, RoomFixture fixture) =>
         CropBedForFixture(room, fixture)?.Lifecycle switch
