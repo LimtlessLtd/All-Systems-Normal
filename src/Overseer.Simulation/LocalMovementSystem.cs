@@ -21,7 +21,11 @@ public sealed class LocalMovementSystem
                 "Movement time must move forward.");
         }
 
-        // Local PositionX/Y are percentages of each room. Movement speed must not be:\n        // a percentage of room size, otherwise a 32%-wide step is physically much faster\n        // in a long corridor than in a small access tunnel. The budget below is in\n        // station-map distance units and MoveTowards converts local deltas to that metric.\n        var maxDistance = WalkingMapUnitsPerMinute * delta.TotalMinutes;
+        // Local PositionX/Y are percentages of each room. Movement speed must not be
+        // a percentage of room size, otherwise a 32%-wide step is physically much faster
+        // in a long corridor than in a small access tunnel. The budget below is in
+        // station-map distance units and MoveTowards converts local deltas to that metric.
+        var maxDistance = WalkingMapUnitsPerMinute * delta.TotalMinutes;
 
         foreach (var npc in state.Crew.Where(npc => npc.IsAlive && npc.IsPresent))
         {
