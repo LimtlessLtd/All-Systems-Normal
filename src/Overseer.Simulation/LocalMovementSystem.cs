@@ -4,7 +4,7 @@ namespace Overseer.Simulation;
 
 public sealed class LocalMovementSystem
 {
-    private const double SpeedPerMinute = 32;
+    private const double WalkingMapUnitsPerMinute = 5.0;
     private const double DoorApproachMultiplier = 1.35;
     private const double FixtureClearance = 1.8;
     private const double WaypointMargin = .35;
@@ -21,7 +21,7 @@ public sealed class LocalMovementSystem
                 "Movement time must move forward.");
         }
 
-        var maxDistance = SpeedPerMinute * delta.TotalMinutes;
+        // Local PositionX/Y are percentages of each room. Movement speed must not be:\n        // a percentage of room size, otherwise a 32%-wide step is physically much faster\n        // in a long corridor than in a small access tunnel. The budget below is in\n        // station-map distance units and MoveTowards converts local deltas to that metric.\n        var maxDistance = WalkingMapUnitsPerMinute * delta.TotalMinutes;
 
         foreach (var npc in state.Crew.Where(npc => npc.IsAlive && npc.IsPresent))
         {
@@ -206,7 +206,7 @@ public sealed class LocalMovementSystem
             {
                 ActionKind.Cook => room.Fixtures.FirstOrDefault(fixture =>
                     fixture.Type is FixtureType.KitchenCounter or FixtureType.Sink),
-                ActionKind.TendCrops or ActionKind.Harvest => FixtureForCropBed(room, npc.TendingBedId),
+                ActionKind.TendCrops or ActionKind.Harvest => FixtureForCropBed(state, room, npc.TendingBedId),
                 _ => null
             };
         }
@@ -378,24 +378,31 @@ public sealed class LocalMovementSystem
                         or FixtureType.Workbench)
         };
 
-    private static RoomFixture? FixtureForCropBed(Room room, string? bedId)
+    private static RoomFixture? FixtureForCropBed(
+        GameState state,
+        Room room,
+        string? bedId)
     {
-        var beds = room.Fixtures
-            .Where(fixture => fixture.Type == FixtureType.GrowBed)
-            .ToList();
+        // Crop-bed IDs are generation state, not fixture-list indexes. Plant()
+        // deliberately orders grow beds by label when creating authoritative
+        // CropBed records, while Room.Fixtures preserves generator insertion
+        // order. Resolving "bed:...:2" back through the raw fixture index can
+        // therefore send a worker to the wrong physical bay forever.
+        var bed = state.CropBeds.FirstOrDefault(candidate =>
+            candidate.Id.Equals(bedId, StringComparison.OrdinalIgnoreCase)
+            && candidate.RoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase));
 
-        if (beds.Count == 0)
-            return null;
-
-        var suffix = bedId?.Split(':').LastOrDefault();
-        if (int.TryParse(suffix, out var index)
-            && index >= 1
-            && index <= beds.Count)
+        if (bed is not null)
         {
-            return beds[index - 1];
+            return room.Fixtures.FirstOrDefault(fixture =>
+                fixture.Type == FixtureType.GrowBed
+                && fixture.Label.Equals(
+                    bed.FixtureLabel,
+                    StringComparison.OrdinalIgnoreCase));
         }
 
-        return beds[0];
+        return room.Fixtures.FirstOrDefault(fixture =>
+            fixture.Type == FixtureType.GrowBed);
     }
 
     private static (double X, double Y) InteractionPoint(Room room, RoomFixture fixture)
@@ -497,21 +504,19 @@ public sealed class LocalMovementSystem
         var destination = FindWalkablePoint(room, targetX, targetY);
         var dx = destination.X - entity.PositionX;
         var dy = destination.Y - entity.PositionY;
-        var distance = Math.Sqrt((dx * dx) + (dy * dy));
+        var distance = PhysicalDistance(room, dx, dy);
 
         SetFacing(entity, dx, dy);
 
-        if (distance <= 0.001)
+        if (distance <= 0.00001)
         {
             entity.PositionX = destination.X;
             entity.PositionY = destination.Y;
             return true;
         }
 
-        // Never snap to a later waypoint through geometry. The old fast-path
-        // returned before checking the full segment whenever the destination
-        // happened to fit inside this tick's movement budget, which made crew
-        // visibly cut through fixtures and corners.
+        // Never snap to a later waypoint through geometry. Movement distance is
+        // measured in station-map units rather than local room percentages.
         var canReachDestinationThisTick = distance <= maxDistance;
         var scale = canReachDestinationThisTick ? 1d : maxDistance / distance;
         var nextX = entity.PositionX + (dx * scale);
@@ -522,9 +527,9 @@ public sealed class LocalMovementSystem
             var detour = DetourPoint(room, entity.PositionX, entity.PositionY, destination.X, destination.Y);
             var detourDx = detour.X - entity.PositionX;
             var detourDy = detour.Y - entity.PositionY;
-            var detourDistance = Math.Sqrt((detourDx * detourDx) + (detourDy * detourDy));
+            var detourDistance = PhysicalDistance(room, detourDx, detourDy);
 
-            if (detourDistance <= 0.001)
+            if (detourDistance <= 0.00001)
                 return false;
 
             var detourScale = Math.Min(1, maxDistance / detourDistance);
@@ -543,6 +548,13 @@ public sealed class LocalMovementSystem
         return canReachDestinationThisTick
             && Math.Abs(entity.PositionX - destination.X) <= 0.001
             && Math.Abs(entity.PositionY - destination.Y) <= 0.001;
+    }
+
+    private static double PhysicalDistance(Room room, double localDx, double localDy)
+    {
+        var physicalDx = localDx / 100d * room.MapWidth;
+        var physicalDy = localDy / 100d * room.MapHeight;
+        return Math.Sqrt((physicalDx * physicalDx) + (physicalDy * physicalDy));
     }
 
     private static void MarkLocallyMoving(IStationMobileEntity entity)
