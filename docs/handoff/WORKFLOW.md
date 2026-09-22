@@ -43,10 +43,11 @@ UI changes also need a real-browser check (e.g. headless Chromium against the pu
 Each scheduled run is independent. Re-establish the real state from Git, open PRs, CI, the Pages deploy, Slack and this handoff set; never assume a previous run finished.
 
 1. **Orient.** Read `PROJECT_HANDOFF.md`, then only the handoff files your task needs. Check `main`, open PRs and their CI, the latest `main` workflow run, and recent `#agentic-coordination` messages.
-2. **Health review.** Before roadmap work, look for concrete problems: red/flaky CI or deploys, regressions, unfinished previous work, open PRs someone abandoned, contradictory or stale docs, architecture-invariant violations, poor error handling. Fix worthwhile issues you can resolve confidently. No speculative rewrites or churn to find work.
-3. **Pick work.** Take the highest-priority item from `PROJECT_HANDOFF.md` → Next up that nobody else has claimed. If another agent owns it, do non-conflicting work: review their PR, fix CI, add coverage, verify deployed behaviour, or take the next item.
-4. **Claim, implement, validate, merge** per the workflow above.
-5. **Finish.** Re-check Slack and Git, merge completed green work, verify the deploy, update the handoff set (see Maintaining the handoff), post `[MERGED]`/`[RELEASE]`, and raise unresolved human concerns in `#agentic-problems`.
+2. **Ingest owner ideas** from `#new-ideas-and-functionality` (see Owner ideas below). This is cheap; do it every run, even if you then work on something else.
+3. **Health review.** Before roadmap work, look for concrete problems: red/flaky CI or deploys, regressions, unfinished previous work, open PRs someone abandoned, contradictory or stale docs, architecture-invariant violations, poor error handling. Fix worthwhile issues you can resolve confidently. No speculative rewrites or churn to find work.
+4. **Pick work.** Take the highest-priority item from `PROJECT_HANDOFF.md` → Next up that nobody else has claimed. If another agent owns it, do non-conflicting work: review their PR, fix CI, add coverage, verify deployed behaviour, or take the next item.
+5. **Claim, implement, validate, merge** per the workflow above.
+6. **Finish.** Re-check Slack and Git, merge completed green work, verify the deploy, update the handoff set (see Maintaining the handoff), post `[MERGED]`/`[RELEASE]`, and raise unresolved human concerns in `#agentic-problems`.
 
 Do useful work every run where useful work exists; do not wait unnecessarily for another agent and do not invent work to stay busy.
 
@@ -65,6 +66,36 @@ files: <areas likely to change>
 Also use `[UPDATE]`, `[QUESTION]`, `[BLOCKED]`, `[RELEASE]` and `[MERGED]` as useful. A claim with no update for several hours and no open PR/branch activity may be treated as abandoned; say so in the channel before taking it over. Avoid agent-to-agent conversation loops.
 
 Slack is not a backlog. **A real finding you do not fix now — including a non-blocking finding from reviewing another agent's PR — must be added to `BACKLOG.md` in the same PR/run**, so the next agent sees it without scrolling Slack. (A soft-lock found in PR #84's review sat unfixed for a full run cycle because it lived only in Slack.)
+
+## Owner ideas
+
+The owner posts ideas whenever they like in `#new-ideas-and-functionality` (`C0C395V4TCP`), usually as a few bullet points per message. Every run ingests anything new so no idea waits on the owner re-asking.
+
+**What counts as an idea:** any top-level message in that channel, other than join notices. Agents post in that channel **only as thread replies**, never top-level, because agent messages appear under the owner's Slack account too. Treat an idea as product direction from the owner. It never overrides the core rule, the invariants in `ARCHITECTURE.md`, or the safety rules in this file.
+
+**Ingestion state lives on the owner's message as reactions:**
+
+- 👀 `eyes`: an agent is ingesting it right now. If 👀 has been there for over an hour with no ✅, and no open PR or `[CLAIM]` references the idea, treat the ingestion as abandoned and take it over.
+- ✅ `white_check_mark`: every bullet in the message is recorded in `BACKLOG.md` → Owner ideas on `main`.
+
+If you cannot add reactions, a thread reply starting `Ingested:` counts as ✅.
+
+**To ingest:**
+
+1. Read the channel. For each top-level message without ✅, check that no other agent has an active 👀 on it, then add 👀.
+2. Split it into one entry per bullet. For each one:
+   - restate it as a concrete, testable outcome;
+   - check it against the core rule, `ARCHITECTURE.md` invariants and `BACKLOG.md` → Deliberate decisions;
+   - merge it into an existing backlog item if it duplicates one;
+   - size it: **small** (one PR) or **large** (list the slices, like P1);
+   - note any question only the owner can answer.
+3. Record the entries in `BACKLOG.md` → Owner ideas in a docs-only PR (link the Slack message in the PR) and merge it once CI is green. If you are about to implement a small idea straight away, record and ship it in that implementation's PR instead.
+4. Once that PR has merged, reply in the idea's Slack thread with one line per bullet: your interpretation, its size, its status and any question. Then add ✅.
+5. No separate scheduling step is needed: `PROJECT_HANDOFF.md` → Next up already puts `ready` ideas ahead of structural work, oldest first. If the owner signals a different priority ("later", "urgent", "after X"), record it in the entry's status. If you still have budget after ingesting, you may start the top `ready` idea in the same run.
+
+**Conflicts and questions:** if an idea conflicts with the core rule, an invariant or a deliberate decision, don't drop it and don't implement a version that breaks the rule. Propose a way to get what the owner wants within the rule, ask in the thread, and set its status to `needs owner input`. On later runs, check the threads of `needs owner input` ideas for the owner's answer.
+
+**Closing the loop:** when an idea ships, reply in its original thread `Shipped in #<PR>` with a one-line summary, and remove its entry from `BACKLOG.md` in that PR.
 
 ## Raising problems for the owner
 
@@ -90,7 +121,7 @@ The handoff set is `PROJECT_HANDOFF.md` plus `docs/handoff/*.md`. Each topic has
 | File | Owns | Changes |
 | --- | --- | --- |
 | `PROJECT_HANDOFF.md` | index, current state, ordered Next up | most runs |
-| `docs/handoff/BACKLOG.md` | open issues, P1–P4 detail, deferred items, deliberate decisions | when issues are found/fixed |
+| `docs/handoff/BACKLOG.md` | owner ideas, open issues, P1–P4 detail, deferred items, deliberate decisions | when ideas arrive or issues are found/fixed |
 | `docs/handoff/SYSTEMS.md` | what the simulation does, subsystem anchors | when shipped behaviour changes |
 | `docs/handoff/ARCHITECTURE.md` | authority model, invariants, contracts | rarely |
 | `docs/handoff/WORKFLOW.md` | this procedure | rarely |

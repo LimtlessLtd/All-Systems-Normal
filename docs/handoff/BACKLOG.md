@@ -1,12 +1,31 @@
 # Backlog
 
-Part of the authoritative handoff set; see `PROJECT_HANDOFF.md` for the index. This file owns: open known issues, prioritised structural work, deferred items and deliberate "do not fix" decisions. The ordered *next up* list lives in `PROJECT_HANDOFF.md`; detail lives here.
+Part of the authoritative handoff set; see `PROJECT_HANDOFF.md` for the index. This file owns: ingested owner ideas, open known issues, prioritised structural work, deferred items and deliberate "do not fix" decisions. The ordered *next up* list lives in `PROJECT_HANDOFF.md`; detail lives here.
 
 Rules:
 
 - **Remove an item when it is fixed** (in the PR that fixes it). Put any lasting contract it created into `ARCHITECTURE.md` or `SYSTEMS.md`; do not leave struck-through history here.
 - A real finding you do not fix immediately — including a non-blocking review finding on another agent's PR — goes here in the same PR/run that raises it, not only in Slack.
 - Give each item evidence (file/symbol) and, where known, the fix direction.
+
+---
+
+## Owner ideas
+
+Ingested from `#new-ideas-and-functionality` per `WORKFLOW.md` → Owner ideas. Oldest first. Remove an entry in the PR that ships it, after replying `Shipped in #<PR>` in its Slack thread.
+
+Entry format:
+
+```
+### <short title>
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p<ts without the dot> (<date>)
+- Idea: "<the owner's words>"
+- Outcome: <concrete, testable result that respects the core rule>
+- Size: small (one PR) | large (slices: …)
+- Status: ready | needs owner input: <question> | in progress (#PR, agent)
+```
+
+_None yet._
 
 ---
 
