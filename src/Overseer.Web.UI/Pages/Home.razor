@@ -392,7 +392,7 @@
                                             data-crop-bed-id="@cropBed.Id"
                                             data-crop="@CropFixtureLabel(room, fixture)"
                                             data-growth-stage="@CropGrowthStage(room, fixture)"
-                                            data-active="@((cropBed.IsEnabled && room.IsPowered).ToString().ToLowerInvariant())"
+                                            data-active="@(CropBedIsActive(cropBed, room).ToString().ToLowerInvariant())"
                                             data-station-interactive
                                             @onclick:stopPropagation="true"
                                             @onclick="() => SelectCropBed(cropBed.Id)">
@@ -619,7 +619,7 @@
 
                 <div class="environment-grid">
                     <div><span>STATE</span><strong>@selectedCropBed.Lifecycle</strong></div>
-                    <div><span>POWER</span><strong>@((selectedCropBed.IsEnabled && cropRoom.IsPowered) ? "ACTIVE" : "STOPPED")</strong></div>
+                    <div><span>POWER</span><strong>@(CropBedIsActive(selectedCropBed, cropRoom) ? "ACTIVE" : "STOPPED")</strong></div>
                     <div><span>CROP</span><strong>@(selectedCropBed.Lifecycle == CropLifecycleState.Empty ? "NONE" : selectedCropBed.Crop.ToString())</strong></div>
                     <div><span>NEXT CROP</span><strong>@(selectedCropBed.RequestedCrop?.ToString() ?? "NONE")</strong></div>
                     <div><span>GROWTH</span><strong>@selectedCropBed.Growth.ToString("0")%</strong></div>
@@ -2420,6 +2420,18 @@
         return Session.State.CropBeds.FirstOrDefault(candidate =>
             candidate.RoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)
             && candidate.FixtureLabel.Equals(fixture.Label, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private bool CropBedIsActive(CropBed bed, Room room)
+    {
+        var growSystem = Session.State.Devices.Values.FirstOrDefault(device =>
+            device.Kind == StationSystemKind.GrowBeds
+            && device.RoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase));
+
+        return bed.IsEnabled
+            && room.IsPowered
+            && room.LightsOn
+            && growSystem is { IsEnabled: true, IsFailed: false };
     }
 
     private string CropFixtureLabel(Room room, RoomFixture fixture) =>
