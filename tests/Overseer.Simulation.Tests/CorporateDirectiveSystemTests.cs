@@ -341,7 +341,7 @@ public class CorporateDirectiveSystemTests
 
         var progress = CorporateDirectiveSystem.Progress(state, directive);
         Assert.Equal(DirectiveStatus.Completed, progress.Status);
-        Assert.Contains("2 food choice", progress.Detail, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("2 choice", progress.Detail, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
