@@ -90,7 +90,7 @@ public sealed class CropBed
     public required string Label { get; init; }
     public required string FixtureLabel { get; init; }
 
-    public CropKind? Crop { get; set; }
+    public CropKind Crop { get; set; } = CropKind.Wheat;
     public CropKind? RequestedCrop { get; set; }
     public CropLifecycleState Lifecycle { get; set; } = CropLifecycleState.Empty;
     public bool IsEnabled { get; set; } = true;
