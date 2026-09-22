@@ -5,8 +5,8 @@ namespace Overseer.Simulation;
 public static class CognitionTelemetrySystem
 {
     private const int MaxEntries = 240;
-    private const int MaxPromptCharacters = 16_000;
-    private const int MaxResponseCharacters = 8_000;
+    private const int MaxPromptCharacters = 64_000;
+    private const int MaxResponseCharacters = 32_000;
 
     public static void Record(
         GameState state,
