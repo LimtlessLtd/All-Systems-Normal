@@ -140,7 +140,6 @@ public sealed class StationHazardSystem
             var otherId = door.RoomAId.Equals(source.Id, StringComparison.OrdinalIgnoreCase)
                 ? door.RoomBId : door.RoomAId;
             if (!state.Facility.Rooms.TryGetValue(otherId, out var other)
-                || other.Type == RoomType.Corridor
                 || other.FireIntensity > 0)
                 continue;
 
