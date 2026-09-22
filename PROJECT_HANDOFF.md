@@ -305,7 +305,7 @@ Required architecture:
 - Interaction consequences must flow through a closed/shared effect layer rather than bespoke per-rule mutation code. Ambient world reactions may use the same deterministic rule mechanism so player actions such as power, ventilation, doors and atmosphere naturally change outcomes.
 - Minds may see observable affordances/context and remembered outcomes, but never hidden rule tables or outcome probabilities.
 - New hazards must remain authoritative world state with deterministic decay/spread and real interaction with doors, atmosphere, ventilation, power and existing damage systems. Catastrophic/station-loss outcomes must require escalation and compound preconditions rather than a single healthy-station action.
-- Failed/rejected intentions should become bounded feedback/memories rather than silently collapsing to idle. Browser/server fallback cognition should converge on one shared utility model, while Ollama remains free to choose a different valid action.
+- Failed/rejected intentions should become bounded feedback/memories rather than silently collapsing to idle. `IntentExecutionSystem.FailIntent` now records the failure as a `Memory` and a small stress bump (see "Known issues" below), but nothing yet feeds that memory back into cognition prompts/options to actually stop a mind repeating the same rejected choice — that feedback loop is still deferred. Browser/server fallback cognition should converge on one shared utility model, while Ollama remains free to choose a different valid action.
 - Tests for this program must cover deterministic replay/state hashing, catalog/rule integrity, representative cascade chains, ambient reactions to player verbs and the existing authority invariant. Never weaken existing simulation tests to make new content pass.
 
 ---
@@ -354,7 +354,7 @@ A code/behaviour/UI audit was run and its fixes merged in PRs #52–#62. These i
 
 - Crew are omniscient about each other's location: social/check-on goals walk to the target's true room (`IntentExecutionSystem` compares against `target.CurrentRoomId`). Using last-seen positions plus searching would let the player hide or misdirect people.
 - There are two separate rule-based decision ladders with different thresholds: `BrowserMindSystem` (Pages) and `RuleBasedAiDecisionService` (server fallback). Fixes have already failed to reach both (hunger ordering, PR #52). A single utility scorer (need × personality × relationship × evidence, plus seeded noise) should drive both, and the options offered to the LLM.
-- Failures leave no mark: a failed goal writes no memory and causes no frustration. A door Overseer controls being in the way should become "Overseer sealed Medical" and feed suspicion.
+- ~~Failures leave no mark~~ fixed: `IntentExecutionSystem.FailIntent` now writes a low-importance `Memory` (the same first-person reason shown in `CurrentAction`) and raises `Npc.Stress` on every failed intent. Still open: a door Overseer controls being in the way should specifically become "Overseer sealed Medical" and feed suspicion, rather than the current generic failure reason/memory.
 - All relationships start at Affinity/Trust 50 (`FacilitySeeder.cs:108`); only the default roster hard-codes one Sarah/Felix pair. Varied starting bonds (rivals, couples) would create tension from minute one.
 - The first assignment can be won passively (in an 8-hour run with no player input, it was won while 2 of 4 directives were logged failed). Worth checking the win gate against directive outcomes.
 
