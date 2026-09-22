@@ -93,6 +93,56 @@ public sealed class PlaytestUiPolishTests
     }
 
     [Fact]
+    public void SelectedPathIsThickGreenAndDottedAndCrewDoesNotCssGlideBetweenWaypoints()
+    {
+        foreach (var css in ReadMirroredCss())
+        {
+            Assert.Contains("stroke: #58b77a;", css);
+            Assert.Contains("stroke-width: 3.2px;", css);
+            Assert.Contains("stroke-linecap: round;", css);
+            Assert.Contains("stroke-dasharray: 1px 8px;", css);
+            Assert.DoesNotContain("left var(--crew-step-duration", css);
+            Assert.DoesNotContain("top var(--crew-step-duration", css);
+        }
+    }
+
+    [Fact]
+    public void HostileControlsHaveExplicitContrastingBackgroundAndText()
+    {
+        foreach (var css in ReadMirroredCss())
+        {
+            Assert.Contains(".robot-policy-controls .danger", css);
+            Assert.Contains("background: var(--danger);", css);
+            Assert.Contains("color: #180507;", css);
+        }
+    }
+
+    [Fact]
+    public void FireAndHydroponicsExposeStrongAuthoritativeVisualStates()
+    {
+        foreach (var home in ReadMirroredHomes())
+        {
+            Assert.Contains("data-crop-bed-id", home);
+            Assert.Contains("SelectCropBed", home);
+            Assert.Contains("growbed-active-lamp", home);
+            Assert.Contains("crew-task-meter", home);
+            Assert.Contains("CropLifecycleState.ReadyToHarvest", home);
+            Assert.Contains("CropLifecycleState.Dead", home);
+        }
+
+        foreach (var css in ReadMirroredCss())
+        {
+            Assert.Contains("🔥  🔥  🔥", css);
+            Assert.Contains(".room-node.has-smoke:not(.has-fire)::after", css);
+            Assert.Contains("[data-growth-stage=\"seedling\"]", css);
+            Assert.Contains("[data-growth-stage=\"maturing\"]", css);
+            Assert.Contains("[data-growth-stage=\"ready\"][data-crop=\"TOMATO\"]", css);
+            Assert.Contains("[data-growth-stage=\"dead\"]", css);
+            Assert.Contains(".fixture-growbed[data-active=\"true\"] .growbed-active-lamp", css);
+        }
+    }
+
+    [Fact]
     public void RobotAndMachineryPresentation_IsTopDownAndLoopSafe()
     {
         foreach (var css in ReadMirroredCss())
