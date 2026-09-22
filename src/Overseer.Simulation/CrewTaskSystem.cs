@@ -42,7 +42,7 @@ public static class CrewTaskSystem
             || state.Turrets.Any(turret =>
                 !turret.IsDestroyed
                 && turret.IsArmed
-                && turret.Policy == TurretPolicy.Hostile
+                && turret.Policy != TurretPolicy.Safe
                 && turret.RoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase));
 
         var acuteInjury =
