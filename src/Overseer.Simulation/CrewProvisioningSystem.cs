@@ -47,21 +47,35 @@ public sealed class CrewProvisioningSystem
     /// Plants the bay out. Beds start staggered so the station has a rolling
     /// harvest rather than everything ripening at once.
     /// </summary>
-    public static void Plant(GameState state, int seed)
+    public static void Plant(
+        GameState state,
+        int seed,
+        IReadOnlySet<CropKind>? allowedCrops = null)
     {
         ArgumentNullException.ThrowIfNull(state);
 
         state.CropBeds.Clear();
         var random = new Random(seed);
-        var crops = Enum.GetValues<CropKind>();
+        var allCrops = Enum.GetValues<CropKind>();
+        var crops = allowedCrops is { Count: > 0 }
+            ? allCrops.Where(allowedCrops.Contains).ToArray()
+            : allCrops;
 
-        // Seed inventory is authoritative and generated. Scenarios/corporate
-        // constraints can reduce or zero individual entries without changing
-        // the planting mechanics.
+        if (crops.Length == 0)
+            throw new InvalidOperationException("Hydroponics seed-supply contract permits no crop kinds.");
+
+        var totalBeds = state.Facility.Rooms.Values
+            .Where(room => room.Type == RoomType.Hydroponics)
+            .Sum(room => room.Fixtures.Count(fixture => fixture.Type == FixtureType.GrowBed));
+        var baselineSeedsPerCrop = (int)Math.Ceiling(totalBeds / (double)crops.Length) + 2;
+
+        // Seed inventory is authoritative and generated. Explicit mission or
+        // corporate constraints can remove crop types entirely; planting cannot
+        // invent seed stock the station was never supplied.
+        foreach (var crop in allCrops)
+            state.Stores.Seeds[crop] = 0;
         foreach (var crop in crops)
-        {
-            state.Stores.Seeds[crop] = 2 + random.Next(5);
-        }
+            state.Stores.Seeds[crop] = baselineSeedsPerCrop + random.Next(4);
 
         foreach (var room in state.Facility.Rooms.Values
                      .Where(r => r.Type == RoomType.Hydroponics)
