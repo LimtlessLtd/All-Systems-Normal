@@ -272,7 +272,7 @@ Standard gate:
 - dotnet test tests/Overseer.Simulation.Tests/Overseer.Simulation.Tests.csproj -c Release --no-build
 - dotnet publish src/Overseer.Web.Client/Overseer.Web.Client.csproj -c Release -o release --no-restore
 
-.github/workflows/pages.yml runs these on PRs and deploys Pages from main.
+.github/workflows/pages.yml runs these on PRs and deploys Pages from main. Its concurrency group is scoped per-ref (`pages-${{ github.ref }}`) so that a PR branch's CI runs never cancel another PR's or main's in-progress run — with several agents pushing concurrently, a shared unscoped group previously let a PR push cancel the production deploy mid-flight. Keep it scoped per-ref.
 
 ---
 
