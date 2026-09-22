@@ -757,7 +757,7 @@ public static class FacilitySeeder
                 candidate.Width,
                 candidate.Height);
 
-            if (FitsFixture(moved, placed, padding: 2.2))
+            if (FitsFixture(moved, placed, padding: 3.4))
             {
                 resolved = moved;
                 return true;
