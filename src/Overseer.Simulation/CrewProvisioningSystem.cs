@@ -23,6 +23,12 @@ public sealed class CrewProvisioningSystem
     /// <summary>An existing goal this urgent is not interrupted for chores.</summary>
     private const int ProtectedUrgency = 70;
 
+    // Food production is important, but it must not monopolise every qualified
+    // crew member while station-critical equipment is already in serious
+    // distress. This is deterministic duty arbitration, not cognition: the
+    // simulation decides which work is physically/operationally available.
+    private const double MaintenancePreemptionUrgency = 50;
+
     public void Tick(GameState state, TimeSpan delta)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -311,10 +317,19 @@ public sealed class CrewProvisioningSystem
         npc.Intent = new NpcIntent(kind, roomId, goal, reason, urgency, "Duty", state.Elapsed);
     }
 
-    private static void ProgressJob(GameState state, Npc npc)
+    private void ProgressJob(GameState state, Npc npc)
     {
         if (npc.ProvisioningJob is not { } job || npc.ProvisioningRoomId is not { } jobRoom)
             return;
+
+        if (ShouldYieldToCriticalMaintenance(state, npc))
+        {
+            InterruptJob(
+                state,
+                npc,
+                "Critical station maintenance took precedence over provisioning duty.");
+            return;
+        }
 
         if (npc.Intent is { } competing
             && competing.Action is not (ActionKind.TendCrops or ActionKind.Harvest or ActionKind.Cook))
@@ -613,13 +628,31 @@ public sealed class CrewProvisioningSystem
     /// there is anything to eat. Gating on hunger alone deadlocked the station:
     /// too hungry to cook, so no food, so hungrier still.
     /// </summary>
-    private static bool IsAvailable(GameState state, Npc npc) =>
+    private bool IsAvailable(GameState state, Npc npc) =>
         npc.IsAlive
         && npc.IsPresent
         && npc.ServicingDeviceId is null
         && npc.ProvisioningJob is null
+
+        // A patient waiting for care and a clinician in the middle of a
+        // procedure are not spare hydroponics/galley labour. Without these
+        // guards, end-of-turn provisioning could pull either out of Medical
+        // before MedicalSystem's next deterministic tick.
+        && npc.MedicalActionCompletesAt is null
+        && !MedicalSystem.IsAwaitingCare(state, npc)
+
         && (npc.Hunger < StationProvisionRules.HungryAt || !state.Stores.HasMeal)
-        && (npc.Intent is null || npc.Intent.Urgency < ProtectedUrgency);
+        && (npc.Intent is null || npc.Intent.Urgency < ProtectedUrgency)
+        && !ShouldYieldToCriticalMaintenance(state, npc);
+
+    private bool ShouldYieldToCriticalMaintenance(GameState state, Npc npc) =>
+        state.Devices.Values
+            .Where(device => device.ServiceUrgency > MaintenancePreemptionUrgency)
+            .OrderByDescending(device => device.ServiceUrgency)
+            .ThenBy(device => device.Id, StringComparer.OrdinalIgnoreCase)
+            .Any(device =>
+                StationUpkeepRules.CanAttempt(npc, device)
+                && CanReach(state, npc, device.RoomId));
 
     private bool CanReach(GameState state, Npc npc, string roomId) =>
         npc.CurrentRoomId.Equals(roomId, StringComparison.OrdinalIgnoreCase)
