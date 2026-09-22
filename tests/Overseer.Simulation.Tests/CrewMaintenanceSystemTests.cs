@@ -91,7 +91,12 @@ public sealed class CrewMaintenanceSystemTests
 
         new Station().Run(state, 90);
 
-        Assert.True(device.Condition > 0);
+        Assert.True(
+            device.Condition > 0,
+            $"Medical lighting was never serviced. Crew: {string.Join("; ", state.Crew.Select(npc =>
+                $"{npc.Name}: room={npc.CurrentRoomId}, pos={npc.PositionX:0.0},{npc.PositionY:0.0}, " +
+                $"action={npc.CurrentAction.Kind}/{npc.CurrentAction.TargetId}, intent={npc.Intent?.Action}/{npc.Intent?.TargetId}, " +
+                $"movement={npc.Movement?.FromRoomId}->{npc.Movement?.ToRoomId}/{npc.Movement?.DoorId}, service={npc.ServicingDeviceId}"))}");
         Assert.True(state.Facility.Rooms["medical"].LightsOn);
     }
 
