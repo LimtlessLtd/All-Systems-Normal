@@ -26,7 +26,10 @@ public enum DirectiveKind
     MaintainDeniability,
 
     /// <summary>Drive resentment between two named subjects past a threshold.</summary>
-    SocialFracture
+    SocialFracture,
+
+    /// <summary>Every transferred prisoner must stay alive and physically contained.</summary>
+    ContainmentIntegrity
 }
 
 public enum DirectiveStatus

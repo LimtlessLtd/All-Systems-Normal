@@ -3,8 +3,8 @@
 Repository: https://github.com/LimtlessLtd/All-Systems-Normal
 Playable Pages build: https://limtlessltd.github.io/All-Systems-Normal/
 
-**Current state:** V0.13 foundations — Emergent Routines, Hazards, Containment & Station Polish
-**Next recommended milestone:** V0.13 — Complete Hazardous Transport Assignments
+**Current state:** V0.13 — Complete Hazardous Transport Assignments shipped (Containment Transfer is a real standalone win/lose assignment with deterministic escape/recapture/combat/lethality)
+**Next recommended milestone:** pick up a V0.13 follow-up below, or an item from "Known issues and audit follow-ups"
 
 `PROJECT_HANDOFF.md` is the **single authoritative source** for repository architecture, invariants, roadmap, priorities and developer handoff state. Other documents may provide historical or explanatory context only; they must not define competing requirements or future-work plans. If another document conflicts with this file, this file wins. Keep it concise, update sections in place and do not append milestone diaries.
 
@@ -183,7 +183,7 @@ Current shared mechanics include:
 - fresh scenarios scale to roughly 12 crew while preserving campaign-continuing roster provenance; Ollama may generate the six specialist roles first and deterministic supplementation fills the larger roster, while `Prisoner` is scenario-composed and never part of the generated-role contract
 - spontaneous social conflict pressure can escalate into deterministic fights from stress, personality, relationships, grievances and circumstances
 - deterministic fire/smoke hazards expose composable crew affordances (fight fire, evacuate, seal, vent) rather than scripted response trees; LLM/browser cognition chooses desired responses and C# validates reachability, equipment, pressure and outcomes
-- prisoner/containment foundations include prisoner roles, danger levels, violence bias, secure containment rooms and a standalone containment-transfer scenario hook
+- prisoner/containment: prisoner roles, danger levels, violence bias and secure containment rooms; `containment-transfer` is a complete standalone assignment (see V0.13 section below) with deterministic escape opportunity/pressure, recapture, prisoner-guard combat/lethality and a mandatory chain-of-custody directive
 - autonomous crew with skills, traits, relationships, beliefs, memories and persistent intents
 - memory fades: `MemorySalience` scores importance × a half-life that grows with importance (trivia fades in hours, defining moments last about a day); prompts use the most salient memories now, and `MemoryRetentionSystem` caps each crew member at 40 memories every 30 minutes and forgets faded trivia older than a day. Campaign carry-over still keeps the most important memories.
 - conversations carry content via `ConversationTopicSystem`: doubts about Overseer, gossip about a third crew member (nudges the listener's view of them by trust; friends of the subject push back), passing on recent notable memories (never news about the listener), wellbeing and small talk. Arguments name a cause (Overseer disagreement, grievance). Informative talk leaves listener memories and appears in the player LOG; Overseer beliefs remain evidence-driven. Social rolls include the station seed and pairing order rotates.
@@ -228,6 +228,7 @@ Useful subsystem anchors:
 - src/Overseer.Simulation/TurretCountermeasureSystem.cs
 - src/Overseer.Domain/SecurityMalware.cs
 - src/Overseer.Simulation/SecurityMalwareSystem.cs
+- src/Overseer.Simulation/PrisonerContainmentSystem.cs
 - src/Overseer.Simulation/EnvironmentSystem.cs
 - src/Overseer.Simulation/StationUpkeepSystem.cs
 - src/Overseer.Simulation/StationDeviceControlSystem.cs
@@ -309,11 +310,22 @@ Required architecture:
 
 ---
 
-## Next milestone — V0.13 Complete Hazardous Transport Assignments
+## V0.13 — Complete Hazardous Transport Assignments (shipped)
 
-Promote the containment-transfer foundation into a complete scenario/campaign assignment: hardened prisoners or hostile organisms, explicit transport/containment protocols, deterministic escape/recapture/combat/damage/lethality, richer prisoner goals and relationships, and player-facing objectives/end states. Crew cognition may invent responses from available affordances; deterministic C# remains sole authority over what can happen.
+`containment-transfer` is now a complete, player-reachable, deterministic win/lose assignment, not just a roster/geometry foundation.
 
-Keep unrelated simulation expansion out of this pass.
+- **Deliberately standalone, not inserted into the 5-mission campaign order.** `ScenarioCatalog.Campaign` (the ordered arc with continuity/reveal/ending state) is unchanged at 5 entries. `ScenarioCatalog.StandaloneAssignments = [ContainmentTransfer]` is a new, separate list for complete assignments that run on their own fresh station/roster and never touch campaign continuity, reveal stage or the endgame gate. `ScenarioCatalog.Find` resolves both lists. Inserting it into `Campaign` was considered and rejected: that scenario's `FreshGenerated` roster policy and dedicated `AsymmetricIndustrial`/Security station constraints are incompatible with the continuing-crew/continuity-carry-over model the other five missions and the reveal/ending arc assume.
+- **Player entry point:** `StationSession.LoadStandaloneScenarioAsync(scenarioId)` (new abstract member, implemented on both hosts) starts a `StandaloneAssignments` scenario on a fresh station/crew without touching `Campaign`/`CaptureCompletedMission`/carry-over. Wired to a confirm-guarded "SPECIAL ASSIGNMENT: CONTAINMENT TRANSFER" button in the console MENU overlay (`Home.razor`), mirroring the existing "RESET RUN" confirm pattern. Verified end-to-end in a live browser (menu → confirm → fresh containment station with all 4 prisoners on the crew manifest and the directive board showing MAINTAIN CHAIN OF CUSTODY).
+- **Escape/recapture/combat is one new deterministic system, `PrisonerContainmentSystem`** (ticked in `StationSession.AdvanceCoreAsync` beside the robot/turret countermeasure systems): a contained prisoner rolls escape pressure (danger tier + `PrisonerViolenceBias` + stress) only when a real physical opportunity exists (an unsecured/passable door on the containment room boundary); locking, welding or barricading that door is a complete, tested counter. A breach sets `Npc.HasEscapedContainment` and moves the prisoner through the real door; `CrewRoutineSystem` gives an unmanaged escapee a deterministic top-priority "flee to the farthest reachable room" fallback (via `NavigationSystem.FindPathForCrew`) so they don't just stand still, without pre-empting mind-driven behaviour. `RecapturePrisoner` is a normal `CrewAffordanceSystem`/`IntentExecutionSystem`/`ActionResolver` affordance (any crew, not role-gated, same shape as `ForceDoor`/`DamageRobot`) that any mind can choose; the deterministic outcome weighs the guard's `CrewCounterplaySystem.BestForceSkill` against the prisoner's danger tier/violence bias/Athletics, and a failed struggle can injure or kill either side (`Npc.CauseOfDeath` set the same way `SocialSimulationSystem` sets it on a lethal fight). `Attack` is still never a mind-selectable path to this — consistent with the existing `IntentExecutionSystem` rule that rewrites `Attack` into `Argue`.
+- **Win/lose gate:** a new mandatory `DirectiveKind.ContainmentIntegrity` directive (`CorporateDirectiveSystem`) fails the scenario immediately on any prisoner death, and is graded at the observation-window deadline on whether every prisoner is still secure (recapturing an escapee before the deadline keeps it alive). The pre-existing `KeepCrewAlive` objective/`Apply` target computation and `ScenarioProgressSystem`'s living-crew count were both fixed to exclude prisoners (`!npc.IsPrisoner`), so a prisoner casualty no longer masks a real crew-alive failure or vice versa — this is a small, generally-applicable correctness fix, not containment-specific behaviour, and does not change any of the other five missions (none have prisoners).
+- New coverage: `tests/Overseer.Simulation.Tests/PrisonerTransportTests.cs` (standalone-catalog membership, unsecured-vs-secured hatch escape determinism, guard recapture success, a lethal outmatched-guard struggle, `ContainmentIntegrity` failing on death and completing on a clean window, and the station-alert surfacing/clearing for an at-large prisoner).
+
+**Deliberately deferred out of this pass** (real backlog, not silently dropped):
+
+- Richer per-prisoner goals/relationships/backstory. Prisoners still get only the four `PrisonerDefinition` fields and default 50/50 relationships from `FacilitySeeder`; escape/flee/recapture behaviour is fully deterministic C#, not mind-authored motive.
+- Escaped-prisoner movement is a direct `CurrentRoomId` hop on breach, then ordinary `Move`-based pathing while fleeing; there is no walking/opening-a-door animation for the breach moment itself.
+- `CrewContinuitySnapshot`/`CampaignStateSerializer` still do not carry `IsPrisoner`/`PrisonerDangerLevel`/`PrisonerViolenceBias`. Not exercised today (the assignment is always `FreshGenerated`), but would need fixing before any future scenario reuses `CampaignContinuing` roster policy with prisoners.
+- No dedicated UI treatment for an escape-in-progress beyond the generic Critical station alert and the existing prisoner inspector card; no distinct "recapture in progress" visual.
 
 ---
 

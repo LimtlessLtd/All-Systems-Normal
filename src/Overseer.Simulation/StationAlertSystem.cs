@@ -53,6 +53,20 @@ public static class StationAlertSystem
                 new StationSelection(StationSelectionKind.Crew, npc.Id.ToString())));
         }
 
+        foreach (var npc in state.Crew
+                     .Where(npc => npc.IsPrisoner && npc.IsAlive && npc.HasEscapedContainment)
+                     .OrderBy(npc => npc.Name))
+        {
+            var roomName = state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var room)
+                ? room.Name
+                : npc.CurrentRoomId;
+
+            alerts.Add(new(
+                $"{npc.Name} has breached Containment and is at large in {roomName}.",
+                StationAlertSeverity.Critical,
+                new StationSelection(StationSelectionKind.Crew, npc.Id.ToString())));
+        }
+
         foreach (var room in state.Facility.Rooms.Values.OrderBy(room => room.Name, StringComparer.Ordinal))
         {
             var target = new StationSelection(StationSelectionKind.Room, room.Id);

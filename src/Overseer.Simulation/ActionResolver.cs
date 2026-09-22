@@ -94,6 +94,7 @@ public sealed class ActionResolver
             ActionKind.IsolateSecurityController
                 or ActionKind.PurgeSecurityController
                 => TrySecurityControllerCountermeasure(state, npc, action, out message),
+            ActionKind.RecapturePrisoner => TryRecapturePrisoner(state, npc, action, out message),
             ActionKind.Idle => SetAction(state, npc, action, "waits", out message),
             _ => Fail("Unsupported action.", out message)
         };
@@ -227,6 +228,47 @@ public sealed class ActionResolver
         ActionKind.ReprogramTurret => "a local targeting reprogramming attempt",
         _ => "turret countermeasure work"
     };
+
+    private static bool TryRecapturePrisoner(
+        GameState state,
+        Npc npc,
+        NpcAction action,
+        out string message)
+    {
+        var prisoner = state.Crew.FirstOrDefault(other =>
+            other.IsPrisoner
+            && other.IsAlive
+            && other.IsPresent
+            && other.HasEscapedContainment
+            && other.Name.Equals(action.TargetId, StringComparison.OrdinalIgnoreCase));
+
+        if (prisoner is null)
+        {
+            message = "That escaped prisoner is no longer an actionable target.";
+            return false;
+        }
+
+        if (!PrisonerContainmentSystem.IsCoLocated(npc, prisoner))
+        {
+            message = $"{npc.Name} must physically reach {prisoner.Name} first.";
+            return false;
+        }
+
+        if (npc.CurrentAction.Kind == ActionKind.RecapturePrisoner
+            && npc.CurrentAction.TargetId?.Equals(prisoner.Name, StringComparison.OrdinalIgnoreCase) == true)
+        {
+            message = $"{npc.Name} continues trying to restrain {prisoner.Name}.";
+            return true;
+        }
+
+        npc.RoutineUntil = TimeSpan.Zero;
+        return SetAction(
+            state,
+            npc,
+            action with { TargetId = prisoner.Name },
+            $"moves to restrain {prisoner.Name}",
+            out message);
+    }
 
     private static bool TrySecurityControllerCountermeasure(
         GameState state,

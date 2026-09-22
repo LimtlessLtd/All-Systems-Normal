@@ -647,6 +647,10 @@
                             <a class="debug-link" href="debug">DEBUG</a>
                         }
                         <button type="button"
+                                class="@(_confirmingStandalone ? "danger" : "secondary")"
+                                title="Leave the current run and start the standalone Containment Transfer assignment"
+                                @onclick="RequestStandaloneAssignmentAsync">@(_confirmingStandalone ? "CONFIRM SPECIAL ASSIGNMENT?" : "SPECIAL ASSIGNMENT: CONTAINMENT TRANSFER")</button>
+                        <button type="button"
                                 class="@(_confirmingReset ? "danger" : "secondary")"
                                 title="Discard this run and campaign progress"
                                 @onclick="RequestResetAsync">@(_confirmingReset ? "CONFIRM RESET?" : "RESET RUN")</button>
@@ -1842,6 +1846,7 @@
     private string? _stationOverlay;
     private bool _paused;
     private bool _confirmingReset;
+    private bool _confirmingStandalone;
     private DotNetObjectReference<Home>? _selfReference;
     private long _lastAudioSequence;
     private CancellationTokenSource? _clockCts;
@@ -1939,6 +1944,34 @@
             return;
 
         _confirmingReset = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RequestStandaloneAssignmentAsync()
+    {
+        if (!_confirmingStandalone)
+        {
+            _confirmingStandalone = true;
+            _ = ExpireStandaloneConfirmationAsync();
+            return;
+        }
+
+        _confirmingStandalone = false;
+        StopClock();
+        await Session.LoadStandaloneScenarioAsync(ScenarioCatalog.ContainmentTransfer.Id);
+        _selection = new(StationSelectionKind.Room, "control");
+        _lastAudioSequence = 0;
+        StartAutoClock();
+    }
+
+    private async Task ExpireStandaloneConfirmationAsync()
+    {
+        await Task.Delay(TimeSpan.FromSeconds(4));
+
+        if (!_confirmingStandalone)
+            return;
+
+        _confirmingStandalone = false;
         await InvokeAsync(StateHasChanged);
     }
 

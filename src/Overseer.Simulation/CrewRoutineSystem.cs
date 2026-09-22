@@ -215,6 +215,19 @@ public sealed class CrewRoutineSystem
         Npc npc,
         int minute)
     {
+        if (npc.IsPrisoner && npc.HasEscapedContainment)
+        {
+            var fleeTarget = ChooseFleeDestination(state, npc);
+            return new(
+                fleeTarget,
+                ActionKind.Idle,
+                null,
+                "Putting distance between myself and Containment.",
+                "I have to get away from here.",
+                "Staying out of sight.",
+                5);
+        }
+
         if (npc.Hunger >= 55)
         {
             return new(
@@ -347,6 +360,31 @@ public sealed class CrewRoutineSystem
             "Back to work.",
             DutyBubble(npc.Role),
             24);
+    }
+
+    /// <summary>
+    /// Deterministic fallback wandering for an escaped prisoner with no mind
+    /// intent: keep moving toward whichever reachable compartment is currently
+    /// farthest from where they broke out, so an unattended escapee does not
+    /// just stand still.
+    /// </summary>
+    private static string ChooseFleeDestination(GameState state, Npc npc)
+    {
+        var navigation = new NavigationSystem();
+
+        var farthest = state.Facility.Rooms.Keys
+            .Where(roomId => !roomId.Equals(
+                PrisonerContainmentSystem.ContainmentRoomId,
+                StringComparison.OrdinalIgnoreCase))
+            .Select(roomId => (
+                RoomId: roomId,
+                Path: navigation.FindPathForCrew(state, npc, npc.CurrentRoomId, roomId)))
+            .Where(candidate => candidate.Path.Count >= 2)
+            .OrderByDescending(candidate => candidate.Path.Count)
+            .ThenBy(candidate => candidate.RoomId, StringComparer.Ordinal)
+            .FirstOrDefault();
+
+        return farthest.RoomId ?? npc.CurrentRoomId;
     }
 
     private static Npc? BestCompanion(GameState state, Npc npc)

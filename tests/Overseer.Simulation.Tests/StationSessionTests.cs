@@ -113,6 +113,9 @@ public sealed class StationSessionTests
         public override Task LoadScenarioAsync(string scenarioId, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
 
+        public override Task LoadStandaloneScenarioAsync(string scenarioId, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
         protected override Task ThinkAsync(CancellationToken cancellationToken)
         {
             ThinkCalls++;

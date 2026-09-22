@@ -162,6 +162,33 @@ public sealed class GameSession(
         Log($"DIRECTIVE PACKAGE LOADED — {scenario.Title}.");
     }
 
+    /// <inheritdoc />
+    public override async Task LoadStandaloneScenarioAsync(
+        string scenarioId,
+        CancellationToken cancellationToken = default)
+    {
+        PauseClock();
+        _mindCursor = 0;
+
+        var scenario = ScenarioCatalog.StandaloneAssignments.FirstOrDefault(candidate =>
+            candidate.Id.Equals(scenarioId, StringComparison.OrdinalIgnoreCase));
+
+        if (scenario is null)
+        {
+            Log($"SPECIAL ASSIGNMENT {scenarioId} is not a recognised standalone package.");
+            return;
+        }
+
+        var crew = await CreateCrewForScenarioAsync(scenario, cancellationToken);
+        State = FacilitySeeder.CreateDefault(
+            crew,
+            stationConstraints: scenario.StationConstraints);
+        ScenarioCatalog.Apply(State, scenario);
+        _initialized = true;
+
+        Log($"SPECIAL ASSIGNMENT LOADED — {scenario.Title}.");
+    }
+
     protected override Task ThinkAsync(CancellationToken cancellationToken) =>
         ThinkIfDueAsync(cancellationToken);
 

@@ -163,6 +163,10 @@ public sealed class IntentExecutionSystem
                     ExecuteTurretCountermeasureIntent(state, npc, intent);
                     break;
 
+                case ActionKind.RecapturePrisoner:
+                    ExecuteRecapturePrisonerIntent(state, npc, intent);
+                    break;
+
                 case ActionKind.Idle:
                     npc.CurrentAction = new NpcAction(
                         ActionKind.Idle,
@@ -290,6 +294,40 @@ public sealed class IntentExecutionSystem
                 state,
                 npc.Id,
                 new NpcAction(intent.Action, turret.Id, intent.Reason),
+                out _))
+        {
+            npc.Intent = null;
+        }
+    }
+
+    private void ExecuteRecapturePrisonerIntent(
+        GameState state,
+        Npc npc,
+        NpcIntent intent)
+    {
+        var prisoner = state.Crew.FirstOrDefault(other =>
+            other.IsPrisoner
+            && other.IsAlive
+            && other.IsPresent
+            && other.HasEscapedContainment
+            && other.Name.Equals(intent.TargetId, StringComparison.OrdinalIgnoreCase));
+
+        if (prisoner is null)
+        {
+            FailIntent(npc, "That escaped prisoner is no longer at large.");
+            return;
+        }
+
+        if (!PrisonerContainmentSystem.IsCoLocated(npc, prisoner))
+        {
+            MoveTowardRoom(state, npc, intent, prisoner.CurrentRoomId);
+            return;
+        }
+
+        if (_actions.TryApply(
+                state,
+                npc.Id,
+                new NpcAction(ActionKind.RecapturePrisoner, prisoner.Name, intent.Reason),
                 out _))
         {
             npc.Intent = null;

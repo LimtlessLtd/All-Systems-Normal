@@ -26,6 +26,7 @@ public abstract class StationSession
     private readonly RobotSystem _robots = new();
     private readonly TurretCountermeasureSystem _turretCountermeasures = new();
     private readonly TurretSystem _turrets = new();
+    private readonly PrisonerContainmentSystem _prisonerContainment = new();
     private readonly SecurityMalwareSystem _malware = new();
     private readonly CrewRoutineSystem _crewRoutines = new();
     private readonly SocialSimulationSystem _social = new();
@@ -141,6 +142,17 @@ public abstract class StationSession
         CancellationToken cancellationToken = default);
 
     public abstract Task LoadScenarioAsync(
+        string scenarioId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Starts a complete standalone assignment (see
+    /// <see cref="Overseer.Simulation.ScenarioCatalog.StandaloneAssignments"/>)
+    /// on its own fresh station and roster. Unlike <see cref="LoadScenarioAsync"/>
+    /// this never touches campaign continuity/progression state; it is a side
+    /// assignment, not a step in the ordered campaign arc.
+    /// </summary>
+    public abstract Task LoadStandaloneScenarioAsync(
         string scenarioId,
         CancellationToken cancellationToken = default);
 
@@ -754,6 +766,7 @@ public abstract class StationSession
         _counterplay.Tick(State);
         _robotCountermeasures.Tick(State);
         _turretCountermeasures.Tick(State);
+        _prisonerContainment.Tick(State);
         _manualOverrides.Tick(State);
         _shutdownCoordination.Tick(State);
         _social.Tick(State);
