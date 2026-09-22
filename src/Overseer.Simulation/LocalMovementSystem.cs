@@ -507,18 +507,24 @@ public sealed class LocalMovementSystem
         double targetY,
         double maxDistance)
     {
+        var destination = FindWalkablePoint(room, targetX, targetY);
+
         // Generated fixtures can move between station seeds, while crew/robot
-        // starting coordinates are intentionally simple. If an entity happens
-        // to begin inside newly-solid equipment, recover it to the nearest
-        // walkable point before routing rather than trapping it forever.
+        // starting coordinates are intentionally simple. A merely-nearest free
+        // point can sit in a hull-side pocket cut off by inflated fixture
+        // clearance, so invalid starts recover to the nearest walkable region
+        // that can actually route to this destination.
         if (!IsWalkable(room, entity.PositionX, entity.PositionY))
         {
-            var recovered = FindWalkablePoint(room, entity.PositionX, entity.PositionY);
+            var recovered = FindReachableRecoveryPoint(
+                room,
+                entity.PositionX,
+                entity.PositionY,
+                destination.X,
+                destination.Y);
             entity.PositionX = recovered.X;
             entity.PositionY = recovered.Y;
         }
-
-        var destination = FindWalkablePoint(room, targetX, targetY);
         var dx = destination.X - entity.PositionX;
         var dy = destination.Y - entity.PositionY;
         var distance = PhysicalDistance(room, dx, dy);
@@ -617,6 +623,65 @@ public sealed class LocalMovementSystem
         }
 
         return (Math.Clamp(x, 4, 96), Math.Clamp(y, 4, 96));
+    }
+
+    private static (double X, double Y) FindReachableRecoveryPoint(
+        Room room,
+        double startX,
+        double startY,
+        double targetX,
+        double targetY)
+    {
+        var nearest = FindWalkablePoint(room, startX, startY);
+        var candidates = new List<(double X, double Y)>
+        {
+            nearest,
+            (targetX, targetY)
+        };
+
+        // Recovery is exceptional (an entity is already in invalid geometry),
+        // so a small deterministic room-wide scan is preferable to choosing a
+        // locally free point that is topologically trapped behind furniture.
+        for (var y = 4d; y <= 96; y += 4)
+        {
+            for (var x = 4d; x <= 96; x += 4)
+            {
+                if (IsWalkable(room, x, y))
+                    candidates.Add((x, y));
+            }
+        }
+
+        foreach (var candidate in candidates
+                     .Where(candidate => IsWalkable(room, candidate.X, candidate.Y))
+                     .Distinct()
+                     .OrderBy(candidate => PhysicalDistance(
+                         room,
+                         candidate.X - startX,
+                         candidate.Y - startY))
+                     .ThenBy(candidate => candidate.X)
+                     .ThenBy(candidate => candidate.Y))
+        {
+            if (!SegmentHitsFixture(
+                    room,
+                    candidate.X,
+                    candidate.Y,
+                    targetX,
+                    targetY)
+                || TryGridDetourPoint(
+                    room,
+                    candidate.X,
+                    candidate.Y,
+                    targetX,
+                    targetY,
+                    out _))
+            {
+                return candidate;
+            }
+        }
+
+        // The target is already a walkable interaction point, so this is only a
+        // defensive fallback for pathological authored layouts.
+        return (targetX, targetY);
     }
 
     private static (double X, double Y) DetourPoint(
