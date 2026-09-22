@@ -1037,7 +1037,12 @@ public static class StationGenerator
 
         if (profile.Type == RoomType.Hydroponics)
         {
-            var crewScale = Math.Sqrt(Math.Max(1, identity.CrewCapacity) / 12d);
+            // Size food production from the explicit scenario crew contract.
+            // Identity.CrewCapacity is aesthetic/procedural capacity and may be
+            // much larger than the actual roster; using it here made ordinary
+            // legacy seeds randomly inflate hydroponics and fail spatial packing.
+            var plannedCrew = constraints.PlannedCrewCount ?? 12;
+            var crewScale = Math.Sqrt(Math.Max(1, plannedCrew) / 12d);
             var policyScale = Math.Sqrt(Math.Max(0.1, constraints.HydroponicsCapacityMultiplier));
             scale *= Math.Clamp(crewScale * policyScale, 0.82, 1.38);
         }
