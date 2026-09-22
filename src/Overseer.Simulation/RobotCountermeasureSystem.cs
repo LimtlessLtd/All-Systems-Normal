@@ -58,6 +58,88 @@ public sealed class RobotCountermeasureSystem
         npc.CurrentRoomId.Equals(ControlRoomId, StringComparison.OrdinalIgnoreCase)
         && CrewCounterplaySystem.BestTechnicalSkill(npc) >= 45;
 
+    /// <summary>
+    /// Deterministic countermeasure decision, shared by every mind (LLM
+    /// fallback and browser-demo) that considers acting against a robot.
+    /// Neither mind decides physical outcomes; this only decides which
+    /// action is available to propose given current skill/visibility/evidence.
+    /// </summary>
+    public static CountermeasureDecision? FindCountermeasure(GameState state, Npc npc)
+    {
+        var visibleRobot = state.Robots.FirstOrDefault(robot =>
+            !robot.IsDestroyed
+            && robot.CurrentRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
+
+        if (visibleRobot is not null)
+        {
+            if (!visibleRobot.IsOperational
+                && visibleRobot.Policy == RobotPolicy.Hostile
+                && CrewCounterplaySystem.BestTechnicalSkill(npc) >= 65)
+            {
+                return new CountermeasureDecision(
+                    ActionKind.ReprogramRobot,
+                    visibleRobot.Id,
+                    $"Reprogram and reboot {visibleRobot.Name}.",
+                    "The hostile robot is shut down in front of me and I can reach its local service port.",
+                    96);
+            }
+
+            if (visibleRobot.Policy == RobotPolicy.Hostile && visibleRobot.IsOperational)
+            {
+                var technical = CrewCounterplaySystem.BestTechnicalSkill(npc);
+                var force = CrewCounterplaySystem.BestForceSkill(npc);
+
+                return technical >= 45
+                    ? new CountermeasureDecision(
+                        ActionKind.ShutdownRobot,
+                        visibleRobot.Id,
+                        $"Use {visibleRobot.Name}'s manual shutdown.",
+                        "A hostile robot is physically here; I want to stop it at the local emergency cutoff.",
+                        100)
+                    : new CountermeasureDecision(
+                        ActionKind.DamageRobot,
+                        visibleRobot.Id,
+                        $"Physically disable {visibleRobot.Name}.",
+                        force >= 40
+                            ? "A hostile robot is physically here and force is the countermeasure I can attempt."
+                            : "The robot is an immediate threat; I have no safer technical option.",
+                        100);
+            }
+        }
+
+        var knownThreat = state.Robots.FirstOrDefault(robot =>
+            !robot.IsDestroyed
+            && HasHostileRobotEvidence(npc, robot));
+
+        if (knownThreat is null)
+        {
+            return null;
+        }
+
+        var technicalSkill = CrewCounterplaySystem.BestTechnicalSkill(npc);
+        if (!knownThreat.IsNetworkIsolated && technicalSkill >= 55)
+        {
+            return new CountermeasureDecision(
+                ActionKind.IsolateRobotNetwork,
+                knownThreat.Id,
+                $"Isolate {knownThreat.Name} from Overseer's control link.",
+                "I have direct evidence the robot is dangerous and Engineering has a physical network isolation control.",
+                94);
+        }
+
+        if (knownThreat.ChargingEnabled && technicalSkill >= 45)
+        {
+            return new CountermeasureDecision(
+                ActionKind.DisableRobotCharging,
+                knownThreat.Id,
+                $"Cut power to {knownThreat.Name}'s charging circuit.",
+                "I have direct evidence the robot is dangerous and can deny its charger from Engineering.",
+                88);
+        }
+
+        return null;
+    }
+
     private static void TickLocalShutdown(GameState state, Npc npc)
     {
         var robot = FindRobot(state, npc.CurrentAction.TargetId);
