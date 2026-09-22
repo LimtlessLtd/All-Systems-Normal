@@ -1074,9 +1074,19 @@ public static class StationGenerator
         // difference between a valid layout and no layout at all.
         height = Math.Clamp(height, 9.0, 30);
 
-        // Access tunnels inherit the exact cross-axis thickness of the
-        // corridor they attach to. Independent random passage widths produced
-        // visible 4-5px steps at corridor ends and misaligned physical portals.
+        // Preserve the generator's historical random-consumption order.
+        // Previous code sampled an independent access width here; removing the
+        // sample changed every later placement decision for established seeds,
+        // causing otherwise-valid layouts to become unpackable. The sampled
+        // value is deliberately discarded: physical width now comes from the
+        // corridor so the junction is exactly flush.
+        _ = identity.Budget switch
+        {
+            StationBudgetClass.Frugal => random.NextDouble(3.4, 4.0),
+            StationBudgetClass.Premium => random.NextDouble(4.2, 5.0),
+            _ => random.NextDouble(3.7, 4.5)
+        };
+
         var passageWidth = corridor.MapWidth >= corridor.MapHeight
             ? corridor.MapHeight
             : corridor.MapWidth;
