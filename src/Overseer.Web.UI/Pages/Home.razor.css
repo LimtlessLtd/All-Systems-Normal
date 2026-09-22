@@ -7078,15 +7078,15 @@ button.turret-token {
     --crop-stage-scale: 1;
     --crop-stage-opacity: .7;
 }
-.station-authority-layer .fixture-growbed[data-growth-stage="ready"][data-crop="TOMATO"] { --crop-symbol: "🍅"; }
-.station-authority-layer .fixture-growbed[data-growth-stage="ready"][data-crop="POTATO"] { --crop-symbol: "🥔"; }
-.station-authority-layer .fixture-growbed[data-growth-stage="ready"][data-crop="APPLE"] { --crop-symbol: "🍎"; }
-.station-authority-layer .fixture-growbed[data-growth-stage="ready"][data-crop="GRAPE"] { --crop-symbol: "🍇"; }
-.station-authority-layer .fixture-growbed[data-growth-stage="ready"][data-crop="BANANA"] { --crop-symbol: "🍌"; }
-.station-authority-layer .fixture-growbed[data-growth-stage="ready"][data-crop="TOBACCO"] { --crop-symbol: "🌿"; }
-.station-authority-layer .fixture-growbed[data-growth-stage="ready"][data-crop="WHEAT"] { --crop-symbol: "🌾"; }
+.station-authority-layer .fixture-growbed[data-growth-stage="harvest-ready"][data-crop="TOMATO"] { --crop-symbol: "🍅"; }
+.station-authority-layer .fixture-growbed[data-growth-stage="harvest-ready"][data-crop="POTATO"] { --crop-symbol: "🥔"; }
+.station-authority-layer .fixture-growbed[data-growth-stage="harvest-ready"][data-crop="APPLE"] { --crop-symbol: "🍎"; }
+.station-authority-layer .fixture-growbed[data-growth-stage="harvest-ready"][data-crop="GRAPE"] { --crop-symbol: "🍇"; }
+.station-authority-layer .fixture-growbed[data-growth-stage="harvest-ready"][data-crop="BANANA"] { --crop-symbol: "🍌"; }
+.station-authority-layer .fixture-growbed[data-growth-stage="harvest-ready"][data-crop="TOBACCO"] { --crop-symbol: "🌿"; }
+.station-authority-layer .fixture-growbed[data-growth-stage="harvest-ready"][data-crop="WHEAT"] { --crop-symbol: "🌾"; }
 
-.station-authority-layer .fixture-growbed[data-growth-stage="ready"] {
+.station-authority-layer .fixture-growbed[data-growth-stage="harvest-ready"] {
     --crop-stage-scale: 1.22;
     --crop-stage-opacity: 1;
     box-shadow: inset 0 0 0 2px rgba(37,103,58,.5), 0 0 11px rgba(91,210,108,.55);
