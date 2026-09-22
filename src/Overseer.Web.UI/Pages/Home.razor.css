@@ -852,10 +852,10 @@ button:not([data-station-interactive]):not(.room-node):not(.crew-token):not(.map
     padding: 0;
     overflow: visible;
     color: var(--text);
-    transition:
-        left var(--crew-step-duration, 2.65s) linear,
-        top var(--crew-step-duration, 2.65s) linear,
-        filter .16s ease;
+    /* Render authoritative waypoint positions directly. Long CSS position
+       tweening drew a straight visual chord through corners even when the
+       deterministic mover had correctly selected a detour waypoint. */
+    transition: filter .16s ease;
 }
 
 .crew-token:hover,
@@ -2619,7 +2619,9 @@ button.sound-toggle.sound-on {
 
 .robot-policy-controls .danger {
     border-color: var(--danger);
-    color: var(--danger);
+    background: var(--danger);
+    color: #180507;
+    font-weight: 900;
 }
 
 .robot-token {
@@ -6994,18 +6996,20 @@ button.turret-token {
 /* Emergent-routine / hazard / route presentation. */
 .crew-route-lines .selected-route-path {
     fill: none;
-    stroke: rgba(94, 220, 255, .92);
-    stroke-width: .42;
-    stroke-dasharray: 1.45 1.0;
+    stroke: #38e86f;
+    stroke-width: 3.2px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1px 8px;
     vector-effect: non-scaling-stroke;
-    filter: drop-shadow(0 0 2px rgba(73, 200, 244, .72));
+    filter: drop-shadow(0 0 2px rgba(56, 232, 111, .92));
     animation: selected-route-flow 1.25s linear infinite;
 }
 
 .crew-route-lines .selected-route-destination {
-    fill: rgba(230, 251, 255, .92);
-    stroke: rgba(37, 160, 207, .95);
-    stroke-width: .42;
+    fill: #baffca;
+    stroke: #38e86f;
+    stroke-width: 2px;
     vector-effect: non-scaling-stroke;
     filter: drop-shadow(0 0 3px rgba(80, 211, 255, .85));
 }
