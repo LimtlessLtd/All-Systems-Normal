@@ -347,12 +347,16 @@ public static class StationGenerator
             15,
             100);
 
-        var crewCapacity = constraints.PlannedCrewCount ?? (size switch
+        // StationIdentity.CrewCapacity describes the procedurally generated
+        // physical station, not the active/scenario roster. Keep this seeded draw
+        // stable; PlannedCrewCount is a provisioning contract used by hydroponics
+        // sizing and must not shift identity/topology generation.
+        var crewCapacity = size switch
         {
             StationSizeClass.Compact => random.NextInt(6, 13),
             StationSizeClass.Large => random.NextInt(20, 49),
             _ => random.NextInt(10, 25)
-        });
+        };
 
         return new StationIdentity(
             purpose,
