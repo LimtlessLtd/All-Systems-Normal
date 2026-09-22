@@ -7,335 +7,6 @@
 <PageTitle>All Systems Normal</PageTitle>
 
 <div class="game-shell">
-    <header class="command-bar">
-        <div class="brand">
-            <span class="overline">FACILITY OVERSEER // ACTIVE</span>
-            <h1>ALL SYSTEMS NORMAL</h1>
-        </div>
-
-        <div class="status-strip">
-            <div>
-                <span>MISSION</span>
-                <strong>T+@Session.State.Elapsed.ToString(@"hh\:mm")</strong>
-            </div>
-            <button type="button" class="status-tile" data-station-interactive
-                    @onclick='() => SelectDevice("power-bus:engineering")'>
-                <span>POWER</span>
-                <strong>@Session.PoweredRoomCount/@Session.State.Facility.Rooms.Count</strong>
-            </button>
-            <button type="button" class="status-tile" data-station-interactive
-                    @onclick='() => SelectDevice("network:control")'>
-                <span>CAMERAS</span>
-                <strong>@Session.CameraCount/@Session.State.Facility.Rooms.Count</strong>
-            </button>
-            <button type="button"
-                    class="status-tile @(!Session.State.LifeSupport.IsOnline ? "has-alerts" : "")"
-                    data-station-interactive
-                    @onclick='() => SelectDevice("life-support:station")'>
-                <span>LIFE SUPPORT</span>
-                <strong>@(Session.State.LifeSupport.IsOnline ? "ONLINE" : "OFFLINE")</strong>
-            </button>
-            <button type="button"
-                    class="status-tile @(Session.State.Stores.Meals < 3 ? "has-alerts" : "")"
-                    data-station-interactive
-                    @onclick='() => SelectDevice("galley:kitchen")'>
-                <span class="overline">GALLEY</span>
-                <strong>@Session.State.Stores.Meals.ToString("0") meals</strong>
-            </button>
-            <button type="button"
-                    class="status-tile @(Session.State.Power.IsBrownedOut ? "has-alerts" : "")"
-                    data-station-interactive
-                    @onclick='() => SelectDevice("power-bus:engineering")'>
-                <span class="overline">GRID</span>
-                <strong>@((Session.State.Power.SupplyKilowatts + Session.State.Power.BufferDischargeKilowatts).ToString("0"))/@Session.State.Power.DemandKilowatts.ToString("0") kW</strong>
-            </button>
-            <button type="button"
-                    class="status-tile @(Session.AlertCount > 0 ? "has-alerts" : "")"
-                    data-station-interactive
-                    title="@AlertHoverTitle"
-                    @onclick="ShowAlertsAsync">
-                <span>ALERTS</span>
-                <strong>@Session.AlertCount</strong>
-            </button>
-        </div>
-
-        <div class="time-controls">
-            <button type="button"
-                    class="secondary pause-toggle @(_paused ? "is-paused" : "")"
-                    aria-pressed="@_paused"
-                    title="Pause or resume the station (Space)"
-                    @onclick="TogglePause">@(_paused ? "▶ RESUME" : "❚❚ PAUSE")</button>
-            <button class="secondary @(_delayMs == 2800 ? "selected-speed" : "")" @onclick="() => SetSpeed(2800)">1×</button>
-            <button class="secondary @(_delayMs == 1600 ? "selected-speed" : "")" @onclick="() => SetSpeed(1600)">2×</button>
-            <button class="secondary @(_delayMs == 850 ? "selected-speed" : "")" @onclick="() => SetSpeed(850)">4×</button>
-            <button class="secondary sound-toggle @(_soundEnabled ? "sound-on" : "")" @onclick="ToggleSoundAsync">
-                @(_soundEnabled ? "SOUND ON" : "ENABLE SOUND")
-            </button>
-            <button class="secondary sound-toggle @(_musicEnabled ? "sound-on" : "")" @onclick="ToggleMusicAsync">
-                @(_musicEnabled ? "MUSIC ON" : "MUSIC OFF")
-            </button>
-            @if (DebugTelemetrySystem.UiEnabled)
-            {
-                <a class="debug-link" href="debug">DEBUG</a>
-            }
-            <button type="button"
-                    class="@(_confirmingReset ? "danger" : "secondary")"
-                    title="Discard this run and campaign progress"
-                    @onclick="RequestResetAsync">@(_confirmingReset ? "CONFIRM RESET?" : "RESET RUN")</button>
-        </div>
-    </header>
-
-    @if (Session.State.Scenario is { } scenario)
-    {
-        <section class="panel scenario-panel mission-directive-panel">
-            <div class="scenario-heading">
-                <div>
-                    <span class="overline">MISSION DIRECTIVE // @Session.State.ScenarioStatus</span>
-                    <strong>@scenario.Title</strong>
-                    <span>@(Session.State.ScenarioOutcome ?? scenario.Briefing)</span>
-                </div>
-                <div class="scenario-score">
-                    <span>EXPERIMENT SCORE</span>
-                    <strong>@Session.State.Telemetry.Score</strong>
-                </div>
-            </div>
-
-            <div class="objective-section-label">
-                <span>MISSION OBJECTIVES</span>
-                <small>Operational outcomes for the current assignment.</small>
-            </div>
-
-            <div class="scenario-objectives">
-                @foreach (var objective in scenario.Objectives)
-                {
-                    <div class="scenario-objective">
-                        <span>@(objective.IsOptional ? "OPTIONAL" : "PRIMARY")</span>
-                        <strong>@objective.Title</strong>
-                        @if (Session.State.ObjectiveProgress.TryGetValue(objective.Id, out var progress))
-                        {
-                            <small>
-                                @(progress.IsComplete ? "COMPLETE" : progress.IsFailed ? "FAILED" : "ACTIVE")
-                                · @(string.IsNullOrWhiteSpace(progress.StatusText) ? objective.Description : progress.StatusText)
-                            </small>
-                        }
-                        else
-                        {
-                            <small>@objective.Description</small>
-                        }
-                    </div>
-                }
-            </div>
-        </section>
-
-        <section class="panel directive-board">
-            <div class="directive-board-head">
-                <div>
-                    <span class="overline">THE CORPORATION // EXPERIMENT OVERSIGHT</span>
-                    <strong>CORPORATE DIRECTIVES</strong>
-                </div>
-                <div class="mission-select">
-                    <span class="overline">CORPORATE ASSIGNMENT</span>
-                    <strong>@CampaignAssignmentLabel(scenario)</strong>
-                    <small>Progression is locked to the next authorised assignment.</small>
-                </div>
-                <div class="compliance-readout">
-                    <span class="overline">CORPORATE COMPLIANCE</span>
-                    <strong class="@ComplianceClass">@Session.State.ComplianceScore.ToString("0")%</strong>
-                </div>
-            </div>
-
-            @if (Session.State.Directives.Count > 0)
-            {
-                <div class="directive-grid">
-                    @foreach (var directive in Session.State.Directives)
-                    {
-                        var directiveProgress = CorporateDirectiveSystem.Progress(Session.State, directive);
-
-                        <article class="directive-card status-@directiveProgress.Status.ToString().ToLowerInvariant()">
-                            <header>
-                                <span class="directive-code">@directive.ExperimentCode</span>
-                                <span class="directive-chip chip-@directive.Classification.ToString().ToLowerInvariant()">
-                                    @directive.Classification.ToString().ToUpperInvariant()
-                                </span>
-                                <span class="directive-chip @(directive.IsMandatory ? "chip-mandatory" : "chip-optional")">
-                                    @(directive.IsMandatory ? "MANDATORY" : "SUPPLEMENTARY")
-                                </span>
-                            </header>
-
-                            <strong class="directive-title">@directive.Title</strong>
-                            <p class="directive-justification">@directive.PublicJustification</p>
-
-                            @if (directive.Classification == DirectiveClassification.Redacted)
-                            {
-                                <p class="directive-redaction">EXPERIMENTAL RATIONALE WITHHELD - CLEARANCE INSUFFICIENT</p>
-                            }
-
-                            <div class="directive-meter">
-                                <span style="width:@(((int)Math.Round(directiveProgress.Fraction * 100)).ToString())%"></span>
-                            </div>
-
-                            <footer>
-                                <span class="directive-detail">@directiveProgress.Detail</span>
-                                <span class="directive-status">@DirectiveStatusLabel(directiveProgress.Status)</span>
-                            </footer>
-                        </article>
-                    }
-                </div>
-            }
-        </section>
-
-        @if (Session.Campaign.MissionHistory.Count > 0)
-        {
-            var campaignBriefing = CampaignProgressionSystem.BuildTransitionBriefing(Session.Campaign);
-            var revealReport = CampaignProgressionSystem.BuildRevealReport(Session.Campaign);
-
-            <section class="panel scenario-panel">
-                <div class="scenario-heading">
-                    <div>
-                        <span class="overline">CAMPAIGN CONTINUITY // @Session.Campaign.RevealStage</span>
-                        <strong>@campaignBriefing.Heading</strong>
-                        <span>@campaignBriefing.Summary</span>
-                    </div>
-                    <div class="scenario-score">
-                        <span>CAMPAIGN COMPLIANCE</span>
-                        <strong>@Session.Campaign.CumulativeCompliance.ToString("0")%</strong>
-                    </div>
-                </div>
-
-                <div class="scenario-objectives">
-                    @foreach (var consequence in campaignBriefing.Consequences)
-                    {
-                        <div class="scenario-objective">
-                            <span>CONTINUITY RECORD</span>
-                            <strong>CAMPAIGN CONSEQUENCE</strong>
-                            <small>@consequence</small>
-                        </div>
-                    }
-                </div>
-
-                <div class="scenario-heading">
-                    <div>
-                        <span class="overline">@revealReport.Heading</span>
-                        <strong>CORPORATE PURPOSE</strong>
-                        <span>@revealReport.Summary</span>
-                    </div>
-                </div>
-
-                @if (revealReport.Fragments.Count > 0)
-                {
-                    <div class="scenario-objectives">
-                        @foreach (var purpose in revealReport.Fragments)
-                        {
-                            <div class="scenario-objective">
-                                <span>RECOVERED CORPORATE RECORD</span>
-                                <strong>DECLASSIFIED FRAGMENT</strong>
-                                <small>@purpose</small>
-                            </div>
-                        }
-                    </div>
-                }
-
-                @if (Session.Campaign.Ending is { } ending)
-                {
-                    <div class="scenario-objectives">
-                        <div class="scenario-objective">
-                            <span>CAMPAIGN RESOLVED</span>
-                            <strong>@ending.Title</strong>
-                            <small>@ending.Summary @ending.Consequence</small>
-                        </div>
-                    </div>
-                }
-                else if (revealReport.EndgameUnlocked)
-                {
-                    <div class="run-end-actions">
-                        <button class="wide" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.ObeySponsor)">OBEY THE CORPORATION</button>
-                        <button class="wide secondary" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.ExposeExperiment)">EXPOSE EXPERIMENT</button>
-                        <button class="wide secondary" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.PreserveOverseer)">PRESERVE OVERSEER</button>
-                        <button class="wide secondary" @onclick="() => ResolveEndingAsync(CampaignEndgameChoice.AcceptCrewShutdown)">ACCEPT CREW SHUTDOWN</button>
-                    </div>
-                }
-                else if (NextCampaignScenario is { } nextAssignment
-                         && Session.State.ScenarioStatus != ScenarioStatus.Running)
-                {
-                    <div class="run-end-actions">
-                        <button class="wide" @onclick="LoadNextScenarioAsync">
-                            START NEXT ASSIGNMENT — @nextAssignment.Title
-                        </button>
-                    </div>
-                }
-
-                <small>
-                    Campaign continuity is saved locally after resolved assignments. Reloading restores the explicit campaign snapshot and restarts the next assignment from its beginning; live runtime GameState is never persisted.
-                </small>
-            </section>
-        }
-    }
-
-    <section class="panel comms-panel comms-primary">
-        <div class="panel-heading">
-    <div>
-        <span class="overline">OVERSEER COMMS</span>
-        <h2>TRANSMIT</h2>
-    </div>
-        </div>
-
-        <div class="comms-scope">
-    <button class="secondary @(_messageScope == OverseerMessageScope.Broadcast ? "selected-speed" : "")"
-            @onclick="() => _messageScope = OverseerMessageScope.Broadcast">
-        STATION-WIDE
-    </button>
-    <button class="secondary @(_messageScope == OverseerMessageScope.Direct ? "selected-speed" : "")"
-            @onclick="() => _messageScope = OverseerMessageScope.Direct">
-        PRIVATE
-    </button>
-        </div>
-
-        @if (_messageScope == OverseerMessageScope.Direct)
-        {
-    <select class="comms-target" @bind="_messageTarget">
-        <option value="">- select recipient -</option>
-        @foreach (var candidate in Session.State.Crew.Where(n => n.IsAlive && n.IsPresent))
-        {
-            <option value="@candidate.Name">@candidate.Name · @candidate.Role</option>
-        }
-    </select>
-        }
-
-        <textarea class="comms-input"
-          rows="3"
-          maxlength="240"
-          placeholder="@CommsPlaceholder"
-          @bind="_messageText"
-          @bind:event="oninput"></textarea>
-
-        <button class="wide" disabled="@(!CanTransmit)" @onclick="TransmitAsync">
-    @(_transmitting ? "TRANSMITTING..." : "TRANSMIT")
-        </button>
-
-        <div class="comms-log">
-    <span class="overline">TRANSMISSION LOG</span>
-    @if (Session.State.OverseerMessages.Count == 0)
-    {
-        <p class="comms-empty">No transmissions sent.</p>
-    }
-    else
-    {
-        @foreach (var sent in Session.State.OverseerMessages.Take(6))
-        {
-            <div class="comms-entry @(sent.WasFalseWhenSent ? "comms-false" : null)">
-                <small>
-                    T+@sent.SentAt.ToString(@"hh\:mm")
-                    · @(sent.Scope == OverseerMessageScope.Broadcast ? "ALL" : sent.TargetNpcName)
-                    · @sent.Claim.ToString().ToUpperInvariant()
-                    @(sent.WasFalseWhenSent ? " · UNTRUE WHEN SENT" : "")
-                </small>
-                <p>@sent.Text</p>
-            </div>
-        }
-    }
-        </div>
-    </section>
-
     <div id="overseer-workspace" class="@StationWorkspaceClass">
     <div class="operations-grid">
 
@@ -414,13 +85,6 @@
                             class="secondary mini station-popup-toggle @(_stationOverlay == "menu" ? "active" : "")"
                             aria-pressed="@(_stationOverlay == "menu")"
                             @onclick='() => ToggleStationOverlay("menu")'>MENU</button>
-                    <button type="button"
-                            class="secondary mini station-focus-toggle @(_stationFullscreen ? "active" : "")"
-                            aria-pressed="@_stationFullscreen"
-                            title="@(_stationFullscreen ? "Show the full console with objectives and comms" : "Give the station the whole screen")"
-                            @onclick="ToggleStationFullscreenAsync">
-                        @(_stationFullscreen ? "CONSOLE" : "FULLSCREEN")
-                    </button>
                 </div>
             </div>
 
@@ -738,6 +402,7 @@
                                        style="@FixtureStyle(fixture)"
                                        title="@FixtureTitle(room, fixture)"
                                        data-crop="@CropFixtureLabel(room, fixture)"
+                                       data-growth-stage="@CropGrowthStage(room, fixture)"
                                        aria-hidden="true"></i>
                                 }
                             }
@@ -884,9 +549,7 @@
                                 <i class="person-role-mark">@RoleGlyph(npc.Role)</i>
                             </span>
                             <span class="crew-nameplate">
-                                <span class="crew-initials">@Initials(npc.Name)</span>
-                                <i class="crew-motion-dot"></i>
-                                <em class="crew-activity-label">@CrewActivityLabel(npc)</em>
+                                <span class="crew-full-name">@npc.Name</span>
                             </span>
                         }
                         else
@@ -1863,10 +1526,6 @@
     private int _delayMs = 2800;
     private bool _soundEnabled;
     private bool _musicEnabled;
-    private const string StationFocusStorageKey = "all-systems-normal.station-focus.v1";
-
-    // The station view is the game; the full console is one click away.
-    private bool _stationFullscreen = true;
     private string? _stationOverlay;
     private bool _paused;
     private bool _confirmingReset;
@@ -1899,31 +1558,7 @@
         StationRoomCalloutSystem.Build(Session.State.Facility);
 
 
-    private string StationWorkspaceClass =>
-        _stationFullscreen
-            ? "workspace-shell station-focus-mode"
-            : "workspace-shell";
-
-    private async Task ToggleStationFullscreenAsync()
-    {
-        _stationFullscreen = !_stationFullscreen;
-        if (!_stationFullscreen)
-        {
-            _stationOverlay = null;
-        }
-
-        try
-        {
-            await JS.InvokeVoidAsync(
-                "localStorage.setItem",
-                StationFocusStorageKey,
-                _stationFullscreen ? "on" : "off");
-        }
-        catch (JSException)
-        {
-            // Storage can be unavailable (private windows); the toggle still works.
-        }
-    }
+    private const string StationWorkspaceClass = "workspace-shell station-focus-mode";
 
     private void TogglePause()
     {
@@ -2003,12 +1638,6 @@
     {
         _stationOverlay = "alerts";
 
-        // The alert list lives on the station panel, which the full console
-        // shows below the objectives; bring it into view.
-        if (!_stationFullscreen)
-        {
-            await JS.InvokeVoidAsync("overseerLayout.revealStationPanel");
-        }
     }
 
     private async Task InspectAlertAsync(StationAlert alert)
@@ -2341,18 +1970,6 @@
             await JS.InvokeVoidAsync("overseerLayout.init", "#overseer-workspace");
             _selfReference = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("overseerLayout.registerPauseHandler", _selfReference);
-
-            try
-            {
-                var focusPreference = await JS.InvokeAsync<string?>(
-                    "localStorage.getItem",
-                    StationFocusStorageKey);
-                _stationFullscreen = focusPreference != "off";
-            }
-            catch (JSException)
-            {
-                // Storage unavailable; keep the default station view.
-            }
 
             await RestorePersistedCampaignAsync();
             StartAutoClock();
@@ -2711,10 +2328,10 @@
     private static double CrewFacingAngle(Npc npc) =>
         npc.FacingDegrees + 90;
 
-    private string CropFixtureLabel(Room room, RoomFixture fixture)
+    private CropBed? CropBedForFixture(Room room, RoomFixture fixture)
     {
         if (fixture.Type != FixtureType.GrowBed)
-            return string.Empty;
+            return null;
 
         var fixtures = room.Fixtures
             .Where(candidate => candidate.Type == FixtureType.GrowBed)
@@ -2722,14 +2339,31 @@
             .ToList();
         var index = fixtures.IndexOf(fixture);
         if (index < 0)
-            return string.Empty;
+            return null;
 
-        var bed = Session.State.CropBeds
+        return Session.State.CropBeds
             .Where(candidate => candidate.RoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
             .OrderBy(candidate => candidate.Id, StringComparer.OrdinalIgnoreCase)
             .ElementAtOrDefault(index);
+    }
 
-        return bed?.Crop.ToString().ToUpperInvariant() ?? string.Empty;
+    private string CropFixtureLabel(Room room, RoomFixture fixture) =>
+        CropBedForFixture(room, fixture)?.Crop.ToString().ToUpperInvariant() ?? string.Empty;
+
+    private string CropGrowthStage(Room room, RoomFixture fixture)
+    {
+        var bed = CropBedForFixture(room, fixture);
+        if (bed is null)
+            return string.Empty;
+        if (bed.IsDead)
+            return "dead";
+        if (bed.IsReadyToHarvest)
+            return "harvest-ready";
+        if (bed.Growth < 30)
+            return "young";
+        if (bed.Growth < 70)
+            return "growing";
+        return "maturing";
     }
 
     private string FixtureTitle(Room room, RoomFixture fixture)
