@@ -115,7 +115,14 @@ public sealed class MissingPersonSystem
             var expectedRoomId = CrewDutySchedule.ExpectedDutyRoomId(target.Role, state.Elapsed);
             var sighting = observer.LastSeenCrew.GetValueOrDefault(target.Id);
             var unseenFor = sighting is null ? state.Elapsed : state.Elapsed - sighting.SeenAt;
-            var threshold = TimeSpan.FromMinutes(ConcernThresholdMinutes(observer, target));
+            var directDangerEvidence = HasDirectDangerEvidence(
+                state,
+                observer,
+                target,
+                sighting);
+            var threshold = directDangerEvidence
+                ? TimeSpan.FromMinutes(30)
+                : TimeSpan.FromHours(12);
 
             var personallyNoticedMissedDuty =
                 observer.CurrentRoomId.Equals(expectedRoomId, StringComparison.OrdinalIgnoreCase)
@@ -123,7 +130,7 @@ public sealed class MissingPersonSystem
 
             var missedExpectedCheckIn =
                 ShouldExpectCheckIn(observer, target)
-                && unseenFor >= threshold + TimeSpan.FromMinutes(120);
+                && unseenFor >= threshold;
 
             if (!personallyNoticedMissedDuty && !missedExpectedCheckIn)
                 continue;
@@ -382,29 +389,38 @@ public sealed class MissingPersonSystem
         }
     }
 
-    private static int ConcernThresholdMinutes(Npc observer, Npc target)
+    private static bool HasDirectDangerEvidence(
+        GameState state,
+        Npc observer,
+        Npc target,
+        CrewSighting? sighting)
     {
-        // Crewmates are not expected to visually check on one another every few
-        // minutes. Routine separation can last most of a shift without concern.
-        var minutes = 240;
+        // A visible injury trace from this exact person is genuine evidence and
+        // can justify checking much sooner than the ordinary 12-hour absence rule.
+        var observedTargetBlood = state.BloodEvidence.Any(evidence =>
+            evidence.SourceNpcId == target.Id
+            && observer.ObservedBloodEvidenceIds.Contains(evidence.Id)
+            && state.Elapsed - evidence.CreatedAt <= TimeSpan.FromHours(2));
 
-        if (observer.Role == CrewRole.Commander)
-            minutes -= 60;
-        else if (observer.Role == CrewRole.Security)
-            minutes -= 45;
+        if (observedTargetBlood)
+            return true;
 
-        if (target.Role == CrewRole.Commander)
-            minutes -= 30;
-
-        if (observer.Relationships.TryGetValue(target.Name, out var relationship))
+        // An unsafe exterior hatch is only relevant to this person's absence if
+        // the observer personally saw them in that airlock recently. This avoids
+        // turning a generic station alarm into omniscient missing-person panic.
+        if (sighting is null
+            || state.Elapsed - sighting.SeenAt > TimeSpan.FromHours(2)
+            || !state.Facility.Rooms.TryGetValue(sighting.RoomId, out var lastRoom)
+            || lastRoom.Type != RoomType.Airlock)
         {
-            if (relationship.Trust >= 65)
-                minutes -= 30;
-            if (relationship.Affinity >= 65)
-                minutes -= 30;
+            return false;
         }
 
-        return Math.Clamp(minutes, 120, 300);
+        return observer.OverseerEvidence.Any(evidence =>
+            state.Elapsed - evidence.ObservedAt <= TimeSpan.FromHours(2)
+            && evidence.Description.Contains(
+                "exterior airlock hatch open",
+                StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool ShouldExpectCheckIn(Npc observer, Npc target)
