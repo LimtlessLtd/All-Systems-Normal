@@ -132,6 +132,18 @@ public static class FacilitySeeder
         StationUpkeepSystem.Register(state, seed);
         NormalizeFixtureLayout(facility);
         CrewProvisioningSystem.Plant(state, seed);
+
+        var plannedCrew = stationConstraints.PlannedCrewCount ?? state.Crew.Count;
+        var requiredGrowCapacity =
+            StationProvisionRules.RequiredHydroponicsCapacity(plannedCrew)
+            * stationConstraints.HydroponicsCapacityMultiplier;
+        var installedGrowCapacity = state.CropBeds.Sum(bed => bed.Capacity);
+
+        state.EventLog.Add(
+            installedGrowCapacity + 0.001 >= requiredGrowCapacity
+                ? $"T+00:00: HYDROPONICS CAPACITY {installedGrowCapacity:0.0} / {requiredGrowCapacity:0.0} required for {plannedCrew} crew."
+                : $"T+00:00: WARNING — HYDROPONICS UNDERSUPPLY {installedGrowCapacity:0.0} / {requiredGrowCapacity:0.0} required for {plannedCrew} crew.");
+
         StationUpkeepSystem.RefreshPowerReadings(state);
 
         var identity = generation.Metadata.Identity;
