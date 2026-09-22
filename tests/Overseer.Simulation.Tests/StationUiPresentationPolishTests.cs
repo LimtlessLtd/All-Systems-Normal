@@ -141,6 +141,27 @@ public sealed class StationUiPresentationPolishTests
         Assert.Contains("document.body.style.userSelect = \"none\"", script);
     }
 
+    [Fact]
+    public void ContainmentActivity_HasDedicatedMapAndInspectorPresentation()
+    {
+        var root = FindRepositoryRoot();
+        var home = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor"));
+        var css = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor.css"));
+
+        Assert.Contains("containment-breach", home);
+        Assert.Contains("containment-at-large", home);
+        Assert.Contains("containment-recapture", home);
+        Assert.Contains("BREACH IN PROGRESS", home);
+        Assert.Contains("RECAPTURE IN PROGRESS", home);
+        Assert.Contains("IsContainmentBreachInProgress", home);
+        Assert.Contains("HasEscapedContainment", home);
+
+        Assert.Contains(".crew-token.containment-breach::before", css);
+        Assert.Contains(".crew-token.containment-recapture::before", css);
+        Assert.Contains(".containment-card.at-large", css);
+        Assert.Contains(".containment-card.recapture-card", css);
+    }
+
     private static List<GameState> RepresentativeStates(int count)
     {
         var states = new List<GameState>();

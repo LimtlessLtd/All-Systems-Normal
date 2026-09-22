@@ -324,7 +324,7 @@ Required architecture:
 
 - Richer per-prisoner goals/relationships/backstory. Prisoners still get only the four `PrisonerDefinition` fields and default 50/50 relationships from `FacilitySeeder`; escape/flee/recapture behaviour is fully deterministic C#, not mind-authored motive.
 - `CrewContinuitySnapshot`/`CampaignStateSerializer` still do not carry `IsPrisoner`/`PrisonerDangerLevel`/`PrisonerViolenceBias`. Not exercised today (the assignment is always `FreshGenerated`), but would need fixing before any future scenario reuses `CampaignContinuing` roster policy with prisoners.
-- No dedicated UI treatment for an escape-in-progress beyond the generic Critical station alert and the existing prisoner inspector card; no distinct "recapture in progress" visual.
+- Dedicated containment activity presentation now projects existing deterministic state in the shared console: prisoner map tokens/Inspector cards distinguish `BREACH IN PROGRESS`, `AT LARGE` and secure custody, while crew pursuing or restraining an escapee show `RECAPTURE`; this is presentation-only and does not alter containment authority.
 
 ---
 
