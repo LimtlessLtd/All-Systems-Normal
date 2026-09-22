@@ -84,6 +84,7 @@ public sealed class CrewProvisioningSystem
                     RoomId = room.Id,
                     Label = fixture.Label,
                     FixtureLabel = fixture.Label,
+                    Crop = requested,
                     RequestedCrop = requested,
                     Lifecycle = CropLifecycleState.Empty,
                     Capacity = Math.Round(physicalArea / 270d, 2),
@@ -423,17 +424,16 @@ public sealed class CrewProvisioningSystem
     private static void CompleteHarvest(GameState state, Npc npc)
     {
         var bed = state.CropBeds.FirstOrDefault(b => b.Id == npc.TendingBedId);
-        if (bed is null || bed.Lifecycle != CropLifecycleState.Harvesting || bed.Crop is not { } crop)
+        if (bed is null || bed.Lifecycle != CropLifecycleState.Harvesting)
         {
             CrewTaskSystem.Fail(state, npc, "Crop was no longer harvestable.");
             return;
         }
 
+        var crop = bed.Crop;
         var yield = bed.HarvestYield;
         state.Stores.Produce += yield;
         state.Stores.RawCrops[crop] += yield;
-
-        bed.Crop = null;
         bed.Growth = 0;
         bed.Lifecycle = CropLifecycleState.Empty;
         bed.LifecycleChangedAt = state.Elapsed;
@@ -511,7 +511,6 @@ public sealed class CrewProvisioningSystem
 
         if (bed.Lifecycle == CropLifecycleState.Dead)
         {
-            bed.Crop = null;
             bed.Growth = 0;
             bed.Lifecycle = CropLifecycleState.Empty;
             bed.LifecycleChangedAt = state.Elapsed;
