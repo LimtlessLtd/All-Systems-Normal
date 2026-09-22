@@ -29,7 +29,13 @@ public enum DirectiveKind
     SocialFracture,
 
     /// <summary>Every transferred prisoner must stay alive and physically contained.</summary>
-    ContainmentIntegrity
+    ContainmentIntegrity,
+
+    /// <summary>Restrict the number of distinct foods physically available.</summary>
+    FoodVarietyRestriction,
+
+    /// <summary>Measure sustained consumption of foods a named subject dislikes.</summary>
+    DislikedFoodExposure
 }
 
 public enum DirectiveStatus
@@ -119,6 +125,9 @@ public sealed class DirectiveProgress
 
     /// <summary>Set when a hazard window opened, for EmergencyCompliance.</summary>
     public TimeSpan? HazardStartedAt { get; set; }
+
+    /// <summary>Baseline for cumulative simulation telemetry sampled by a directive.</summary>
+    public double? BaselineValue { get; set; }
 
     public bool IsResolved => Status != DirectiveStatus.Active;
 }
