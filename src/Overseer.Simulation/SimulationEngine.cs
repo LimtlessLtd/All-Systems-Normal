@@ -286,22 +286,10 @@ public sealed class SimulationEngine
 
         foreach (var fixture in fixtures)
         {
-            // Local movement deliberately stops at a collision-safe interaction
-            // point beside furniture, not at the fixture centre. Measure physical
-            // distance to the bed/sofa footprint so "at the bed" and movement's
-            // safe stand-off point use the same geometry.
-            var nearestX = Math.Clamp(
-                npc.PositionX,
-                fixture.X - (fixture.Width / 2),
-                fixture.X + (fixture.Width / 2));
-            var nearestY = Math.Clamp(
-                npc.PositionY,
-                fixture.Y - (fixture.Height / 2),
-                fixture.Y + (fixture.Height / 2));
-            var dx = (npc.PositionX - nearestX) / 100d * room.MapWidth;
-            var dy = (npc.PositionY - nearestY) / 100d * room.MapHeight;
-
-            if (Math.Sqrt((dx * dx) + (dy * dy)) <= 1.35)
+            // Use the exact collision-safe fixture interaction point chosen by
+            // LocalMovementSystem. Rest must only recover once the crew member
+            // physically reaches the same authoritative destination they walk to.
+            if (LocalMovementSystem.IsAtInteractionPoint(room, npc, fixture))
                 return true;
         }
 
