@@ -222,7 +222,7 @@ public sealed class IntentExecutionSystem
         var robot = RobotCountermeasureSystem.FindRobot(state, intent.TargetId);
         if (robot is null || robot.IsDestroyed)
         {
-            FailIntent(npc, "That robot is no longer an actionable target.");
+            FailIntent(state, npc, "That robot is no longer an actionable target.");
             return;
         }
 
@@ -265,7 +265,7 @@ public sealed class IntentExecutionSystem
         var turret = TurretCountermeasureSystem.FindTurret(state, intent.TargetId);
         if (turret is null || turret.IsDestroyed)
         {
-            FailIntent(npc, "That security turret is no longer an actionable target.");
+            FailIntent(state, npc, "That security turret is no longer an actionable target.");
             return;
         }
 
@@ -314,7 +314,7 @@ public sealed class IntentExecutionSystem
 
         if (prisoner is null)
         {
-            FailIntent(npc, "That escaped prisoner is no longer at large.");
+            FailIntent(state, npc, "That escaped prisoner is no longer at large.");
             return;
         }
 
@@ -340,7 +340,7 @@ public sealed class IntentExecutionSystem
             candidate.Id.Equals(intent.TargetId, StringComparison.OrdinalIgnoreCase));
         if (door is null)
         {
-            FailIntent(npc, "I cannot identify that hatch.");
+            FailIntent(state, npc, "I cannot identify that hatch.");
             return;
         }
 
@@ -348,7 +348,7 @@ public sealed class IntentExecutionSystem
             || npc.CurrentRoomId.Equals(door.RoomBId, StringComparison.OrdinalIgnoreCase);
         if (!adjacent)
         {
-            FailIntent(npc, "I need to be beside that hatch before working on it.");
+            FailIntent(state, npc, "I need to be beside that hatch before working on it.");
             return;
         }
 
@@ -367,7 +367,7 @@ public sealed class IntentExecutionSystem
 
         if (door is null || !CrewDoorInteractionSystem.IsAdjacent(npc, door))
         {
-            FailIntent(npc, "I need to be beside that hatch to operate it.");
+            FailIntent(state, npc, "I need to be beside that hatch to operate it.");
             return;
         }
 
@@ -392,7 +392,7 @@ public sealed class IntentExecutionSystem
 
         if (door is null)
         {
-            FailIntent(npc, "I cannot identify that hatch.");
+            FailIntent(state, npc, "I cannot identify that hatch.");
             return;
         }
 
@@ -402,7 +402,7 @@ public sealed class IntentExecutionSystem
 
         if (!adjacent)
         {
-            FailIntent(npc, "I need to be beside that hatch before I can defeat it.");
+            FailIntent(state, npc, "I need to be beside that hatch before I can defeat it.");
             return;
         }
 
@@ -427,13 +427,13 @@ public sealed class IntentExecutionSystem
             || !airlock.HasExteriorHatch
             || !AirlockSafetySystem.NeedsCrewSecuring(state, airlock))
         {
-            FailIntent(npc, "The airlock no longer needs emergency securing.");
+            FailIntent(state, npc, "The airlock no longer needs emergency securing.");
             return;
         }
 
         if (!AirlockSafetySystem.CanCrewSecure(npc))
         {
-            FailIntent(npc, "I do not know the emergency airlock controls well enough.");
+            FailIntent(state, npc, "I do not know the emergency airlock controls well enough.");
             return;
         }
 
@@ -445,7 +445,7 @@ public sealed class IntentExecutionSystem
 
             if (controlRoomId is null)
             {
-                FailIntent(npc, "I cannot identify the airlock emergency controls.");
+                FailIntent(state, npc, "I cannot identify the airlock emergency controls.");
                 return;
             }
 
@@ -477,7 +477,7 @@ public sealed class IntentExecutionSystem
                 state,
                 intent.TargetId))
         {
-            FailIntent(npc, "That system no longer needs restoration.");
+            FailIntent(state, npc, "That system no longer needs restoration.");
             return;
         }
 
@@ -487,7 +487,7 @@ public sealed class IntentExecutionSystem
 
         if (requiredRoom is null)
         {
-            FailIntent(npc, "I cannot identify where those controls are.");
+            FailIntent(state, npc, "I cannot identify where those controls are.");
             return;
         }
 
@@ -519,7 +519,7 @@ public sealed class IntentExecutionSystem
             m.IsOnline && m.Id.Equals(intent.TargetId, StringComparison.OrdinalIgnoreCase));
         if (mechanism is null || !SuspicionSystem.KnowsMechanism(npc, mechanism))
         {
-            FailIntent(npc, "I have not personally verified that shutdown control.");
+            FailIntent(state, npc, "I have not personally verified that shutdown control.");
             return;
         }
 
@@ -531,7 +531,7 @@ public sealed class IntentExecutionSystem
         if (mechanism.RequiredCrewCount > 1
             && (team is null || team.MemberIds.Count < mechanism.RequiredCrewCount))
         {
-            FailIntent(npc, $"I need a coordinated team before attempting {mechanism.Label}.");
+            FailIntent(state, npc, $"I need a coordinated team before attempting {mechanism.Label}.");
             npc.NeedsMindReconsideration = true;
             return;
         }
@@ -651,7 +651,7 @@ public sealed class IntentExecutionSystem
         var room = ResolveRoom(state, intent.TargetId);
         if (room is null)
         {
-            FailIntent(npc, "I cannot identify the hazard compartment.");
+            FailIntent(state, npc, "I cannot identify the hazard compartment.");
             return;
         }
 
@@ -668,7 +668,7 @@ public sealed class IntentExecutionSystem
                 room,
                 out var message))
         {
-            FailIntent(npc, message);
+            FailIntent(state, npc, message);
             return;
         }
 
@@ -683,7 +683,7 @@ public sealed class IntentExecutionSystem
 
         if (room is null)
         {
-            FailIntent(npc, "I cannot identify where to go.");
+            FailIntent(state, npc, "I cannot identify where to go.");
             return;
         }
 
@@ -748,7 +748,7 @@ public sealed class IntentExecutionSystem
     {
         if (string.IsNullOrWhiteSpace(intent.TargetId))
         {
-            FailIntent(npc, "I need a specific consenting partner.");
+            FailIntent(state, npc, "I need a specific consenting partner.");
             return;
         }
 
@@ -759,7 +759,7 @@ public sealed class IntentExecutionSystem
 
         if (partner is null)
         {
-            FailIntent(npc, $"I cannot find {intent.TargetId}.");
+            FailIntent(state, npc, $"I cannot find {intent.TargetId}.");
             return;
         }
 
@@ -794,7 +794,7 @@ public sealed class IntentExecutionSystem
         }
         else
         {
-            FailIntent(npc, "Private time no longer feels mutually right.");
+            FailIntent(state, npc, "Private time no longer feels mutually right.");
         }
     }
 
@@ -841,7 +841,7 @@ public sealed class IntentExecutionSystem
             || string.IsNullOrWhiteSpace(intent.TargetId)
             || !invitation.TeamId.Equals(intent.TargetId, StringComparison.OrdinalIgnoreCase))
         {
-            FailIntent(npc, "There is no matching shutdown-team invitation.");
+            FailIntent(state, npc, "There is no matching shutdown-team invitation.");
             return;
         }
 
@@ -861,7 +861,7 @@ public sealed class IntentExecutionSystem
     {
         if (string.IsNullOrWhiteSpace(intent.TargetId))
         {
-            FailIntent(npc, "I need a specific person for this goal.");
+            FailIntent(state, npc, "I need a specific person for this goal.");
             return;
         }
 
@@ -871,7 +871,7 @@ public sealed class IntentExecutionSystem
 
         if (target is null)
         {
-            FailIntent(npc, $"I cannot find {intent.TargetId}.");
+            FailIntent(state, npc, $"I cannot find {intent.TargetId}.");
             return;
         }
 
@@ -930,10 +930,15 @@ public sealed class IntentExecutionSystem
             room.Name.Equals(targetId, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static void FailIntent(Npc npc, string reason)
+    private static void FailIntent(GameState state, Npc npc, string reason)
     {
         npc.CurrentAction = new NpcAction(ActionKind.Idle, null, reason);
         npc.Intent = null;
         npc.PlannedDestinationRoomId = null;
+        npc.Memories.Add(new Memory(reason, state.Elapsed, FailedIntentMemoryImportance));
+        npc.Stress = Math.Clamp(npc.Stress + FailedIntentStressCost, 0, 100);
     }
+
+    private const double FailedIntentMemoryImportance = 0.35;
+    private const double FailedIntentStressCost = 3;
 }

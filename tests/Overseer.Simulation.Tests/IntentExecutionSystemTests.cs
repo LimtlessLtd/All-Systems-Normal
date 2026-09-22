@@ -98,4 +98,31 @@ public sealed class IntentExecutionSystemTests
             || marcus.CurrentRoomId.Equals("kitchen", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public void FailedIntent_LeavesAMemoryAndRaisesStress()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var stressBefore = marcus.Stress;
+        var memoriesBefore = marcus.Memories.Count;
+
+        marcus.Intent = new NpcIntent(
+            ActionKind.Investigate,
+            "no-such-room",
+            "Look into it.",
+            "I want to check that out.",
+            60,
+            "Test",
+            state.Elapsed);
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.Null(marcus.Intent);
+        Assert.Equal(ActionKind.Idle, marcus.CurrentAction.Kind);
+        Assert.Equal(memoriesBefore + 1, marcus.Memories.Count);
+        Assert.Equal(marcus.CurrentAction.Reason, marcus.Memories[^1].Description);
+        Assert.Equal(state.Elapsed, marcus.Memories[^1].OccurredAt);
+        Assert.True(marcus.Stress > stressBefore);
+    }
+
 }
