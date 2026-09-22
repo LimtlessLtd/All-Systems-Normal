@@ -389,7 +389,7 @@
                                 {
                                     <button @key="fixture"
                                             type="button"
-                                            class="@($"{FixtureClass(fixture)} cropbed-selectable {(cropBed.IsEnabled ? "enabled" : "disabled")}")"
+                                            class="@($"{FixtureClass(fixture)} fixture-interactive cropbed-selectable {(cropBed.IsEnabled ? "enabled" : "disabled")} {(SelectedCropBed?.Id == cropBed.Id ? "selected" : "")}")"
                                             style="@FixtureStyle(fixture)"
                                             title="@FixtureTitle(room, fixture)"
                                             aria-label="@($"Inspect {cropBed.Label}")"
@@ -940,6 +940,48 @@
 
                 <p class="role-line">@selectedCrew.Role · @crewRoom.Name</p>
 
+                <div class="belief-card">
+                    <span>MOOD</span>
+                    <p class="disposition disposition-@MoodClass(selectedCrew)">@MoodLabel(selectedCrew)</p>
+                </div>
+
+                <div class="belief-card">
+                    <span>DISPOSITION TOWARD OVERSEER</span>
+                    <p class="disposition disposition-@DispositionClass(selectedCrew)">
+                        @DispositionLabel(selectedCrew)
+                    </p>
+                    <small>Takes Overseer's word: @selectedCrew.OverseerCredibility.ToString("0")/100</small>
+                </div>
+
+                <div class="thought-card">
+                    <span>CURRENT GOAL · @selectedCrew.MindMode.ToUpperInvariant()</span>
+                    <strong>@(selectedCrew.Intent?.Goal ?? "No active deliberate goal")</strong>
+                    <p>@selectedCrew.LastThought</p>
+                    @if (selectedCrew.Intent is { } intent)
+                    {
+                        <small>Urgency @intent.Urgency/100 · chosen T+@intent.CreatedAt.ToString(@"hh\:mm")</small>
+                    }
+                </div>
+
+                <div class="belief-card">
+                    <span>KEY RELATIONSHIPS</span>
+                    @if (KeyAlly(selectedCrew) is null && KeyRival(selectedCrew) is null)
+                    {
+                        <p>No standout relationships yet.</p>
+                    }
+                    else
+                    {
+                        @if (KeyAlly(selectedCrew) is { } keyAlly)
+                        {
+                            <p>Closest to <strong>@keyAlly.PersonName</strong> · trust @keyAlly.Trust.ToString("0")</p>
+                        }
+                        @if (KeyRival(selectedCrew) is { } keyRival)
+                        {
+                            <p>Friction with <strong>@keyRival.PersonName</strong> · resentment @keyRival.Resentment.ToString("0")</p>
+                        }
+                    }
+                </div>
+
                 <div class="environment-grid crew-condition-grid">
                     <div><span>FATIGUE</span><strong>@selectedCrew.Fatigue.ToString("0")%</strong></div>
                     <div><span>SLEEP DEBT</span><strong>@selectedCrew.SleepDebtMinutes.ToString("0") min</strong></div>
@@ -1023,24 +1065,6 @@
                     @Metric("RECREATION NEED", selectedCrew.RecreationNeed)
                     @Metric("SOCIAL NEED", selectedCrew.SocialNeed)
                     @Metric("INTIMACY NEED", selectedCrew.IntimacyNeed)
-                </div>
-
-                <div class="belief-card">
-                    <span>DISPOSITION TOWARD OVERSEER</span>
-                    <p class="disposition disposition-@DispositionClass(selectedCrew)">
-                        @DispositionLabel(selectedCrew)
-                    </p>
-                    <small>Takes Overseer's word: @selectedCrew.OverseerCredibility.ToString("0")/100</small>
-                </div>
-
-                <div class="thought-card">
-                    <span>CURRENT GOAL · @selectedCrew.MindMode.ToUpperInvariant()</span>
-                    <strong>@(selectedCrew.Intent?.Goal ?? "No active deliberate goal")</strong>
-                    <p>@selectedCrew.LastThought</p>
-                    @if (selectedCrew.Intent is { } intent)
-                    {
-                        <small>Urgency @intent.Urgency/100 · chosen T+@intent.CreatedAt.ToString(@"hh\:mm")</small>
-                    }
                 </div>
 
                 <div class="action-card">
@@ -1931,6 +1955,57 @@
         _ => "calm"
     };
 
+    private static string MoodLabel(Npc npc)
+    {
+        if (!npc.IsAlive)
+        {
+            return "Deceased";
+        }
+
+        if (npc.Health < 25)
+        {
+            return "Critical condition";
+        }
+
+        return Math.Max(npc.Stress, npc.Fear) switch
+        {
+            >= 80 => "Panicked",
+            >= 60 => "Distressed",
+            >= 40 => "On edge",
+            >= 20 => "Uneasy",
+            _ => "Calm"
+        };
+    }
+
+    private static string MoodClass(Npc npc)
+    {
+        if (!npc.IsAlive || npc.Health < 25)
+        {
+            return "hostile";
+        }
+
+        return Math.Max(npc.Stress, npc.Fear) switch
+        {
+            >= 60 => "hostile",
+            >= 20 => "uneasy",
+            _ => "calm"
+        };
+    }
+
+    private static Relationship? KeyRival(Npc npc) => npc.Relationships.Values
+        .Where(r => r.Resentment >= 20)
+        .OrderByDescending(r => r.Resentment)
+        .FirstOrDefault();
+
+    private static Relationship? KeyAlly(Npc npc)
+    {
+        var rival = KeyRival(npc);
+        return npc.Relationships.Values
+            .Where(r => r.PersonName != rival?.PersonName && (r.Trust >= 65 || r.Affinity >= 65))
+            .OrderByDescending(r => r.Trust + r.Affinity)
+            .FirstOrDefault();
+    }
+
     private string SpeedLabel => _delayMs switch
     {
         >= 2200 => "1×",
@@ -2589,9 +2664,28 @@
             classes.Add("lights-off");
 
         if (room.FireIntensity > 0)
+        {
             classes.Add("has-fire");
-        else if (room.SmokePercent >= 12)
+            classes.Add(room.FireIntensity switch
+            {
+                >= 75 => "fire-inferno",
+                >= 50 => "fire-severe",
+                >= 25 => "fire-growing",
+                _ => "fire-minor"
+            });
+        }
+
+        if (room.SmokePercent >= 5)
+        {
             classes.Add("has-smoke");
+            classes.Add(room.SmokePercent switch
+            {
+                >= 80 => "smoke-blackout",
+                >= 55 => "smoke-heavy",
+                >= 25 => "smoke-building",
+                _ => "smoke-light"
+            });
+        }
 
         return string.Join(' ', classes);
     }
