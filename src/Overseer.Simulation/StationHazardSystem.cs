@@ -144,7 +144,9 @@ public sealed class StationHazardSystem
                 continue;
 
             var chance = Math.Clamp(source.FireIntensity / 900d, .02, .11);
-            if (StableRoll(state.UpkeepSeed, minute, source.Id, other.Id, "spread") >= chance)
+            var flashover = source.FireIntensity >= 75;
+            if (!flashover
+                && StableRoll(state.UpkeepSeed, minute, source.Id, other.Id, "spread") >= chance)
                 continue;
 
             other.FireIntensity = Math.Clamp(source.FireIntensity * .32, 10, 28);
