@@ -238,6 +238,23 @@ public sealed class CrewProvisioningSystemTests
     }
 
     [Fact]
+    public void CorporateSeedSupplyConstraintLimitsAvailableCropTypes()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+
+        CrewProvisioningSystem.Plant(
+            state,
+            4242,
+            new HashSet<CropKind> { CropKind.Potato });
+
+        Assert.True(state.Stores.Seeds[CropKind.Potato] > 0);
+        Assert.All(
+            Enum.GetValues<CropKind>().Where(crop => crop != CropKind.Potato),
+            crop => Assert.Equal(0, state.Stores.Seeds[crop]));
+        Assert.All(state.CropBeds, bed => Assert.Equal(CropKind.Potato, bed.RequestedCrop));
+    }
+
+    [Fact]
     public void DisabledPlantedBayStopsGrowingThenDiesDeterministically()
     {
         var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
