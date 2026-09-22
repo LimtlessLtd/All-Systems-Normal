@@ -135,6 +135,9 @@ public sealed class MedicalSystem
                 && !observer.Skills.ContainsKey("First Aid"))
                 continue;
 
+            if (CrewTaskSystem.IsWorking(observer))
+                continue;
+
             if (observer.Intent is { Urgency: >= 94 })
                 continue;
 
@@ -174,12 +177,22 @@ public sealed class MedicalSystem
 
     private void TickDoctor(GameState state, Room medbay, Npc doctor)
     {
+        if (doctor.MedicalActionCompletesAt is null
+            && CrewTaskSystem.IsWorking(doctor))
+        {
+            return;
+        }
+
         if (doctor.MedicalActionCompletesAt is { } completesAt)
         {
             // Walking out abandons the procedure instead of finishing it
             // remotely.
             if (!doctor.CurrentRoomId.Equals(medbay.Id, StringComparison.OrdinalIgnoreCase))
             {
+                CrewTaskSystem.Interrupt(
+                    state,
+                    doctor,
+                    "Doctor left the medbay before the medical procedure completed.");
                 ClearProcedure(doctor);
                 return;
             }
@@ -208,8 +221,8 @@ public sealed class MedicalSystem
 
         if (deadPatient is not null && CanResurrect(state, medbay))
         {
-            Begin(doctor, deadPatient, ActionKind.ResurrectCrew, ResurrectionMinutes,
-                $"Operating resurrection chamber for {deadPatient.Name}.", state.Elapsed);
+            Begin(state, doctor, deadPatient, ActionKind.ResurrectCrew, ResurrectionMinutes,
+                $"Operating resurrection chamber for {deadPatient.Name}.");
             return;
         }
 
@@ -226,8 +239,8 @@ public sealed class MedicalSystem
             var action = injuredPatient.Health < 80
                 ? ActionKind.TreatInjury
                 : ActionKind.AdministerMedication;
-            Begin(doctor, injuredPatient, action, TreatmentMinutes,
-                $"Treating {injuredPatient.Name}.", state.Elapsed);
+            Begin(state, doctor, injuredPatient, action, TreatmentMinutes,
+                $"Treating {injuredPatient.Name}.");
             return;
         }
 
@@ -242,8 +255,8 @@ public sealed class MedicalSystem
 
         if (checkup is not null)
         {
-            Begin(doctor, checkup, ActionKind.MedicalCheckup, CheckupMinutes,
-                $"Performing checkup for {checkup.Name}.", state.Elapsed);
+            Begin(state, doctor, checkup, ActionKind.MedicalCheckup, CheckupMinutes,
+                $"Performing checkup for {checkup.Name}.");
         }
     }
 
@@ -267,6 +280,9 @@ public sealed class MedicalSystem
         if (waiting is null)
             return;
 
+        if (CrewTaskSystem.IsWorking(doctor))
+            return;
+
         if (doctor.Intent is { Action: ActionKind.Move } current
             && medbay.Id.Equals(current.TargetId, StringComparison.OrdinalIgnoreCase))
             return;
@@ -288,19 +304,27 @@ public sealed class MedicalSystem
     }
 
     private static void Begin(
+        GameState state,
         Npc doctor,
         Npc patient,
         ActionKind action,
         int minutes,
-        string reason,
-        TimeSpan now)
+        string reason)
     {
+        var duration = TimeSpan.FromMinutes(minutes);
         doctor.MedicalPatientId = patient.Id;
-        doctor.MedicalActionCompletesAt = now + TimeSpan.FromMinutes(minutes);
+        doctor.MedicalActionCompletesAt = state.Elapsed + duration;
         doctor.MedicalActionKind = action;
         doctor.CurrentAction = new NpcAction(action, patient.Name, reason);
         doctor.Intent = null;
         doctor.Movement = null;
+        CrewTaskSystem.Start(
+            state,
+            doctor,
+            action,
+            patient.Name,
+            reason.TrimEnd('.'),
+            duration);
     }
 
     private static void ClearProcedure(Npc doctor)
@@ -325,6 +349,7 @@ public sealed class MedicalSystem
             || !patient.IsPresent
             || !patient.CurrentRoomId.Equals(medbay.Id, StringComparison.OrdinalIgnoreCase))
         {
+            CrewTaskSystem.Fail(state, doctor, "Medical patient became unavailable.");
             doctor.CurrentAction = new NpcAction(ActionKind.Idle, null, "Medical patient unavailable.");
             return;
         }
@@ -340,7 +365,11 @@ public sealed class MedicalSystem
             case ActionKind.TreatInjury:
             case ActionKind.AdministerMedication:
                 if (!patient.IsAlive || state.Medical.Supplies < 1)
-                    break;
+                {
+                    CrewTaskSystem.Fail(state, doctor, "Treatment could not be completed because the patient or supplies were unavailable.");
+                    doctor.CurrentAction = new NpcAction(ActionKind.Idle, null, "Medical task could not be completed.");
+                    return;
+                }
 
                 state.Medical.Supplies = Math.Max(0, state.Medical.Supplies - 1);
                 if (state.Medical.MedicationDoses > 0)
@@ -357,7 +386,11 @@ public sealed class MedicalSystem
 
             case ActionKind.ResurrectCrew:
                 if (!CanResurrect(state, medbay))
-                    break;
+                {
+                    CrewTaskSystem.Fail(state, doctor, "Resurrection resources or power were no longer available.");
+                    doctor.CurrentAction = new NpcAction(ActionKind.Idle, null, "Resurrection could not be completed.");
+                    return;
+                }
 
                 state.Medical.Supplies -= 3;
                 state.Medical.ResurrectionCharges--;
@@ -382,6 +415,7 @@ public sealed class MedicalSystem
                 break;
         }
 
+        CrewTaskSystem.Succeed(state, doctor, "Medical procedure complete.");
         doctor.CurrentAction = new NpcAction(ActionKind.Idle, null, "Medical task complete.");
     }
 
