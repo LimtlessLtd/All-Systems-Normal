@@ -278,6 +278,12 @@ public sealed class CrewMaintenanceSystem
         // was ever finished.
         && npc.ProvisioningJob is null
 
+        // Clinical care owns both sides of an active treatment. A waiting
+        // patient must remain available to the doctor, and a doctor already
+        // performing a procedure must not be reassigned to a repair mid-case.
+        && npc.MedicalActionCompletesAt is null
+        && !MedicalSystem.IsAwaitingCare(state, npc)
+
         // Nor is somebody who needs their meal. Handing out jobs regardless
         // kept the crew permanently busy and permanently hungry, with a full
         // galley they never got to.
