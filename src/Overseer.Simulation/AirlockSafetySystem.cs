@@ -11,8 +11,8 @@ public sealed class AirlockSafetySystem
 {
     public const double NominalPressureKpa = 101.3;
     public const double DepressurizedPressureKpa = 2.0;
-    public const double ExteriorOpenPressureKpa = 5.0;
-    public const double InnerPressureToleranceKpa = 8.0;
+    public const double ExteriorOpenPressureKpa = AirlockSafetyRules.ExteriorOpenPressureKpa;
+    public const double InnerPressureToleranceKpa = AirlockSafetyRules.InnerPressureToleranceKpa;
 
     private const double DepressurizeRateKpaPerMinute = 38;
     private const double PressurizeRateKpaPerMinute = 18;
@@ -300,62 +300,22 @@ public sealed class AirlockSafetySystem
         return true;
     }
 
-    public static bool NeedsCrewSecuring(GameState state, Room airlock)
-    {
-        if (!airlock.HasExteriorHatch)
-            return false;
-
-        var innerDoor = FindInnerDoor(state, airlock);
-        var hasCrewInside = state.Crew.Any(npc =>
-            npc.IsAlive
-            && npc.IsPresent
-            && npc.CurrentRoomId.Equals(
-                airlock.Id,
-                StringComparison.OrdinalIgnoreCase));
-
-        return !airlock.AirlockSafetyInterlocksEnabled
-            || airlock.AirlockAlarmActive
-            || (airlock.ExteriorHatchOpen && hasCrewInside)
-            || (airlock.ExteriorHatchOpen && innerDoor is { IsPassable: true });
-    }
+    public static bool NeedsCrewSecuring(GameState state, Room airlock) =>
+        AirlockSafetyRules.NeedsCrewSecuring(state, airlock);
 
     public static bool CanCrewSecure(Npc npc) =>
-        npc.Role is CrewRole.Commander or CrewRole.Security
-        || CrewCounterplaySystem.BestTechnicalSkill(npc) >= 40;
+        AirlockSafetyRules.CanCrewSecure(npc);
 
     public static string? CrewControlRoomId(
         GameState state,
-        Room airlock)
-    {
-        var innerDoor = FindInnerDoor(state, airlock);
-        if (innerDoor is null)
-            return null;
-
-        return innerDoor.RoomAId.Equals(
-            airlock.Id,
-            StringComparison.OrdinalIgnoreCase)
-                ? innerDoor.RoomBId
-                : innerDoor.RoomAId;
-    }
+        Room airlock) =>
+        AirlockSafetyRules.CrewControlRoomId(state, airlock);
 
     public static bool IsAtCrewControls(
         GameState state,
         Npc npc,
-        Room airlock)
-    {
-        if (npc.CurrentRoomId.Equals(
-                airlock.Id,
-                StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        var controlRoomId = CrewControlRoomId(state, airlock);
-        return controlRoomId is not null
-            && npc.CurrentRoomId.Equals(
-                controlRoomId,
-                StringComparison.OrdinalIgnoreCase);
-    }
+        Room airlock) =>
+        AirlockSafetyRules.IsAtCrewControls(state, npc, airlock);
 
     public static bool TryCrewSecureNow(
         GameState state,
@@ -403,60 +363,18 @@ public sealed class AirlockSafetySystem
     public static Door? FindInnerDoor(
         GameState state,
         Room airlock) =>
-        state.Facility.Doors.FirstOrDefault(door =>
-            door.RoomAId.Equals(
-                airlock.Id,
-                StringComparison.OrdinalIgnoreCase)
-            || door.RoomBId.Equals(
-                airlock.Id,
-                StringComparison.OrdinalIgnoreCase));
+        AirlockSafetyRules.FindInnerDoor(state, airlock);
 
     public static bool CanPerceiveSafetyState(
         GameState state,
         Npc npc,
         Room airlock) =>
-        IsAtCrewControls(state, npc, airlock);
+        AirlockSafetyRules.CanPerceiveSafetyState(state, npc, airlock);
 
     public static bool IsUnsafe(
         GameState state,
-        Room airlock)
-    {
-        if (!airlock.HasExteriorHatch)
-            return false;
-
-        var innerDoor = FindInnerDoor(state, airlock);
-        var stationSide = innerDoor is null
-            ? null
-            : state.Facility.Rooms[
-                innerDoor.RoomAId.Equals(
-                    airlock.Id,
-                    StringComparison.OrdinalIgnoreCase)
-                    ? innerDoor.RoomBId
-                    : innerDoor.RoomAId];
-
-        if (!airlock.AirlockSafetyInterlocksEnabled)
-            return true;
-
-        if (airlock.ExteriorHatchOpen
-            && (airlock.PressureKpa > ExteriorOpenPressureKpa
-                || innerDoor is { IsPassable: true }))
-        {
-            return true;
-        }
-
-        if (innerDoor is { IsPassable: true }
-            && stationSide is not null
-            && Math.Abs(
-                airlock.PressureKpa - stationSide.PressureKpa)
-                > InnerPressureToleranceKpa)
-        {
-            return true;
-        }
-
-        return airlock.AirlockCycleMode != AirlockCycleMode.Idle
-            && (airlock.ExteriorHatchOpen
-                || innerDoor is { IsPassable: true });
-    }
+        Room airlock) =>
+        AirlockSafetyRules.IsUnsafe(state, airlock);
 
     private static void TickCycle(
         GameState state,
