@@ -939,7 +939,11 @@ public sealed class LocalMovementSystem
         && y >= fixture.Y - (fixture.Height / 2) - clearance
         && y <= fixture.Y + (fixture.Height / 2) + clearance;
 
-    private static bool IsCollisionFixture(RoomFixture fixture) =>
+    // Shared with seeded layout validation so generation and live movement
+    // agree on what actually occupies floor space. Bulkhead-integrated details
+    // are visual/interaction surfaces; free-standing machinery and furniture
+    // are physical obstacles.
+    internal static bool IsCollisionFixture(RoomFixture fixture) =>
         fixture.Type is not FixtureType.Camera
             and not FixtureType.Window
             and not FixtureType.Screen
