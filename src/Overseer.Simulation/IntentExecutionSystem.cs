@@ -388,6 +388,13 @@ public sealed class IntentExecutionSystem
 
         if (door is null || !CrewDoorInteractionSystem.IsAdjacent(npc, door))
         {
+            if (npc.ActiveTask is { Status: CrewTaskStatus.InProgress } staleDoorTask
+                && staleDoorTask.Action == intent.Action
+                && (door is null || staleDoorTask.TargetId == door.Id))
+            {
+                CrewTaskSystem.Interrupt(state, npc, "No longer beside the hatch to operate it.");
+            }
+
             FailIntent(state, npc, "I need to be beside that hatch to operate it.");
             return;
         }

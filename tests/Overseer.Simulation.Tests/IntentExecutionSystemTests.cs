@@ -159,6 +159,41 @@ public sealed class IntentExecutionSystemTests
     }
 
     [Fact]
+    public void DoorOperationIntent_InterruptsAStaleInProgressTaskWhenNoLongerAdjacent()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var door = state.Facility.FindDoorBetween("airlock", "hall-airlock")!;
+
+        marcus.CurrentRoomId = "airlock";
+        marcus.Intent = new NpcIntent(
+            ActionKind.OpenDoor,
+            door.Id,
+            "Open the airlock hatch.",
+            "I need this hatch open.",
+            60,
+            "Test",
+            state.Elapsed);
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.NotNull(marcus.ActiveTask);
+        Assert.Equal(CrewTaskStatus.InProgress, marcus.ActiveTask!.Status);
+        Assert.Equal(ActionKind.OpenDoor, marcus.ActiveTask.Action);
+
+        // Simulate a physical invalidation mid-task (e.g. PrisonerContainmentSystem
+        // teleporting a captured NPC's CurrentRoomId away) rather than completing
+        // or abandoning the door operation normally.
+        marcus.CurrentRoomId = "reactor";
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.NotEqual(CrewTaskStatus.InProgress, marcus.ActiveTask!.Status);
+        Assert.False(CrewTaskSystem.IsWorking(marcus));
+        Assert.Null(marcus.Intent);
+    }
+
+    [Fact]
     public void FailedIntent_LeavesAMemoryAndRaisesStress()
     {
         var state = FacilitySeeder.CreateDefault();
