@@ -64,7 +64,10 @@ public static class CampaignProgressionSystem
                 OverseerCredibility = snapshot.OverseerCredibility,
                 // A new assignment creates some distance, but serious distrust
                 // does not vanish because the scenery changed.
-                OverseerSuspicion = Math.Clamp(snapshot.OverseerSuspicion * 0.65, 0, 100)
+                OverseerSuspicion = Math.Clamp(snapshot.OverseerSuspicion * 0.65, 0, 100),
+                IsPrisoner = snapshot.IsPrisoner,
+                PrisonerDangerLevel = snapshot.PrisonerDangerLevel,
+                PrisonerViolenceBias = snapshot.PrisonerViolenceBias
             };
 
             npc.Traits.AddRange(snapshot.Traits);
@@ -350,7 +353,10 @@ public static class CampaignProgressionSystem
                 Health = npc.Health,
                 IsPresent = npc.IsPresent,
                 OverseerCredibility = npc.OverseerCredibility,
-                OverseerSuspicion = npc.OverseerSuspicion
+                OverseerSuspicion = npc.OverseerSuspicion,
+                IsPrisoner = npc.IsPrisoner,
+                PrisonerDangerLevel = npc.PrisonerDangerLevel,
+                PrisonerViolenceBias = npc.PrisonerViolenceBias
             };
 
             snapshot.Traits.AddRange(npc.Traits);

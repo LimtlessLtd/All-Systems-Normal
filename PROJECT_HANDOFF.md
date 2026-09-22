@@ -323,7 +323,7 @@ Required architecture:
 **Deliberately deferred out of this pass** (real backlog, not silently dropped):
 
 - Richer per-prisoner goals/relationships/backstory. Prisoners still get only the four `PrisonerDefinition` fields; they now receive the same deterministic starting relationship texture as every fresh roster, but there are no prisoner-specific authored bonds, goals or backstory. Escape/flee/recapture behaviour is fully deterministic C#, not mind-authored motive.
-- `CrewContinuitySnapshot`/`CampaignStateSerializer` still do not carry `IsPrisoner`/`PrisonerDangerLevel`/`PrisonerViolenceBias`. Not exercised today (the assignment is always `FreshGenerated`), but would need fixing before any future scenario reuses `CampaignContinuing` roster policy with prisoners.
+- ~~`CrewContinuitySnapshot`/`CampaignStateSerializer` still do not carry `IsPrisoner`/`PrisonerDangerLevel`/`PrisonerViolenceBias`~~ fixed: both now capture/restore/persist all three. Still not exercised in practice (the assignment is always `FreshGenerated`), but a future `CampaignContinuing` scenario with prisoners will no longer silently lose that state.
 - Dedicated containment activity presentation now projects existing deterministic state in the shared console: prisoner map tokens/Inspector cards distinguish `BREACH IN PROGRESS`, `AT LARGE` and secure custody, while crew pursuing or restraining an escapee show `RECAPTURE`; this is presentation-only and does not alter containment authority.
 
 ---
@@ -354,7 +354,7 @@ A code/behaviour/UI audit was run and its fixes merged in PRs #52–#62. These i
 - Crew are omniscient about each other's location: social/check-on goals walk to the target's true room (`IntentExecutionSystem` compares against `target.CurrentRoomId`). Using last-seen positions plus searching would let the player hide or misdirect people.
 - There are two separate rule-based decision ladders with different thresholds: `BrowserMindSystem` (Pages) and `RuleBasedAiDecisionService` (server fallback). Fixes have already failed to reach both (hunger ordering, PR #52). A single utility scorer (need × personality × relationship × evidence, plus seeded noise) should drive both, and the options offered to the LLM.
 - ~~Failures leave no mark~~ fixed: `IntentExecutionSystem.FailIntent` now writes a low-importance `Memory` (the same first-person reason shown in `CurrentAction`) and raises `Npc.Stress` on every failed intent. Still open: a door Overseer controls being in the way should specifically become "Overseer sealed Medical" and feed suspicion, rather than the current generic failure reason/memory.
-- The first assignment can be won passively (in an 8-hour run with no player input, it was won while 2 of 4 directives were logged failed). Worth checking the win gate against directive outcomes.
+- ~~The first assignment can be won passively~~ investigated and confirmed intentional, not a bug: mission 1's two supplementary directives are deliberately non-mandatory ("early missions must let a benign player still succeed" — `ScenarioCatalog.SecureContinuity`), so an idle run failing them does not block the win gate, which only requires mandatory directives. Already pinned by `ScenarioOutcomeGateTests.AQuietStationSatisfiesBothLayersAndWins`.
 
 **UI/UX:**
 

@@ -151,6 +151,47 @@ public sealed class ScenarioRosterPolicyTests
         Assert.Equal(Snapshot(expected!), Snapshot(actual!));
     }
 
+    /// <summary>
+    /// Prisoners are only ever `FreshGenerated` today (containment-transfer is
+    /// a standalone assignment), so this gap was never exercised in practice.
+    /// It still had to be closed before any future scenario could reuse
+    /// `CampaignContinuing` roster policy with prisoners without silently
+    /// reverting them to ordinary crew.
+    /// </summary>
+    [Fact]
+    public void PrisonerFieldsSurviveCrewContinuityAndCampaignPersistenceRoundTrip()
+    {
+        var state = CreateContainmentState(552_000);
+        state.ScenarioStatus = ScenarioStatus.Won;
+
+        var prisoner = state.Crew.Single(npc => npc.PrisonerDangerLevel == PrisonerDangerLevel.Extreme);
+        Assert.True(prisoner.IsPrisoner);
+        Assert.True(prisoner.PrisonerViolenceBias > 0);
+        var guard = state.Crew.First(npc => !npc.IsPrisoner);
+
+        var campaign = new CampaignState();
+        CampaignProgressionSystem.CaptureCompletedMission(campaign, state);
+
+        var rebuilt = CampaignProgressionSystem.CreateContinuingCrew(campaign);
+        Assert.NotNull(rebuilt);
+
+        var rebuiltPrisoner = rebuilt!.Single(npc => npc.Id == prisoner.Id);
+        Assert.True(rebuiltPrisoner.IsPrisoner);
+        Assert.Equal(prisoner.PrisonerDangerLevel, rebuiltPrisoner.PrisonerDangerLevel);
+        Assert.Equal(prisoner.PrisonerViolenceBias, rebuiltPrisoner.PrisonerViolenceBias);
+        Assert.False(rebuilt.Single(npc => npc.Id == guard.Id).IsPrisoner);
+
+        var restoredCampaign = CampaignStateSerializer.Deserialize(
+            CampaignStateSerializer.Serialize(campaign));
+        Assert.NotNull(restoredCampaign);
+
+        var persistedPrisoner = restoredCampaign!.Crew.Single(snapshot => snapshot.Id == prisoner.Id);
+        Assert.True(persistedPrisoner.IsPrisoner);
+        Assert.Equal(prisoner.PrisonerDangerLevel, persistedPrisoner.PrisonerDangerLevel);
+        Assert.Equal(prisoner.PrisonerViolenceBias, persistedPrisoner.PrisonerViolenceBias);
+        Assert.False(restoredCampaign.Crew.Single(snapshot => snapshot.Id == guard.Id).IsPrisoner);
+    }
+
     [Fact]
     public void RuntimeSourcesUsePolicyGateInsteadOfImplicitFreshFallback()
     {
@@ -229,6 +270,32 @@ public sealed class ScenarioRosterPolicyTests
                             ",",
                             npc.Traits.Select(trait =>
                                 $"{trait.Name}[{string.Join(";", trait.Effects.Select(effect => $"{effect.Kind}:{effect.Modifier}"))}]")))));
+
+    private static GameState CreateContainmentState(int baseSeed)
+    {
+        for (var seed = baseSeed; seed < baseSeed + 300; seed++)
+        {
+            try
+            {
+                var baseCrew = SeededCrewRosterGenerator.Generate(seed);
+                var crew = PrisonerRosterSystem.Compose(baseCrew, ScenarioCatalog.ContainmentTransfer);
+                var state = FacilitySeeder.CreateDefault(
+                    crew,
+                    stationSeed: seed,
+                    stationConstraints: ScenarioCatalog.ContainmentTransfer.StationConstraints);
+
+                ScenarioCatalog.Apply(state, ScenarioCatalog.ContainmentTransfer);
+                return state;
+            }
+            catch (StationGenerationException)
+            {
+                // Spatial packing is allowed to reject individual seeds.
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"No containment-transfer station generated in the range starting at {baseSeed}.");
+    }
 
     private static string FindRepositoryRoot()
     {

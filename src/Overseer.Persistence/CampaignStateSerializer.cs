@@ -110,7 +110,10 @@ public static class CampaignStateSerializer
         Health = snapshot.Health,
         IsPresent = snapshot.IsPresent,
         OverseerCredibility = snapshot.OverseerCredibility,
-        OverseerSuspicion = snapshot.OverseerSuspicion
+        OverseerSuspicion = snapshot.OverseerSuspicion,
+        IsPrisoner = snapshot.IsPrisoner,
+        PrisonerDangerLevel = snapshot.PrisonerDangerLevel,
+        PrisonerViolenceBias = snapshot.PrisonerViolenceBias
     };
 
     private static CrewContinuitySnapshot FromDocument(CrewDocument document)
@@ -127,7 +130,10 @@ public static class CampaignStateSerializer
             Health = Math.Clamp(document.Health, 0, 100),
             IsPresent = document.IsPresent,
             OverseerCredibility = Math.Clamp(document.OverseerCredibility, 0, 100),
-            OverseerSuspicion = Math.Clamp(document.OverseerSuspicion, 0, 100)
+            OverseerSuspicion = Math.Clamp(document.OverseerSuspicion, 0, 100),
+            IsPrisoner = document.IsPrisoner,
+            PrisonerDangerLevel = document.PrisonerDangerLevel,
+            PrisonerViolenceBias = document.PrisonerViolenceBias
         };
 
         snapshot.Traits.AddRange(document.Traits ?? []);
@@ -178,5 +184,8 @@ public static class CampaignStateSerializer
         public bool IsPresent { get; set; } = true;
         public double OverseerCredibility { get; set; } = 70;
         public double OverseerSuspicion { get; set; }
+        public bool IsPrisoner { get; set; }
+        public PrisonerDangerLevel PrisonerDangerLevel { get; set; } = PrisonerDangerLevel.Low;
+        public double PrisonerViolenceBias { get; set; }
     }
 }
