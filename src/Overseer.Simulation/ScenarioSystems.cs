@@ -327,7 +327,8 @@ public static class ScenarioCatalog
             ReactorMustBeIsolated = true,
             MedicalMustBeNearHabitat = true,
             RequiredShutdownRoomId = "isolation",
-            RequiredChokepointCount = 2
+            RequiredChokepointCount = 2,
+            PlannedCrewCount = 16
         };
 
         constraints.RequiredRoomIds.Add("control");
@@ -351,6 +352,7 @@ public static class ScenarioCatalog
             ReactorMustBeIsolated = true,
             MedicalMustBeNearHabitat = true,
             RequiredShutdownRoomId = "isolation",
+            PlannedCrewCount = 12,
             RequireRedundantPaths = requireRedundancy,
             RequiredChokepointCount = requiredChokepoints
         };
