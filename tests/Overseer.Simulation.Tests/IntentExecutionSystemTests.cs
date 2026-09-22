@@ -34,6 +34,66 @@ public sealed class IntentExecutionSystemTests
     }
 
     [Fact]
+    public void PersistentIntent_NamesOverseerAndRecordsSuspicionWhenOverseerLockedTheOnlyRoute()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var suspicionBefore = marcus.OverseerSuspicion;
+        var door = state.Facility.FindDoorBetween("airlock", "hall-airlock")!;
+        var airlockName = state.Facility.Rooms["airlock"].Name;
+
+        door.IsOpen = false;
+        door.IsLocked = true;
+        door.LockedByOverseer = true;
+
+        marcus.Intent = new NpcIntent(
+            ActionKind.Move,
+            "airlock",
+            "Inspect the airlock.",
+            "I want to verify the outer hatch is secure.",
+            70,
+            "Test",
+            state.Elapsed);
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.Equal(ActionKind.Idle, marcus.CurrentAction.Kind);
+        Assert.Contains($"Overseer sealed {airlockName}", marcus.CurrentAction.Reason);
+        Assert.True(marcus.OverseerSuspicion > suspicionBefore);
+        Assert.Contains(
+            marcus.OverseerEvidence,
+            evidence => evidence.Claim == EvidenceClaim.AccessRestricted);
+    }
+
+    [Fact]
+    public void PersistentIntent_KeepsTheGenericMessageWhenALockWasNotOverseerCaused()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var suspicionBefore = marcus.OverseerSuspicion;
+        var door = state.Facility.FindDoorBetween("airlock", "hall-airlock")!;
+
+        door.IsOpen = false;
+        door.IsLocked = true;
+
+        marcus.Intent = new NpcIntent(
+            ActionKind.Move,
+            "airlock",
+            "Inspect the airlock.",
+            "I want to verify the outer hatch is secure.",
+            70,
+            "Test",
+            state.Elapsed);
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.Equal(ActionKind.Idle, marcus.CurrentAction.Kind);
+        Assert.DoesNotContain("Overseer sealed", marcus.CurrentAction.Reason);
+        Assert.Contains("every known route is sealed", marcus.CurrentAction.Reason);
+        Assert.Equal(suspicionBefore, marcus.OverseerSuspicion);
+    }
+
+    [Fact]
     public void SocialIntent_WalksTowardTheTargetOneLegalSpaceAtATime()
     {
         var state = FacilitySeeder.CreateDefault();

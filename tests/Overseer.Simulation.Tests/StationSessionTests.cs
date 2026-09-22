@@ -47,6 +47,21 @@ public sealed class StationSessionTests
     }
 
     [Fact]
+    public void ToggleLock_MarksAndClearsWhetherOverseerCausedTheLock()
+    {
+        var session = new RecordingSession();
+        var door = session.State.Facility.Doors.First(d => d.IsAiControllable && !d.IsManuallyOverridden);
+
+        session.ToggleLock(door.Id);
+        Assert.True(door.IsLocked);
+        Assert.True(door.LockedByOverseer);
+
+        session.ToggleLock(door.Id);
+        Assert.False(door.IsLocked);
+        Assert.False(door.LockedByOverseer);
+    }
+
+    [Fact]
     public void HostsDoNotKeepTheirOwnCopyOfTheConsole()
     {
         var root = FindRepositoryRoot();

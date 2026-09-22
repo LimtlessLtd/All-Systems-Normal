@@ -422,6 +422,7 @@ public sealed class CrewDoorInteractionSystem
                 }
                 door.IsOpen = false;
                 door.IsLocked = true;
+                door.LockedByOverseer = false;
                 door.LastCrewOperatorId = npc.Id;
                 door.CrewAutoCloseAt = null;
                 break;
@@ -433,6 +434,7 @@ public sealed class CrewDoorInteractionSystem
                     return false;
                 }
                 door.IsLocked = false;
+                door.LockedByOverseer = false;
                 door.LastCrewOperatorId = npc.Id;
                 break;
 
