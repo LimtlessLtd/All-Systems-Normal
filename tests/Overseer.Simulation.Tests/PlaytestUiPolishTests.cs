@@ -136,7 +136,7 @@ public sealed class PlaytestUiPolishTests
             Assert.Contains(".room-node.has-smoke:not(.has-fire)::after", css);
             Assert.Contains("[data-growth-stage=\"seedling\"]", css);
             Assert.Contains("[data-growth-stage=\"maturing\"]", css);
-            Assert.Contains("[data-growth-stage=\"ready\"][data-crop=\"TOMATO\"]", css);
+            Assert.Contains("[data-growth-stage=\"harvest-ready\"][data-crop=\"TOMATO\"]", css);
             Assert.Contains("[data-growth-stage=\"dead\"]", css);
             Assert.Contains(".fixture-growbed[data-active=\"true\"] .growbed-active-lamp", css);
         }
