@@ -260,7 +260,16 @@ public sealed class CrewRoutineSystemTests
         var debtAtBed = npc.SleepDebtMinutes;
         new SimulationEngine().Tick(state, TimeSpan.FromMinutes(60));
 
-        Assert.True(npc.Fatigue < fatigueAtBed);
+        var sleepFixture = state.Facility.Rooms[npc.CurrentRoomId].Fixtures.First(fixture =>
+            fixture.Type is FixtureType.Bed or FixtureType.MedicalBed);
+        Assert.True(
+            npc.Fatigue < fatigueAtBed,
+            $"Sleep travel did not reach a restorative bed point: pos={npc.PositionX:0.00},{npc.PositionY:0.00}; " +
+            $"bed={sleepFixture.X:0.00},{sleepFixture.Y:0.00}/{sleepFixture.Width:0.00}x{sleepFixture.Height:0.00}; " +
+            $"use={sleepFixture.InteractionX:0.00},{sleepFixture.InteractionY:0.00}; " +
+            $"room={state.Facility.Rooms[npc.CurrentRoomId].MapWidth:0.00}x{state.Facility.Rooms[npc.CurrentRoomId].MapHeight:0.00}; " +
+            $"fatigue={fatigueAtBed:0.00}->{npc.Fatigue:0.00}; debt={debtAtBed:0.00}->{npc.SleepDebtMinutes:0.00}; " +
+            $"moving={npc.IsLocallyMoving}; action={npc.CurrentAction.Kind}.");
         Assert.True(npc.SleepDebtMinutes < debtAtBed);
     }
 
