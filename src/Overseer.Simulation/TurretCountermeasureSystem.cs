@@ -17,7 +17,11 @@ public sealed class TurretCountermeasureSystem
 
         foreach (var npc in state.Crew.Where(npc => npc.IsAlive && npc.IsPresent))
         {
-            switch (npc.CurrentAction.Kind)
+            var action = npc.ActiveTask is { Status: CrewTaskStatus.InProgress } task
+                ? task.Action
+                : npc.CurrentAction.Kind;
+
+            switch (action)
             {
                 case ActionKind.DisarmTurret:
                     TickLocalDisarm(state, npc);
@@ -58,13 +62,13 @@ public sealed class TurretCountermeasureSystem
         var turret = FindTurret(state, npc.CurrentAction.TargetId);
         if (turret is null || turret.IsDestroyed || !IsCoLocated(npc, turret))
         {
-            End(npc, "I need to be physically beside the turret to reach its local safing controls.");
+            End(state, npc, "I need to be physically beside the turret to reach its local safing controls.");
             return;
         }
 
         if (!turret.IsArmed)
         {
-            End(npc, $"{turret.Name} is already disarmed.");
+            End(state, npc, $"{turret.Name} is already disarmed.");
             return;
         }
 
@@ -73,7 +77,7 @@ public sealed class TurretCountermeasureSystem
             npc.Skills.TryGetValue("Security", out var security) ? security : 0);
         if (score < 45)
         {
-            End(npc, "I cannot safely operate the turret's local disarm.");
+            End(state, npc, "I cannot safely operate the turret's local disarm.");
             return;
         }
 
@@ -85,7 +89,7 @@ public sealed class TurretCountermeasureSystem
         turret.IsArmed = false;
         turret.TrackedNpcId = null;
         turret.CurrentTask = $"Locally disarmed by {npc.Name}.";
-        End(npc, $"{turret.Name} is locally disarmed.");
+        End(state, npc, $"{turret.Name} is locally disarmed.");
         AudioCueSystem.Emit(state, AudioCueKind.Important, npc.Id.ToString(), npc.CurrentRoomId);
         Log(state, $"{npc.Name} physically disarms {turret.Name}.");
     }
@@ -95,26 +99,26 @@ public sealed class TurretCountermeasureSystem
         var turret = FindTurret(state, npc.CurrentAction.TargetId);
         if (turret is null || turret.IsDestroyed)
         {
-            End(npc, "That turret is not available.");
+            End(state, npc, "That turret is not available.");
             return;
         }
 
         if (!npc.CurrentRoomId.Equals(ControlRoomId, StringComparison.OrdinalIgnoreCase)
             || CrewCounterplaySystem.BestTechnicalSkill(npc) < 55)
         {
-            End(npc, "I need Engineering access and enough technical skill to isolate the turret control link.");
+            End(state, npc, "I need Engineering access and enough technical skill to isolate the turret control link.");
             return;
         }
 
         if (!HasHostileTurretEvidence(npc, turret))
         {
-            End(npc, $"I do not have personally grounded evidence to justify isolating {turret.Name}.");
+            End(state, npc, $"I do not have personally grounded evidence to justify isolating {turret.Name}.");
             return;
         }
 
         if (turret.IsNetworkIsolated)
         {
-            End(npc, $"{turret.Name}'s remote link is already isolated.");
+            End(state, npc, $"{turret.Name}'s remote link is already isolated.");
             return;
         }
 
@@ -127,7 +131,7 @@ public sealed class TurretCountermeasureSystem
         turret.CurrentTask = turret.IsArmed
             ? "Remote control isolated; local armed policy remains active."
             : "Remote control isolated.";
-        End(npc, $"{turret.Name}'s remote control link is isolated.");
+        End(state, npc, $"{turret.Name}'s remote control link is isolated.");
         Log(state, $"{npc.Name} isolates {turret.Name} from Overseer's security network.");
     }
 
@@ -136,26 +140,26 @@ public sealed class TurretCountermeasureSystem
         var turret = FindTurret(state, npc.CurrentAction.TargetId);
         if (turret is null || turret.IsDestroyed)
         {
-            End(npc, "That turret is not available.");
+            End(state, npc, "That turret is not available.");
             return;
         }
 
         if (!npc.CurrentRoomId.Equals(ControlRoomId, StringComparison.OrdinalIgnoreCase)
             || CrewCounterplaySystem.BestTechnicalSkill(npc) < 45)
         {
-            End(npc, "I need the Engineering security-power controls to deny turret power.");
+            End(state, npc, "I need the Engineering security-power controls to deny turret power.");
             return;
         }
 
         if (!HasHostileTurretEvidence(npc, turret))
         {
-            End(npc, $"I do not have personally grounded evidence to justify denying {turret.Name}'s power.");
+            End(state, npc, $"I do not have personally grounded evidence to justify denying {turret.Name}'s power.");
             return;
         }
 
         if (!turret.PowerFeedEnabled)
         {
-            End(npc, $"{turret.Name}'s dedicated power feed is already disabled.");
+            End(state, npc, $"{turret.Name}'s dedicated power feed is already disabled.");
             return;
         }
 
@@ -169,7 +173,7 @@ public sealed class TurretCountermeasureSystem
         turret.CurrentTask = turret.IsArmed
             ? "Armed but offline: dedicated power feed denied."
             : "Power feed denied.";
-        End(npc, $"{turret.Name}'s dedicated power feed is disabled.");
+        End(state, npc, $"{turret.Name}'s dedicated power feed is disabled.");
         Log(state, $"{npc.Name} disables {turret.Name}'s dedicated security power feed.");
     }
 
@@ -178,13 +182,13 @@ public sealed class TurretCountermeasureSystem
         var turret = FindTurret(state, npc.CurrentAction.TargetId);
         if (turret is null || turret.IsDestroyed || !IsCoLocated(npc, turret))
         {
-            End(npc, "I need to be physically beside the turret to sabotage it.");
+            End(state, npc, "I need to be physically beside the turret to sabotage it.");
             return;
         }
 
         if (CrewCounterplaySystem.BestForceSkill(npc) < 40)
         {
-            End(npc, "I cannot find a credible way to physically disable the turret.");
+            End(state, npc, "I cannot find a credible way to physically disable the turret.");
             return;
         }
 
@@ -202,7 +206,7 @@ public sealed class TurretCountermeasureSystem
             turret.CurrentTask = "Destroyed by crew sabotage.";
         }
 
-        End(npc, turret.IsDestroyed
+        End(state, npc, turret.IsDestroyed
             ? $"{turret.Name} is disabled beyond operation."
             : $"Damaged {turret.Name}; integrity is {turret.Integrity:0}%.");
         AudioCueSystem.Emit(state, AudioCueKind.Hostile, npc.Id.ToString(), npc.CurrentRoomId);
@@ -214,19 +218,19 @@ public sealed class TurretCountermeasureSystem
         var turret = FindTurret(state, npc.CurrentAction.TargetId);
         if (turret is null || turret.IsDestroyed || !IsCoLocated(npc, turret))
         {
-            End(npc, "I need the intact turret physically in front of me to reprogram it.");
+            End(state, npc, "I need the intact turret physically in front of me to reprogram it.");
             return;
         }
 
         if (turret.IsArmed)
         {
-            End(npc, $"{turret.Name} must be disarmed before local reprogramming.");
+            End(state, npc, $"{turret.Name} must be disarmed before local reprogramming.");
             return;
         }
 
         if (CrewCounterplaySystem.BestTechnicalSkill(npc) < 65)
         {
-            End(npc, "I do not have enough technical skill to rewrite the local turret policy.");
+            End(state, npc, "I do not have enough technical skill to rewrite the local turret policy.");
             return;
         }
 
@@ -240,7 +244,7 @@ public sealed class TurretCountermeasureSystem
         turret.TrackedNpcId = null;
         turret.NextShotAt = null;
         turret.CurrentTask = "Locally reprogrammed to safe policy.";
-        End(npc, $"{turret.Name} is locally reprogrammed to safe policy.");
+        End(state, npc, $"{turret.Name} is locally reprogrammed to safe policy.");
         AudioCueSystem.Emit(state, AudioCueKind.Important, npc.Id.ToString(), npc.CurrentRoomId);
         Log(state, $"{npc.Name} locally reprograms {turret.Name} to Safe policy.");
     }
@@ -251,9 +255,16 @@ public sealed class TurretCountermeasureSystem
         int minutes,
         string activity)
     {
-        if (npc.RoutineUntil == TimeSpan.Zero)
+        if (!CrewTaskSystem.IsWorking(npc, npc.CurrentAction.Kind))
         {
             npc.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(minutes);
+            CrewTaskSystem.Start(
+                state,
+                npc,
+                npc.CurrentAction.Kind,
+                npc.CurrentAction.TargetId,
+                activity,
+                TimeSpan.FromMinutes(minutes));
             npc.Bubble = new NpcBubble(
                 $"I'm {activity}.",
                 NpcBubbleKind.Alert,
@@ -263,11 +274,19 @@ public sealed class TurretCountermeasureSystem
             return false;
         }
 
-        return state.Elapsed >= npc.RoutineUntil;
+        return CrewTaskSystem.IsComplete(state, npc);
     }
 
-    private static void End(Npc npc, string reason)
+    private static void End(GameState state, Npc npc, string reason)
     {
+        if (npc.ActiveTask is { Status: CrewTaskStatus.InProgress } task)
+        {
+            if (state.Elapsed >= task.CompletesAt)
+                CrewTaskSystem.Succeed(state, npc, reason);
+            else
+                CrewTaskSystem.Fail(state, npc, reason);
+        }
+
         npc.RoutineUntil = TimeSpan.Zero;
         npc.Intent = null;
         npc.CurrentAction = new NpcAction(ActionKind.Idle, null, reason);
