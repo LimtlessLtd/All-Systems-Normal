@@ -58,6 +58,8 @@ public sealed class ActionResolver
             ActionKind.Argue => TrySocialAction(state, npc, action, "argues", out message),
             ActionKind.Attack => SetAction(state, npc, action, "attacks", out message),
             ActionKind.RequestHelp => TrySocialAction(state, npc, action, "requests help", out message),
+            ActionKind.ProposePact => TrySocialAction(state, npc, action, "proposes a pact to", out message),
+            ActionKind.AcceptPact => TryAcceptPact(state, npc, action, out message),
             ActionKind.CheckOnCrew => TrySocialAction(state, npc, action, "checks on", out message),
             ActionKind.AssistCrew => TrySocialAction(state, npc, action, "offers practical help to", out message),
             ActionKind.CoordinateWork => TrySocialAction(state, npc, action, "coordinates work with", out message),
@@ -741,6 +743,28 @@ public sealed class ActionResolver
         npc.CurrentAction = action;
         npc.RoutineUntil = TimeSpan.Zero;
         message = $"{npc.Name} considers the shutdown-team plan.";
+        Log(state, message);
+        return true;
+    }
+
+    private static bool TryAcceptPact(
+        GameState state,
+        Npc npc,
+        NpcAction action,
+        out string message)
+    {
+        var proposal = npc.PendingPactProposal;
+        if (proposal is null
+            || string.IsNullOrWhiteSpace(action.TargetId)
+            || !proposal.FromNpcName.Equals(action.TargetId, StringComparison.OrdinalIgnoreCase))
+        {
+            message = $"{npc.Name} has no matching pact proposal to accept.";
+            return false;
+        }
+
+        npc.CurrentAction = action;
+        npc.RoutineUntil = TimeSpan.Zero;
+        message = $"{npc.Name} considers {proposal.FromNpcName}'s proposal.";
         Log(state, message);
         return true;
     }

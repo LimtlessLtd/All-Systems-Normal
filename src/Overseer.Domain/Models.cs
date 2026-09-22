@@ -292,6 +292,19 @@ public sealed record ShutdownTeamInvitation(
     string TargetRoomId,
     TimeSpan OfferedAt);
 
+/// <summary>
+/// An unsettled pact offer, communicated but not yet a binding <see cref="CrewPact"/>.
+/// The promisee's own cognition decides whether to accept it.
+/// </summary>
+public sealed record PactProposal(
+    Guid FromNpcId,
+    string FromNpcName,
+    CrewPactKind Kind,
+    string PromiseText,
+    TimeSpan? TriggerAt,
+    TimeSpan? Deadline,
+    TimeSpan OfferedAt);
+
 
 public enum AirlockCycleMode
 {
@@ -320,6 +333,8 @@ public enum ActionKind
     Argue,
     Attack,
     RequestHelp,
+    ProposePact,
+    AcceptPact,
     RecruitShutdownAlly,
     JoinShutdownTeam,
     ShutdownOverseer,
@@ -823,6 +838,7 @@ public sealed class Npc : IStationMobileEntity
     public List<KnowledgeDiscovery> Discoveries { get; } = [];
     public string? ShutdownTeamId { get; set; }
     public ShutdownTeamInvitation? PendingShutdownTeamInvitation { get; set; }
+    public PactProposal? PendingPactProposal { get; set; }
 
     /// <summary>
     /// How far this person takes Overseer at its word, 0..100. Being caught in

@@ -220,4 +220,74 @@ public sealed class IntentExecutionSystemTests
         Assert.True(marcus.Stress > stressBefore);
     }
 
+    [Fact]
+    public void ProposePactIntent_SetsCurrentActionImmediatelyWhenAlreadyCoLocated()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var emma = state.Crew.Single(npc => npc.Name == "Emma Voss");
+        emma.CurrentRoomId = marcus.CurrentRoomId;
+
+        marcus.Intent = new NpcIntent(
+            ActionKind.ProposePact,
+            emma.Name,
+            "Make a deal with Emma.",
+            "I'll cover your shift if you keep quiet about this.",
+            50,
+            "Test",
+            state.Elapsed);
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.Equal(ActionKind.ProposePact, marcus.CurrentAction.Kind);
+        Assert.Equal(emma.Name, marcus.CurrentAction.TargetId);
+        Assert.Equal("I'll cover your shift if you keep quiet about this.", marcus.CurrentAction.Reason);
+        Assert.Null(marcus.Intent);
+    }
+
+    [Fact]
+    public void AcceptPactIntent_RequiresAMatchingPendingProposal()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var emma = state.Crew.Single(npc => npc.Name == "Emma Voss");
+
+        marcus.Intent = new NpcIntent(
+            ActionKind.AcceptPact,
+            emma.Name,
+            "Agree to Emma's offer.",
+            "Sounds fair.",
+            50,
+            "Test",
+            state.Elapsed);
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.Equal(ActionKind.Idle, marcus.CurrentAction.Kind);
+        Assert.Null(marcus.Intent);
+
+        marcus.PendingPactProposal = new PactProposal(
+            emma.Id,
+            emma.Name,
+            CrewPactKind.Other,
+            "I'll cover your shift.",
+            TriggerAt: null,
+            Deadline: null,
+            OfferedAt: state.Elapsed);
+        marcus.Intent = new NpcIntent(
+            ActionKind.AcceptPact,
+            emma.Name,
+            "Agree to Emma's offer.",
+            "Sounds fair.",
+            50,
+            "Test",
+            state.Elapsed);
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.Equal(ActionKind.AcceptPact, marcus.CurrentAction.Kind);
+        Assert.Equal(emma.Name, marcus.CurrentAction.TargetId);
+        Assert.Null(marcus.Intent);
+    }
+
 }

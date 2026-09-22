@@ -311,6 +311,21 @@ public sealed class OllamaAiDecisionService(
                 target = invitation.TeamId;
             }
         }
+        else if (action == ActionKind.AcceptPact)
+        {
+            var proposal = npc.PendingPactProposal;
+            if (proposal is null
+                || target is null
+                || !proposal.FromNpcName.Equals(target, StringComparison.OrdinalIgnoreCase))
+            {
+                action = ActionKind.Idle;
+                target = null;
+            }
+            else
+            {
+                target = proposal.FromNpcName;
+            }
+        }
         else if (action is ActionKind.ShutdownRobot
             or ActionKind.DamageRobot
             or ActionKind.ReprogramRobot

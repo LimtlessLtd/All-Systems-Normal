@@ -184,6 +184,97 @@ public sealed class AiDecisionServiceTests
     }
 
     [Fact]
+    public async Task OllamaDecision_ProposePactCarriesThePromiseTextAsReason()
+    {
+        using var client = new StubChatClient(
+            """
+            {
+              "Action": "ProposePact",
+              "TargetId": "Sarah Chen",
+              "Goal": "Make a deal with Sarah.",
+              "Reason": "I'll cover your next shift if you keep quiet about this.",
+              "Urgency": 40
+            }
+            """);
+
+        var service = new OllamaAiDecisionService(
+            client,
+            new RuleBasedAiDecisionService());
+
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+
+        var intent = await service.DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.ProposePact, intent.Action);
+        Assert.Equal("Sarah Chen", intent.TargetId);
+        Assert.Equal("I'll cover your next shift if you keep quiet about this.", intent.Reason);
+    }
+
+    [Fact]
+    public async Task OllamaDecision_AcceptPactIsReducedToIdleWithoutAMatchingPendingProposal()
+    {
+        using var client = new StubChatClient(
+            """
+            {
+              "Action": "AcceptPact",
+              "TargetId": "Sarah Chen",
+              "Goal": "Agree to the deal.",
+              "Reason": "Sounds fair.",
+              "Urgency": 40
+            }
+            """);
+
+        var service = new OllamaAiDecisionService(
+            client,
+            new RuleBasedAiDecisionService());
+
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+
+        var intent = await service.DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.Idle, intent.Action);
+        Assert.Null(intent.TargetId);
+    }
+
+    [Fact]
+    public async Task OllamaDecision_AcceptPactSucceedsWithAMatchingPendingProposal()
+    {
+        using var client = new StubChatClient(
+            """
+            {
+              "Action": "AcceptPact",
+              "TargetId": "Sarah Chen",
+              "Goal": "Agree to the deal.",
+              "Reason": "Sounds fair.",
+              "Urgency": 40
+            }
+            """);
+
+        var service = new OllamaAiDecisionService(
+            client,
+            new RuleBasedAiDecisionService());
+
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+        david.PendingPactProposal = new PactProposal(
+            sarah.Id,
+            sarah.Name,
+            CrewPactKind.Other,
+            "I'll cover your next shift.",
+            TriggerAt: null,
+            Deadline: null,
+            OfferedAt: state.Elapsed);
+
+        var intent = await service.DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.AcceptPact, intent.Action);
+        Assert.Equal("Sarah Chen", intent.TargetId);
+    }
+
+    [Fact]
     public async Task ProviderFailure_FallsBackWithoutStoppingTheSimulation()
     {
         using var client = new StubChatClient(
@@ -213,6 +304,31 @@ public sealed class AiDecisionServiceTests
         Assert.DoesNotContain("SECRET:", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("CONNECTED DOORS YOU CAN DIRECTLY PERCEIVE", prompt);
         Assert.Contains("STATION STATUS-PANEL ROOM READINGS", prompt);
+    }
+
+    [Fact]
+    public void Prompt_SurfacesActivePactsAndPendingProposal()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+
+        CrewPactSystem.TryCreate(
+            state, david.Id, sarah.Id, CrewPactKind.Other, "I'll cover your next shift.",
+            null, null, out _, out _);
+        david.PendingPactProposal = new PactProposal(
+            sarah.Id,
+            sarah.Name,
+            CrewPactKind.Other,
+            "Help me isolate Overseer.",
+            TriggerAt: null,
+            Deadline: null,
+            OfferedAt: state.Elapsed);
+
+        var prompt = NpcPromptBuilder.Build(david, state);
+
+        Assert.Contains("I'll cover your next shift.", prompt);
+        Assert.Contains("PENDING PACT PROPOSAL ADDRESSED TO YOU: from Sarah Chen: \"Help me isolate Overseer.\"", prompt);
     }
 
     [Fact]

@@ -131,8 +131,13 @@ public sealed class IntentExecutionSystem
                 case ActionKind.ReassureCrew:
                 case ActionKind.MisleadCrew:
                 case ActionKind.ReportConcern:
+                case ActionKind.ProposePact:
                 case ActionKind.RecruitShutdownAlly:
                     ExecuteSocialIntent(state, npc, intent);
+                    break;
+
+                case ActionKind.AcceptPact:
+                    ExecuteAcceptPactIntent(state, npc, intent);
                     break;
 
                 case ActionKind.JoinShutdownTeam:
@@ -936,6 +941,32 @@ public sealed class IntentExecutionSystem
             new NpcAction(
                 ActionKind.JoinShutdownTeam,
                 invitation.TeamId,
+                intent.Reason),
+            out _);
+
+        npc.Intent = null;
+    }
+
+    private void ExecuteAcceptPactIntent(
+        GameState state,
+        Npc npc,
+        NpcIntent intent)
+    {
+        var proposal = npc.PendingPactProposal;
+        if (proposal is null
+            || string.IsNullOrWhiteSpace(intent.TargetId)
+            || !proposal.FromNpcName.Equals(intent.TargetId, StringComparison.OrdinalIgnoreCase))
+        {
+            FailIntent(state, npc, "There is no matching pact proposal to accept.");
+            return;
+        }
+
+        _actions.TryApply(
+            state,
+            npc.Id,
+            new NpcAction(
+                ActionKind.AcceptPact,
+                proposal.FromNpcName,
                 intent.Reason),
             out _);
 
