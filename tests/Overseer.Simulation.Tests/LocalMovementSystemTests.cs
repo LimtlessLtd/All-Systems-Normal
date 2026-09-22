@@ -228,6 +228,42 @@ public sealed class LocalMovementSystemTests
         Assert.True(after < before);
     }
 
+    [Fact]
+    public void LocalMovement_DoesNotSnapThroughAFixtureWhenTargetFitsInsideOneTick()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 51515);
+        var npc = state.Crew.First();
+        var room = state.Facility.Rooms["hydroponics"];
+        var bed = state.CropBeds.First();
+        var targetFixture = room.Fixtures.Single(fixture => fixture.Label == bed.FixtureLabel);
+        var targetX = targetFixture.InteractionX ?? targetFixture.X;
+        var targetY = targetFixture.InteractionY ?? targetFixture.Y;
+
+        npc.CurrentRoomId = room.Id;
+        npc.PositionX = 75;
+        npc.PositionY = targetY;
+        npc.ProvisioningJob = ActionKind.TendCrops;
+        npc.TendingBedId = bed.Id;
+        npc.CurrentAction = new NpcAction(ActionKind.TendCrops, bed.Id, "Walk to the grow bay.");
+
+        room.Fixtures.Add(new RoomFixture(
+            FixtureType.Crate,
+            "Regression blocker",
+            52,
+            targetY,
+            12,
+            18));
+
+        new LocalMovementSystem().Tick(state, TimeSpan.FromMinutes(5));
+
+        Assert.True(
+            Math.Abs(npc.PositionX - targetX) > 0.5 || Math.Abs(npc.PositionY - targetY) > 0.5,
+            "The worker snapped directly through the blocking fixture to a later waypoint.");
+        Assert.True(
+            Math.Abs(npc.PositionY - targetY) > 0.5,
+            $"Expected a visible detour around the blocker, got {npc.PositionX:0.0},{npc.PositionY:0.0}.");
+    }
+
     private static Door NetworkDoorForHall(
         GameState state,
         string hallwayId,
