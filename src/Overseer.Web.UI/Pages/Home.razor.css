@@ -6996,7 +6996,7 @@ button.turret-token {
 /* Emergent-routine / hazard / route presentation. */
 .crew-route-lines .selected-route-path {
     fill: none;
-    stroke: #38e86f;
+    stroke: #58b77a;
     stroke-width: 3.2px;
     stroke-linecap: round;
     stroke-linejoin: round;
