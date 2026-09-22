@@ -487,7 +487,20 @@ public sealed class LocalMovementSystem
 
         if (SegmentHitsFixture(room, entity.PositionX, entity.PositionY, nextX, nextY))
         {
-            var detour = DetourPoint(room, entity.PositionX, entity.PositionY, destination.X, destination.Y);
+            var detour = TryGridDetourPoint(
+                    room,
+                    entity.PositionX,
+                    entity.PositionY,
+                    destination.X,
+                    destination.Y,
+                    out var gridDetour)
+                ? gridDetour
+                : DetourPoint(
+                    room,
+                    entity.PositionX,
+                    entity.PositionY,
+                    destination.X,
+                    destination.Y);
             var detourDx = detour.X - entity.PositionX;
             var detourDy = detour.Y - entity.PositionY;
             var detourDistance = Math.Sqrt((detourDx * detourDx) + (detourDy * detourDy));
