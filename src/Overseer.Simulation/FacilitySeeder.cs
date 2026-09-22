@@ -500,6 +500,7 @@ public static class FacilitySeeder
                 {
                     placed.Add(resolved);
                     occupied.Add(resolved);
+                    occupied.AddRange(FixtureInteractionReservations(resolved));
                     continue;
                 }
 
@@ -508,6 +509,7 @@ public static class FacilitySeeder
                 {
                     placed.Add(resolved);
                     occupied.Add(resolved);
+                    occupied.AddRange(FixtureInteractionReservations(resolved));
                     continue;
                 }
 
@@ -533,6 +535,7 @@ public static class FacilitySeeder
                 {
                     placed.Add(resolved);
                     occupied.Add(resolved);
+                    occupied.AddRange(FixtureInteractionReservations(resolved));
                 }
                 else if (!fixture.Label.StartsWith("Generated ", StringComparison.Ordinal))
                 {
@@ -604,6 +607,47 @@ public static class FacilitySeeder
         }
     }
 
+    private static IEnumerable<RoomFixture> FixtureInteractionReservations(
+        RoomFixture fixture)
+    {
+        if (fixture.UsePose != FixtureUsePose.Stand
+            || fixture.InteractionX is not { } interactionX
+            || fixture.InteractionY is not { } interactionY)
+        {
+            yield break;
+        }
+
+        // Stand-use controls need a small patch of floor in front of them that
+        // remains clear of later furnishing. These reservations participate in
+        // packing only; they never become rendered fixtures.
+        yield return new RoomFixture(
+            FixtureType.Camera,
+            $"__interaction:{fixture.Label}",
+            interactionX,
+            interactionY,
+            10,
+            10);
+    }
+
+    private static double FixturePlacementPadding(RoomFixture fixture)
+    {
+        if (!LocalMovementSystem.IsCollisionFixture(fixture))
+        {
+            return 1.4;
+        }
+
+        // A single point actor still needs room on both sides of a route. These
+        // gaps deliberately exceed LocalMovementSystem's 1.8% collision
+        // inflation so authored and generated rooms read as walkable rather
+        // than as tightly packed display cases.
+        if (IsWallFixture(fixture.Type))
+        {
+            return 3.4;
+        }
+
+        return IsCentralFixture(fixture.Type) ? 5.8 : 4.8;
+    }
+
     private static int FixturePlacementPriority(RoomFixture fixture) =>
         IsCentralFixture(fixture.Type)
             ? 300
@@ -655,7 +699,7 @@ public static class FacilitySeeder
         out RoomFixture resolved)
     {
         if (IsCentralFixture(fixture.Type)
-            && FitsFixture(fixture, placed, padding: 3.0))
+            && FitsFixture(fixture, placed, padding: FixturePlacementPadding(fixture)))
         {
             resolved = fixture;
             return true;
@@ -683,7 +727,7 @@ public static class FacilitySeeder
                     candidate.Width,
                     candidate.Height);
 
-                var padding = IsWallFixture(fixture.Type) ? 1.15 : 3.0;
+                var padding = FixturePlacementPadding(moved);
                 if (FitsFixture(moved, placed, padding))
                 {
                     resolved = moved;
@@ -713,7 +757,7 @@ public static class FacilitySeeder
                 candidate.Width,
                 candidate.Height);
 
-            if (FitsFixture(moved, placed, padding: .55))
+            if (FitsFixture(moved, placed, padding: 2.2))
             {
                 resolved = moved;
                 return true;
@@ -734,7 +778,7 @@ public static class FacilitySeeder
             for (var x = 5d; x <= 95; x += 4)
             {
                 var moved = MoveFixture(fixture, x, y, fixture.Width, fixture.Height);
-                if (FitsFixture(moved, placed, padding: .7))
+                if (FitsFixture(moved, placed, padding: 3.2))
                 {
                     resolved = moved;
                     return true;
