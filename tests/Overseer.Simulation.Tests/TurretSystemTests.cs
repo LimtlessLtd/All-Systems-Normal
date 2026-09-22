@@ -264,10 +264,20 @@ public sealed class TurretSystemTests
             new NpcAction(ActionKind.DisarmTurret, turret.Id, "Use the local safing control."),
             out _));
         countermeasures.Tick(state);
-        state.Elapsed += TimeSpan.FromMinutes(3);
+        Assert.Equal(CrewTaskStatus.InProgress, engineer.ActiveTask?.Status);
+        Assert.True(turret.IsArmed);
+
+        state.Elapsed += TimeSpan.FromMinutes(1);
+        countermeasures.Tick(state);
+        Assert.InRange(engineer.ActiveTask!.ProgressPercent(state.Elapsed), 49, 51);
+        Assert.True(turret.IsArmed);
+
+        state.Elapsed += TimeSpan.FromMinutes(1);
         countermeasures.Tick(state);
 
         Assert.False(turret.IsArmed);
+        Assert.Equal(CrewTaskStatus.Succeeded, engineer.ActiveTask?.Status);
+        Assert.Equal(100, engineer.ActiveTask!.ProgressPercent(state.Elapsed), 6);
 
         Assert.True(resolver.TryApply(
             state,
