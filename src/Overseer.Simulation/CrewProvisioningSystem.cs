@@ -76,7 +76,13 @@ public sealed class CrewProvisioningSystem
             {
                 var fixture = fixtures[index];
                 var requested = crops[index % crops.Length];
-                var physicalArea = Math.Max(1, fixture.Width * fixture.Height);
+
+                // Fixture coordinates are percentages of this generated room.
+                // Convert them back into actual map area so a visibly larger bay
+                // really does have greater productive capacity and yield.
+                var physicalArea =
+                    (fixture.Width / 100d * room.MapWidth)
+                    * (fixture.Height / 100d * room.MapHeight);
 
                 state.CropBeds.Add(new CropBed
                 {
@@ -87,7 +93,7 @@ public sealed class CrewProvisioningSystem
                     Crop = requested,
                     RequestedCrop = requested,
                     Lifecycle = CropLifecycleState.Empty,
-                    Capacity = Math.Round(physicalArea / 270d, 2),
+                    Capacity = Math.Round(Math.Max(0.25, physicalArea / StationProvisionRules.StandardGrowAreaMapUnits), 2),
                     Water = Math.Round(70 + (random.NextDouble() * 30), 1),
                     Nutrients = Math.Round(70 + (random.NextDouble() * 30), 1),
                     LifecycleChangedAt = state.Elapsed
