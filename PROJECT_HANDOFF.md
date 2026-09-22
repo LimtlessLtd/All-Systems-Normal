@@ -322,7 +322,7 @@ Required architecture:
 
 **Deliberately deferred out of this pass** (real backlog, not silently dropped):
 
-- Richer per-prisoner goals/relationships/backstory. Prisoners still get only the four `PrisonerDefinition` fields and default 50/50 relationships from `FacilitySeeder`; escape/flee/recapture behaviour is fully deterministic C#, not mind-authored motive.
+- Richer per-prisoner goals/relationships/backstory. Prisoners still get only the four `PrisonerDefinition` fields; they now receive the same deterministic starting relationship texture as every fresh roster, but there are no prisoner-specific authored bonds, goals or backstory. Escape/flee/recapture behaviour is fully deterministic C#, not mind-authored motive.
 - `CrewContinuitySnapshot`/`CampaignStateSerializer` still do not carry `IsPrisoner`/`PrisonerDangerLevel`/`PrisonerViolenceBias`. Not exercised today (the assignment is always `FreshGenerated`), but would need fixing before any future scenario reuses `CampaignContinuing` roster policy with prisoners.
 - Dedicated containment activity presentation now projects existing deterministic state in the shared console: prisoner map tokens/Inspector cards distinguish `BREACH IN PROGRESS`, `AT LARGE` and secure custody, while crew pursuing or restraining an escapee show `RECAPTURE`; this is presentation-only and does not alter containment authority.
 
