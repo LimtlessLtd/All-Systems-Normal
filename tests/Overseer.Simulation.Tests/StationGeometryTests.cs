@@ -202,9 +202,10 @@ public sealed class StationGeometryTests
                 var hallwayCrossSection = portal.Wall == StationWall.Horizontal
                     ? hallway.MapWidth
                     : hallway.MapHeight;
-                var networkCrossSection = Math.Min(
-                    networkDoor.Other.MapWidth,
-                    networkDoor.Other.MapHeight);
+                var networkPortal = StationGeometry.FindSharedPortal(networkDoor.Other, hallway);
+                var networkCrossSection = networkPortal.Wall == StationWall.Horizontal
+                    ? networkDoor.Other.MapWidth
+                    : networkDoor.Other.MapHeight;
 
                 Assert.Equal(
                     networkCrossSection,
