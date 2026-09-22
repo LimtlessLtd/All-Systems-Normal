@@ -378,6 +378,12 @@ public sealed class CrewProvisioningSystem
         ReleaseJob(npc);
     }
 
+    public static void InterruptForExternalPriority(GameState state, Npc npc, string reason)
+    {
+        if (npc.ProvisioningJob is not null)
+            InterruptJob(state, npc, reason);
+    }
+
     private static void InterruptJob(GameState state, Npc npc, string reason)
     {
         var bed = npc.TendingBedId is null
