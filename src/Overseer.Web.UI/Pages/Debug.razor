@@ -42,9 +42,9 @@
                 {
                     @foreach (var trace in snapshot.Cognition.Take(100))
                     {
-                        <article class="debug-entry">
+                        <article class="debug-entry" data-cognition-sequence="@trace.Sequence">
                             <header>
-                                <strong>T+@trace.CreatedAt.ToString(@"hh\:mm") · @trace.NpcName</strong>
+                                <strong>#@trace.Sequence · T+@trace.CreatedAt.ToString(@"hh\:mm") · @trace.NpcName</strong>
                                 <span>@trace.Source</span>
                             </header>
                             <p>
@@ -70,18 +70,18 @@
                             {
                                 <p class="debug-note">@trace.Note</p>
                             }
-                            @if (!string.IsNullOrWhiteSpace(trace.RawResponse))
-                            {
-                                <details>
-                                    <summary>LLM RESPONSE // RAW MODEL OUTPUT</summary>
-                                    <pre>@trace.RawResponse</pre>
-                                </details>
-                            }
                             @if (!string.IsNullOrWhiteSpace(trace.Prompt))
                             {
                                 <details>
-                                    <summary>LLM REQUEST // PROMPT + AFFORDANCES + OBSERVATIONS</summary>
+                                    <summary>LLM REQUEST // EXACT PROMPT + OPTIONS</summary>
                                     <pre>@trace.Prompt</pre>
+                                </details>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(trace.RawResponse))
+                            {
+                                <details>
+                                    <summary>LLM RESPONSE // RAW PROVIDER OUTPUT</summary>
+                                    <pre>@trace.RawResponse</pre>
                                 </details>
                             }
                         </article>
