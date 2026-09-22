@@ -195,7 +195,9 @@ public sealed class GameSession(
     private async Task ThinkIfDueAsync(CancellationToken cancellationToken)
     {
         var living = State.Crew
-            .Where(npc => npc.IsAlive)
+            .Where(npc =>
+                npc.IsAlive
+                && !npc.IsContainmentBreachInProgress)
             .OrderBy(npc => npc.Name)
             .ToList();
 

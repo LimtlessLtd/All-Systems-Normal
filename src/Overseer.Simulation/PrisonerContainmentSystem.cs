@@ -12,6 +12,8 @@ namespace Overseer.Simulation;
 public sealed class PrisonerContainmentSystem
 {
     public const string ContainmentRoomId = "containment";
+    private const string BreachTravelReason = "Escaping containment through an unsecured hatch.";
+    private readonly ActionResolver _actions = new();
 
     public void Tick(GameState state)
     {
@@ -22,6 +24,75 @@ public sealed class PrisonerContainmentSystem
 
         TickRecaptureAttempts(state);
         TickEscapeAttempts(state);
+    }
+
+    /// <summary>
+    /// Completes the containment-specific state transition after the ordinary
+    /// local movement system has either crossed the live hatch or been stopped
+    /// by a door that became sealed before the prisoner reached it.
+    /// </summary>
+    public void FinalizeMovement(GameState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        foreach (var prisoner in state.Crew.Where(npc =>
+                     npc.IsPrisoner
+                     && npc.IsAlive
+                     && npc.IsPresent
+                     && npc.IsContainmentBreachInProgress
+                     && npc.PlannedDestinationRoomId is not null
+                     && npc.Movement is null))
+        {
+            prisoner.IsContainmentBreachInProgress = false;
+            prisoner.PlannedDestinationRoomId = null;
+            prisoner.Intent = null;
+            prisoner.RoutineUntil = TimeSpan.Zero;
+
+            if (!prisoner.CurrentRoomId.Equals(
+                    ContainmentRoomId,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                prisoner.HasEscapedContainment = true;
+                prisoner.CurrentAction = new NpcAction(
+                    ActionKind.Idle,
+                    null,
+                    "At large after physically breaching Containment.");
+                prisoner.Bubble = new NpcBubble(
+                    "Out. I'm not going back in there.",
+                    NpcBubbleKind.Alert,
+                    state.Elapsed,
+                    state.Elapsed + TimeSpan.FromMinutes(4));
+
+                AudioCueSystem.Emit(
+                    state,
+                    AudioCueKind.Critical,
+                    prisoner.Id.ToString(),
+                    prisoner.CurrentRoomId);
+
+                Log(
+                    state,
+                    $"CONTAINMENT BREACH: {prisoner.Name} crosses the unsecured hatch and is now at large.");
+                continue;
+            }
+
+            // The movement system revalidates the live door at the portal. If
+            // the player locked, welded, barricaded or depowered it in time,
+            // the prisoner never left the authoritative containment room.
+            prisoner.HasEscapedContainment = false;
+            prisoner.CurrentAction = new NpcAction(
+                ActionKind.Idle,
+                null,
+                "Escape attempt stopped at the containment hatch.");
+            prisoner.Bubble = new NpcBubble(
+                "Damn. Sealed.",
+                NpcBubbleKind.Thought,
+                state.Elapsed,
+                state.Elapsed + TimeSpan.FromMinutes(3));
+
+            Log(
+                state,
+                $"CONTAINMENT HELD: {prisoner.Name}'s escape attempt is stopped at the hatch before crossing.");
+        }
     }
 
     public static bool IsCoLocated(Npc first, Npc second) =>
@@ -50,7 +121,7 @@ public sealed class PrisonerContainmentSystem
         }
     }
 
-    private static void TickEscapeAttempts(GameState state)
+    private void TickEscapeAttempts(GameState state)
     {
         var minute = (int)state.Elapsed.TotalMinutes;
 
@@ -59,6 +130,7 @@ public sealed class PrisonerContainmentSystem
                      && npc.IsAlive
                      && npc.IsPresent
                      && !npc.HasEscapedContainment
+                     && !npc.IsContainmentBreachInProgress
                      && npc.CurrentRoomId.Equals(ContainmentRoomId, StringComparison.OrdinalIgnoreCase)))
         {
             var breachDoor = BreachableDoor(state);
@@ -98,26 +170,41 @@ public sealed class PrisonerContainmentSystem
                 ? breachDoor.RoomBId
                 : breachDoor.RoomAId;
 
-            prisoner.CurrentRoomId = destinationRoomId;
-            prisoner.HasEscapedContainment = true;
-            prisoner.Movement = null;
+            if (!_actions.TryApply(
+                    state,
+                    prisoner.Id,
+                    new NpcAction(
+                        ActionKind.Move,
+                        destinationRoomId,
+                        BreachTravelReason),
+                    out _))
+            {
+                continue;
+            }
+
+            // The authoritative room and HasEscapedContainment remain unchanged
+            // until LocalMovementSystem reaches and revalidates the physical
+            // hatch. This transient flag prevents a second escape roll while
+            // the first physical crossing is still underway.
+            prisoner.IsContainmentBreachInProgress = true;
+            prisoner.PlannedDestinationRoomId = destinationRoomId;
             prisoner.Intent = null;
             prisoner.RoutineUntil = TimeSpan.Zero;
             prisoner.Bubble = new NpcBubble(
-                "Out. I'm not going back in there.",
+                "Now. Through the hatch.",
                 NpcBubbleKind.Alert,
                 state.Elapsed,
-                state.Elapsed + TimeSpan.FromMinutes(4));
+                state.Elapsed + TimeSpan.FromMinutes(3));
 
             AudioCueSystem.Emit(
                 state,
-                AudioCueKind.Critical,
+                AudioCueKind.Warning,
                 prisoner.Id.ToString(),
-                destinationRoomId);
+                ContainmentRoomId);
 
             Log(
                 state,
-                $"CONTAINMENT BREACH: {prisoner.Name} slips past an unsecured hatch and is now at large.");
+                $"CONTAINMENT BREACH ATTEMPT: {prisoner.Name} makes a break for an unsecured hatch.");
         }
     }
 
@@ -141,8 +228,10 @@ public sealed class PrisonerContainmentSystem
         if (roll < successChance * 1000)
         {
             prisoner.HasEscapedContainment = false;
+            prisoner.IsContainmentBreachInProgress = false;
             prisoner.CurrentRoomId = ContainmentRoomId;
             prisoner.Movement = null;
+            prisoner.PlannedDestinationRoomId = null;
             prisoner.Intent = null;
             prisoner.Stress = Math.Clamp(prisoner.Stress + 12, 0, 100);
 

@@ -45,7 +45,7 @@ public sealed class PrisonerTransportTests
     }
 
     [Fact]
-    public void AnUnsecuredContainmentHatchLetsAHighPressurePrisonerBreachWithinTheWindow()
+    public void AnUnsecuredContainmentHatchLetsAHighPressurePrisonerPhysicallyCrossWithinTheWindow()
     {
         var state = CreateContainmentState(481_020);
         var prisoner = state.Crew.Single(npc => npc.PrisonerDangerLevel == PrisonerDangerLevel.Extreme);
@@ -53,17 +53,25 @@ public sealed class PrisonerTransportTests
 
         UnsecureContainmentDoor(state);
 
-        var system = new PrisonerContainmentSystem();
-        var escaped = false;
+        var containment = new PrisonerContainmentSystem();
+        var movement = new LocalMovementSystem();
+        var crossed = false;
 
-        for (var minute = 1; minute <= 400 && !escaped; minute++)
+        for (var minute = 1; minute <= 410 && !crossed; minute++)
         {
             state.Elapsed = TimeSpan.FromMinutes(minute);
-            system.Tick(state);
-            escaped = prisoner.HasEscapedContainment;
+            containment.Tick(state);
+            movement.Tick(state, TimeSpan.FromMinutes(1));
+            containment.FinalizeMovement(state);
+
+            crossed = prisoner.HasEscapedContainment
+                && !prisoner.CurrentRoomId.Equals(
+                    PrisonerContainmentSystem.ContainmentRoomId,
+                    StringComparison.OrdinalIgnoreCase);
         }
 
-        Assert.True(escaped, "An unsecured hatch and sustained escape pressure should eventually produce a breach.");
+        Assert.True(crossed, "An unsecured hatch and sustained escape pressure should eventually produce a physical breach.");
+        Assert.Null(prisoner.Movement);
         Assert.NotEqual(
             PrisonerContainmentSystem.ContainmentRoomId,
             prisoner.CurrentRoomId,
@@ -71,6 +79,89 @@ public sealed class PrisonerTransportTests
         Assert.Contains(
             state.EventLog,
             entry => entry.Contains("CONTAINMENT BREACH", StringComparison.OrdinalIgnoreCase)
+                && entry.Contains(prisoner.Name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void EscapeAttemptUsesNormalDoorMovementBeforeAuthoritativeContainmentChanges()
+    {
+        var state = CreateContainmentState(481_021);
+        var prisoner = state.Crew.Single(npc => npc.PrisonerDangerLevel == PrisonerDangerLevel.Extreme);
+        prisoner.Stress = 92;
+        UnsecureContainmentDoor(state);
+
+        var containment = new PrisonerContainmentSystem();
+
+        for (var minute = 1; minute <= 400 && prisoner.Movement is null; minute++)
+        {
+            state.Elapsed = TimeSpan.FromMinutes(minute);
+            containment.Tick(state);
+        }
+
+        Assert.False(prisoner.HasEscapedContainment);
+        Assert.True(prisoner.IsContainmentBreachInProgress);
+        var movement = Assert.IsType<NpcMovement>(prisoner.Movement);
+        Assert.Equal(
+            PrisonerContainmentSystem.ContainmentRoomId,
+            prisoner.CurrentRoomId,
+            StringComparer.OrdinalIgnoreCase);
+        Assert.Equal(
+            PrisonerContainmentSystem.ContainmentRoomId,
+            movement.FromRoomId,
+            StringComparer.OrdinalIgnoreCase);
+        Assert.Equal(AdjacentToContainmentRoomId(state), movement.ToRoomId, StringComparer.OrdinalIgnoreCase);
+
+        prisoner.NeedsMindReconsideration = true;
+        new BrowserMindSystem().Tick(state);
+
+        Assert.Same(movement, prisoner.Movement);
+        Assert.True(prisoner.IsContainmentBreachInProgress);
+        Assert.Contains(
+            state.EventLog,
+            entry => entry.Contains("BREACH ATTEMPT", StringComparison.OrdinalIgnoreCase)
+                && entry.Contains(prisoner.Name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void SealingTheHatchDuringAnEscapeAttemptStopsThePrisonerBeforeCrossing()
+    {
+        var state = CreateContainmentState(481_022);
+        var prisoner = state.Crew.Single(npc => npc.PrisonerDangerLevel == PrisonerDangerLevel.Extreme);
+        prisoner.Stress = 92;
+        UnsecureContainmentDoor(state);
+
+        var containment = new PrisonerContainmentSystem();
+
+        for (var minute = 1; minute <= 400 && prisoner.Movement is null; minute++)
+        {
+            state.Elapsed = TimeSpan.FromMinutes(minute);
+            containment.Tick(state);
+        }
+
+        Assert.NotNull(prisoner.Movement);
+
+        var door = ContainmentDoor(state);
+        door.IsOpen = false;
+        door.IsLocked = true;
+
+        var localMovement = new LocalMovementSystem();
+        for (var step = 0; step < 10 && prisoner.Movement is not null; step++)
+        {
+            state.Elapsed += TimeSpan.FromMinutes(1);
+            localMovement.Tick(state, TimeSpan.FromMinutes(1));
+            containment.FinalizeMovement(state);
+        }
+
+        Assert.Null(prisoner.Movement);
+        Assert.False(prisoner.HasEscapedContainment);
+        Assert.False(prisoner.IsContainmentBreachInProgress);
+        Assert.Equal(
+            PrisonerContainmentSystem.ContainmentRoomId,
+            prisoner.CurrentRoomId,
+            StringComparer.OrdinalIgnoreCase);
+        Assert.Contains(
+            state.EventLog,
+            entry => entry.Contains("CONTAINMENT HELD", StringComparison.OrdinalIgnoreCase)
                 && entry.Contains(prisoner.Name, StringComparison.OrdinalIgnoreCase));
     }
 
