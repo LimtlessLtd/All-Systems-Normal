@@ -7170,6 +7170,25 @@ button.turret-token {
 }
 
 
+.station-authority-layer .cropbed-selectable {
+    appearance: none;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    pointer-events: auto;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.station-authority-layer .cropbed-selectable.selected {
+    z-index: 9;
+    outline: 3px solid #63dfa0;
+    outline-offset: 2px;
+    box-shadow:
+        0 0 0 2px rgba(4, 18, 13, .95),
+        0 0 14px rgba(99, 223, 160, .75);
+}
+
 .station-authority-layer .room-node.has-fire {
     box-shadow:
         0 0 0 3px #3b1208,
@@ -7179,7 +7198,7 @@ button.turret-token {
 }
 
 .station-authority-layer .room-node.has-fire::after {
-    content: "🔥  🔥  🔥";
+    content: "🔥";
     position: absolute;
     inset: 2%;
     z-index: 20;
@@ -7191,28 +7210,87 @@ button.turret-token {
     pointer-events: none;
     overflow: hidden;
     color: #ffd568;
-    font-size: clamp(16px, 1.8vw, 34px);
+    font-size: clamp(14px, 1.4vw, 26px);
     line-height: 1;
     text-shadow:
         0 -8px 12px rgba(255, 85, 18, .95),
         0 0 20px rgba(255, 185, 51, .9);
     background:
-        repeating-radial-gradient(circle at 25% 85%, rgba(255, 199, 65, .24) 0 2px, transparent 3px 12px),
-        radial-gradient(ellipse at 50% 100%, rgba(255, 72, 12, .52), transparent 68%),
-        linear-gradient(to top, rgba(49, 10, 5, .55), rgba(37, 41, 43, .28) 72%, rgba(79, 86, 88, .14));
-    animation: compartment-fire-flicker .34s steps(2, end) infinite alternate;
+        repeating-radial-gradient(circle at 25% 85%, rgba(255, 199, 65, .18) 0 2px, transparent 3px 15px),
+        radial-gradient(ellipse at 50% 100%, rgba(255, 72, 12, .34), transparent 68%),
+        linear-gradient(to top, rgba(49, 10, 5, .36), rgba(37, 41, 43, .12) 72%, transparent);
+    animation: compartment-fire-flicker .46s steps(2, end) infinite alternate;
 }
 
-.station-authority-layer .room-node.has-smoke:not(.has-fire)::after {
+.station-authority-layer .room-node.fire-growing::after {
+    content: "🔥  🔥";
+    font-size: clamp(17px, 1.8vw, 34px);
+    background:
+        repeating-radial-gradient(circle at 25% 85%, rgba(255, 199, 65, .24) 0 2px, transparent 3px 12px),
+        radial-gradient(ellipse at 50% 100%, rgba(255, 72, 12, .48), transparent 70%),
+        linear-gradient(to top, rgba(49, 10, 5, .5), rgba(37, 41, 43, .2) 72%, transparent);
+}
+
+.station-authority-layer .room-node.fire-severe::after {
+    content: "🔥  🔥  🔥";
+    font-size: clamp(20px, 2.2vw, 40px);
+    background:
+        repeating-radial-gradient(circle at 25% 82%, rgba(255, 215, 82, .32) 0 3px, transparent 4px 10px),
+        radial-gradient(ellipse at 50% 100%, rgba(255, 62, 8, .65), transparent 74%),
+        linear-gradient(to top, rgba(58, 8, 3, .68), rgba(40, 34, 34, .32) 78%, transparent);
+    animation-duration: .3s;
+}
+
+.station-authority-layer .room-node.fire-inferno::after {
+    content: "🔥  🔥  🔥  🔥";
+    inset: 0;
+    font-size: clamp(24px, 2.8vw, 48px);
+    background:
+        repeating-radial-gradient(circle at 18% 80%, rgba(255, 225, 101, .4) 0 4px, transparent 5px 9px),
+        radial-gradient(ellipse at 50% 100%, rgba(255, 52, 0, .78), transparent 80%),
+        linear-gradient(to top, rgba(68, 5, 1, .8), rgba(51, 27, 25, .46) 82%, rgba(60, 60, 60, .12));
+    box-shadow: inset 0 0 38px rgba(255, 83, 8, .72);
+    animation-duration: .2s;
+}
+
+/* Smoke is an atmospheric layer, independent of flames. It deliberately
+   replaces the decorative room ::before inset while present, so dense smoke
+   can genuinely obscure machines/crew without disabling their hit targets. */
+.station-authority-layer .room-node.has-smoke::before {
     content: "";
     position: absolute;
     inset: 0;
-    z-index: 6;
+    z-index: 19;
+    border: 0;
     border-radius: inherit;
     pointer-events: none;
     background:
-        radial-gradient(ellipse at 25% 30%, rgba(63, 70, 73, .24), transparent 38%),
-        radial-gradient(ellipse at 75% 65%, rgba(41, 47, 50, .25), transparent 42%);
+        radial-gradient(ellipse at 22% 25%, rgba(62, 69, 72, .5), transparent 42%),
+        radial-gradient(ellipse at 76% 62%, rgba(33, 39, 42, .52), transparent 48%),
+        radial-gradient(ellipse at 45% 86%, rgba(22, 26, 29, .4), transparent 50%);
+    opacity: .18;
+    animation: compartment-smoke-drift 3.4s ease-in-out infinite alternate;
+}
+
+.station-authority-layer .room-node.smoke-building::before {
+    opacity: .42;
+}
+
+.station-authority-layer .room-node.smoke-heavy::before {
+    opacity: .72;
+    background:
+        radial-gradient(ellipse at 20% 24%, rgba(42, 47, 50, .86), transparent 50%),
+        radial-gradient(ellipse at 78% 60%, rgba(22, 27, 29, .9), transparent 56%),
+        linear-gradient(rgba(16, 19, 21, .54), rgba(9, 12, 14, .7));
+}
+
+.station-authority-layer .room-node.smoke-blackout::before {
+    opacity: .96;
+    background:
+        radial-gradient(ellipse at 20% 24%, rgba(20, 23, 24, .98), transparent 58%),
+        radial-gradient(ellipse at 78% 60%, rgba(7, 9, 10, .99), transparent 63%),
+        linear-gradient(rgba(4, 6, 7, .94), rgba(0, 0, 0, .99));
+    animation-duration: 1.8s;
 }
 
 @keyframes compartment-fire-flicker {
@@ -7220,8 +7298,14 @@ button.turret-token {
     to { opacity: 1; filter: brightness(1.28) contrast(1.18); transform: translateY(-2px); }
 }
 
+@keyframes compartment-smoke-drift {
+    from { filter: contrast(.92); transform: translate(-1%, 1%) scale(1.02); }
+    to { filter: contrast(1.08); transform: translate(1%, -1%) scale(1.06); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-    .station-authority-layer .room-node.has-fire::after {
+    .station-authority-layer .room-node.has-fire::after,
+    .station-authority-layer .room-node.has-smoke::before {
         animation: none !important;
     }
 }
