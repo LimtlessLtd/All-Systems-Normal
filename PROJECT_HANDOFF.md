@@ -32,6 +32,8 @@ Core invariants:
 - Pages remains model/credential-free.
 - Campaign persistence stores deliberate continuity, not arbitrary live GameState.
 
+Crew-agency expansion (decision journal, rejection feedback, tag interactions, plans/triggers, claims, metrics) follows `docs/EMERGENT_AGENCY_PLAN.md`: PR sequence, tag-table spec and review checklist.
+
 ---
 
 ## Stack and runtime split
