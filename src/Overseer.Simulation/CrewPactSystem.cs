@@ -14,7 +14,10 @@ public static class CrewPactSystem
         GameState state,
         Guid promisorId,
         Guid promiseeId,
+        CrewPactKind kind,
         string promiseText,
+        TimeSpan? triggerAt,
+        TimeSpan? deadline,
         out CrewPact? pact,
         out string reason)
     {
@@ -41,6 +44,25 @@ public static class CrewPactSystem
             return false;
         }
 
+        if (normalized.Length > 240)
+        {
+            reason = "A pact promise must be 240 characters or fewer.";
+            return false;
+        }
+
+        if (triggerAt is { } trigger && trigger < state.Elapsed)
+        {
+            reason = "A pact trigger cannot already be in the past.";
+            return false;
+        }
+
+        if (deadline is { } due
+            && due < (triggerAt ?? state.Elapsed))
+        {
+            reason = "A pact deadline cannot be earlier than its trigger.";
+            return false;
+        }
+
         if (state.CrewPacts.Any(existing =>
             existing.Status == CrewPactStatus.Active
             && existing.PromisorId == promisorId
@@ -56,8 +78,11 @@ public static class CrewPactSystem
             Id = $"pact-{state.NextCrewPactSequence++:D4}",
             PromisorId = promisorId,
             PromiseeId = promiseeId,
+            Kind = kind,
             PromiseText = normalized,
-            CreatedAt = state.Elapsed
+            CreatedAt = state.Elapsed,
+            TriggerAt = triggerAt,
+            Deadline = deadline
         };
         state.CrewPacts.Add(pact);
 
