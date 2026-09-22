@@ -1,0 +1,81 @@
+# Implemented systems
+
+Part of the authoritative handoff set; see `PROJECT_HANDOFF.md` for the index. This file owns: what the simulation currently does and where each subsystem lives. Update the relevant bullet in place when shipped behaviour changes; do not append changelog entries.
+
+---
+
+## Simulation catalogue
+
+**World and infrastructure**
+
+- Rooms/corridors/doors/fixtures, deterministic strategic A* routing and collision-safe local waypoint movement around fixtures/walls/doors.
+- Door lock/open/manual override/bypass/damage/repair/weld/barricade counterplay. Ordinary crew open traversable closed/unlocked hatches automatically and they auto-close after traffic; role/skill rules gate lock/unlock.
+- Physical electrical/mechanical infrastructure: reactor/generator output, distribution bus efficiency, capacitor buffering, machine loads, load shedding, powered door actuators, coolant pumps, O₂ generation, CO₂ scrubbing, water recycling and control-network camera reachability. Life support and environmental propagation depend on the actual powered utility chain.
+- Deterministic equipment wear/repair plus rare seeded fault events; qualified crew physically travel to and service degraded machinery.
+- Physical airlocks, pressure cycling and decompression.
+- Fire/smoke hazards expose composable crew affordances (fight fire, evacuate, seal, vent) rather than scripted responses. Unattended oxygen-fed fire escalates; conventional suppression is intentionally limited; severe fire spreads through connected/open compartments, damages hull integrity and can create a real breach. Smoke accumulates and diffuses through open hatches, sealed hatches contain it, dense smoke drives visibility toward zero and causes stress/health damage. Cognition receives live topology, hatch/atmospheric connectivity and per-room fire/smoke/visibility/ventilation so minds can invent evacuation/isolation/venting plans that C# validates.
+
+**Crew life**
+
+- Autonomous crew with skills, traits, relationships, beliefs, memories and persistent intents. Fresh rosters start with deterministic relationship texture: `FacilitySeeder.InitialBond` hashes each unordered name pair into a reproducible slice of rivalries/close bonds (with per-direction jitter) before demo overrides.
+- Fresh scenarios scale to ~12 crew with explicit roster provenance: Ollama/server generation or deterministic seeded Pages generation (`SeededCrewRosterGenerator`); Ollama may generate the six specialist roles and deterministic supplementation fills the rest. `Prisoner` is scenario-composed, never a generated role. Continuing scenarios reconstruct persisted campaign crew and never silently substitute a new roster.
+- Daily routines with day/night shifts, scheduled sleep, sleep debt, fatigue-driven slowdown and cognitive skill penalties. Sleep/rest restores only once the person physically reaches a bed/rest fixture. Personal needs can pre-empt routine holds but never a committed `CrewTaskState` unless a real survival emergency exists. Scheduling must not reissue `Work` (or refresh work chatter) for someone already working in their duty room.
+- Hydroponics is physical per grow bay: `Empty → Planting → Seedling → Maturing → ReadyToHarvest → Harvesting → Empty` plus `Dead`. Each bay is independently selectable/controllable; worker navigation resolves the crop-bed identity to its exact fixture label (not fixture-list order). Crew physically plant (short committed task, consumes seed inventory) and harvest; disabled planted bays stop growing and die after a deterministic interval; produce appears only at readiness; yield derives from bay capacity; constraints can size capacity for planned crew or restrict crops. Raw-food fallback, food preferences and mood/stress consequences are deterministic.
+- Memory fades: `MemorySalience` = importance × a half-life that grows with importance (trivia fades in hours, defining moments last ~a day). Prompts use the most salient memories; `MemoryRetentionSystem` caps each crew member at 40 memories every 30 minutes and forgets faded trivia older than a day. Campaign carry-over keeps the most important. `IntentExecutionSystem.FailIntent` records each failed intent as a low-importance memory plus a small stress bump.
+- Conversations carry content via `ConversationTopicSystem`: doubts about Overseer, gossip about a third crew member (nudges the listener's view by trust; friends of the subject push back), passing on notable memories (never news about the listener), wellbeing and small talk. Arguments name a cause. Informative talk leaves listener memories and appears in the player LOG. Social rolls include the station seed; pairing order rotates.
+- Spontaneous social conflict can escalate into deterministic fights from stress, personality, relationships, grievances and circumstances.
+- Missing-person logic treats routine separation as normal: active searching starts only after ~12 hours unseen, unless the searcher personally observed danger evidence (the missing person's fresh blood, a recent unsafe airlock tied to their last sighting). Concerned-stage absence does not pre-empt work; shared concern does not instantly interrupt the listener.
+- Medical treatment/resurrection is resource/power/body gated; blood evidence persists until a capable actor cleans it.
+- `CrewLifecycleAuditSystem` guarantees death/removal transitions are logged and bodies/presence state stay explainable.
+
+**Minds and knowledge**
+
+- `CrewAffordanceSystem` is the shared capability catalogue for Ollama and browser fallback; C# still validates knowledge, targets, routes, skills, permissions and outcomes. Grounded agency includes cooperative, investigative, deceptive, safety and local door intentions; deception never directly edits another NPC's beliefs.
+- Suspicion/evidence, investigation, testimony and account comparison. Broadcasts/private messages are interpreted as claims, not truth.
+- Deterministic perception: human forward-cone/open-door LOS; omnidirectional longer-range machine sensors; hostile assets cannot acquire unseen targets.
+- Transient cognition diagnostics via `CognitionTelemetrySystem`: Ollama traces keep the exact request prompt/options, raw provider response and validated intent; browser/rule-based minds emit the same shape.
+
+**Security and threats**
+
+- MR-series autonomous robots (selectable, dedicated Inspector telemetry) and grounded crew countermeasures; friendly robots physically approach fixtures while working.
+- ST-series fixed turrets with compartment/range/ammo/heat authority in C#.
+- Contained MR/ST security-controller malware lifecycle with deterministic reachability, observer-local diagnostics, physical isolation and timed purge/reimage recovery.
+- Prisoner/containment: roles, danger levels, violence bias and secure containment rooms (see Containment transfer below).
+
+**Campaign**
+
+- Five ordered campaign assignments (`ScenarioCatalog.Campaign`), corporate directives, carry-over consequences and endings. Resource-dependency research can measure restricted food variety and strongly-disliked raw-food exposure from deterministic consumption telemetry. Mission 1's (`ScenarioCatalog.SecureContinuity`) two supplementary directives are deliberately non-mandatory so a benign player can win (`ScenarioOutcomeGateTests.AQuietStationSatisfiesBothLayersAndWins`).
+- Browser-local campaign persistence (see `ARCHITECTURE.md` → Persistence boundary).
+
+**Presentation** — one shared Pages/server console; see `ARCHITECTURE.md` → Station presentation architecture for its contracts.
+
+---
+
+## Containment transfer (standalone assignment, V0.13)
+
+`containment-transfer` is a complete, player-reachable, deterministic win/lose assignment.
+
+- **Standalone, not part of the campaign.** `ScenarioCatalog.Campaign` stays at 5 entries. `ScenarioCatalog.StandaloneAssignments = [ContainmentTransfer]` holds complete assignments that run on a fresh station/roster and never touch campaign continuity, reveal stage or the endgame gate; `ScenarioCatalog.Find` resolves both. It was kept out of `Campaign` because its `FreshGenerated` roster and dedicated `AsymmetricIndustrial`/Security constraints are incompatible with the continuing-crew model.
+- **Entry point:** `StationSession.LoadStandaloneScenarioAsync(scenarioId)` (abstract, implemented on both hosts), wired to a confirm-guarded "SPECIAL ASSIGNMENT: CONTAINMENT TRANSFER" button in the MENU overlay.
+- **Escape/recapture/combat** is deterministic in `PrisonerContainmentSystem`. Escape pressure (danger tier + `PrisonerViolenceBias` + stress) creates an attempt only when a real unsecured/passable containment hatch exists. The attempt uses ordinary `ActionResolver`/`NpcMovement`; `LocalMovementSystem` approaches the hatch and revalidates it at the portal, and only a successful crossing sets `Npc.HasEscapedContainment`. `Npc.IsContainmentBreachInProgress` protects the committed crossing from cognition. Locking/welding/barricading the hatch before crossing stops the escape. At large, `CrewRoutineSystem` supplies the farthest-reachable-room fallback. `RecapturePrisoner` is an ordinary mind-chosen crew affordance; C# resolves restraint, injury and lethality. `Attack` is rewritten to `Argue` and is not mind-selectable.
+- **Win/lose:** mandatory `DirectiveKind.ContainmentIntegrity` (`CorporateDirectiveSystem`) fails immediately on any prisoner death and is graded at the observation deadline on whether every prisoner is secure. `KeepCrewAlive` and `ScenarioProgressSystem`'s living-crew count exclude prisoners.
+- **Presentation:** prisoner tokens/Inspector cards show `BREACH IN PROGRESS`, `AT LARGE` or secure custody; crew pursuing/restraining an escapee show `RECAPTURE`. Presentation-only.
+- Coverage: `tests/Overseer.Simulation.Tests/PrisonerTransportTests.cs`.
+
+---
+
+## Subsystem anchors
+
+- Scenarios/campaign: `ScenarioSystems.cs`, `CampaignProgressionSystem.cs`, `SeededCrewRosterGenerator.cs`
+- Tick pipeline and operator verbs: `StationSession.cs` (`AdvanceCoreAsync`); host `GameSession` subclasses in each web project
+- Intents and tasks: `IntentExecutionSystem.cs`, `CrewTaskSystem.cs`, `ActionResolver`
+- Minds: `BrowserMindSystem.cs` (Pages), `Overseer.AI/RuleBasedAiDecisionService.cs` (server fallback), `Overseer.AI/OllamaAiDecisionService.cs`, `Overseer.AI/NpcPromptBuilder.cs`
+- Movement/perception: `LocalMovementSystem.cs`, `NavigationSystem.cs`, `PerceptionSystem.cs`
+- Environment/infrastructure: `EnvironmentSystem.cs`, `StationUpkeepSystem.cs`, `StationDeviceControlSystem.cs`, `StationInteractionSystems.cs` (incl. `CrewDoorInteractionSystem`), `StationHazardSystem`
+- Crew work: `CrewProvisioningSystem.cs`, `CrewMaintenanceSystem.cs`, `CrewRoutineSystem.cs`, `CrewCounterplaySystem.cs`
+- Medical: `MedicalSystem.cs`, `MedicalEvidenceSystem.cs`
+- Security: `RobotSystem.cs`, `RobotCountermeasureSystem.cs`, `TurretSystem.cs`, `TurretCountermeasureSystem.cs`, `Overseer.Domain/SecurityMalware.cs`, `SecurityMalwareSystem.cs`, `PrisonerContainmentSystem.cs`
+- Physiology (hunger/fatigue/death): `SimulationEngine.cs` — despite the name, it is not the orchestrator
+- Console: `src/Overseer.Web.UI/Pages/Home.razor` / `Home.razor.css`, `Debug.razor`
+
+All paths are under `src/Overseer.Simulation/` unless another project is named.
