@@ -343,7 +343,7 @@ A code/behaviour/UI audit was run and its fixes merged in PRs #52–#62. These i
 
 **Server runtime:**
 
-- On first load the server generates the crew twice: once while prerendering and again when the interactive circuit starts, each in its own DI scope. That doubles the Ollama wait (about 100 s observed). Options: turn prerendering off in `Components/App.razor`'s `PageRenderMode` (`new InteractiveServerRenderMode(prerender: false)`), or carry the state across with `PersistentComponentState`.
+- ~~On first load the server generates the crew twice~~ fixed: `Components/App.razor`'s `PageRenderMode` now disables prerender (`new InteractiveServerRenderMode(prerender: false)`), so only the real interactive circuit runs `GameSession.InitializeAsync`. Guarded by `StationSessionTests.ServerHostDoesNotPrerenderTheInteractiveRoute`. Note the tradeoff: the server now sends no prerendered HTML, so first paint is blank until the SignalR circuit connects and finishes crew generation.
 - `GameSession` is scoped per circuit, so opening `/debug` in a **new tab** shows a fresh session, not the player's game. In-app navigation keeps the same circuit.
 - The Ollama decision call never sets `num_ctx`. The prompt is about 3.9k tokens (every one of the 49 actions plus every room's atmosphere), so a 4B model's default context may silently cut off the rules at the top. Check the raw prompts in `/debug`.
 - Invalid model output quietly becomes `ActionKind.Idle` (`OllamaAiDecisionService`). One retry with the validation error would recover most of these.
