@@ -136,6 +136,28 @@ public sealed class CrewRoutineSystemTests
     }
 
     [Fact]
+    public void UrgentHunger_InterruptsAnActiveTimedRoutineHold()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+
+        state.Elapsed = TimeSpan.FromMinutes(30);
+        david.Hunger = 70;
+        david.Fatigue = 0;
+        david.BladderNeed = 0;
+        david.HygieneNeed = 0;
+        david.RecreationNeed = 0;
+        david.SocialNeed = 0;
+        david.RoutineUntil = state.Elapsed + TimeSpan.FromHours(2);
+        david.CurrentAction = new NpcAction(ActionKind.Work, david.CurrentRoomId, "Routine task in progress.");
+
+        new CrewRoutineSystem().Tick(state);
+
+        Assert.Equal("kitchen", david.PlannedDestinationRoomId);
+        Assert.NotEqual(ActionKind.Work, david.CurrentAction.Kind);
+    }
+
+    [Fact]
     public void RoutineDutyTravel_UsesContextualChatterInsteadOfBackToWork()
     {
         var state = FacilitySeeder.CreateDefault();
