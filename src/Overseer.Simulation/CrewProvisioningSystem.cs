@@ -453,6 +453,7 @@ public sealed class CrewProvisioningSystem
 
         if (galley is null || galley.IsFailed)
         {
+            CrewTaskSystem.Fail(state, npc, "The galley equipment is dead. Nothing can be cooked.");
             npc.CurrentAction = new NpcAction(
                 ActionKind.Idle,
                 null,
@@ -462,6 +463,7 @@ public sealed class CrewProvisioningSystem
 
         if (state.Stores.Produce < StationProvisionRules.ProducePerCookingSession)
         {
+            CrewTaskSystem.Fail(state, npc, "There is not enough produce to complete the meal service.");
             npc.CurrentAction = new NpcAction(
                 ActionKind.Idle,
                 null,
