@@ -1062,6 +1062,13 @@ button:not([data-station-interactive]):not(.room-node):not(.crew-token):not(.map
     white-space: nowrap;
 }
 
+.crew-nameplate .crew-full-name {
+    color: inherit;
+    font: 800 .48rem/1.15 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+    letter-spacing: .01em;
+    white-space: nowrap;
+}
+
 .crew-initials {
     position: static;
     transform: none;
@@ -4739,6 +4746,9 @@ button.sound-toggle.sound-on {
 }
 
 .station-authority-layer .fixture-growbed {
+    --crop-symbol: "🌿";
+    --crop-stage-scale: .72;
+    --crop-stage-opacity: .68;
     border-color: #8e9990;
     background:
         radial-gradient(circle at 18% 25%, #8ba78e 0 6%, transparent 7%),
@@ -4750,16 +4760,26 @@ button.sound-toggle.sound-on {
 }
 
 .station-authority-layer .fixture-growbed::after {
-    content: "";
+    content: var(--crop-symbol);
     position: absolute;
-    left: 7%;
-    right: 7%;
-    bottom: 9%;
-    height: 4px;
-    border-radius: 999px;
-    background: rgba(97,124,108,.25);
-    transform-origin: left center;
-    animation: irrigation-pulse 3.1s ease-in-out infinite;
+    z-index: 2;
+    inset: auto;
+    left: 50%;
+    top: 60%;
+    width: auto;
+    height: auto;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    color: inherit;
+    font-size: clamp(12px, 1.05vw, 22px);
+    line-height: 1;
+    opacity: var(--crop-stage-opacity);
+    transform: translate(-50%, -50%) scale(var(--crop-stage-scale));
+    transform-origin: center;
+    animation: none;
+    pointer-events: none;
 }
 
 .station-authority-layer .fixture-vent {
@@ -7027,15 +7047,52 @@ button.turret-token {
     pointer-events: none;
 }
 
-/* Each visible hydroponic bed announces the crop it actually contains. */
+/* Each visible hydroponic bed announces its actual crop and live growth stage. */
+.station-authority-layer .fixture-growbed[data-crop="TOMATO"] { --crop-symbol: "🍅"; }
+.station-authority-layer .fixture-growbed[data-crop="POTATO"] { --crop-symbol: "🥔"; }
+.station-authority-layer .fixture-growbed[data-crop="APPLE"] { --crop-symbol: "🍎"; }
+.station-authority-layer .fixture-growbed[data-crop="GRAPE"] { --crop-symbol: "🍇"; }
+.station-authority-layer .fixture-growbed[data-crop="BANANA"] { --crop-symbol: "🍌"; }
+.station-authority-layer .fixture-growbed[data-crop="TOBACCO"] { --crop-symbol: "🌿"; }
+.station-authority-layer .fixture-growbed[data-crop="WHEAT"] { --crop-symbol: "🌾"; }
+
+.station-authority-layer .fixture-growbed[data-growth-stage="young"] {
+    --crop-stage-scale: .48;
+    --crop-stage-opacity: .48;
+}
+
+.station-authority-layer .fixture-growbed[data-growth-stage="growing"] {
+    --crop-stage-scale: .76;
+    --crop-stage-opacity: .72;
+}
+
+.station-authority-layer .fixture-growbed[data-growth-stage="maturing"] {
+    --crop-stage-scale: 1;
+    --crop-stage-opacity: .9;
+}
+
+.station-authority-layer .fixture-growbed[data-growth-stage="harvest-ready"] {
+    --crop-stage-scale: 1.22;
+    --crop-stage-opacity: 1;
+    box-shadow:
+        inset 0 0 0 2px rgba(37, 103, 58, .42),
+        0 0 9px rgba(91, 166, 89, .34);
+}
+
+.station-authority-layer .fixture-growbed[data-growth-stage="dead"] {
+    --crop-stage-scale: .58;
+    --crop-stage-opacity: .34;
+    filter: grayscale(.9);
+}
+
 .station-authority-layer .fixture-growbed[data-crop]:not([data-crop=""])::before {
-    content: attr(data-crop);
+    content: attr(data-crop) " · " attr(data-growth-stage);
     position: absolute;
     z-index: 3;
     left: 50%;
-    top: 50%;
+    top: 12%;
     max-width: 90%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, 0);
     padding: 2px 4px;
     border: 1px solid rgba(196, 231, 204, .72);
     border-radius: 3px;
@@ -7044,6 +7101,7 @@ button.turret-token {
     font: 800 7px/1 "Cascadia Code", Consolas, monospace;
     letter-spacing: .03em;
     text-overflow: ellipsis;
+    text-transform: uppercase;
     white-space: nowrap;
     overflow: hidden;
     pointer-events: none;
@@ -7094,90 +7152,4 @@ button.turret-token {
     .station-authority-layer .room-node.has-fire::after {
         animation: none !important;
     }
-}
-
-
-/* Latest playtest polish: map labels contain identity only. Detailed role/action
-   state stays in the Inspector and crew roster. */
-.station-authority-layer .crew-nameplate .crew-full-name {
-    color: inherit;
-    font: 800 .48rem/1.15 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
-    letter-spacing: .01em;
-    white-space: nowrap;
-}
-
-/* Hydroponics encode both crop identity and live growth stage. The crop symbol
-   is intentionally unmistakable at station-map scale while stage is expressed
-   through size, opacity and the adjacent diagnostic label. */
-.station-authority-layer .fixture-growbed {
-    --crop-symbol: "🌿";
-    --crop-stage-scale: .72;
-    --crop-stage-opacity: .68;
-}
-
-.station-authority-layer .fixture-growbed[data-crop="TOMATO"] { --crop-symbol: "🍅"; }
-.station-authority-layer .fixture-growbed[data-crop="POTATO"] { --crop-symbol: "🥔"; }
-.station-authority-layer .fixture-growbed[data-crop="APPLE"] { --crop-symbol: "🍎"; }
-.station-authority-layer .fixture-growbed[data-crop="GRAPE"] { --crop-symbol: "🍇"; }
-.station-authority-layer .fixture-growbed[data-crop="BANANA"] { --crop-symbol: "🍌"; }
-.station-authority-layer .fixture-growbed[data-crop="TOBACCO"] { --crop-symbol: "🌿"; }
-.station-authority-layer .fixture-growbed[data-crop="WHEAT"] { --crop-symbol: "🌾"; }
-
-.station-authority-layer .fixture-growbed[data-growth-stage="young"] {
-    --crop-stage-scale: .48;
-    --crop-stage-opacity: .48;
-}
-
-.station-authority-layer .fixture-growbed[data-growth-stage="growing"] {
-    --crop-stage-scale: .76;
-    --crop-stage-opacity: .72;
-}
-
-.station-authority-layer .fixture-growbed[data-growth-stage="maturing"] {
-    --crop-stage-scale: 1;
-    --crop-stage-opacity: .9;
-}
-
-.station-authority-layer .fixture-growbed[data-growth-stage="harvest-ready"] {
-    --crop-stage-scale: 1.22;
-    --crop-stage-opacity: 1;
-    box-shadow:
-        inset 0 0 0 2px rgba(37, 103, 58, .42),
-        0 0 9px rgba(91, 166, 89, .34);
-}
-
-.station-authority-layer .fixture-growbed[data-growth-stage="dead"] {
-    --crop-stage-scale: .58;
-    --crop-stage-opacity: .34;
-    filter: grayscale(.9);
-}
-
-.station-authority-layer .fixture-growbed[data-crop]:not([data-crop=""])::before {
-    content: attr(data-crop) " · " attr(data-growth-stage);
-    top: 12%;
-    transform: translate(-50%, 0);
-    text-transform: uppercase;
-}
-
-.station-authority-layer .fixture-growbed[data-crop]:not([data-crop=""])::after {
-    content: var(--crop-symbol);
-    position: absolute;
-    z-index: 2;
-    inset: auto;
-    left: 50%;
-    top: 60%;
-    width: auto;
-    height: auto;
-    border: 0;
-    border-radius: 0;
-    background: none;
-    box-shadow: none;
-    color: inherit;
-    font-size: clamp(12px, 1.05vw, 22px);
-    line-height: 1;
-    opacity: var(--crop-stage-opacity);
-    transform: translate(-50%, -50%) scale(var(--crop-stage-scale));
-    transform-origin: center;
-    animation: none;
-    pointer-events: none;
 }
