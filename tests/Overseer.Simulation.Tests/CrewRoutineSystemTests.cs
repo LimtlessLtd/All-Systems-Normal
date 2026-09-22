@@ -275,7 +275,7 @@ public sealed class CrewRoutineSystemTests
             $"room={state.Facility.Rooms[npc.CurrentRoomId].MapWidth:0.00}x{state.Facility.Rooms[npc.CurrentRoomId].MapHeight:0.00}; " +
             $"fatigue={fatigueAtBed:0.00}->{npc.Fatigue:0.00}; debt={debtAtBed:0.00}->{npc.SleepDebtMinutes:0.00}; " +
             $"moving={npc.IsLocallyMoving}; action={npc.CurrentAction.Kind}; " +
-            $"trace={string.Join(\" > \", sleepTravelTrace)}; fixtures=" +
+            $"trace={string.Join(" > ", sleepTravelTrace)}; fixtures=" +
             string.Join(" | ", state.Facility.Rooms[npc.CurrentRoomId].Fixtures.Select(fixture =>
                 $"{fixture.Type}:{fixture.Label}@{fixture.X:0.0},{fixture.Y:0.0}/{fixture.Width:0.0}x{fixture.Height:0.0}")));
         Assert.True(npc.SleepDebtMinutes < debtAtBed);
