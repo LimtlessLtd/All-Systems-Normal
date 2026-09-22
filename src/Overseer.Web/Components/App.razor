@@ -31,6 +31,14 @@
     // The shared station pages carry no render mode of their own (the static
     // WebAssembly build has no server), so the server makes routing
     // interactive here. Pages that need the raw request, such as /Error, opt out.
+    //
+    // Prerender is off: GameSession is scoped per circuit, so a prerendered
+    // pass and the real interactive circuit each ran OnInitializedAsync in
+    // their own DI scope, generating the crew (an Ollama call) twice in a
+    // row on first load. Going straight to the interactive circuit keeps
+    // crew generation to a single call.
     private IComponentRenderMode? PageRenderMode =>
-        HttpContext.AcceptsInteractiveRouting() ? InteractiveServer : null;
+        HttpContext.AcceptsInteractiveRouting()
+            ? new InteractiveServerRenderMode(prerender: false)
+            : null;
 }
