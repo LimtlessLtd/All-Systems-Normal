@@ -61,6 +61,26 @@ public sealed class CrewProvisioningSystemTests
     }
 
     [Fact]
+    public void HydroponicsStartupLeavesCrewCapacityForOtherStationDuties()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+
+        foreach (var device in state.Devices.Values)
+            device.Condition = 100;
+
+        new CrewProvisioningSystem().Tick(state, Minute);
+
+        var cropWorkers = state.Crew.Count(npc =>
+            npc.ProvisioningJob is ActionKind.TendCrops or ActionKind.Harvest);
+        var expectedLimit = Math.Max(1, (int)Math.Ceiling(state.Crew.Count / 4d));
+
+        Assert.InRange(cropWorkers, 1, expectedLimit);
+        Assert.True(
+            state.Crew.Any(npc => npc.ProvisioningJob is null),
+            "Hydroponics startup must leave crew available for maintenance, medicine and emergencies.");
+    }
+
+    [Fact]
     public void CriticalMaintenanceReservesAQualifiedWorkerBeforeCropStartup()
     {
         var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
