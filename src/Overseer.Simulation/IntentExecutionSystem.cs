@@ -13,6 +13,28 @@ public sealed class IntentExecutionSystem
         {
             var intent = npc.Intent!;
 
+            // Physical timed work is sticky. A fresh thought does not make a
+            // technician casually walk away from a half-finished disarm/harvest.
+            // Only a genuinely urgent deterministic interruption may pre-empt it,
+            // and that interruption is recorded explicitly.
+            if (npc.ActiveTask is { Status: CrewTaskStatus.InProgress } task
+                && intent.Action != task.Action)
+            {
+                if (intent.Urgency < CrewTaskSystem.CommitmentUrgency)
+                {
+                    npc.Intent = null;
+                    continue;
+                }
+
+                var reason = $"Pre-empted by {intent.Action} at urgency {intent.Urgency}.";
+                if (npc.ProvisioningJob is not null)
+                    CrewProvisioningSystem.InterruptForExternalPriority(state, npc, reason);
+                else
+                    CrewTaskSystem.Interrupt(state, npc, reason);
+
+                npc.RoutineUntil = TimeSpan.Zero;
+            }
+
             if (state.Elapsed - intent.CreatedAt > IntentLifetime(intent))
             {
                 npc.Intent = null;
