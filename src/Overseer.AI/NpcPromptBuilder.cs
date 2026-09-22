@@ -397,33 +397,6 @@ public static class NpcPromptBuilder
         return builder.ToString();
     }
 
-    private static HashSet<string> ReachableRooms(GameState state, Npc npc, string startRoomId)
-    {
-        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            startRoomId
-        };
-        var queue = new Queue<string>();
-        queue.Enqueue(startRoomId);
-
-        while (queue.TryDequeue(out var current))
-        {
-            foreach (var door in state.Facility.Doors.Where(door =>
-                         CrewDoorInteractionSystem.CanTraverseWhenReached(state, npc, door)
-                         && (door.RoomAId.Equals(current, StringComparison.OrdinalIgnoreCase)
-                             || door.RoomBId.Equals(current, StringComparison.OrdinalIgnoreCase))))
-            {
-                var next = door.RoomAId.Equals(current, StringComparison.OrdinalIgnoreCase)
-                    ? door.RoomBId
-                    : door.RoomAId;
-
-                if (visited.Add(next))
-                {
-                    queue.Enqueue(next);
-                }
-            }
-        }
-
-        return visited;
-    }
+    private static HashSet<string> ReachableRooms(GameState state, Npc npc, string startRoomId) =>
+        new NavigationSystem().ReachableRoomsForCrew(state, npc, startRoomId);
 }

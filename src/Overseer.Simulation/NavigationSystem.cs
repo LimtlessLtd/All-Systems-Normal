@@ -21,6 +21,41 @@ public sealed class NavigationSystem
             targetRoomId,
             door => CrewDoorInteractionSystem.CanTraverseWhenReached(state, npc, door));
 
+    /// <summary>
+    /// All rooms a crew member could walk to from <paramref name="startRoomId"/> using only doors
+    /// they can currently traverse (<see cref="CrewDoorInteractionSystem.CanTraverseWhenReached"/>),
+    /// ignoring travel cost. Used for gating/relevance checks, not pathing.
+    /// </summary>
+    public HashSet<string> ReachableRoomsForCrew(GameState state, Npc npc, string startRoomId)
+    {
+        var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            startRoomId
+        };
+        var queue = new Queue<string>();
+        queue.Enqueue(startRoomId);
+
+        while (queue.TryDequeue(out var current))
+        {
+            foreach (var door in state.Facility.Doors.Where(door =>
+                         CrewDoorInteractionSystem.CanTraverseWhenReached(state, npc, door)
+                         && (door.RoomAId.Equals(current, StringComparison.OrdinalIgnoreCase)
+                             || door.RoomBId.Equals(current, StringComparison.OrdinalIgnoreCase))))
+            {
+                var next = door.RoomAId.Equals(current, StringComparison.OrdinalIgnoreCase)
+                    ? door.RoomBId
+                    : door.RoomAId;
+
+                if (visited.Add(next))
+                {
+                    queue.Enqueue(next);
+                }
+            }
+        }
+
+        return visited;
+    }
+
     private static IReadOnlyList<string> FindPathCore(
         Facility facility,
         string startRoomId,
