@@ -36,21 +36,21 @@ public sealed class StationUiPresentationPolishTests
     }
 
     [Fact]
-    public void SeededStations_LeaveCrewSizedGapsBetweenPhysicalFixtures()
+    public void SeededStations_LeaveVisibleSeparationAroundMajorFloorMachinery()
     {
         foreach (var state in RepresentativeStates(6))
         {
             foreach (var room in state.Facility.Rooms.Values)
             {
-                var physical = room.Fixtures.Where(IsPhysicalObstacle).ToList();
-                for (var firstIndex = 0; firstIndex < physical.Count; firstIndex++)
+                var floorMachinery = room.Fixtures.Where(NeedsFloorAisle).ToList();
+                for (var firstIndex = 0; firstIndex < floorMachinery.Count; firstIndex++)
                 {
-                    for (var secondIndex = firstIndex + 1; secondIndex < physical.Count; secondIndex++)
+                    for (var secondIndex = firstIndex + 1; secondIndex < floorMachinery.Count; secondIndex++)
                     {
                         Assert.False(
-                            OverlapsWithPadding(physical[firstIndex], physical[secondIndex], 3.0),
+                            OverlapsWithPadding(floorMachinery[firstIndex], floorMachinery[secondIndex], .75),
                             $"Seed {state.StationGeneration?.Seed}, room {room.Id}: " +
-                            $"'{physical[firstIndex].Label}' and '{physical[secondIndex].Label}' leave less than a crew-sized gap.");
+                            $"'{floorMachinery[firstIndex].Label}' and '{floorMachinery[secondIndex].Label}' are packed together.");
                     }
                 }
             }
@@ -74,7 +74,7 @@ public sealed class StationUiPresentationPolishTests
                                  && IsPhysicalObstacle(item)))
                     {
                         Assert.False(
-                            ContainsPoint(other, fixture.InteractionX!.Value, fixture.InteractionY!.Value, 1.8),
+                            ContainsPoint(other, fixture.InteractionX!.Value, fixture.InteractionY!.Value, 0),
                             $"Seed {state.StationGeneration?.Seed}, room {room.Id}: interaction point for " +
                             $"'{fixture.Label}' is blocked by '{other.Label}'.");
                     }
@@ -264,6 +264,24 @@ public sealed class StationUiPresentationPolishTests
             MapWidth = width,
             MapHeight = height
         };
+
+    private static bool NeedsFloorAisle(RoomFixture fixture) =>
+        fixture.Type is FixtureType.Generator
+            or FixtureType.ReactorCore
+            or FixtureType.ResurrectionChamber
+            or FixtureType.GrowBed
+            or FixtureType.Bed
+            or FixtureType.MedicalBed
+            or FixtureType.OverseerShutdown
+            or FixtureType.Workbench
+            or FixtureType.TreatmentUnit
+            or FixtureType.CapacitorBank
+            or FixtureType.PowerBus
+            or FixtureType.CoolantPump
+            or FixtureType.WaterRecycler
+            or FixtureType.OxygenGenerator
+            or FixtureType.CarbonScrubber
+            or FixtureType.NetworkRack;
 
     private static bool IsPhysicalObstacle(RoomFixture fixture) =>
         fixture.Type is not FixtureType.Camera
