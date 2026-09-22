@@ -120,6 +120,7 @@ public sealed class CrewCounterplaySystem
             || !IsAdjacent(npc, door))
         {
             EndAction(
+                state,
                 npc,
                 door is { IsPassable: true }
                     ? $"{door.Id} is already open."
@@ -142,8 +143,13 @@ public sealed class CrewCounterplaySystem
                 2,
                 6);
 
-            npc.RoutineUntil =
-                state.Elapsed + TimeSpan.FromMinutes(duration);
+            BeginTimedTask(
+                state,
+                npc,
+                TimeSpan.FromMinutes(duration),
+                useTechnical
+                    ? $"bypassing {door.Id}"
+                    : $"forcing {door.Id} open");
             npc.Bubble = new NpcBubble(
                 useTechnical
                     ? "I'm bypassing this hatch."
@@ -180,7 +186,7 @@ public sealed class CrewCounterplaySystem
         if (!success)
         {
             npc.Stress = Math.Clamp(npc.Stress + 6, 0, 100);
-            EndAction(npc, $"Failed to open {door.Id}.");
+            EndAction(state, npc, $"Failed to open {door.Id}.");
             Log(
                 state,
                 $"{npc.Name} fails to force {door.Id}.");
@@ -231,7 +237,7 @@ public sealed class CrewCounterplaySystem
 
         if (door is null || !IsAdjacent(npc, door))
         {
-            EndAction(npc, "I need to be physically beside that hatch.");
+            EndAction(state, npc, "I need to be physically beside that hatch.");
             return;
         }
 
@@ -246,7 +252,7 @@ public sealed class CrewCounterplaySystem
 
         if (!valid)
         {
-            EndAction(npc, "That hatch cannot be secured or repaired that way from here.");
+            EndAction(state, npc, "That hatch cannot be secured or repaired that way from here.");
             return;
         }
 
@@ -258,7 +264,11 @@ public sealed class CrewCounterplaySystem
                 DoorWorkKind.Weld => 3,
                 _ => 2
             };
-            npc.RoutineUntil = state.Elapsed + TimeSpan.FromMinutes(minutes);
+            BeginTimedTask(
+                state,
+                npc,
+                TimeSpan.FromMinutes(minutes),
+                $"{kind.ToString().ToLowerInvariant()} work on {door.Id}");
             npc.Bubble = new NpcBubble(
                 kind == DoorWorkKind.Repair ? "I'm repairing this hatch."
                     : kind == DoorWorkKind.Weld ? "I'm welding this hatch shut."
@@ -295,7 +305,11 @@ public sealed class CrewCounterplaySystem
                 break;
         }
 
-        EndAction(npc, $"{door.Id} {kind.ToString().ToLowerInvariant()} work complete.");
+        EndAction(
+            state,
+            npc,
+            $"{door.Id} {kind.ToString().ToLowerInvariant()} work complete.",
+            succeeded: true);
         Log(state, $"{npc.Name} completes {kind.ToString().ToLowerInvariant()} work on {door.Id}.");
     }
 
@@ -310,7 +324,7 @@ public sealed class CrewCounterplaySystem
             || !AirlockSafetySystem.NeedsCrewSecuring(state, airlock)
             || !AirlockSafetySystem.IsAtCrewControls(state, npc, airlock))
         {
-            EndAction(npc, "The airlock emergency no longer needs action from here.");
+            EndAction(state, npc, "The airlock emergency no longer needs action from here.");
             return;
         }
 
@@ -318,8 +332,11 @@ public sealed class CrewCounterplaySystem
         {
             var technical = BestTechnicalSkill(npc);
             var duration = technical >= 70 ? 1 : 2;
-            npc.RoutineUntil =
-                state.Elapsed + TimeSpan.FromMinutes(duration);
+            BeginTimedTask(
+                state,
+                npc,
+                TimeSpan.FromMinutes(duration),
+                $"securing {airlock.Name}");
             npc.Bubble = new NpcBubble(
                 "I'm securing the airlock!",
                 NpcBubbleKind.Alert,
@@ -349,11 +366,11 @@ public sealed class CrewCounterplaySystem
                 airlock,
                 out var message))
         {
-            EndAction(npc, message);
+            EndAction(state, npc, message);
             return;
         }
 
-        EndAction(npc, message);
+        EndAction(state, npc, message, succeeded: true);
         npc.Bubble = new NpcBubble(
             airlock.AirlockCycleMode == AirlockCycleMode.Pressurizing
                 ? "Outer hatch sealed. Repressurizing."
@@ -378,7 +395,7 @@ public sealed class CrewCounterplaySystem
         if (string.IsNullOrWhiteSpace(targetId)
             || !HasRestorableProblem(state, targetId))
         {
-            EndAction(npc, "There is nothing here that still needs restoring.");
+            EndAction(state, npc, "There is nothing here that still needs restoring.");
             return;
         }
 
@@ -389,7 +406,7 @@ public sealed class CrewCounterplaySystem
                 requiredRoom,
                 StringComparison.OrdinalIgnoreCase))
         {
-            EndAction(npc, "I need to reach the affected controls before I can restore them.");
+            EndAction(state, npc, "I need to reach the affected controls before I can restore them.");
             return;
         }
 
@@ -406,8 +423,11 @@ public sealed class CrewCounterplaySystem
                 5 - ((score - difficulty) / 22),
                 2,
                 6);
-            npc.RoutineUntil =
-                state.Elapsed + TimeSpan.FromMinutes(duration);
+            BeginTimedTask(
+                state,
+                npc,
+                TimeSpan.FromMinutes(duration),
+                $"restoring {DescribeTarget(state, targetId)}");
 
             npc.Bubble = new NpcBubble(
                 "I'm trying to bring it back online.",
@@ -443,7 +463,7 @@ public sealed class CrewCounterplaySystem
         if (!success)
         {
             npc.Stress = Math.Clamp(npc.Stress + 4, 0, 100);
-            EndAction(npc, $"Failed to restore {DescribeTarget(state, targetId)}.");
+            EndAction(state, npc, $"Failed to restore {DescribeTarget(state, targetId)}.");
             Log(
                 state,
                 $"{npc.Name} fails to restore {DescribeTarget(state, targetId)}.");
@@ -451,7 +471,11 @@ public sealed class CrewCounterplaySystem
         }
 
         TryRestoreOneProblem(state, targetId);
-        EndAction(npc, $"Restored {DescribeTarget(state, targetId)}.");
+        EndAction(
+            state,
+            npc,
+            $"Restored {DescribeTarget(state, targetId)}.",
+            succeeded: true);
 
         npc.Bubble = new NpcBubble(
             "System restored.",
@@ -573,8 +597,36 @@ public sealed class CrewCounterplaySystem
         npc.CurrentRoomId.Equals(door.RoomAId, StringComparison.OrdinalIgnoreCase)
         || npc.CurrentRoomId.Equals(door.RoomBId, StringComparison.OrdinalIgnoreCase);
 
-    private static void EndAction(Npc npc, string reason)
+    private static void BeginTimedTask(
+        GameState state,
+        Npc npc,
+        TimeSpan duration,
+        string description)
     {
+        npc.RoutineUntil = state.Elapsed + duration;
+        CrewTaskSystem.Start(
+            state,
+            npc,
+            npc.CurrentAction.Kind,
+            npc.CurrentAction.TargetId,
+            description,
+            duration);
+    }
+
+    private static void EndAction(
+        GameState state,
+        Npc npc,
+        string reason,
+        bool succeeded = false)
+    {
+        if (npc.ActiveTask is { Status: CrewTaskStatus.InProgress })
+        {
+            if (succeeded)
+                CrewTaskSystem.Succeed(state, npc, reason);
+            else
+                CrewTaskSystem.Fail(state, npc, reason);
+        }
+
         npc.RoutineUntil = TimeSpan.Zero;
         npc.Intent = null;
         npc.CurrentAction = new NpcAction(
