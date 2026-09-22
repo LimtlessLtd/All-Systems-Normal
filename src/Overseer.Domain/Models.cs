@@ -496,6 +496,30 @@ public sealed class Relationship
     public int Arguments { get; set; }
 }
 
+public enum CrewPactStatus
+{
+    Active,
+    Fulfilled,
+    Broken
+}
+
+/// <summary>
+/// Deterministic record of an interpersonal commitment. Cognition may choose
+/// whether to make or honor a promise; simulation owns its durable state and
+/// the consequences of settling it.
+/// </summary>
+public sealed class CrewPact
+{
+    public required string Id { get; init; }
+    public required Guid PromisorId { get; init; }
+    public required Guid PromiseeId { get; init; }
+    public required string PromiseText { get; init; }
+    public required TimeSpan CreatedAt { get; init; }
+    public CrewPactStatus Status { get; set; } = CrewPactStatus.Active;
+    public TimeSpan? SettledAt { get; set; }
+    public string? SettlementNote { get; set; }
+}
+
 public enum CrewTaskStatus
 {
     InProgress,
@@ -1064,6 +1088,11 @@ public sealed class GameState
     public required Facility Facility { get; init; }
     public StationGenerationMetadata? StationGeneration { get; init; }
     public List<Npc> Crew { get; init; } = [];
+
+    // Interpersonal commitments are authoritative deterministic state. Minds
+    // decide whether to make/honor them; simulation records what actually happened.
+    public List<CrewPact> CrewPacts { get; } = [];
+    public long NextCrewPactSequence { get; set; } = 1;
     public List<StationRobot> Robots { get; } = [];
     public List<SecurityTurret> Turrets { get; } = [];
     public TimeSpan Elapsed { get; set; }
