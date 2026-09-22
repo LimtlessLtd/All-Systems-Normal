@@ -206,10 +206,12 @@ public sealed class CrewCounterplaySystem
         }
 
         EndAction(
+            state,
             npc,
             useTechnical
                 ? $"Bypassed {door.Id}; it is now under local control."
-                : $"Forced {door.Id} open; the hatch is damaged.");
+                : $"Forced {door.Id} open; the hatch is damaged.",
+            succeeded: true);
 
         npc.Bubble = new NpcBubble(
             useTechnical ? "Bypass worked." : "It's open!",
