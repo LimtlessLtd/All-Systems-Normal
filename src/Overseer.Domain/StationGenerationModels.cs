@@ -140,6 +140,18 @@ public sealed class StationGenerationConstraints
     public int? RequiredRobotCount { get; init; }
     public List<string> RequiredRobotRoomIds { get; } = [];
 
+    /// <summary>
+    /// Crew population the physical station should normally sustain. Scenarios
+    /// can set this independently of the generated identity.
+    /// </summary>
+    public int? PlannedCrewCount { get; init; }
+
+    /// <summary>
+    /// Scales the normally sufficient hydroponics footprint. Values below 1 are
+    /// an explicit scenario/corporate undersupply override.
+    /// </summary>
+    public double HydroponicsCapacityMultiplier { get; init; } = 1;
+
     public bool? RequireRedundantPaths { get; init; }
     public bool? ForbidRedundantPaths { get; init; }
     public int? RequiredChokepointCount { get; init; }
