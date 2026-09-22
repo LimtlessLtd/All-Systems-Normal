@@ -31,8 +31,8 @@ One batch, 20 entries, from the owner's 2026-09-22 22:17 BST message in `#new-id
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790111822683539 (2026-09-22)
 - Idea: "Let NPCs make commitments to one another: 'I'll cover your shift', 'I'll keep quiet about this', 'help me and I owe you.' C# records the pact; the LLM decides whether to honour it. Breaking it creates memories, resentment, gossip and possibly retaliation."
 - Outcome: NPCs can propose/accept a small set of structured pact types (cover-shift, keep-quiet, owe-a-favour) through an affordance the LLM can invoke; C# records each pact (parties, terms, trigger/deadline, status); at resolution the LLM decides honour/break; breaking writes a memory plus resentment/trust deltas and a gossip-able claim.
-- Size: large (slices: pact data model + record/query API; propose/accept affordance; resolution check; honour/break consequence wiring)
-- Status: ready — matches the "structured claims/pacts" step already named in `ARCHITECTURE.md` → Emergent-agency direction.
+- Size: large (slices: pact data model + deterministic record/query/settlement API — #96; propose/accept affordance; resolution check; gossip-able claim wiring)
+- Status: ready — #96 supplies the deterministic pact foundation and honour/break relationship+memory consequences; the next slice is exposing propose/accept to cognition without hard-coding the decision.
 
 ### 2. Actual last-known-location knowledge
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790111822683539 (2026-09-22)
