@@ -214,8 +214,8 @@ public sealed class CrewRoutineSystemTests
 
         state.Elapsed = TimeSpan.FromHours(16); // 22:00 station-local for day shift.
         npc.CurrentRoomId = "quarters";
-        npc.PositionX = 50;
-        npc.PositionY = 50;
+        npc.PositionX = 1;
+        npc.PositionY = 1;
         npc.Hunger = 0;
         npc.BladderNeed = 0;
         npc.HygieneNeed = 0;
@@ -242,12 +242,55 @@ public sealed class CrewRoutineSystemTests
             || Math.Abs(npc.PositionY - beforeY) > .001,
             "Sleeping crew should physically move toward a bed rather than sleep remotely.");
 
-        var fatigueBefore = npc.Fatigue;
-        var debtBefore = npc.SleepDebtMinutes;
+        var fatigueBeforeTravel = npc.Fatigue;
+        var debtBeforeTravel = npc.SleepDebtMinutes;
+        new SimulationEngine().Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.True(
+            npc.Fatigue >= fatigueBeforeTravel,
+            "Merely selecting Sleep must not restore fatigue before reaching a bed.");
+        Assert.True(
+            npc.SleepDebtMinutes >= debtBeforeTravel,
+            "Sleep debt must not recover remotely while walking to bed.");
+
+        for (var step = 0; step < 12; step++)
+            new LocalMovementSystem().Tick(state, TimeSpan.FromMinutes(1));
+
+        var fatigueAtBed = npc.Fatigue;
+        var debtAtBed = npc.SleepDebtMinutes;
         new SimulationEngine().Tick(state, TimeSpan.FromMinutes(60));
 
-        Assert.True(npc.Fatigue < fatigueBefore);
-        Assert.True(npc.SleepDebtMinutes < debtBefore);
+        Assert.True(npc.Fatigue < fatigueAtBed);
+        Assert.True(npc.SleepDebtMinutes < debtAtBed);
+    }
+
+    [Fact]
+    public void CommittedPhysicalTaskCannotBeReplacedByRoutineNeeds()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew[0];
+        state.Elapsed = TimeSpan.FromMinutes(5);
+        npc.Intent = null;
+        npc.Movement = null;
+        npc.Hunger = 100;
+        npc.CurrentAction = new NpcAction(
+            ActionKind.Repair,
+            "test-device",
+            "Committed hands-on repair.");
+
+        CrewTaskSystem.Start(
+            state,
+            npc,
+            ActionKind.Repair,
+            "test-device",
+            "committed repair",
+            TimeSpan.FromMinutes(10));
+
+        new CrewRoutineSystem().Tick(state);
+
+        Assert.Equal(ActionKind.Repair, npc.CurrentAction.Kind);
+        Assert.Equal(CrewTaskStatus.InProgress, npc.ActiveTask?.Status);
+        Assert.Null(npc.Intent);
     }
 
     [Fact]
