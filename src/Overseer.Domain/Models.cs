@@ -836,6 +836,12 @@ public sealed class Npc : IStationMobileEntity
     public HashSet<CropKind> FoodLikes { get; } = [];
     public HashSet<CropKind> FoodDislikes { get; } = [];
 
+    /// <summary>
+    /// Deterministic telemetry: simulated minutes this person has actually spent
+    /// consuming a food for which they have a strong negative preference.
+    /// </summary>
+    public double DislikedFoodExposureMinutes { get; set; }
+
     public Dictionary<string, int> Skills { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
