@@ -128,7 +128,7 @@ public sealed class StationUiPresentationPolishTests
 
         Assert.Contains(".room-node.has-smoke::before", css);
         Assert.Contains("compartment-smoke-drift", css);
-        Assert.Contains("content: "🔥  🔥  🔥  🔥"", css);
+        Assert.Contains("content: \"🔥  🔥  🔥  🔥\"", css);
     }
 
     [Fact]
