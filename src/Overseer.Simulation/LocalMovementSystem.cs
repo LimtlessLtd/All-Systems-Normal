@@ -400,6 +400,35 @@ public sealed class LocalMovementSystem
 
     private static (double X, double Y) InteractionPoint(Room room, RoomFixture fixture)
     {
+        // Equipment mounted against a bulkhead must be operated from the room
+        // side. Choosing the geometrically nearest free point can put a worker
+        // into the narrow pocket between a fixture and the hull, from which the
+        // collision-aware router correctly finds no physical exit.
+        var left = fixture.X - (fixture.Width / 2);
+        var right = fixture.X + (fixture.Width / 2);
+        var top = fixture.Y - (fixture.Height / 2);
+        var bottom = fixture.Y + (fixture.Height / 2);
+        var inward = new List<(double X, double Y)>();
+
+        if (left <= 8)
+            inward.Add((fixture.X + (fixture.Width / 2) + 5, fixture.Y));
+        if (right >= 92)
+            inward.Add((fixture.X - (fixture.Width / 2) - 5, fixture.Y));
+        if (top <= 8)
+            inward.Add((fixture.X, fixture.Y + (fixture.Height / 2) + 5));
+        if (bottom >= 92)
+            inward.Add((fixture.X, fixture.Y - (fixture.Height / 2) - 5));
+
+        if (inward.Count > 0)
+        {
+            return inward
+                .Select(point => FindWalkablePoint(room, point.X, point.Y))
+                .OrderBy(point => Distance(point.X, point.Y, 50, 50))
+                .ThenBy(point => point.X)
+                .ThenBy(point => point.Y)
+                .First();
+        }
+
         if (fixture.InteractionX is { } interactionX
             && fixture.InteractionY is { } interactionY)
         {
@@ -487,20 +516,7 @@ public sealed class LocalMovementSystem
 
         if (SegmentHitsFixture(room, entity.PositionX, entity.PositionY, nextX, nextY))
         {
-            var detour = TryGridDetourPoint(
-                    room,
-                    entity.PositionX,
-                    entity.PositionY,
-                    destination.X,
-                    destination.Y,
-                    out var gridDetour)
-                ? gridDetour
-                : DetourPoint(
-                    room,
-                    entity.PositionX,
-                    entity.PositionY,
-                    destination.X,
-                    destination.Y);
+            var detour = DetourPoint(room, entity.PositionX, entity.PositionY, destination.X, destination.Y);
             var detourDx = detour.X - entity.PositionX;
             var detourDy = detour.Y - entity.PositionY;
             var detourDistance = Math.Sqrt((detourDx * detourDx) + (detourDy * detourDy));
