@@ -24,7 +24,8 @@ public sealed class CrewRoutineSystem
         {
             if (npc.Intent is not null
                 || npc.Movement is not null
-                || state.Elapsed < npc.RoutineUntil)
+                || (state.Elapsed < npc.RoutineUntil
+                    && !HasPersonalNeedOverride(state, npc)))
             {
                 continue;
             }
