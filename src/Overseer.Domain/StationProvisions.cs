@@ -172,7 +172,7 @@ public static class StationProvisionRules
     public const double YieldPerCapacityUnit = 6;
 
     /// <summary>One standard bay occupies about this many physical map-square units.</summary>
-    public const double StandardGrowAreaMapUnits = 8;
+    public const double StandardGrowAreaMapUnits = 7.5;
 
     /// <summary>Expected food demand used when sizing a normally self-sufficient station.</summary>
     public const double ExpectedMealsPerCrewPerDay = 4;
