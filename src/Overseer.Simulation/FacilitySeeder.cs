@@ -484,21 +484,29 @@ public static class FacilitySeeder
             var original = room.Fixtures.ToList();
             var placed = new List<RoomFixture>(original.Count);
 
+            // Door portals are physical circulation space, not furnishing space.
+            // Treat the inward approach to every real hatch as reserved geometry
+            // while arranging fixtures, but never add these reservations to the
+            // rendered/simulated fixture collection.
+            var occupied = DoorApproachReservations(facility, room).ToList();
+
             foreach (var fixture in original
                          .OrderByDescending(FixturePlacementPriority)
                          .ThenByDescending(item => item.Width * item.Height)
                          .ThenBy(item => item.Label, StringComparer.OrdinalIgnoreCase))
             {
-                if (TryResolveFixturePlacement(fixture, placed, out var resolved))
+                if (TryResolveFixturePlacement(fixture, occupied, out var resolved))
                 {
                     placed.Add(resolved);
+                    occupied.Add(resolved);
                     continue;
                 }
 
                 if (IsWallFixture(fixture.Type)
-                    && TryCompactWallPlacement(fixture, placed, out resolved))
+                    && TryCompactWallPlacement(fixture, occupied, out resolved))
                 {
                     placed.Add(resolved);
+                    occupied.Add(resolved);
                     continue;
                 }
 
@@ -520,9 +528,10 @@ public static class FacilitySeeder
                     Height = Math.Min(fixture.Height, 7)
                 };
 
-                if (TryDenseFixturePlacement(fallback, placed, out resolved))
+                if (TryDenseFixturePlacement(fallback, occupied, out resolved))
                 {
                     placed.Add(resolved);
+                    occupied.Add(resolved);
                 }
                 else if (!fixture.Label.StartsWith("Generated ", StringComparison.Ordinal))
                 {
@@ -533,6 +542,64 @@ public static class FacilitySeeder
 
             room.Fixtures.Clear();
             room.Fixtures.AddRange(placed);
+        }
+    }
+
+    private static IEnumerable<RoomFixture> DoorApproachReservations(
+        Facility facility,
+        Room room)
+    {
+        foreach (var door in facility.Doors.Where(candidate =>
+                     candidate.RoomAId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)
+                     || candidate.RoomBId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)))
+        {
+            var otherId = door.RoomAId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)
+                ? door.RoomBId
+                : door.RoomAId;
+
+            if (!facility.Rooms.TryGetValue(otherId, out var other))
+                continue;
+
+            var portal = StationGeometry.FindSharedPortal(room, other);
+            var localX = Math.Clamp(
+                50 + (((portal.X - room.MapX) / room.MapWidth) * 100),
+                0,
+                100);
+            var localY = Math.Clamp(
+                50 + (((portal.Y - room.MapY) / room.MapHeight) * 100),
+                0,
+                100);
+
+            const double laneWidth = 20;
+            const double laneDepth = 28;
+
+            double x;
+            double y;
+            double width;
+            double height;
+
+            if (localY <= 1 || localY >= 99)
+            {
+                x = localX;
+                y = localY <= 1 ? laneDepth / 2 : 100 - (laneDepth / 2);
+                width = laneWidth;
+                height = laneDepth;
+            }
+            else
+            {
+                x = localX <= 1 ? laneDepth / 2 : 100 - (laneDepth / 2);
+                y = localY;
+                width = laneDepth;
+                height = laneWidth;
+            }
+
+            yield return new RoomFixture(
+                FixtureType.Camera,
+                $"__door-approach:{door.Id}",
+                x,
+                y,
+                width,
+                height);
         }
     }
 

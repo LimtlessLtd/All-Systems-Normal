@@ -84,7 +84,9 @@ public sealed class SimulationEngine
             // cognition; it does not choose the response. Browser/LLM minds
             // still decide what the person wants to do, while C# continues to
             // own the need, navigation and consequences.
-            if (npc.Hunger >= 72)
+            if (npc.Hunger >= 72
+                && npc.Intent?.Action != ActionKind.Eat
+                && npc.CurrentAction.Kind != ActionKind.Eat)
             {
                 npc.NeedsMindReconsideration = true;
             }
@@ -103,7 +105,9 @@ public sealed class SimulationEngine
                     + (scheduledSleep ? 0.055 : 0)
                     + (Math.Min(360, npc.SleepDebtMinutes) / 12000d);
             npc.Fatigue = Clamp(npc.Fatigue + (fatigueRate * minutes));
-            if (npc.Fatigue >= 86)
+            if (npc.Fatigue >= 86
+                && npc.Intent?.Action is not (ActionKind.Rest or ActionKind.Sleep)
+                && npc.CurrentAction.Kind is not (ActionKind.Rest or ActionKind.Sleep))
             {
                 npc.NeedsMindReconsideration = true;
             }
