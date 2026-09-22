@@ -132,8 +132,9 @@ public sealed class CrewTaskProgressTests
     {
         var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
         var npc = state.Crew[0];
+        npc.CurrentRoomId = "control";
         var door = state.Facility.Doors.First(candidate =>
-            candidate.RoomAId == npc.CurrentRoomId || candidate.RoomBId == npc.CurrentRoomId);
+            candidate.RoomAId == "control" || candidate.RoomBId == "control");
 
         door.IsPowered = true;
         door.IsLocked = false;
@@ -164,6 +165,7 @@ public sealed class CrewTaskProgressTests
 
         Assert.True(door.IsOpen);
         Assert.Equal(CrewTaskStatus.Succeeded, npc.ActiveTask?.Status);
-        Assert.Equal(100, npc.ActiveTask?.ProgressPercent(state.Elapsed), 6);
+        Assert.NotNull(npc.ActiveTask);
+        Assert.Equal(100d, npc.ActiveTask!.ProgressPercent(state.Elapsed), 6);
     }
 }
