@@ -728,11 +728,11 @@ public static class StationGenerator
             var north = random.NextDouble() < 0.5;
             if (north)
             {
-                AddVertical(facility, "corridor-service", "Service Spur", x, 24, y - (t / 2), Math.Min(t, 4.2));
+                AddVertical(facility, "corridor-service", "Service Spur", x, 24, y - (t / 2), t);
             }
             else
             {
-                AddVertical(facility, "corridor-service", "Service Spur", x, y + (t / 2), 76, Math.Min(t, 4.2));
+                AddVertical(facility, "corridor-service", "Service Spur", x, y + (t / 2), 76, t);
             }
         }
     }
@@ -901,7 +901,7 @@ public static class StationGenerator
                         RoomType.Corridor,
                         x,
                         (top + bottom) / 2,
-                        Math.Min(t, 4.4),
+                        t,
                         bottom - top);
                 }
             }
@@ -924,7 +924,7 @@ public static class StationGenerator
                         (left + right) / 2,
                         y,
                         right - left,
-                        Math.Min(t, 4.4));
+                        t);
                 }
             }
 
@@ -1063,12 +1063,12 @@ public static class StationGenerator
         // difference between a valid layout and no layout at all.
         height = Math.Clamp(height, 9.0, 30);
 
-        var passageWidth = identity.Budget switch
-        {
-            StationBudgetClass.Frugal => random.NextDouble(3.4, 4.0),
-            StationBudgetClass.Premium => random.NextDouble(4.2, 5.0),
-            _ => random.NextDouble(3.7, 4.5)
-        };
+        // Access tunnels inherit the exact cross-axis thickness of the
+        // corridor they attach to. Independent random passage widths produced
+        // visible 4-5px steps at corridor ends and misaligned physical portals.
+        var passageWidth = corridor.MapWidth >= corridor.MapHeight
+            ? corridor.MapHeight
+            : corridor.MapWidth;
 
         var retrofitFactor = identity.ExpansionHistory switch
         {
