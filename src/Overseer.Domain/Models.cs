@@ -387,7 +387,8 @@ public enum StationSelectionKind
     Door,
     Robot,
     Turret,
-    Device
+    Device,
+    CropBed
 }
 
 /// <summary>
@@ -493,6 +494,47 @@ public sealed class Relationship
     public double Attraction { get; set; }
     public int Conversations { get; set; }
     public int Arguments { get; set; }
+}
+
+public enum CrewTaskStatus
+{
+    InProgress,
+    Succeeded,
+    Interrupted,
+    Failed
+}
+
+/// <summary>
+/// Authoritative timed physical work. Minds may request an action, but only
+/// deterministic systems create, advance and resolve this state.
+/// </summary>
+public sealed class CrewTaskState
+{
+    public required ActionKind Action { get; init; }
+    public string? TargetId { get; init; }
+    public required string Description { get; init; }
+    public required TimeSpan StartedAt { get; init; }
+    public required TimeSpan CompletesAt { get; init; }
+    public CrewTaskStatus Status { get; set; } = CrewTaskStatus.InProgress;
+    public string Outcome { get; set; } = "In progress.";
+
+    public double ProgressPercent(TimeSpan now)
+    {
+        if (Status == CrewTaskStatus.Succeeded)
+            return 100;
+        if (Status != CrewTaskStatus.InProgress)
+            return Math.Clamp(
+                (now - StartedAt).TotalSeconds
+                / Math.Max(1, (CompletesAt - StartedAt).TotalSeconds) * 100,
+                0,
+                99.9);
+
+        return Math.Clamp(
+            (now - StartedAt).TotalSeconds
+            / Math.Max(1, (CompletesAt - StartedAt).TotalSeconds) * 100,
+            0,
+            100);
+    }
 }
 
 public sealed record NpcAction(
@@ -852,6 +894,13 @@ public sealed class Npc : IStationMobileEntity
 
     /// <summary>When the service visit in progress finishes.</summary>
     public TimeSpan? ServiceCompletesAt { get; set; }
+
+    /// <summary>
+    /// Current/most-recent authoritative timed work. Completed/interrupted work
+    /// is retained until another task starts so the Inspector can show outcome.
+    /// </summary>
+    public CrewTaskState? ActiveTask { get; set; }
+
     public NpcBubble? Bubble { get; set; }
     public List<ScheduledNpcBubble> PendingBubbles { get; } = [];
     public TimeSpan NextConversationAt { get; set; }
@@ -912,6 +961,15 @@ public sealed class Room
 
     /// <summary>0..100 visible smoke contamination from fire.</summary>
     public double SmokePercent { get; set; }
+
+    /// <summary>0..100 physical pressure-hull condition for this compartment.</summary>
+    public double HullIntegrityPercent { get; set; } = 100;
+
+    /// <summary>
+    /// A real opening to space. EnvironmentSystem treats this exactly like an
+    /// exterior vacuum source so decompression uses the existing atmosphere graph.
+    /// </summary>
+    public bool HasHullBreach { get; set; }
 
     public bool VentilationEnabled { get; set; } = true;
     public bool HasVentilationControl { get; set; } = true;
