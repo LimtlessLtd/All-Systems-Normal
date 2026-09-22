@@ -286,10 +286,25 @@ public sealed class SimulationEngine
 
         foreach (var fixture in fixtures)
         {
-            // Use the exact collision-safe fixture interaction point chosen by
-            // LocalMovementSystem. Rest must only recover once the crew member
-            // physically reaches the same authoritative destination they walk to.
+            // Local movement stops at the fixture's collision-safe interaction
+            // point, while authored/tests may place an actor directly on the bed
+            // footprint (lying down). Both are genuine physical attendance; a
+            // remote Sleep flag alone is never restorative.
             if (LocalMovementSystem.IsAtInteractionPoint(room, npc, fixture))
+                return true;
+
+            var nearestX = Math.Clamp(
+                npc.PositionX,
+                fixture.X - (fixture.Width / 2),
+                fixture.X + (fixture.Width / 2));
+            var nearestY = Math.Clamp(
+                npc.PositionY,
+                fixture.Y - (fixture.Height / 2),
+                fixture.Y + (fixture.Height / 2));
+            var dx = (npc.PositionX - nearestX) / 100d * room.MapWidth;
+            var dy = (npc.PositionY - nearestY) / 100d * room.MapHeight;
+
+            if (Math.Sqrt((dx * dx) + (dy * dy)) <= 0.75)
                 return true;
         }
 
