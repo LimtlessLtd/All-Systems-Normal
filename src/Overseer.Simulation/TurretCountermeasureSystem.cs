@@ -57,6 +57,90 @@ public sealed class TurretCountermeasureSystem
                 || evidence.Description.Contains("suppress-crew", StringComparison.OrdinalIgnoreCase)
                 || evidence.Description.Contains("physically arm", StringComparison.OrdinalIgnoreCase)));
 
+    /// <summary>
+    /// Deterministic countermeasure decision, shared by every mind (LLM
+    /// fallback and browser-demo) that considers acting against a turret.
+    /// Neither mind decides physical outcomes; this only decides which
+    /// action is available to propose given current skill/visibility/evidence.
+    /// </summary>
+    public static CountermeasureDecision? FindCountermeasure(GameState state, Npc npc)
+    {
+        var visibleTurret = state.Turrets.FirstOrDefault(turret =>
+            !turret.IsDestroyed
+            && turret.RoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
+
+        if (visibleTurret is not null)
+        {
+            var technical = CrewCounterplaySystem.BestTechnicalSkill(npc);
+            var force = CrewCounterplaySystem.BestForceSkill(npc);
+
+            if (!visibleTurret.IsArmed
+                && visibleTurret.Policy != TurretPolicy.Safe
+                && technical >= 65)
+            {
+                return new CountermeasureDecision(
+                    ActionKind.ReprogramTurret,
+                    visibleTurret.Id,
+                    $"Reprogram {visibleTurret.Name} to safe targeting.",
+                    "The security turret is disarmed in front of me and its local service controller is accessible.",
+                    96);
+            }
+
+            if (visibleTurret.IsArmed
+                && visibleTurret.Policy != TurretPolicy.Safe
+                && TurretSystem.HasPower(state, visibleTurret))
+            {
+                return technical >= 45
+                    ? new CountermeasureDecision(
+                        ActionKind.DisarmTurret,
+                        visibleTurret.Id,
+                        $"Use {visibleTurret.Name}'s local safing controls.",
+                        "An armed hostile security turret is physically here; I want to safe it locally.",
+                        100)
+                    : force >= 40
+                        ? new CountermeasureDecision(
+                            ActionKind.DamageTurret,
+                            visibleTurret.Id,
+                            $"Physically sabotage {visibleTurret.Name}.",
+                            "The armed turret is an immediate local threat and physical sabotage is the countermeasure I can attempt.",
+                            100)
+                        : null;
+            }
+        }
+
+        var knownThreat = state.Turrets.FirstOrDefault(turret =>
+            !turret.IsDestroyed
+            && HasHostileTurretEvidence(npc, turret));
+
+        if (knownThreat is null)
+        {
+            return null;
+        }
+
+        var technicalSkill = CrewCounterplaySystem.BestTechnicalSkill(npc);
+        if (!knownThreat.IsNetworkIsolated && technicalSkill >= 55)
+        {
+            return new CountermeasureDecision(
+                ActionKind.IsolateTurretNetwork,
+                knownThreat.Id,
+                $"Isolate {knownThreat.Name} from Overseer's security network.",
+                "I have direct evidence the turret is dangerous and Engineering has a physical network isolation control.",
+                95);
+        }
+
+        if (knownThreat.PowerFeedEnabled && technicalSkill >= 45)
+        {
+            return new CountermeasureDecision(
+                ActionKind.DisableTurretPower,
+                knownThreat.Id,
+                $"Cut the dedicated power feed to {knownThreat.Name}.",
+                "I have direct evidence the turret is dangerous and can deny its security power feed from Engineering.",
+                92);
+        }
+
+        return null;
+    }
+
     private static void TickLocalDisarm(GameState state, Npc npc)
     {
         var turret = FindTurret(state, npc.CurrentAction.TargetId);
@@ -322,3 +406,16 @@ public sealed class TurretCountermeasureSystem
     private static void Log(GameState state, string message) =>
         state.EventLog.Insert(0, $"T+{state.Elapsed:hh\\:mm}: {message}");
 }
+
+/// <summary>
+/// A deterministic countermeasure a mind may propose against a turret or
+/// robot threat. Shared shape for both, since neither depends on which
+/// threat kind produced it — only the caller's own <c>Create</c> attaches
+/// its intent source ("Fallback" vs "Browser demo").
+/// </summary>
+public sealed record CountermeasureDecision(
+    ActionKind Action,
+    string TargetId,
+    string Goal,
+    string Reason,
+    int Urgency);
