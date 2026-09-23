@@ -1143,6 +1143,14 @@ public sealed class Npc : IStationMobileEntity
     public Dictionary<string, double> FixtureUseMinutes { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Deterministic count of authoritative physical tasks this NPC has
+    /// successfully completed, grouped by action. This is history/telemetry,
+    /// not a job assignment: cognition may later use repeated real work as
+    /// evidence that a responsibility feels familiar or personally important.
+    /// </summary>
+    public Dictionary<ActionKind, int> CompletedTaskCounts { get; } = [];
+
     public Dictionary<string, Relationship> Relationships { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
