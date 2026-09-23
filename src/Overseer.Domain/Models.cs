@@ -808,6 +808,18 @@ public sealed class PersonalPossession
     public string? HiddenAtRoomId { get; set; }
     public string? HiddenAtFixtureLabel { get; set; }
     public bool IsDestroyed { get; set; }
+
+    /// <summary>
+    /// Owner idea #3, slice 4: whether the owner has already been given a
+    /// "surprised realization" memory for the current holder. Starts true
+    /// (nothing to notice; they hold it themself). Every path that already
+    /// grants the owner a direct memory of losing it (they were physically
+    /// present as the holder taken from) leaves this true. Only a
+    /// hidden-stash steal while the owner is absent — the one case nobody
+    /// tells them anything — sets it false, for the simulation layer to
+    /// notice once.
+    /// </summary>
+    public bool OwnerNoticedCurrentHolder { get; set; } = true;
 }
 
 /// <summary>
