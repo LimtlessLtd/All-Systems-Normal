@@ -78,7 +78,12 @@ One batch, 20 entries, from the owner's 2026-09-22 22:17 BST message in `#new-id
 - Idea: "NPCs develop preferred chairs, beds, workstations or rooms. Someone repeatedly using 'their' space causes mild irritation."
 - Outcome: an NPC's most-used bed/workstation is tracked from repeated use; another NPC occupying it applies an existing-style irritation/stress delta; friends/rivals bias seating/room choice accordingly.
 - Size: large (slices: track most-used bed/workstation per NPC; irritation delta on displacement; relationship-biased choice)
-- Status: ready
+- Status: **in progress** — slice 1 (preferred-bed foundation) tracks deterministic accumulated minutes of actual physical fixture use on each NPC via `Npc.FixtureUseMinutes` and `PersonalSpaceSystem`. `SimulationEngine` records ordinary bed use only when the existing physical-rest check proves the actor is really at that bed; a remote `Sleep` flag records nothing. `PersonalSpaceSystem.PreferredBedKey` derives the most-used ordinary bed deterministically (minutes, then stable key tie-break). No choice bias or irritation is applied yet, so C# still does not decide where an NPC wants to sleep.
+
+  Remaining slices:
+  1. Use the derived preferred bed/workstation as context/bias when cognition or deterministic fixture routing has several equivalent options, without forcing the choice.
+  2. Apply a mild existing-style stress/resentment consequence when another NPC repeatedly occupies someone's established preferred space, gated by real co-location/observation.
+  3. Extend the same usage telemetry to workstations/chairs as those interactions become individually addressable.
 
 ### 11. Contraband and secret caches
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790111822683539 (2026-09-22)

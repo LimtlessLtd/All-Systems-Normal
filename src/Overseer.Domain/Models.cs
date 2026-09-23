@@ -1092,6 +1092,15 @@ public sealed class Npc : IStationMobileEntity
     public Dictionary<string, int> Skills { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Deterministic accumulated minutes physically spent using station
+    /// fixtures, keyed by a stable room/type/label identity. Personal-space
+    /// systems derive preferences from repeated actual use rather than assigning
+    /// scripted favourites.
+    /// </summary>
+    public Dictionary<string, double> FixtureUseMinutes { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
     public Dictionary<string, Relationship> Relationships { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
