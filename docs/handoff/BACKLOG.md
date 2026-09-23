@@ -509,13 +509,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Size: large (slices: AI Safety Officer role tag + generation weighting; wire the role's authority into #21/#24/#28's enforcement hooks; verify existing stress/bullying/theft affordances are sufficient for the "make them go crazy" path with no new mechanic)
 - Status: ready — deliberately scoped to compose on #9/#21/#24/#28 rather than add new player-vs-NPC mechanics; sequence after those.
 
-### 73. Zero-atmosphere rooms cool toward absolute zero
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790156242647279 (2026-09-23)
-- Idea: "If a rooms oxygen/gas content falls to 0, then temperature should fall towards absolute zero just like real space."
-- Outcome: a room whose gas content reaches 0 loses its normal thermal equilibrium and its temperature drifts deterministically toward a very low floor (far colder than any powered/atmosphere-present room; need not be exact 0 K), reusing whatever heat-loss model exists; restoring atmosphere/power lets it recover normally.
-- Size: small (one PR against current systems: no-atmosphere rooms get a deterministic cooling-toward-floor rate instead of holding/decaying toward ambient) — a fuller version composes naturally with #67's thermal-simulation work once that lands, but this slice doesn't need to wait for it.
-- Status: ready
-
 ### 74. Crew can change roles: mutiny and succession
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790161638098239 (2026-09-23)
 - Idea: "Can the humans change their roles? ... allow humans to change their roles if there is sufficient support from the other humans, so if a commander is doing a bad job, maybe theres a mutiny, or if the doctor has died, maybe someone with the best medical skill should take over the doctor role."
