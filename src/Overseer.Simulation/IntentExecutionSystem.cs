@@ -176,6 +176,10 @@ public sealed class IntentExecutionSystem
                     ExecuteForceDoorIntent(state, npc, intent);
                     break;
 
+                case ActionKind.DisconnectDevice:
+                    ExecuteDisconnectDeviceIntent(state, npc, intent);
+                    break;
+
                 case ActionKind.RestoreSystem:
                     ExecuteRestoreSystemIntent(state, npc, intent);
                     break;
@@ -543,6 +547,62 @@ public sealed class IntentExecutionSystem
                 airlock.Id,
                 intent.Reason),
             out _);
+    }
+
+    private void ExecuteDisconnectDeviceIntent(
+        GameState state,
+        Npc npc,
+        NpcIntent intent)
+    {
+        if (string.IsNullOrWhiteSpace(intent.TargetId)
+            || !state.Devices.TryGetValue(intent.TargetId, out var device)
+            || device.Kind == StationSystemKind.Door
+            || device.IsFailed
+            || !device.IsEnabled)
+        {
+            FailIntent(state, npc, "That machine can no longer be disconnected.");
+            return;
+        }
+
+        if (!device.RoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
+            || !state.Facility.Rooms.TryGetValue(device.RoomId, out var room))
+        {
+            FailIntent(state, npc, "I need to be in the machine's compartment to disconnect it.");
+            return;
+        }
+
+        var fixture = LocalMovementSystem.FixtureForDevice(room, device.Kind);
+        if (fixture is null)
+        {
+            FailIntent(state, npc, "I cannot find accessible local hardware for that machine.");
+            return;
+        }
+
+        npc.CurrentAction = new NpcAction(
+            ActionKind.DisconnectDevice,
+            device.Id,
+            intent.Reason);
+
+        if (!LocalMovementSystem.IsAtInteractionPoint(room, npc, fixture))
+        {
+            return;
+        }
+
+        if (!_actions.TryApply(
+                state,
+                npc.Id,
+                new NpcAction(
+                    ActionKind.DisconnectDevice,
+                    device.Id,
+                    intent.Reason),
+                out var message))
+        {
+            FailIntent(state, npc, message);
+            return;
+        }
+
+        npc.Intent = null;
+        npc.PlannedDestinationRoomId = null;
     }
 
     private void ExecuteRestoreSystemIntent(
