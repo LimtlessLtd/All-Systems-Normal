@@ -132,6 +132,23 @@ public sealed class StationUiPresentationPolishTests
     }
 
     [Fact]
+    public void DebugPage_SurfacesOllamaInputAndRawOutputWithoutHiddenDetails()
+    {
+        var root = FindRepositoryRoot();
+        var debug = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Debug.razor"));
+        var css = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Debug.razor.css"));
+
+        Assert.Contains("OLLAMA LLM INPUT / OUTPUT", debug);
+        Assert.Contains("INPUT // EXACT REQUEST SENT TO OLLAMA", debug);
+        Assert.Contains("OUTPUT // RAW OLLAMA RESPONSE", debug);
+        Assert.Contains("trace.Prompt", debug);
+        Assert.Contains("trace.RawResponse", debug);
+        Assert.Contains("static Pages build uses the", debug);
+        Assert.Contains("deterministic browser mind", debug);
+        Assert.Contains(".ollama-io-grid", css);
+    }
+
+    [Fact]
     public void LightingClimateAndAirHandlerControls_HugRoomEdges()
     {
         var states = RepresentativeStates(4);
