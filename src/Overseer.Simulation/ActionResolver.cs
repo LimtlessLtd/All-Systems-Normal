@@ -102,6 +102,8 @@ public sealed class ActionResolver
             ActionKind.RecapturePrisoner => TryRecapturePrisoner(state, npc, action, out message),
             ActionKind.HideItem => TryHidePossession(state, npc, action, out message),
             ActionKind.ReturnItem => TryReturnPossession(state, npc, action, out message),
+            ActionKind.BorrowItem => TryBorrowPossession(state, npc, action, out message),
+            ActionKind.StealItem => TryStealPossession(state, npc, action, out message),
             ActionKind.Idle => SetAction(state, npc, action, "waits", out message),
             _ => Fail("Unsupported action.", out message)
         };
@@ -904,6 +906,155 @@ public sealed class ActionResolver
                 candidate.Id.Equals(possessionId, StringComparison.OrdinalIgnoreCase)
                 && candidate.OwnerId == npc.Id
                 && !candidate.IsDestroyed);
+
+    private static PersonalPossession? FindKnownPossession(GameState state, Npc npc, string? possessionId) =>
+        string.IsNullOrWhiteSpace(possessionId)
+            ? null
+            : state.Possessions.FirstOrDefault(candidate =>
+                candidate.Id.Equals(possessionId, StringComparison.OrdinalIgnoreCase)
+                && !candidate.IsDestroyed
+                && npc.KnownPossessionIds.Contains(candidate.Id));
+
+    private static bool TryBorrowPossession(GameState state, Npc npc, NpcAction action, out string message)
+    {
+        var possession = FindKnownPossession(state, npc, action.TargetId);
+        var holder = possession?.CurrentHolderId is { } holderId && holderId != npc.Id
+            ? state.Crew.FirstOrDefault(other =>
+                other.Id == holderId
+                && other.IsAlive
+                && other.IsPresent
+                && other.CurrentRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
+            : null;
+
+        if (possession is null || holder is null)
+        {
+            message = $"{npc.Name} has nothing to borrow here.";
+            return false;
+        }
+
+        var holderToNpc = holder.Relationships[npc.Name];
+        if (holderToNpc.Trust < 40 || holderToNpc.Affinity < 35)
+        {
+            message = $"{holder.Name} is not willing to lend {possession.Name} to {npc.Name} right now.";
+            return false;
+        }
+
+        possession.CurrentHolderId = npc.Id;
+        npc.CurrentAction = action;
+
+        var npcToHolder = npc.Relationships[holder.Name];
+        npcToHolder.Trust = Math.Clamp(npcToHolder.Trust + 0.4, 0, 100);
+        holderToNpc.Trust = Math.Clamp(holderToNpc.Trust + 0.2, 0, 100);
+
+        npc.Memories.Add(new Memory($"{holder.Name} lent me {possession.Name}.", state.Elapsed, 0.3));
+        holder.Memories.Add(new Memory($"I lent {possession.Name} to {npc.Name}.", state.Elapsed, 0.3));
+        NotifyPossessionWitnesses(state, npc, holder, possession, "borrows", "someone lend something");
+
+        message = $"{holder.Name} lends {possession.Name} to {npc.Name}.";
+        Log(state, message);
+        return true;
+    }
+
+    private static bool TryStealPossession(GameState state, Npc npc, NpcAction action, out string message)
+    {
+        var possession = FindKnownPossession(state, npc, action.TargetId);
+        if (possession is null)
+        {
+            message = $"{npc.Name} has nothing to take here.";
+            return false;
+        }
+
+        var holder = possession.CurrentHolderId is { } holderId && holderId != npc.Id
+            ? state.Crew.FirstOrDefault(other =>
+                other.Id == holderId
+                && other.IsAlive
+                && other.IsPresent
+                && other.CurrentRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
+            : null;
+
+        var fromHiddenStash = holder is null
+            && possession.HiddenAtRoomId is not null
+            && possession.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase);
+
+        if (holder is null && !fromHiddenStash)
+        {
+            message = $"{npc.Name} has nothing to take here.";
+            return false;
+        }
+
+        possession.CurrentHolderId = npc.Id;
+        possession.HiddenAtRoomId = null;
+        possession.HiddenAtFixtureLabel = null;
+        npc.CurrentAction = action;
+
+        npc.Memories.Add(new Memory(
+            holder is null
+                ? $"I took {possession.Name} from where it was hidden."
+                : $"I took {possession.Name} from {holder.Name} without asking.",
+            state.Elapsed,
+            0.4));
+
+        if (holder is not null)
+        {
+            var holderToNpc = holder.Relationships[npc.Name];
+            holderToNpc.Trust = Math.Clamp(holderToNpc.Trust - 3, 0, 100);
+            holderToNpc.Resentment = Math.Clamp(holderToNpc.Resentment + 4, 0, 100);
+            holder.Memories.Add(new Memory(
+                $"{npc.Name} took {possession.Name} from me without asking.",
+                state.Elapsed,
+                0.55));
+            holder.NeedsMindReconsideration = true;
+        }
+
+        NotifyPossessionWitnesses(state, npc, holder, possession, "takes", "someone take something");
+
+        message = holder is null
+            ? $"{npc.Name} takes {possession.Name} from its hiding place."
+            : $"{npc.Name} takes {possession.Name} from {holder.Name}.";
+        Log(state, message);
+        return true;
+    }
+
+    /// <summary>
+    /// Any other co-located crew member picks up knowledge that the
+    /// possession exists, mirroring how <c>PactCoordinationSystem</c> handles
+    /// a witnessed pact settlement: identified ("Witnessed X ...") if
+    /// perception allows recognising the actor, otherwise unattributed.
+    /// </summary>
+    private static void NotifyPossessionWitnesses(
+        GameState state,
+        Npc actor,
+        Npc? directlyInvolved,
+        PersonalPossession possession,
+        string verb,
+        string unattributedGerundPhrase)
+    {
+        foreach (var witness in state.Crew.Where(candidate =>
+                     candidate.IsAlive
+                     && candidate.IsPresent
+                     && candidate.Id != actor.Id
+                     && (directlyInvolved is null || candidate.Id != directlyInvolved.Id)
+                     && candidate.CurrentRoomId.Equals(actor.CurrentRoomId, StringComparison.OrdinalIgnoreCase)))
+        {
+            witness.KnownPossessionIds.Add(possession.Id);
+
+            if (!PerceptionSystem.CanMakeOut(state, witness, actor))
+            {
+                witness.Memories.Add(new Memory(
+                    $"Saw {unattributedGerundPhrase}: {possession.Name}.",
+                    state.Elapsed,
+                    0.3));
+                continue;
+            }
+
+            witness.Memories.Add(new Memory(
+                directlyInvolved is null
+                    ? $"Witnessed {actor.Name} {verb} {possession.Name}."
+                    : $"Witnessed {actor.Name} {verb} {possession.Name} from {directlyInvolved.Name}.",
+                state.Elapsed,
+                0.35));
+        }
+    }
 
     private static bool SetAction(
         GameState state,

@@ -392,10 +392,20 @@ public enum ActionKind
 
     /// <summary>
     /// Owner idea #3, slice 2: hide or retrieve one of your own personal
-    /// possessions. Owner-only; no borrow/steal/discovery yet.
+    /// possessions. Owner-only.
     /// </summary>
     HideItem,
     ReturnItem,
+
+    /// <summary>
+    /// Owner idea #3, slice 3: take a possession that is not your own — from
+    /// a co-located crew member currently holding it (with or without their
+    /// consent), or, for <see cref="StealItem"/> only, from a hiding spot you
+    /// know about in your current room. Requires the possession to already be
+    /// in <c>KnownPossessionIds</c>; never omniscient.
+    /// </summary>
+    BorrowItem,
+    StealItem,
 
     /// <summary>
     /// Physically restrain an escaped prisoner and return them to containment.

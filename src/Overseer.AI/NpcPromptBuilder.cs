@@ -273,6 +273,28 @@ public static class NpcPromptBuilder
             })
             .ToArray();
 
+        // Other people's possessions you happen to know about — witnessed
+        // someone holding, hiding, borrowing or stealing them. Never every
+        // possession in the station; only what this person has perceived.
+        var otherKnownPossessions = state.Possessions
+            .Where(possession =>
+                possession.OwnerId != npc.Id
+                && !possession.IsDestroyed
+                && npc.KnownPossessionIds.Contains(possession.Id))
+            .Select(possession =>
+            {
+                var holderName = possession.CurrentHolderId is { } holderId
+                    ? state.Crew.FirstOrDefault(other => other.Id == holderId)?.Name
+                    : null;
+                var status = holderName is not null
+                    ? holderName == npc.Name ? "with you" : $"held by {holderName}"
+                    : possession.HiddenAtFixtureLabel is not null
+                        ? $"hidden in {possession.HiddenAtRoomId} ({possession.HiddenAtFixtureLabel})"
+                        : $"hidden in {possession.HiddenAtRoomId}";
+                return $"- {possession.Id}: {possession.Name} ({possession.Kind}), belongs to {(state.Crew.FirstOrDefault(other => other.Id == possession.OwnerId)?.Name ?? "someone else")} — {status}";
+            })
+            .ToArray();
+
         var builder = new StringBuilder();
         builder.AppendLine("You are choosing ONE high-level intention for a human NPC in a space-station simulation.");
         builder.AppendLine("You are not the station AI and you do not control reality.");
@@ -400,6 +422,11 @@ public static class NpcPromptBuilder
         builder.AppendLine("YOUR PERSONAL POSSESSIONS:");
         if (ownedPossessions.Length == 0) builder.AppendLine("- none");
         else foreach (var possession in ownedPossessions) builder.AppendLine(possession);
+        builder.AppendLine();
+        builder.AppendLine("OTHER PEOPLE'S POSSESSIONS YOU KNOW ABOUT (you have seen someone holding, hiding, borrowing or stealing these):");
+        builder.AppendLine("BorrowItem needs the current holder physically with you now and willing to lend it; StealItem can also target one hidden in your current room. Neither works from elsewhere yet — travel there first.");
+        if (otherKnownPossessions.Length == 0) builder.AppendLine("- none");
+        else foreach (var possession in otherKnownPossessions) builder.AppendLine(possession);
         builder.AppendLine();
         builder.AppendLine("STATION STATUS-PANEL ROOM READINGS:");
         builder.AppendLine("These are the compartment readings currently available to this crew member; route status reflects passable hatches.");

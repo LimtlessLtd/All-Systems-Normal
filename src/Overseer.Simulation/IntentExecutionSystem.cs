@@ -148,6 +148,8 @@ public sealed class IntentExecutionSystem
 
                 case ActionKind.HideItem:
                 case ActionKind.ReturnItem:
+                case ActionKind.BorrowItem:
+                case ActionKind.StealItem:
                     ExecutePossessionIntent(state, npc, intent);
                     break;
 
@@ -1012,24 +1014,37 @@ public sealed class IntentExecutionSystem
 
     private void ExecutePossessionIntent(GameState state, Npc npc, NpcIntent intent)
     {
+        var isOwnItemOnly = intent.Action is ActionKind.HideItem or ActionKind.ReturnItem;
+
         var possession = string.IsNullOrWhiteSpace(intent.TargetId)
             ? null
             : state.Possessions.FirstOrDefault(candidate =>
                 candidate.Id.Equals(intent.TargetId, StringComparison.OrdinalIgnoreCase)
-                && candidate.OwnerId == npc.Id
-                && !candidate.IsDestroyed);
+                && !candidate.IsDestroyed
+                && (isOwnItemOnly
+                    ? candidate.OwnerId == npc.Id
+                    : npc.KnownPossessionIds.Contains(candidate.Id)));
 
         if (possession is null)
         {
-            FailIntent(state, npc, "There is no matching possession of my own to act on.");
+            FailIntent(
+                state,
+                npc,
+                isOwnItemOnly
+                    ? "There is no matching possession of my own to act on."
+                    : "There is no matching possession I know about to act on.");
             return;
         }
 
-        _actions.TryApply(
-            state,
-            npc.Id,
-            new NpcAction(intent.Action, possession.Id, intent.Reason),
-            out _);
+        if (!_actions.TryApply(
+                state,
+                npc.Id,
+                new NpcAction(intent.Action, possession.Id, intent.Reason),
+                out var message))
+        {
+            FailIntent(state, npc, message);
+            return;
+        }
 
         npc.Intent = null;
     }

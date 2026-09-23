@@ -57,6 +57,8 @@ public static class CrewAffordanceSystem
         new(ActionKind.UnlockDoor, "adjacent-door", "Unlock an adjacent hatch if authorised."),
         new(ActionKind.HideItem, "possession", "Hide one of your own possessions somewhere in your current room."),
         new(ActionKind.ReturnItem, "possession", "Retrieve one of your own possessions from where you hid it (you must be in that room)."),
+        new(ActionKind.BorrowItem, "possession", "Ask a co-located crew member to lend you a possession you know about that they are currently holding; they may refuse."),
+        new(ActionKind.StealItem, "possession", "Take a possession you know about without asking — from a co-located crew member currently holding it, or from a hiding spot you know about in your current room."),
         new(ActionKind.ForceDoor, "adjacent-door", "Defeat a blocked hatch by force or technical bypass."),
         new(ActionKind.RestoreSystem, "system", "Restore a disabled station system."),
         new(ActionKind.SecureAirlock, "airlock", "Secure an unsafe exterior airlock."),
@@ -224,6 +226,37 @@ public static class CrewAffordanceSystem
                     && possession.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase),
                 _ => false
             };
+        }
+
+        if (action is ActionKind.BorrowItem or ActionKind.StealItem)
+        {
+            // Unlike HideItem/ReturnItem, the possession need not be yours —
+            // it just has to be one you actually know about (ambient
+            // co-located noticing, or having witnessed someone else's
+            // hide/borrow/steal act). Never a blind, omniscient lookup.
+            var possession = state.Possessions.FirstOrDefault(candidate =>
+                !candidate.IsDestroyed
+                && npc.KnownPossessionIds.Contains(candidate.Id)
+                && candidate.Id.Equals(requested, StringComparison.OrdinalIgnoreCase));
+
+            if (possession is null)
+                return false;
+
+            normalizedTarget = possession.Id;
+
+            if (possession.CurrentHolderId is { } holderId && holderId != npc.Id)
+            {
+                return state.Crew.Any(other =>
+                    other.Id == holderId
+                    && other.IsAlive
+                    && other.IsPresent
+                    && other.CurrentRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
+            }
+
+            // A hiding spot has no one to ask, so only StealItem can target one.
+            return action == ActionKind.StealItem
+                && possession.HiddenAtRoomId is not null
+                && possession.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase);
         }
 
         if (IsDoorOperation(action))

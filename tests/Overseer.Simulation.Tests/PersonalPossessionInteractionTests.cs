@@ -4,8 +4,9 @@ using Overseer.Simulation;
 namespace Overseer.Simulation.Tests;
 
 /// <summary>
-/// Owner idea #3, slice 2: an owner may hide or retrieve one of their own
-/// personal possessions. Owner-only; no borrow/steal/discovery yet.
+/// Owner idea #3: slice 2 (owner may hide/retrieve their own possessions)
+/// plus slice 3 (borrow/steal a possession from another co-located crew
+/// member, gated on already knowing about it).
 /// </summary>
 public sealed class PersonalPossessionInteractionTests
 {
@@ -190,5 +191,202 @@ public sealed class PersonalPossessionInteractionTests
         Assert.Null(other.Intent);
         Assert.Equal(ActionKind.Idle, other.CurrentAction.Kind);
         Assert.Equal(owner.Id, possession.CurrentHolderId);
+    }
+
+    [Fact]
+    public void TryNormalizeTarget_BorrowAndStealRequireKnowingAboutAPossessionHeldByACoLocatedCrewMember()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var actor = state.Crew[1];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        actor.CurrentRoomId = owner.CurrentRoomId;
+
+        // Not known to the actor yet: ambient noticing/witnessing hasn't happened.
+        Assert.False(CrewAffordanceSystem.TryNormalizeTarget(
+            state, actor, ActionKind.BorrowItem, possession.Id, out _));
+        Assert.False(CrewAffordanceSystem.TryNormalizeTarget(
+            state, actor, ActionKind.StealItem, possession.Id, out _));
+
+        actor.KnownPossessionIds.Add(possession.Id);
+
+        Assert.True(CrewAffordanceSystem.TryNormalizeTarget(
+            state, actor, ActionKind.BorrowItem, possession.Id, out _));
+        Assert.True(CrewAffordanceSystem.TryNormalizeTarget(
+            state, actor, ActionKind.StealItem, possession.Id, out _));
+
+        // Known, but the holder has since left the room.
+        owner.CurrentRoomId = "control";
+        actor.CurrentRoomId = "storage";
+
+        Assert.False(CrewAffordanceSystem.TryNormalizeTarget(
+            state, actor, ActionKind.BorrowItem, possession.Id, out _));
+        Assert.False(CrewAffordanceSystem.TryNormalizeTarget(
+            state, actor, ActionKind.StealItem, possession.Id, out _));
+    }
+
+    [Fact]
+    public void TryNormalizeTarget_StealItemCanAlsoTargetAKnownHidingSpotButBorrowItemCannot()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var actor = state.Crew[1];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        possession.CurrentHolderId = null;
+        possession.HiddenAtRoomId = "storage";
+        actor.CurrentRoomId = "storage";
+        actor.KnownPossessionIds.Add(possession.Id);
+
+        Assert.True(CrewAffordanceSystem.TryNormalizeTarget(
+            state, actor, ActionKind.StealItem, possession.Id, out _));
+        Assert.False(CrewAffordanceSystem.TryNormalizeTarget(
+            state, actor, ActionKind.BorrowItem, possession.Id, out _));
+    }
+
+    [Fact]
+    public void BorrowItem_TransfersHoldWhenTheHolderTrustsAndLikesTheBorrowerEnough()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var actor = state.Crew[1];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        actor.CurrentRoomId = owner.CurrentRoomId;
+        actor.KnownPossessionIds.Add(possession.Id);
+
+        var success = new ActionResolver().TryApply(
+            state,
+            actor.Id,
+            new NpcAction(ActionKind.BorrowItem, possession.Id, "Could I borrow that?"),
+            out _);
+
+        Assert.True(success);
+        Assert.Equal(actor.Id, possession.CurrentHolderId);
+        Assert.Contains(actor.Memories, memory => memory.Description.Contains("lent me", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(owner.Memories, memory => memory.Description.Contains("lent", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void BorrowItem_FailsWhenTheHolderDoesNotTrustOrLikeTheBorrowerEnough()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var actor = state.Crew[1];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        actor.CurrentRoomId = owner.CurrentRoomId;
+        actor.KnownPossessionIds.Add(possession.Id);
+        owner.Relationships[actor.Name].Trust = 10;
+
+        var success = new ActionResolver().TryApply(
+            state,
+            actor.Id,
+            new NpcAction(ActionKind.BorrowItem, possession.Id, "Could I borrow that?"),
+            out var message);
+
+        Assert.False(success);
+        Assert.Equal(owner.Id, possession.CurrentHolderId);
+        Assert.Contains("not willing to lend", message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void StealItem_TakesAHeldPossessionAndDamagesTheHoldersTrustInTheThief()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var actor = state.Crew[1];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        actor.CurrentRoomId = owner.CurrentRoomId;
+        actor.KnownPossessionIds.Add(possession.Id);
+        var trustBefore = owner.Relationships[actor.Name].Trust;
+
+        var success = new ActionResolver().TryApply(
+            state,
+            actor.Id,
+            new NpcAction(ActionKind.StealItem, possession.Id, "I'm taking that."),
+            out _);
+
+        Assert.True(success);
+        Assert.Equal(actor.Id, possession.CurrentHolderId);
+        Assert.True(owner.Relationships[actor.Name].Trust < trustBefore);
+        Assert.Contains(
+            owner.Memories,
+            memory => memory.Description.Contains("without asking", StringComparison.OrdinalIgnoreCase));
+        Assert.True(owner.NeedsMindReconsideration);
+    }
+
+    [Fact]
+    public void StealItem_TakesFromAKnownHidingSpotWithoutConfrontingAnAbsentOwner()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var actor = state.Crew[1];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        possession.CurrentHolderId = null;
+        possession.HiddenAtRoomId = "storage";
+        actor.CurrentRoomId = "storage";
+        owner.CurrentRoomId = "control";
+        actor.KnownPossessionIds.Add(possession.Id);
+
+        var success = new ActionResolver().TryApply(
+            state,
+            actor.Id,
+            new NpcAction(ActionKind.StealItem, possession.Id, "No one will know."),
+            out _);
+
+        Assert.True(success);
+        Assert.Equal(actor.Id, possession.CurrentHolderId);
+        Assert.Null(possession.HiddenAtRoomId);
+        Assert.DoesNotContain(owner.Memories, memory => memory.Description.Contains(possession.Name));
+    }
+
+    [Fact]
+    public void StealItem_WitnessedByAThirdPartyGrantsThemKnowledgeAndAnIdentifiedMemory()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var actor = state.Crew[1];
+        var witness = state.Crew[2];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        actor.CurrentRoomId = owner.CurrentRoomId;
+        witness.CurrentRoomId = owner.CurrentRoomId;
+        actor.KnownPossessionIds.Add(possession.Id);
+
+        new ActionResolver().TryApply(
+            state,
+            actor.Id,
+            new NpcAction(ActionKind.StealItem, possession.Id, "Taking it."),
+            out _);
+
+        Assert.Contains(possession.Id, witness.KnownPossessionIds);
+        Assert.Contains(
+            witness.Memories,
+            memory => memory.Description == $"Witnessed {actor.Name} takes {possession.Name} from {owner.Name}.");
+    }
+
+    [Fact]
+    public void Intent_BorrowItem_FailsGracefullyWhenTheHolderRefuses()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var actor = state.Crew[1];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        actor.CurrentRoomId = owner.CurrentRoomId;
+        actor.KnownPossessionIds.Add(possession.Id);
+        owner.Relationships[actor.Name].Trust = 10;
+
+        actor.Intent = new NpcIntent(
+            ActionKind.BorrowItem,
+            possession.Id,
+            "Ask to borrow it.",
+            "I need this for a moment.",
+            30,
+            "Test",
+            state.Elapsed);
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.Null(actor.Intent);
+        Assert.Equal(ActionKind.Idle, actor.CurrentAction.Kind);
+        Assert.Equal(owner.Id, possession.CurrentHolderId);
+        Assert.Contains(actor.Memories, memory => memory.Description.Contains("not willing to lend", StringComparison.OrdinalIgnoreCase));
     }
 }

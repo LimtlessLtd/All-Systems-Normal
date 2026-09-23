@@ -908,6 +908,95 @@ public sealed class AiDecisionServiceTests
         Assert.Equal(sarah.Name, intent.TargetId);
     }
 
+    [Fact]
+    public async Task OllamaDecision_HideItemResolvesARealTargetThroughTheFullValidationPath()
+    {
+        // Regression: HideItem/ReturnItem (owner idea #3, slice 2) were never
+        // actually reachable through a real Ollama decision — Validate only
+        // called CrewAffordanceSystem.TryNormalizeTarget for room/crew/door
+        // targets, so a possession target always fell through to the final
+        // catch-all and was silently nulled, forcing the action to Idle. Only
+        // tests that constructed the NpcAction/NpcIntent directly (bypassing
+        // Validate) ever exercised HideItem/ReturnItem, so this shipped
+        // unnoticed.
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        var possession = state.Possessions.First(p => p.OwnerId == david.Id);
+
+        using var client = new StubChatClient($$"""
+            {
+              "Action": "HideItem",
+              "TargetId": "{{possession.Id}}",
+              "Goal": "Keep this out of sight.",
+              "Reason": "I don't want anyone finding this.",
+              "Urgency": 20
+            }
+            """);
+
+        var service = new OllamaAiDecisionService(client, new RuleBasedAiDecisionService());
+
+        var intent = await service.DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.HideItem, intent.Action);
+        Assert.Equal(possession.Id, intent.TargetId);
+    }
+
+    [Fact]
+    public async Task OllamaDecision_BorrowItemResolvesARealTargetThroughTheFullValidationPath()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew.Single(npc => npc.Name == "David Hale");
+        var actor = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        actor.CurrentRoomId = owner.CurrentRoomId;
+        actor.KnownPossessionIds.Add(possession.Id);
+
+        using var client = new StubChatClient($$"""
+            {
+              "Action": "BorrowItem",
+              "TargetId": "{{possession.Id}}",
+              "Goal": "Ask to borrow that for a moment.",
+              "Reason": "I could use this right now.",
+              "Urgency": 15
+            }
+            """);
+
+        var service = new OllamaAiDecisionService(client, new RuleBasedAiDecisionService());
+
+        var intent = await service.DecideAsync(actor, state);
+
+        Assert.Equal(ActionKind.BorrowItem, intent.Action);
+        Assert.Equal(possession.Id, intent.TargetId);
+    }
+
+    [Fact]
+    public async Task OllamaDecision_BorrowItemIsReducedToIdleForAPossessionNotYetKnownToTheActor()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew.Single(npc => npc.Name == "David Hale");
+        var actor = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        actor.CurrentRoomId = owner.CurrentRoomId;
+        Assert.DoesNotContain(possession.Id, actor.KnownPossessionIds);
+
+        using var client = new StubChatClient($$"""
+            {
+              "Action": "BorrowItem",
+              "TargetId": "{{possession.Id}}",
+              "Goal": "Ask to borrow that for a moment.",
+              "Reason": "I could use this right now.",
+              "Urgency": 15
+            }
+            """);
+
+        var service = new OllamaAiDecisionService(client, new RuleBasedAiDecisionService());
+
+        var intent = await service.DecideAsync(actor, state);
+
+        Assert.Equal(ActionKind.Idle, intent.Action);
+        Assert.Null(intent.TargetId);
+    }
+
     private sealed class StubChatClient : IChatClient
     {
         private readonly Queue<string>? _jsonResponses;
