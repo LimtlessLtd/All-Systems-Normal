@@ -1235,6 +1235,8 @@ public static class FacilitySeeder
         ["a personal multitool", "a worn hand tool", "a small pocketknife"];
     private static readonly string[] KeepsakePossessionNames =
         ["a keepsake trinket", "an old ring", "a child's drawing"];
+    private static readonly string[] WeaponPossessionNames =
+        ["a shiv fashioned from scrap", "an unregistered stun baton", "a concealed sidearm"];
 
     /// <summary>
     /// Owner idea #3, slice 1: give each crew member 1-2 small personally
@@ -1251,13 +1253,14 @@ public static class FacilitySeeder
 
             for (var index = 0; index < itemCount; index++)
             {
-                var kind = (PossessionKind)(StableHashText($"{npc.Name}#possession-kind-{index}") % 5);
+                var kind = (PossessionKind)(StableHashText($"{npc.Name}#possession-kind-{index}") % 6);
                 var names = kind switch
                 {
                     PossessionKind.FoodStash => FoodStashPossessionNames,
                     PossessionKind.Photograph => PhotographPossessionNames,
                     PossessionKind.Medication => MedicationPossessionNames,
                     PossessionKind.Tool => ToolPossessionNames,
+                    PossessionKind.Weapon => WeaponPossessionNames,
                     _ => KeepsakePossessionNames
                 };
                 var name = names[StableHashText($"{npc.Name}#possession-name-{index}") % (uint)names.Length];

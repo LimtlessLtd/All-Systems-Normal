@@ -909,16 +909,20 @@ public enum PossessionKind
     Photograph,
     Medication,
     Tool,
-    Keepsake
+    Keepsake,
+    Weapon
 }
 
 /// <summary>
 /// A small personally meaningful item (idea #3): a food stash, photograph,
-/// medication, tool or keepsake. Deterministic simulation owns every state
-/// change; the LLM only ever chooses to borrow/steal/hide/return/destroy it
-/// through future affordances. Exactly one of <see cref="CurrentHolderId"/>
-/// or <see cref="HiddenAtRoomId"/> is set while the item is not destroyed;
-/// it starts held by its owner.
+/// medication, tool, keepsake or improvised weapon. Deterministic simulation
+/// owns every state change; the LLM only ever chooses to
+/// borrow/steal/hide/return/destroy it through existing affordances.
+/// Exactly one of <see cref="CurrentHolderId"/> or <see cref="HiddenAtRoomId"/>
+/// is set while the item is not destroyed; it starts held by its owner.
+/// Owner idea #11 (contraband): hiding is gated on currently holding the
+/// item, not owning it, so a thief can stash something they stole rather
+/// than being forced to carry it in plain sight.
 /// </summary>
 public sealed class PersonalPossession
 {

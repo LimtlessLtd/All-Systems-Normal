@@ -56,8 +56,8 @@ public static class CrewAffordanceSystem
         new(ActionKind.CloseDoor, "adjacent-door", "Close an adjacent unlocked powered hatch."),
         new(ActionKind.LockDoor, "adjacent-door", "Lock an adjacent hatch if authorised."),
         new(ActionKind.UnlockDoor, "adjacent-door", "Unlock an adjacent hatch if authorised."),
-        new(ActionKind.HideItem, "possession", "Hide one of your own possessions somewhere in your current room."),
-        new(ActionKind.ReturnItem, "possession", "Retrieve one of your own possessions from where you hid it (you must be in that room)."),
+        new(ActionKind.HideItem, "possession", "Hide a possession you currently hold — your own, or one you previously borrowed or stole — somewhere in your current room."),
+        new(ActionKind.ReturnItem, "possession", "Retrieve a possession you know is hidden in your current room (your own, or a stash you or someone else hid) and take it back into your hands."),
         new(ActionKind.BorrowItem, "possession", "Ask a co-located crew member to lend you a possession you know about that they are currently holding; they may refuse."),
         new(ActionKind.StealItem, "possession", "Take a possession you know about without asking — from a co-located crew member currently holding it, or from a hiding spot you know about in your current room."),
         new(ActionKind.DestroyItem, "possession", "Destroy a possession — one you currently hold (your own, or one you previously borrowed/stole), one a co-located crew member currently holds, or one hidden in your current room you know about."),
@@ -214,9 +214,17 @@ public static class CrewAffordanceSystem
 
         if (action is ActionKind.HideItem or ActionKind.ReturnItem)
         {
+            // Owner idea #11 (contraband): no longer ownership-gated. HideItem
+            // only needs you to currently hold the item (your own, borrowed or
+            // stolen); ReturnItem needs it live-hidden in your current room
+            // AND — for anything not your own — your own belief to actually
+            // place it there, the same hiding-spot rule StealItem already
+            // uses. The true owner always knows their own possession's live
+            // location (matches NpcPromptBuilder's YOUR PERSONAL POSSESSIONS,
+            // which is never belief-based), so ownership alone still suffices
+            // for them without a fresh KnownPossessions entry.
             var possession = state.Possessions.FirstOrDefault(candidate =>
                 !candidate.IsDestroyed
-                && candidate.OwnerId == npc.Id
                 && candidate.Id.Equals(requested, StringComparison.OrdinalIgnoreCase));
 
             if (possession is null)
@@ -227,7 +235,11 @@ public static class CrewAffordanceSystem
             {
                 ActionKind.HideItem => possession.CurrentHolderId == npc.Id,
                 ActionKind.ReturnItem => possession.HiddenAtRoomId is not null
-                    && possession.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase),
+                    && possession.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
+                    && (possession.OwnerId == npc.Id
+                        || (npc.KnownPossessions.TryGetValue(possession.Id, out var belief)
+                            && belief.HiddenAtRoomId is not null
+                            && belief.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))),
                 _ => false
             };
         }

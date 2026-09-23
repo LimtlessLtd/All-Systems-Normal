@@ -111,6 +111,133 @@ public sealed class PersonalPossessionInteractionTests
         Assert.Contains("nothing hidden", message, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Owner idea #11 (contraband): HideItem/ReturnItem are gated on holding
+    /// the item or knowing where it's hidden, not on owning it, so a thief
+    /// can stash something they stole instead of carrying it in plain sight.
+    /// </summary>
+    [Fact]
+    public void HideItem_AllowsAThiefToHideAPossessionTheyStoleThatIsNotTheirOwn()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var thief = state.Crew[1];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        possession.CurrentHolderId = thief.Id;
+        thief.CurrentRoomId = owner.CurrentRoomId;
+        thief.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, thief.Id, thief.Name, null, null, state.Elapsed);
+
+        var success = new ActionResolver().TryApply(
+            state,
+            thief.Id,
+            new NpcAction(ActionKind.HideItem, possession.Id, "Better hide this before anyone notices."),
+            out _);
+
+        Assert.True(success);
+        Assert.Null(possession.CurrentHolderId);
+        Assert.Equal(thief.CurrentRoomId, possession.HiddenAtRoomId);
+        Assert.Equal(owner.Id, possession.OwnerId);
+    }
+
+    [Fact]
+    public void ReturnItem_AllowsAThiefToRetrieveContrabandTheyStashedThemselves()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var thief = state.Crew[1];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        possession.CurrentHolderId = thief.Id;
+        thief.CurrentRoomId = owner.CurrentRoomId;
+        thief.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, thief.Id, thief.Name, null, null, state.Elapsed);
+
+        Assert.True(new ActionResolver().TryApply(
+            state,
+            thief.Id,
+            new NpcAction(ActionKind.HideItem, possession.Id, "Stash it."),
+            out _));
+
+        var success = new ActionResolver().TryApply(
+            state,
+            thief.Id,
+            new NpcAction(ActionKind.ReturnItem, possession.Id, "Get it back."),
+            out _);
+
+        Assert.True(success);
+        Assert.Equal(thief.Id, possession.CurrentHolderId);
+        Assert.Null(possession.HiddenAtRoomId);
+    }
+
+    [Fact]
+    public void ReturnItem_FailsForSomeoneWhoNeverLearnedWhereAnUnownedPossessionIsHidden()
+    {
+        // Regression: unlike the owner (who always knows their own item's
+        // live location), a non-owner must have their own genuine belief
+        // placing the stash in this room — never an omniscient live-state
+        // lookup, mirroring StealItem's existing hiding-spot rule.
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var bystander = state.Crew[1];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        possession.CurrentHolderId = null;
+        possession.HiddenAtRoomId = owner.CurrentRoomId;
+        bystander.CurrentRoomId = owner.CurrentRoomId;
+
+        var success = new ActionResolver().TryApply(
+            state,
+            bystander.Id,
+            new NpcAction(ActionKind.ReturnItem, possession.Id, "I'll just take that."),
+            out var message);
+
+        Assert.False(success);
+        Assert.Equal(owner.CurrentRoomId, possession.HiddenAtRoomId);
+        Assert.Contains("nothing hidden", message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ReturnItem_AllowsSomeoneWhoWitnessedTheHideToRetrieveSomeoneElsesStash()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var witness = state.Crew[1];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        witness.CurrentRoomId = owner.CurrentRoomId;
+
+        Assert.True(new ActionResolver().TryApply(
+            state,
+            owner.Id,
+            new NpcAction(ActionKind.HideItem, possession.Id, "Keep it safe."),
+            out _));
+
+        // NotifyPossessionWitnesses should have given the co-located witness
+        // a real belief of where it's hidden.
+        Assert.True(witness.KnownPossessions.TryGetValue(possession.Id, out var belief));
+        Assert.Equal(owner.CurrentRoomId, belief.HiddenAtRoomId);
+
+        var success = new ActionResolver().TryApply(
+            state,
+            witness.Id,
+            new NpcAction(ActionKind.ReturnItem, possession.Id, "I know where that went."),
+            out _);
+
+        Assert.True(success);
+        Assert.Equal(witness.Id, possession.CurrentHolderId);
+    }
+
+    [Fact]
+    public void TryNormalizeTarget_HideItemAllowsAPossessionTheActorStoleButDoesNotOwn()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var thief = state.Crew[1];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        possession.CurrentHolderId = thief.Id;
+
+        Assert.True(CrewAffordanceSystem.TryNormalizeTarget(
+            state, thief, ActionKind.HideItem, possession.Id, out _));
+    }
+
     [Fact]
     public void TryNormalizeTarget_OnlyAllowsHideItemWhenTheOwnerCurrentlyHoldsIt()
     {

@@ -1078,25 +1078,22 @@ public sealed class IntentExecutionSystem
 
     private void ExecutePossessionIntent(GameState state, Npc npc, NpcIntent intent)
     {
-        var isOwnItemOnly = intent.Action is ActionKind.HideItem or ActionKind.ReturnItem;
-
+        // Owner idea #11 (contraband): HideItem/ReturnItem are no longer
+        // ownership-restricted here — a possession you know about (your own,
+        // seeded at generation, or one you learned about by holding/witnessing
+        // it) is enough to attempt any possession action. ActionResolver's
+        // TryHidePossession/TryReturnPossession still authoritatively enforce
+        // the real holder/belief rules before anything actually mutates.
         var possession = string.IsNullOrWhiteSpace(intent.TargetId)
             ? null
             : state.Possessions.FirstOrDefault(candidate =>
                 candidate.Id.Equals(intent.TargetId, StringComparison.OrdinalIgnoreCase)
                 && !candidate.IsDestroyed
-                && (isOwnItemOnly
-                    ? candidate.OwnerId == npc.Id
-                    : npc.KnownPossessions.ContainsKey(candidate.Id)));
+                && npc.KnownPossessions.ContainsKey(candidate.Id));
 
         if (possession is null)
         {
-            FailIntent(
-                state,
-                npc,
-                isOwnItemOnly
-                    ? "There is no matching possession of my own to act on."
-                    : "There is no matching possession I know about to act on.");
+            FailIntent(state, npc, "There is no matching possession I know about to act on.");
             return;
         }
 
