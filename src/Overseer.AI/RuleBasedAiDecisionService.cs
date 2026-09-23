@@ -64,22 +64,9 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                     98);
             }
         }
-        // Critical bodily needs get an immediate chance to supersede long
-        // technical/social plans, matching BrowserMindSystem.
-        else if (npc.Hunger >= CrewNeedThresholds.HungerCritical)
-        {
-            intent = Create(npc, state, ActionKind.Eat, null,
-                "Find food now.",
-                "I am hungry enough that continuing to ignore it is dangerous.",
-                92);
-        }
-        else if (npc.Fatigue >= CrewNeedThresholds.FatigueCritical)
-        {
-            intent = Create(npc, state, ActionKind.Sleep, null,
-                "Get sleep now.",
-                "I am dangerously exhausted and need to stop.",
-                90);
-        }
+        // A viable station fire is an immediate survival emergency. The
+        // fallback mind still chooses FightFire; deterministic systems only
+        // expose and validate the grounded response.
         else if (StationHazardSystem.FindRemoteFireForResponder(
                      state,
                      npc,
@@ -93,6 +80,22 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                 $"Respond to the fire in {remoteFire.Name}.",
                 "The station status panel shows an unattended reachable fire and I am capable of helping suppress it.",
                 94);
+        }
+        // Critical bodily needs supersede ordinary technical/social plans, but
+        // not a viable station emergency that this person can safely address.
+        else if (npc.Hunger >= CrewNeedThresholds.HungerCritical)
+        {
+            intent = Create(npc, state, ActionKind.Eat, null,
+                "Find food now.",
+                "I am hungry enough that continuing to ignore it is dangerous.",
+                92);
+        }
+        else if (npc.Fatigue >= CrewNeedThresholds.FatigueCritical)
+        {
+            intent = Create(npc, state, ActionKind.Sleep, null,
+                "Get sleep now.",
+                "I am dangerously exhausted and need to stop.",
+                90);
         }
         else if (FindSecurityMalwareResponse(state, npc) is { } malwareResponse)
         {
