@@ -36,7 +36,7 @@ Part of the authoritative handoff set; see `PROJECT_HANDOFF.md` for the index. T
 - `CrewAffordanceSystem` is the shared capability catalogue for Ollama and browser fallback; C# still validates knowledge, targets, routes, skills, permissions and outcomes. Grounded agency includes cooperative, investigative, deceptive, safety and local door intentions; deception never directly edits another NPC's beliefs.
 - Suspicion/evidence, investigation, testimony and account comparison. Broadcasts/private messages are interpreted as claims, not truth.
 - Deterministic perception: human forward-cone/open-door LOS; omnidirectional longer-range machine sensors; hostile assets cannot acquire unseen targets.
-- Transient cognition diagnostics via `CognitionTelemetrySystem`: Ollama traces keep the exact request prompt/options, raw provider response and validated intent; browser/rule-based minds emit the same shape.
+- Transient cognition diagnostics via `CognitionTelemetrySystem`: Ollama traces keep the exact request prompt/options, raw provider response and validated intent; browser/rule-based minds emit the same shape. `/debug` gives Ollama traffic a dedicated newest-first I/O panel with the exact request trace and raw response visible side-by-side (rather than buried in collapsed cognition details), and explicitly explains that the static Pages runtime has no Ollama calls because it uses `BrowserMindSystem`.
 
 **Security and threats**
 
