@@ -443,10 +443,27 @@ public sealed record StationSelection(
     StationSelectionKind Kind,
     string Id);
 
+/// <summary>
+/// <paramref name="RumourHopCount"/> (owner idea #4) counts how many
+/// retellings removed this memory is from the original direct witness: 0 for
+/// something this person actually witnessed or was told deterministically
+/// (e.g. a pact settlement, a search result), incremented by
+/// <see cref="ConversationTopicSystem"/> each time gossip passes it on
+/// again. Certainty/specificity degrades with hop count along a fixed table
+/// rather than copying the previous holder's description verbatim.
+/// <paramref name="RumourCoreDescription"/> is the original event text each
+/// retelling degrades from — kept separate from the ever-changing
+/// human-facing <paramref name="Description"/> so each new hop wraps the
+/// same original content instead of re-wrapping an already-wrapped string
+/// (which would nest indefinitely). Null for a hop-0 memory, whose own
+/// <paramref name="Description"/> already is the core content.
+/// </summary>
 public sealed record Memory(
     string Description,
     TimeSpan OccurredAt,
-    double Importance);
+    double Importance,
+    int RumourHopCount = 0,
+    string? RumourCoreDescription = null);
 
 public sealed record Belief(
     string Subject,

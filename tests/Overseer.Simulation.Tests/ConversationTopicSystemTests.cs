@@ -80,6 +80,64 @@ public sealed class ConversationTopicSystemTests
     }
 
     [Fact]
+    public void News_ARetoldMemoryIsMarkedHopOneAndRetellingItAgainDegradesIntoHedgedLanguage()
+    {
+        var (state, david, emma, _) = Trio();
+        var listenerTwo = state.Crew.First(npc =>
+            npc.Name != david.Name
+            && npc.Name != emma.Name
+            && !"Found blood near the Reactor hatch.".Contains(npc.Name, StringComparison.Ordinal));
+        state.Elapsed = TimeSpan.FromHours(2);
+        david.Memories.Add(new Memory("Found blood near the Reactor hatch.", state.Elapsed, 0.9));
+
+        ConversationTopicSystem.Converse(state, david, emma, LastTopicRoll);
+        Assert.Contains(
+            emma.Memories,
+            memory => memory.Description == "David Hale told me: Found blood near the Reactor hatch."
+                && memory.RumourHopCount == 1);
+
+        state.Elapsed += TimeSpan.FromMinutes(30);
+        var secondHop = ConversationTopicSystem.Converse(state, emma, listenerTwo, LastTopicRoll);
+
+        Assert.Equal(ConversationTopic.News, secondHop.Topic);
+        Assert.Contains(
+            listenerTwo.Memories,
+            memory => memory.Description == "Emma Voss thinks: Found blood near the Reactor hatch."
+                && memory.RumourHopCount == 2);
+    }
+
+    [Fact]
+    public void News_RetoldAThirdTimeDropsAllSpecificContentInsteadOfNestingFurther()
+    {
+        var (state, david, emma, _) = Trio();
+        state.Elapsed = TimeSpan.FromHours(2);
+        david.Memories.Add(new Memory("Found blood near the Reactor hatch.", state.Elapsed, 0.9, RumourHopCount: 2));
+
+        var exchange = ConversationTopicSystem.Converse(state, david, emma, LastTopicRoll);
+
+        Assert.Equal(ConversationTopic.News, exchange.Topic);
+        Assert.Contains(
+            emma.Memories,
+            memory => memory.Description
+                    == "David Hale mentioned hearing some rumour about it, but couldn't say exactly what."
+                && memory.RumourHopCount == 3);
+        Assert.DoesNotContain("Reactor", exchange.LogLine, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void News_HopCountIsCappedRatherThanGrowingUnbounded()
+    {
+        var (state, david, emma, _) = Trio();
+        state.Elapsed = TimeSpan.FromHours(2);
+        david.Memories.Add(new Memory("Found blood near the Reactor hatch.", state.Elapsed, 0.9, RumourHopCount: 10));
+
+        ConversationTopicSystem.Converse(state, david, emma, LastTopicRoll);
+
+        var retold = Assert.Single(emma.Memories);
+        Assert.Equal(3, retold.RumourHopCount);
+    }
+
+    [Fact]
     public void Arguments_NameTheirCause()
     {
         var (_, david, emma, _) = Trio();
