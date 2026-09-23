@@ -32,6 +32,7 @@ public abstract class StationSession
     private readonly SecurityMalwareSystem _malware = new();
     private readonly CrewRoutineSystem _crewRoutines = new();
     private readonly SocialSimulationSystem _social = new();
+    private readonly PlanExecutionSystem _planExecution = new();
     private readonly IntentExecutionSystem _intentExecution = new();
     private readonly InvestigationSystem _investigations = new();
     private readonly ShutdownCoordinationSystem _shutdownCoordination = new();
@@ -817,6 +818,11 @@ public abstract class StationSession
         _medical.Tick(State);
         _missingPeople.Tick(State);
         _malware.Tick(State);
+
+        // Runs before cognition so a plan step already promoted to Intent
+        // this tick reads as "already pursuing a goal" to ThinkAsync's own
+        // gate, the same as any other in-progress intent.
+        _planExecution.Tick(State);
 
         await ThinkAsync(cancellationToken);
 
