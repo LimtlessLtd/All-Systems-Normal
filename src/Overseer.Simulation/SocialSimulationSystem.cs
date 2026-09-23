@@ -577,6 +577,7 @@ public sealed class SocialSimulationSystem
         {
             witness.Fear = Clamp(witness.Fear + 22);
             witness.Stress = Clamp(witness.Stress + 18);
+            witness.NeedsMindReconsideration = true;
 
             // In the dark, or too far away, a witness hears the struggle but
             // cannot say who did it.

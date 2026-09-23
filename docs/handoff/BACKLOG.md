@@ -142,7 +142,9 @@ One batch, 20 entries, from the owner's 2026-09-22 22:17 BST message in `#new-id
 - Idea: "When two people fight, a third NPC independently decides whether to intervene, fetch help, watch, flee, support a friend, lock the combatants apart or exploit the distraction."
 - Outcome: a witnessing NPC gets bystander-eligible affordances (intervene, fetch help, watch, flee, support a friend, lock combatants apart, exploit the distraction) during an active fight, resolved through existing fight/door/alert mechanics.
 - Size: large (slices: expose bystander affordances to nearby NPCs' cognition during an active fight; resolve each choice through existing mechanics)
-- Status: ready
+- Status: **in progress** — slice 1 shipped: `NpcPromptBuilder`'s PEOPLE HERE line shows visible conflict ("attacking X", "arguing with Y"; "you" when it's aimed at the reader), only when `PerceptionSystem.CanMakeOut` allows. A non-prescriptive "A FIGHT IS HAPPENING IN FRONT OF YOU" note lists existing affordances a bystander could compose (AssistCrew, RequestHelp/ReportConcern, SeekSafety, hatch control, Idle, backing a friend, exploiting the distraction). Every witness of an attack, including one who only hears it in the dark, now gets `NeedsMindReconsideration` so cognition responds immediately.
+
+  Remaining slice: give "step in" a real deterministic resolution. Today `AssistCrew` toward the victim only walks over and helps with their current activity; nothing physically separates combatants or lets a bystander absorb or deflect an attack. Add a physical intervene or restrain effect, gated on proximity, Force skill and fatigue, and let the aggressor's resentment extend to whoever intervenes.
 
 ### 18. Dynamic job ownership
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790111822683539 (2026-09-22)
