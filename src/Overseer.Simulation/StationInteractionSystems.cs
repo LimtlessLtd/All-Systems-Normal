@@ -48,6 +48,8 @@ public static class CrewAffordanceSystem
         new(ActionKind.RequestHelp, "crew", "Ask a specific person for help."),
         new(ActionKind.ProposePact, "crew", "Propose a personal promise or deal to another crew member (cover a shift, keep quiet, owe a favour, or any other concrete commitment)."),
         new(ActionKind.AcceptPact, "pact-proposal", "Accept a pending pact proposal made to you, turning it into a real commitment."),
+        new(ActionKind.FulfillPact, "pact", "Keep an active promise you made, settling it and its trust/relationship consequences."),
+        new(ActionKind.BreakPact, "pact", "Break an active promise you made, settling it and its trust/relationship consequences."),
         new(ActionKind.OpenDoor, "adjacent-door", "Open an adjacent unlocked powered hatch."),
         new(ActionKind.CloseDoor, "adjacent-door", "Close an adjacent unlocked powered hatch."),
         new(ActionKind.LockDoor, "adjacent-door", "Lock an adjacent hatch if authorised."),

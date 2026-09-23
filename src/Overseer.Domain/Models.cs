@@ -335,6 +335,8 @@ public enum ActionKind
     RequestHelp,
     ProposePact,
     AcceptPact,
+    FulfillPact,
+    BreakPact,
     RecruitShutdownAlly,
     JoinShutdownTeam,
     ShutdownOverseer,

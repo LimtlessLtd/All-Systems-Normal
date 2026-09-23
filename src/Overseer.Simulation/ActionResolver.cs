@@ -60,6 +60,8 @@ public sealed class ActionResolver
             ActionKind.RequestHelp => TrySocialAction(state, npc, action, "requests help", out message),
             ActionKind.ProposePact => TrySocialAction(state, npc, action, "proposes a pact to", out message),
             ActionKind.AcceptPact => TryAcceptPact(state, npc, action, out message),
+            ActionKind.FulfillPact => TrySettlePact(state, npc, action, "moves to keep", out message),
+            ActionKind.BreakPact => TrySettlePact(state, npc, action, "decides to break", out message),
             ActionKind.CheckOnCrew => TrySocialAction(state, npc, action, "checks on", out message),
             ActionKind.AssistCrew => TrySocialAction(state, npc, action, "offers practical help to", out message),
             ActionKind.CoordinateWork => TrySocialAction(state, npc, action, "coordinates work with", out message),
@@ -765,6 +767,36 @@ public sealed class ActionResolver
         npc.CurrentAction = action;
         npc.RoutineUntil = TimeSpan.Zero;
         message = $"{npc.Name} considers {proposal.FromNpcName}'s proposal.";
+        Log(state, message);
+        return true;
+    }
+
+    private static bool TrySettlePact(
+        GameState state,
+        Npc npc,
+        NpcAction action,
+        string verb,
+        out string message)
+    {
+        if (string.IsNullOrWhiteSpace(action.TargetId))
+        {
+            message = $"{npc.Name} has no specific promise in mind.";
+            return false;
+        }
+
+        var pact = CrewPactSystem.ActiveFor(state, npc.Id)
+            .FirstOrDefault(candidate =>
+                candidate.Id.Equals(action.TargetId, StringComparison.OrdinalIgnoreCase)
+                && candidate.PromisorId == npc.Id);
+        if (pact is null)
+        {
+            message = $"{npc.Name} has no matching active promise of their own to settle.";
+            return false;
+        }
+
+        npc.CurrentAction = action;
+        npc.RoutineUntil = TimeSpan.Zero;
+        message = $"{npc.Name} {verb} their promise: {pact.PromiseText}";
         Log(state, message);
         return true;
     }

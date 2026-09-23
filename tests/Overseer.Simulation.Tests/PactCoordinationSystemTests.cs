@@ -106,6 +106,72 @@ public sealed class PactCoordinationSystemTests
     }
 
     [Fact]
+    public void Fulfill_SettlesTheActivePactAndAppliesTrustConsequences()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var promisor = state.Crew[0];
+        var promisee = state.Crew[1];
+        Assert.True(CrewPactSystem.TryCreate(
+            state, promisor.Id, promisee.Id, CrewPactKind.Other,
+            "I'll cover your next shift.", null, null, out var pact, out _));
+
+        promisor.CurrentAction = new NpcAction(
+            ActionKind.FulfillPact,
+            pact!.Id,
+            "I said I would, so I will.");
+
+        new PactCoordinationSystem().Tick(state);
+
+        Assert.Equal(CrewPactStatus.Fulfilled, pact.Status);
+        Assert.Equal(ActionKind.Idle, promisor.CurrentAction.Kind);
+        Assert.True(promisor.NeedsMindReconsideration);
+        Assert.Contains(promisee.Memories, memory => memory.Description.Contains("kept their promise", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Break_SettlesTheActivePactAndAppliesResentmentConsequences()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var promisor = state.Crew[0];
+        var promisee = state.Crew[1];
+        Assert.True(CrewPactSystem.TryCreate(
+            state, promisor.Id, promisee.Id, CrewPactKind.Other,
+            "I'll cover your next shift.", null, null, out var pact, out _));
+
+        promisor.CurrentAction = new NpcAction(
+            ActionKind.BreakPact,
+            pact!.Id,
+            "Something more important came up.");
+
+        new PactCoordinationSystem().Tick(state);
+
+        Assert.Equal(CrewPactStatus.Broken, pact.Status);
+        Assert.Equal(ActionKind.Idle, promisor.CurrentAction.Kind);
+        Assert.Contains(promisee.Memories, memory => memory.Description.Contains("broke their promise", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Fulfill_ClearsActionWithoutSettlingWhenTheNpcIsNotThePromisor()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var promisor = state.Crew[0];
+        var promisee = state.Crew[1];
+        Assert.True(CrewPactSystem.TryCreate(
+            state, promisor.Id, promisee.Id, CrewPactKind.Other,
+            "I'll cover your next shift.", null, null, out var pact, out _));
+
+        promisee.CurrentAction = new NpcAction(
+            ActionKind.FulfillPact,
+            pact!.Id,
+            "Let's call it settled.");
+
+        new PactCoordinationSystem().Tick(state);
+
+        Assert.Equal(CrewPactStatus.Active, pact.Status);
+        Assert.Equal(ActionKind.Idle, promisee.CurrentAction.Kind);
+    }
+
+    [Fact]
     public void PendingProposal_ExpiresAfterFifteenMinutesUnanswered()
     {
         var state = FacilitySeeder.CreateDefault();

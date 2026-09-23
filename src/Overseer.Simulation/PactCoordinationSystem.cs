@@ -3,10 +3,11 @@ using Overseer.Domain;
 namespace Overseer.Simulation;
 
 /// <summary>
-/// Turns an explicit ProposePact/AcceptPact intention into the deterministic
-/// pact record <see cref="CrewPactSystem"/> owns. Proposing communicates an
-/// offer; it does not commit either party until the promisee's own cognition
-/// decides to accept it.
+/// Turns an explicit ProposePact/AcceptPact/FulfillPact/BreakPact intention into
+/// the deterministic pact record <see cref="CrewPactSystem"/> owns. Proposing
+/// communicates an offer; it does not commit either party until the promisee's
+/// own cognition decides to accept it. Fulfilling/breaking is likewise the
+/// promisor's own resolution decision, only settled once they choose it.
 /// </summary>
 public sealed class PactCoordinationSystem
 {
@@ -31,6 +32,22 @@ public sealed class PactCoordinationSystem
                      && npc.CurrentAction.Kind == ActionKind.AcceptPact))
         {
             ProcessAccept(state, npc);
+        }
+
+        foreach (var npc in state.Crew.Where(npc =>
+                     npc.IsAlive
+                     && npc.IsPresent
+                     && npc.CurrentAction.Kind == ActionKind.FulfillPact))
+        {
+            ProcessSettle(state, npc, fulfill: true);
+        }
+
+        foreach (var npc in state.Crew.Where(npc =>
+                     npc.IsAlive
+                     && npc.IsPresent
+                     && npc.CurrentAction.Kind == ActionKind.BreakPact))
+        {
+            ProcessSettle(state, npc, fulfill: false);
         }
     }
 
@@ -110,6 +127,34 @@ public sealed class PactCoordinationSystem
 
         npc.NeedsMindReconsideration = true;
         ClearAction(npc, $"Agreed to {proposal.FromNpcName}'s proposal.");
+    }
+
+    private static void ProcessSettle(GameState state, Npc npc, bool fulfill)
+    {
+        var pactId = npc.CurrentAction.TargetId;
+        if (string.IsNullOrWhiteSpace(pactId))
+        {
+            ClearAction(npc, "There is no specific promise to settle.");
+            return;
+        }
+
+        var pact = state.CrewPacts.FirstOrDefault(candidate =>
+            candidate.Id.Equals(pactId, StringComparison.OrdinalIgnoreCase));
+        if (pact is null || pact.Status != CrewPactStatus.Active || pact.PromisorId != npc.Id)
+        {
+            ClearAction(npc, "There is no matching active promise of their own to settle.");
+            return;
+        }
+
+        var settlementNote = npc.CurrentAction.Reason;
+        string reason;
+        if (fulfill)
+            CrewPactSystem.TryFulfill(state, pactId, settlementNote, out reason);
+        else
+            CrewPactSystem.TryBreak(state, pactId, settlementNote, out reason);
+
+        npc.NeedsMindReconsideration = true;
+        ClearAction(npc, reason);
     }
 
     private static void ExpireOldProposals(GameState state)

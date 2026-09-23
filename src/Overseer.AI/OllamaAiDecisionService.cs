@@ -326,6 +326,24 @@ public sealed class OllamaAiDecisionService(
                 target = proposal.FromNpcName;
             }
         }
+        else if (action is ActionKind.FulfillPact or ActionKind.BreakPact)
+        {
+            var pact = target is null
+                ? null
+                : CrewPactSystem.ActiveFor(state, npc.Id).FirstOrDefault(candidate =>
+                    candidate.Id.Equals(target, StringComparison.OrdinalIgnoreCase)
+                    && candidate.PromisorId == npc.Id);
+
+            if (pact is null)
+            {
+                action = ActionKind.Idle;
+                target = null;
+            }
+            else
+            {
+                target = pact.Id;
+            }
+        }
         else if (action is ActionKind.ShutdownRobot
             or ActionKind.DamageRobot
             or ActionKind.ReprogramRobot
