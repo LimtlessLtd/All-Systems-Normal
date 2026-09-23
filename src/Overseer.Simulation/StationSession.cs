@@ -55,6 +55,7 @@ public abstract class StationSession
     private readonly ManualOverrideSystem _manualOverrides = new();
     private readonly ConversationPacingSystem _conversationPacing = new();
     private readonly MemoryRetentionSystem _memoryRetention = new();
+    private readonly FearConditioningSystem _fearConditioning = new();
     private readonly SimulationClock _clock = new();
     private readonly List<StationAlert> _recentAlerts = [];
     private readonly HashSet<string> _activeAlertKeys = new(StringComparer.Ordinal);
@@ -855,6 +856,10 @@ public abstract class StationSession
         _accountComparison.Tick(State);
         _suspicionDynamics.Tick(State, turn);
         _memoryRetention.Tick(State);
+
+        // Runs last among the health-affecting/accounting systems so it sees
+        // each NPC's true end-of-tick Health, the same value IsAlive reads.
+        _fearConditioning.Tick(State);
         _crewLifecycle.Tick(State);
 
         // Directives are graded before the station layer decides the outcome, so

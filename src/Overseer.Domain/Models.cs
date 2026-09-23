@@ -507,6 +507,14 @@ public sealed record StationSelection(
 /// disclosure consequence or blackmail affordance exists yet; those are
 /// separate, later slices.
 /// </param>
+/// <param name="TraumaRoomId">
+/// Owner idea #15 (fear conditioning): the room this memory is physically
+/// tied to, set by <see cref="Simulation.FearConditioningSystem"/> for a
+/// near-death survival memory. Null for an ordinary memory with no
+/// location-specific dread attached. Nothing yet reads it to bias room-entry
+/// reluctance or urgency — that is a deliberately separate slice; this is
+/// the tag a later slice will query.
+/// </param>
 public sealed record Memory(
     string Description,
     TimeSpan OccurredAt,
@@ -514,7 +522,8 @@ public sealed record Memory(
     int RumourHopCount = 0,
     string? RumourCoreDescription = null,
     bool IsFailedAttempt = false,
-    bool IsSensitive = false);
+    bool IsSensitive = false,
+    string? TraumaRoomId = null);
 
 public sealed record Belief(
     string Subject,
@@ -1004,6 +1013,17 @@ public sealed class Npc : IStationMobileEntity
 
     public double Health { get; set; } = 100;
     public double LastHealthSnapshot { get; set; } = 100;
+
+    /// <summary>
+    /// One-shot gate for <see cref="Simulation.FearConditioningSystem"/>
+    /// (owner idea #15): true once the current low-health episode has already
+    /// produced a traumatic memory, so a slow bleed-out records one memory
+    /// per crisis instead of spamming a fresh one every tick while Health
+    /// stays low. Resets once Health recovers above the near-death
+    /// threshold, so a later, separate crisis can be recorded again.
+    /// </summary>
+    public bool NearDeathCrisisRecorded { get; set; }
+
     public TimeSpan? LastBloodEvidenceAt { get; set; }
     public TimeSpan? LastMedicalCheckupAt { get; set; }
     public Guid? MedicalPatientId { get; set; }
