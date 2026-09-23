@@ -80,6 +80,20 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                 "I am dangerously exhausted and need to stop.",
                 90);
         }
+        else if (StationHazardSystem.FindRemoteFireForResponder(
+                     state,
+                     npc,
+                     new NavigationSystem()) is { } remoteFire)
+        {
+            intent = Create(
+                npc,
+                state,
+                ActionKind.FightFire,
+                remoteFire.Id,
+                $"Respond to the fire in {remoteFire.Name}.",
+                "The station status panel shows an unattended reachable fire and I am capable of helping suppress it.",
+                94);
+        }
         else if (FindSecurityMalwareResponse(state, npc) is { } malwareResponse)
         {
             intent = malwareResponse;
