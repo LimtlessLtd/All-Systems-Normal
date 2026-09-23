@@ -1363,7 +1363,6 @@ public static class FacilitySeeder
         AddFixture(facility, "washroom", FixtureType.Shower, "Shower A", 20, 28, 24, 28, 20, 28, FixtureUsePose.Shower);
         AddFixture(facility, "washroom", FixtureType.Shower, "Shower B", 50, 28, 24, 28, 50, 28, FixtureUsePose.Shower);
         AddFixture(facility, "washroom", FixtureType.Toilet, "Toilet A", 20, 70, 18, 20, 20, 70, FixtureUsePose.Toilet);
-        AddFixture(facility, "washroom", FixtureType.Toilet, "Toilet B", 50, 70, 18, 20, 50, 70, FixtureUsePose.Toilet);
         AddFixture(facility, "washroom", FixtureType.Sink, "Wash Basins", 80, 34, 20, 18, 80, 40);
         AddFixture(facility, "washroom", FixtureType.Mirror, "Mirror", 80, 18, 20, 8, 80, 34);
         AddFixture(facility, "washroom", FixtureType.Cabinet, "Linen Cabinet", 80, 72, 18, 22);

@@ -159,4 +159,75 @@ public sealed class SimulationEngineTests
 
         Assert.True(npc.HygieneNeed < 80);
     }
+
+    [Fact]
+    public void DefaultStation_HasOneContestedToiletFixture()
+    {
+        var state = FacilitySeeder.CreateDefault();
+
+        var toilets = state.Facility.Rooms["washroom"].Fixtures
+            .Where(fixture => fixture.Type == FixtureType.Toilet)
+            .ToList();
+
+        Assert.Single(toilets);
+    }
+
+    [Fact]
+    public void Tick_UseToiletActionAwayFromFixtureDoesNotRelieveBladderNeed()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew[0];
+        npc.CurrentRoomId = "washroom";
+        npc.PositionX = 95;
+        npc.PositionY = 95;
+        npc.BladderNeed = 80;
+        npc.CurrentAction = new NpcAction(
+            ActionKind.UseToilet,
+            "washroom",
+            "Heading for the toilet.");
+
+        new SimulationEngine().Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.True(npc.BladderNeed > 80);
+    }
+
+    [Fact]
+    public void Tick_OneToiletAllowsOnlyOneSimultaneousUser()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var washroom = state.Facility.Rooms["washroom"];
+        Assert.Single(washroom.Fixtures, fixture =>
+            fixture.Type == FixtureType.Toilet);
+        var contenders = state.Crew
+            .Take(2)
+            .OrderBy(npc => npc.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var occupant = contenders[0];
+        var waiting = contenders[1];
+
+        foreach (var npc in contenders)
+        {
+            npc.CurrentRoomId = washroom.Id;
+            npc.PositionX = 50;
+            npc.PositionY = 50;
+            npc.BladderNeed = 80;
+            npc.CurrentAction = new NpcAction(
+                ActionKind.UseToilet,
+                washroom.Id,
+                "Trying to use the toilet.");
+        }
+
+        // Use the same production local-movement contract to reach the
+        // collision-safe interaction point. Local routing advances one detour
+        // segment per tick, so walk it normally rather than assuming one giant
+        // delta can skip the route.
+        var movement = new LocalMovementSystem();
+        for (var minute = 0; minute < 30; minute++)
+            movement.Tick(state, TimeSpan.FromMinutes(1));
+
+        new SimulationEngine().Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.True(occupant.BladderNeed < 80);
+        Assert.True(waiting.BladderNeed > 80);
+    }
 }

@@ -169,7 +169,12 @@ One batch, 20 entries, from the owner's 2026-09-22 22:17 BST message in `#new-id
 - Idea: "One toilet. One remaining meal. One safe bed. One EVA suit. Suddenly mundane resource systems create negotiations, queue-cutting, altruism, arguments, theft and sacrifice."
 - Outcome: at least one genuinely-singular station resource is modelled as contested, with queue/wait/negotiate/take affordances; existing need-urgency and relationship stats drive the LLM's choice, not an authored event.
 - Size: large (slices: model one singular resource as contested; expose queue/wait/negotiate/take affordances)
-- Status: ready
+- Status: **in progress** — slice 1 models the washroom toilet as a genuinely capacity-1 physical resource. The default station installs one toilet; `UseToilet` only relieves bladder need while physically at its interaction point, and simultaneous contenders cannot both use it. C# arbitrates capacity only; it does not decide who deserves priority.
+
+  Remaining slices:
+  1. Expose the toilet's occupied/waiting state to cognition as grounded local information.
+  2. Add generic wait/yield/request-priority/take-next affordances so need urgency and relationships can drive queueing, altruism, arguments or queue-cutting.
+  3. Reuse the same contention pattern for another scarce resource (e.g. last prepared meal, safe bed or EVA suit) once the generic interaction shape is proven.
 
 One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message in `#new-ideas-and-functionality` — a further emergent-narrative/systems programme. The owner's own closing line governs every entry in this batch: "*none of these should be implemented as "events" in the RimWorld sense where code says Sarah starts a strike. Add physical state and generic affordances, then give the LLM reasons to use them.*" Several items are natural building blocks for others (noted per-entry); in particular #21/#22/#24 want **#12's generic tamper-interaction engine** once it exists, #31/#32 share one authority-claim type, and #54 (body-part injuries) is a prerequisite for #55/#56.
 

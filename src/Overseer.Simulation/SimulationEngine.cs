@@ -153,9 +153,18 @@ public sealed class SimulationEngine
                     : npc.CurrentAction.Kind == ActionKind.Groom ? -1.0
                     : 0.055) * minutes));
 
+            // Owner idea #20: the washroom toilet is a real capacity-1
+            // physical resource. Merely carrying a UseToilet action does not
+            // provide relief before arrival, and if two crew overlap the same
+            // interaction point only one deterministic occupant can use it.
+            var usingToilet = IsUsingExclusiveFixture(
+                state,
+                npc,
+                FixtureType.Toilet,
+                ActionKind.UseToilet);
             npc.BladderNeed = Clamp(
                 npc.BladderNeed
-                + ((npc.CurrentAction.Kind == ActionKind.UseToilet ? -3.0 : 0.085) * minutes));
+                + ((usingToilet ? -3.0 : 0.085) * minutes));
 
             npc.RecreationNeed = Clamp(
                 npc.RecreationNeed
@@ -293,6 +302,41 @@ public sealed class SimulationEngine
                     $"T+{state.Elapsed:hh\\:mm}: CRITICAL: {npc.Name} has died — {npc.CauseOfDeath}");
             }
         }
+    }
+
+    private static bool IsUsingExclusiveFixture(
+        GameState state,
+        Npc npc,
+        FixtureType fixtureType,
+        ActionKind action)
+    {
+        if (!npc.IsPresent
+            || npc.CurrentAction.Kind != action
+            || !state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var room))
+        {
+            return false;
+        }
+
+        var fixture = room.Fixtures.FirstOrDefault(candidate =>
+            candidate.Type == fixtureType);
+        if (fixture is null
+            || !LocalMovementSystem.IsAtInteractionPoint(room, npc, fixture))
+        {
+            return false;
+        }
+
+        var occupant = state.Crew
+            .Where(other =>
+                other.IsAlive
+                && other.IsPresent
+                && other.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)
+                && other.CurrentAction.Kind == action
+                && LocalMovementSystem.IsAtInteractionPoint(room, other, fixture))
+            .OrderBy(other => other.Name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(other => other.Id)
+            .FirstOrDefault();
+
+        return occupant?.Id == npc.Id;
     }
 
     private static RoomFixture? FindPhysicalRestFixture(GameState state, Npc npc)
