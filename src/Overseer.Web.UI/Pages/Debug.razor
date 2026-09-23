@@ -23,12 +23,66 @@
     else
     {
         var snapshot = DebugTelemetrySystem.Capture(Session.State);
+        var ollamaTraces = snapshot.Cognition
+            .Where(trace => trace.Source.Equals("Ollama", StringComparison.OrdinalIgnoreCase))
+            .Take(50)
+            .ToList();
 
         <section class="debug-summary">
             <div><span>MIND CALLS</span><strong>@snapshot.Cognition.Count</strong></div>
+            <div><span>OLLAMA CALLS</span><strong>@ollamaTraces.Count</strong></div>
             <div><span>EVENTS</span><strong>@snapshot.Events.Count</strong></div>
             <div><span>MISSION</span><strong>T+@Session.State.Elapsed.ToString(@"hh\:mm")</strong></div>
             <div><span>MODE</span><strong>@(DebugTelemetrySystem.IsGameplayCritical ? "GAMEPLAY" : "DEBUG ONLY")</strong></div>
+        </section>
+
+        <section class="debug-panel ollama-io-panel">
+            <div class="ollama-io-heading">
+                <div>
+                    <span class="overline">LOCAL MODEL DIAGNOSTICS</span>
+                    <h2>OLLAMA LLM INPUT / OUTPUT</h2>
+                </div>
+                <span class="ollama-io-count">@ollamaTraces.Count captured</span>
+            </div>
+            <p class="ollama-io-help">
+                Shows the exact request trace sent through <code>IChatClient</code> (options + prompt)
+                beside the raw provider response. Newest Ollama call first.
+            </p>
+
+            @if (ollamaTraces.Count == 0)
+            {
+                <p class="debug-empty ollama-empty">
+                    No Ollama calls are recorded in this session. The static Pages build uses the
+                    deterministic browser mind and therefore has no Ollama traffic; run the server
+                    with Ollama configured and open DEBUG from that same station session.
+                </p>
+            }
+            else
+            {
+                @foreach (var trace in ollamaTraces)
+                {
+                    <article class="debug-entry ollama-io-entry" data-ollama-sequence="@trace.Sequence">
+                        <header>
+                            <strong>#@trace.Sequence · T+@trace.CreatedAt.ToString(@"hh\:mm") · @trace.NpcName</strong>
+                            <span>@(trace.Action?.ToString() ?? "REJECTED/FALLBACK")</span>
+                        </header>
+                        <div class="ollama-io-grid">
+                            <section>
+                                <h3>INPUT // EXACT REQUEST SENT TO OLLAMA</h3>
+                                <pre>@(trace.Prompt ?? "No request payload was captured for this call.")</pre>
+                            </section>
+                            <section>
+                                <h3>OUTPUT // RAW OLLAMA RESPONSE</h3>
+                                <pre>@(trace.RawResponse ?? "No raw response was returned before this call failed or fell back.")</pre>
+                            </section>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(trace.Note))
+                        {
+                            <p class="debug-note">@trace.Note</p>
+                        }
+                    </article>
+                }
+            }
         </section>
 
         <div class="debug-grid">
