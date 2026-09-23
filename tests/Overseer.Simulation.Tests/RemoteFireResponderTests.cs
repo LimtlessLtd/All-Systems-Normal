@@ -150,13 +150,19 @@ public sealed class RemoteFireResponderTests
         idleResponder.Skills["Security"] = 45;
 
         committedExpert.Skills["Engineering"] = 100;
-        CrewTaskSystem.Start(
-            state,
-            committedExpert,
-            ActionKind.Work,
-            committedExpert.CurrentRoomId,
-            "Important routine work.",
-            TimeSpan.FromHours(1));
+
+        // Keep the comparison focused: exactly one idle capable responder and
+        // one more-skilled committed responder are eligible for this fire.
+        foreach (var worker in state.Crew.Where(npc => npc.Id != idleResponder.Id))
+        {
+            CrewTaskSystem.Start(
+                state,
+                worker,
+                ActionKind.Work,
+                worker.CurrentRoomId,
+                "Important routine work.",
+                TimeSpan.FromHours(1));
+        }
 
         new StationHazardSystem().Tick(state, TimeSpan.FromMinutes(1));
 
