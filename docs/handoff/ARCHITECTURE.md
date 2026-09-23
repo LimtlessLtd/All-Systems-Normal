@@ -119,6 +119,8 @@ Visual invariants: never invent hull/corridor/door geometry, never offset one ph
 
 Persist deliberate campaign continuity: mission history, corporate directive state, continuing crew identity/traits/skills (`CrewContinuitySnapshot`, including `IsPrisoner`/`PrisonerDangerLevel`/`PrisonerViolenceBias`, so a future `CampaignContinuing` scenario with prisoners keeps them), relationships, bounded important memories, credibility/suspicion, health/presence consequences, equipment condition and provisions. Do not persist live movement, intents, jobs, investigations or cognition telemetry unless the save contract is explicitly redesigned.
 
+Auto-restore must not launch a `CampaignContinuing` assignment when the persisted continuity snapshot has zero living, present crew. Until the physical Corporation crew-resupply flow exists, both runtimes reject that dead-end continuation and start a fresh *Secure Continuity* assignment instead of briefly rendering a fresh roster and then replacing it with an all-dead saved roster.
+
 ---
 
 ## Cross-cutting implementation contracts
