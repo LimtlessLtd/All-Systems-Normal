@@ -59,7 +59,11 @@ public sealed class BrowserMindSystem
                 && candidate.IsPresent
                 && !candidate.IsContainmentBreachInProgress
                 && candidate.NeedsMindReconsideration
-                && !CrewTaskSystem.IsWorking(candidate)
+                && (!CrewTaskSystem.IsWorking(candidate)
+                    || StationHazardSystem.FindRemoteFireForResponder(
+                        state,
+                        candidate,
+                        _navigation) is not null)
                 && !CrewEnvironmentSafety.IsDangerous(
                     state.Facility.Rooms[candidate.CurrentRoomId])
                 && (candidate.Intent is null
@@ -227,9 +231,25 @@ public sealed class BrowserMindSystem
                 98);
         }
 
-        // Critical bodily needs get an immediate chance to supersede long
-        // technical/social plans. This is still cognition choosing the goal,
-        // not the world layer issuing a scripted command.
+        // A viable station fire is an immediate survival emergency. The
+        // fallback mind still chooses FightFire; C# only exposes the grounded
+        // opportunity and later validates whether committed work may be broken.
+        if (StationHazardSystem.FindRemoteFireForResponder(
+                state,
+                npc,
+                _navigation) is { } remoteFire)
+        {
+            return Create(
+                state,
+                ActionKind.FightFire,
+                remoteFire.Id,
+                $"Respond to the fire in {remoteFire.Name}.",
+                "The station status panel shows an unattended reachable fire and I am capable of helping suppress it.",
+                94);
+        }
+
+        // Critical bodily needs supersede ordinary technical/social plans, but
+        // not a viable station emergency that this person can safely address.
         if (npc.Hunger >= CrewNeedThresholds.HungerCritical)
         {
             return Create(
@@ -250,20 +270,6 @@ public sealed class BrowserMindSystem
                 "Get sleep now.",
                 "I am dangerously exhausted and need to stop.",
                 90);
-        }
-
-        if (StationHazardSystem.FindRemoteFireForResponder(
-                state,
-                npc,
-                _navigation) is { } remoteFire)
-        {
-            return Create(
-                state,
-                ActionKind.FightFire,
-                remoteFire.Id,
-                $"Respond to the fire in {remoteFire.Name}.",
-                "The station status panel shows an unattended reachable fire and I am capable of helping suppress it.",
-                94);
         }
 
         var repairSkill = CrewCounterplaySystem.BestRepairSkill(npc);
