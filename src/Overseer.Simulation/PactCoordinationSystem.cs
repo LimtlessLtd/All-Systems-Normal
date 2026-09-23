@@ -147,14 +147,57 @@ public sealed class PactCoordinationSystem
         }
 
         var settlementNote = npc.CurrentAction.Reason;
-        string reason;
-        if (fulfill)
-            CrewPactSystem.TryFulfill(state, pactId, settlementNote, out reason);
-        else
-            CrewPactSystem.TryBreak(state, pactId, settlementNote, out reason);
+        var settled = fulfill
+            ? CrewPactSystem.TryFulfill(state, pactId, settlementNote, out var reason)
+            : CrewPactSystem.TryBreak(state, pactId, settlementNote, out reason);
+
+        if (settled)
+        {
+            var promisee = state.Crew.FirstOrDefault(candidate => candidate.Id == pact.PromiseeId);
+            NotifyWitnesses(state, npc, promisee, pact);
+        }
 
         npc.NeedsMindReconsideration = true;
         ClearAction(npc, reason);
+    }
+
+    /// <summary>
+    /// Crew who happen to be with the promisor when they settle a pact pick up
+    /// a memory of it too, so a fulfilled or broken promise can become gossip
+    /// even for people who were never party to it, via the existing
+    /// News-retelling path in <see cref="ConversationTopicSystem"/>. Nothing is
+    /// omniscient: perception decides whether a witness can identify the
+    /// promisor, exactly as <see cref="SocialSimulationSystem"/> does for a
+    /// witnessed fight.
+    /// </summary>
+    private static void NotifyWitnesses(GameState state, Npc promisor, Npc? promisee, CrewPact pact)
+    {
+        var fulfilled = pact.Status == CrewPactStatus.Fulfilled;
+        var promiseeName = promisee?.Name ?? "someone";
+
+        foreach (var witness in state.Crew.Where(candidate =>
+                     candidate.IsAlive
+                     && candidate.IsPresent
+                     && candidate.Id != promisor.Id
+                     && (promisee is null || candidate.Id != promisee.Id)
+                     && candidate.CurrentRoomId.Equals(promisor.CurrentRoomId, StringComparison.OrdinalIgnoreCase)))
+        {
+            if (!PerceptionSystem.CanMakeOut(state, witness, promisor))
+            {
+                witness.Memories.Add(new Memory(
+                    $"Overheard someone {(fulfilled ? "keep" : "break")} a promise to {promiseeName}: {pact.PromiseText}",
+                    state.Elapsed,
+                    0.5));
+                continue;
+            }
+
+            witness.Memories.Add(new Memory(
+                fulfilled
+                    ? $"Witnessed {promisor.Name} keep their promise to {promiseeName}: {pact.PromiseText}"
+                    : $"Witnessed {promisor.Name} break their promise to {promiseeName}: {pact.PromiseText}",
+                state.Elapsed,
+                0.6));
+        }
     }
 
     private static void ExpireOldProposals(GameState state)
