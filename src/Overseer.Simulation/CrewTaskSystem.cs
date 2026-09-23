@@ -49,7 +49,23 @@ public static class CrewTaskSystem
             npc.Health <= 40
             || npc.LastHealthSnapshot - npc.Health >= 8;
 
-        var genuineThreat = hazardousAtmosphere || hostileMachineHere || acuteInjury;
+        var remoteFireResponse =
+            intent.Action == ActionKind.FightFire
+            && intent.TargetId is { } fireRoomId
+            && !fireRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)
+            && state.Facility.Rooms.TryGetValue(fireRoomId, out var fireRoom)
+            && StationHazardSystem.ShouldFightFire(npc, fireRoom)
+            && new NavigationSystem().FindPathForCrew(
+                state,
+                npc,
+                npc.CurrentRoomId,
+                fireRoom.Id).Count >= 2;
+
+        var genuineThreat =
+            hazardousAtmosphere
+            || hostileMachineHere
+            || acuteInjury
+            || remoteFireResponse;
         if (!genuineThreat)
             return false;
 

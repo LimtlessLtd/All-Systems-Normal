@@ -441,10 +441,7 @@ public sealed class StationHazardSystem
         ArgumentNullException.ThrowIfNull(npc);
         ArgumentNullException.ThrowIfNull(navigation);
 
-        if (!npc.IsAlive
-            || !npc.IsPresent
-            || npc.Hunger >= CrewNeedThresholds.HungerCritical
-            || npc.Fatigue >= CrewNeedThresholds.FatigueCritical)
+        if (!npc.IsAlive || !npc.IsPresent)
         {
             return null;
         }
@@ -492,8 +489,10 @@ public sealed class StationHazardSystem
     /// A remote fire is a station event worth reconsidering, but not permission
     /// for C# to choose anybody's goal. Wake at most one available, capable
     /// responder per fire so the active mind gets a prompt now instead of
-    /// waiting for the ordinary 4-6 minute cognition rotation. Committed work
-    /// and high-urgency intents remain protected.
+    /// waiting for the ordinary 4-6 minute cognition rotation. A remote station
+    /// fire is allowed to wake someone doing mundane committed work; cognition
+    /// still chooses the response, and CrewTaskSystem validates whether that
+    /// chosen response is a genuine life-threat interruption.
     /// </summary>
     private static void WakeRemoteFireResponders(GameState state)
     {
@@ -505,7 +504,6 @@ public sealed class StationHazardSystem
                          candidate.IsAlive
                          && candidate.IsPresent
                          && !candidate.IsContainmentBreachInProgress
-                         && !CrewTaskSystem.IsWorking(candidate)
                          && !CrewEnvironmentSafety.IsDangerous(
                              state.Facility.Rooms[candidate.CurrentRoomId])
                          && (candidate.Intent is null || candidate.Intent.Urgency < 85))
