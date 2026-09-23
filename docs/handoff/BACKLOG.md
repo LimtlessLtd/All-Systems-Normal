@@ -381,12 +381,12 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Size: small (one PR: expose all waiting patients to the doctor's prompt and let priority choice come from cognition instead of a fixed C# ordering)
 - Status: ready
 
-### 54. Body-part injuries
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
-- Idea: "Damaged hand → worse repair work. Broken leg → slow walking. Eye injury → reduced perception. Lung damage → much greater vulnerability to low O₂/smoke."
-- Outcome: a small set of body-part injury flags, each with one deterministic mechanical consequence wired into an existing formula (repair-skill, movement speed, perception range, low-O₂/smoke vulnerability) — no new injury-simulation engine, just flags plus existing-formula modifiers.
-- Size: large (slices: injury-flag data model; wire each flag into its one existing formula (repair/movement/perception/O₂-vulnerability))
-- Status: ready
+### 54. Hierarchical body-part health and injuries
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 and follow-up https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790171047500309 (2026-09-23)
+- Idea: "Damaged hand → worse repair work. Broken leg → slow walking. Eye injury → reduced perception. Lung damage → much greater vulnerability to low O₂/smoke." Follow-up: use a RimWorld-like hierarchy of limbs/organs to derive overall human performance, and research the design before implementation.
+- Outcome: after a focused design/research slice, model a bounded hierarchy of body regions/organs whose deterministic health contributes to existing movement, manipulation/repair, perception and respiratory-vulnerability formulas; overall human performance is derived from those parts rather than a disconnected list of status effects. C# owns damage/effects; cognition only decides how to react to injury.
+- Size: large (slices: research/design note defining the minimal anatomy and aggregation rules; body-part health data model; wire hand/leg/eye/lung consequences into existing formulas; treatment/damage integration)
+- Status: ready — research/design first, per owner request; foundational for #55/#56 and the drug-health consequences in #75.
 
 ### 55. Prosthetics
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
@@ -527,6 +527,36 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Outcome: two role-reassignment paths, both deterministic-mechanism/LLM-decision like the rest of the batch: (a) a vacant role (holder dead/incapacitated) can be filled by whichever present crew member cognition decides to step up for, gated by C# on them having the relevant skill above a floor — no forced "best skill wins" auto-assignment, since a less-skilled volunteer stepping up under pressure is exactly the kind of human behaviour this project wants; (b) a "mutiny" is not a scripted event — reuses #6's trust-weighted Suggest/claim plumbing and composes with #31/#32 (formal chain of command / conflicting orders) once those exist: a crew member can propose replacing a role-holder, other crew independently decide via the LLM whether to back it, and C# only reassigns the role once a deterministic support threshold among currently-aware crew is reached.
 - Size: large (slices: role field becomes reassignable + vacancy-fill-by-volunteer path; mutiny-proposal claim type reusing #6's Suggest plumbing; deterministic support-threshold tally that triggers reassignment)
 - Status: ready — the vacancy-fill slice is independent and can start now; the mutiny slice benefits from sequencing after #31 (formal chain of command) so "who currently holds legitimate authority" is already modelled.
+
+
+### 75. Drugs, addictions and production chains
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790171047500309 (2026-09-23)
+- Idea: add addictions and several drugs with distinct production/effects: tobacco → cigarettes (stress relief, craving relief, smell/hygiene/health/social cost), coolant-derived "ant" (dangerous intoxication with psychosis/violent risk), and fermented hops → beer (socially accepted intoxication with violence/confidence/attraction effects); some generated crew may begin addicted.
+- Outcome: a deterministic addiction/intoxication model exposes craving, dose/effect duration, health/social consequences and production requirements; crew generation may seed an addiction; the LLM decides whether to seek/use/make/trade a drug, while C# owns chemistry, withdrawal, intoxication and consequences. Tobacco/cigarettes, ant and beer are three content slices over the same generic drug contract.
+- Size: large (slices: generic substance/addiction contract + crew-generation seed; tobacco/cigarette production and effects; ant production/effects; hops/fermentation/beer effects; withdrawal/social consequence wiring)
+- Status: ready — sequence the health-damage details with #54's researched body-part health model rather than inventing a competing health stat.
+
+### 76. Fire should spread visibly from its source
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790171325613139 (2026-09-23)
+- Idea: "Fire doesnt spread visually like it should, instead theres these weird radius things ... fire spreads outward from the source ... It can spread through open doors."
+- Outcome: replace the room-level radius-looking fire presentation with a visible deterministic fire-front/patch representation that expands outward from ignition points and can seed adjacent compartments only through physically open connections; presentation must reflect authoritative spread state rather than imply a fake radius.
+- Size: large (slices: inspect current authoritative fire state/presentation mismatch in browser; represent one or more room-local fire patches/fronts; render patch growth; seed adjacent-room patches through open doors)
+- Status: ready — owner-reported bug; requires real-browser validation.
+
+### 77. Fire, heat and smoke propagation must respect oxygen and open-door gas flow
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790171325613139 (2026-09-23)
+- Idea: a burning room should heat toward roughly 300°C; heat and smoke should move reasonably quickly through open doors; fire should weaken with falling oxygen and extinguish in oxygen-free/decompressed rooms.
+- Outcome: deterministic fire intensity consumes/depends on available oxygen; intensity falls as oxygen becomes scarce and reaches zero in effectively oxygen-free/vacuum compartments; active fire drives compartment temperature toward a high fire equilibrium (about 300°C at severe sustained fire), while heat/smoke equalize through open-door atmospheric connections at physically faster rates than current behaviour.
+- Size: large (slices: oxygen-dependent burn/extinguish regression tests; fire-driven temperature target; open-door heat-transfer tuning; smoke-transfer tuning and cross-room regression coverage)
+- Status: ready — health/simulation bug family; should be addressed before cosmetic fire polish where behaviour is wrong.
+
+### 78. Standardize repeated station-module fixture sizes
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790171325613139 (2026-09-23)
+- Idea: "Standardise the size of units that are used across multiple rooms. lighting system module should be the same size in each room. Same goes for all standard modules which are present in most rooms."
+- Outcome: repeated standard fixture/device families (lighting, climate, ventilation and other shared modules) derive Width/Height from one canonical per-family size contract so the same module renders at the same physical size in every room, unless an explicitly different variant is authored.
+- Size: small (one PR: central canonical fixture-size table + generation regression asserting repeated family dimensions are identical)
+- Status: ready
+
 
 ---
 
