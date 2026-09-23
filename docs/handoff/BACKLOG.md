@@ -511,6 +511,13 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Size: small (one PR against current systems: no-atmosphere rooms get a deterministic cooling-toward-floor rate instead of holding/decaying toward ambient) — a fuller version composes naturally with #67's thermal-simulation work once that lands, but this slice doesn't need to wait for it.
 - Status: ready
 
+### 74. Crew can change roles: mutiny and succession
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790161638098239 (2026-09-23)
+- Idea: "Can the humans change their roles? ... allow humans to change their roles if there is sufficient support from the other humans, so if a commander is doing a bad job, maybe theres a mutiny, or if the doctor has died, maybe someone with the best medical skill should take over the doctor role."
+- Outcome: two role-reassignment paths, both deterministic-mechanism/LLM-decision like the rest of the batch: (a) a vacant role (holder dead/incapacitated) can be filled by whichever present crew member cognition decides to step up for, gated by C# on them having the relevant skill above a floor — no forced "best skill wins" auto-assignment, since a less-skilled volunteer stepping up under pressure is exactly the kind of human behaviour this project wants; (b) a "mutiny" is not a scripted event — reuses #6's trust-weighted Suggest/claim plumbing and composes with #31/#32 (formal chain of command / conflicting orders) once those exist: a crew member can propose replacing a role-holder, other crew independently decide via the LLM whether to back it, and C# only reassigns the role once a deterministic support threshold among currently-aware crew is reached.
+- Size: large (slices: role field becomes reassignable + vacancy-fill-by-volunteer path; mutiny-proposal claim type reusing #6's Suggest plumbing; deterministic support-threshold tally that triggers reassignment)
+- Status: ready — the vacancy-fill slice is independent and can start now; the mutiny slice benefits from sequencing after #31 (formal chain of command) so "who currently holds legitimate authority" is already modelled.
+
 ---
 
 ## Deliberate decisions (do not "fix")
