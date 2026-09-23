@@ -1,3 +1,4 @@
+using Overseer.AI;
 using Overseer.Domain;
 using Overseer.Simulation;
 
@@ -388,5 +389,29 @@ public sealed class PersonalPossessionInteractionTests
         Assert.Equal(ActionKind.Idle, actor.CurrentAction.Kind);
         Assert.Equal(owner.Id, possession.CurrentHolderId);
         Assert.Contains(actor.Memories, memory => memory.Description.Contains("not willing to lend", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Prompt_OwnersPossessionBlockShowsWhoElseIsCurrentlyHoldingIt()
+    {
+        // Regression: the status text only ever handled "with you" or a
+        // hidden-location description. Once BorrowItem/StealItem could leave
+        // CurrentHolderId pointing at a third party, that branch was reached
+        // with a null HiddenAtRoomId and rendered a garbled "hidden in "
+        // line instead of naming who has it. An owner always knows their own
+        // possession's current state (same precedent as always knowing where
+        // they hid it), so this is also how they'd notice a borrow or theft
+        // without needing to physically go check first.
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var other = state.Crew[1];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        possession.CurrentHolderId = other.Id;
+
+        var prompt = NpcPromptBuilder.Build(owner, state);
+
+        Assert.Contains(
+            $"{possession.Id}: {possession.Name} ({possession.Kind}) — with {other.Name}",
+            prompt);
     }
 }

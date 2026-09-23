@@ -264,11 +264,17 @@ public static class NpcPromptBuilder
             .Where(possession => possession.OwnerId == npc.Id && !possession.IsDestroyed)
             .Select(possession =>
             {
+                // You always know your own possession's current state, exactly
+                // like you always know where you hid it — this is what lets you
+                // notice it has been borrowed or stolen without needing to
+                // physically go check first.
                 var status = possession.CurrentHolderId == npc.Id
                     ? "with you"
-                    : possession.HiddenAtFixtureLabel is not null
-                        ? $"hidden in {possession.HiddenAtRoomId} ({possession.HiddenAtFixtureLabel})"
-                        : $"hidden in {possession.HiddenAtRoomId}";
+                    : possession.CurrentHolderId is { } holderId
+                        ? $"with {state.Crew.FirstOrDefault(other => other.Id == holderId)?.Name ?? "someone else"}"
+                        : possession.HiddenAtFixtureLabel is not null
+                            ? $"hidden in {possession.HiddenAtRoomId} ({possession.HiddenAtFixtureLabel})"
+                            : $"hidden in {possession.HiddenAtRoomId}";
                 return $"- {possession.Id}: {possession.Name} ({possession.Kind}) — {status}";
             })
             .ToArray();
