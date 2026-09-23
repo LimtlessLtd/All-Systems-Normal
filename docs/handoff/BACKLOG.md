@@ -56,7 +56,13 @@ One batch, 20 entries, from the owner's 2026-09-22 22:17 BST message in `#new-id
 - Idea: "A tired, stressed, incompetent engineer can technically repair something but do a poor job. The device works... for six hours."
 - Outcome: task outcomes carry a deterministic quality/durability value derived from existing skill, fatigue and stress stats instead of flat pass/fail, so a poor repair fails again sooner.
 - Size: large (slices: quality formula from existing skill/fatigue/stress; apply to one task type first (repair); extend to others)
-- Status: ready
+- Status: **in progress** — investigated before starting: the maintenance-device domain (`CrewMaintenanceSystem`/`StationUpkeepRules`) already substantially implements this outcome for equipment servicing. `StationUpkeepRules.RestorationBy` already gave a two-tier quality result (a qualified vs. underqualified service visit restores a different amount of `Device.Condition`, so an underskilled repair needs re-servicing sooner — "the device works... for six hours" already happens through the existing Condition-decay machinery), and `StationUpkeepRules.SkillOf` already fatigue-adjusts effective skill via `CrewConditionRules.EffectiveSkill`. The one dimension the idea names that wasn't modelled was stress.
+
+  Slice 1 (this run): `RestorationBy` now also scales down by the servicing crew member's `Stress` (no penalty below Stress 50, ramping linearly to a 30% reduction at Stress 100), reusing the same Condition/decay machinery — no new stat. 3 new regression tests in `StationUpkeepRulesTests.cs`.
+
+  Remaining slices:
+  1. `CrewCounterplaySystem`'s own repair-type actions (`RepairDoor`, `RestoreSystem`, `WeldDoor`, `BarricadeDoor`) are still purely binary pass/fail with no quality gradient and — a separate finding from this investigation — don't run skill through `CrewConditionRules.EffectiveSkill` at all, so a fatigued crew member currently counterplays exactly as effectively as a fresh one there, unlike device maintenance. Converging that (both the fatigue gap and a quality/durability outcome) is its own slice.
+  2. Extend beyond repair to other task types (idea #8's own stated scope), once a task type beyond maintenance/counterplay needs it.
 
 ### 9. Private coping behaviours under stress
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790111822683539 (2026-09-22)
