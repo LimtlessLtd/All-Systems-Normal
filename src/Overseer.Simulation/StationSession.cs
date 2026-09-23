@@ -32,6 +32,7 @@ public abstract class StationSession
     private readonly SecurityMalwareSystem _malware = new();
     private readonly CrewRoutineSystem _crewRoutines = new();
     private readonly SocialSimulationSystem _social = new();
+    private readonly SocialClusterSystem _socialClusters = new();
     private readonly PlanExecutionSystem _planExecution = new();
     private readonly IntentExecutionSystem _intentExecution = new();
     private readonly InvestigationSystem _investigations = new();
@@ -838,6 +839,7 @@ public abstract class StationSession
         _pactCoordination.Tick(State);
         _suggestionCoordination.Tick(State);
         _social.Tick(State);
+        _socialClusters.Tick(State);
         _suspicion.Tick(State);
         _conversationPacing.Tick(State);
         _crewRoutines.Tick(State);

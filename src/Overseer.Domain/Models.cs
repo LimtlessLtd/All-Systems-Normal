@@ -1116,6 +1116,16 @@ public sealed class Npc : IStationMobileEntity
     public Dictionary<string, Relationship> Relationships { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Deterministic social clique this NPC currently belongs to, derived purely
+    /// from the existing mutual-affinity relationship graph by
+    /// <see cref="SocialClusterSystem"/>. Null while alone or estranged from
+    /// everyone. Recomputed every tick; nothing yet biases cognition or gossip
+    /// propagation by it (that is a later slice) — it is present-state telemetry,
+    /// not a stored allegiance.
+    /// </summary>
+    public int? CliqueId { get; set; }
+
     public List<Memory> Memories { get; } = [];
     public List<Belief> Beliefs { get; } = [];
 
