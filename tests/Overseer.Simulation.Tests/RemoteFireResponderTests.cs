@@ -138,9 +138,10 @@ public sealed class RemoteFireResponderTests
     }
 
     [Fact]
-    public void RemoteFire_DoesNotInterruptCommittedWorkJustToCreateAResponder()
+    public void RemoteFire_CanInterruptMundaneCommittedWorkAfterCognitionChoosesResponse()
     {
         var state = FacilitySeeder.CreateDefault(stationSeed: 480043);
+        state.Elapsed = TimeSpan.FromMinutes(1);
         var responder = state.Crew.First(npc => npc.Role == CrewRole.Engineer);
         PrepareSafeRemoteFireScenario(state, responder);
 
@@ -151,14 +152,38 @@ public sealed class RemoteFireResponderTests
                 npc,
                 ActionKind.Work,
                 npc.CurrentRoomId,
-                "Protected committed work.",
+                "Committed routine work.",
                 TimeSpan.FromHours(1));
         }
 
         new StationHazardSystem().Tick(state, TimeSpan.FromMinutes(1));
 
-        Assert.All(state.Crew, npc => Assert.False(npc.NeedsMindReconsideration));
-        Assert.Equal(CrewTaskStatus.InProgress, responder.ActiveTask?.Status);
+        Assert.True(responder.NeedsMindReconsideration);
+
+        // C# has only raised the event. Browser cognition now chooses the
+        // response, and deterministic execution validates the interruption.
+        new BrowserMindSystem().Tick(state);
+        Assert.Equal(ActionKind.FightFire, responder.Intent?.Action);
+        Assert.Equal("engineering", responder.Intent?.TargetId);
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.Equal(CrewTaskStatus.Interrupted, responder.ActiveTask?.Status);
+        Assert.Equal(ActionKind.FightFire, responder.CurrentAction.Kind);
+    }
+
+    [Fact]
+    public async Task RuleBasedFallback_PrioritisesViableRemoteFireOverCriticalHunger()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 480043);
+        var responder = state.Crew.First(npc => npc.Role == CrewRole.Engineer);
+        PrepareSafeRemoteFireScenario(state, responder);
+        responder.Hunger = CrewNeedThresholds.HungerCritical;
+
+        var intent = await new RuleBasedAiDecisionService().DecideAsync(responder, state);
+
+        Assert.Equal(ActionKind.FightFire, intent.Action);
+        Assert.Equal("engineering", intent.TargetId);
     }
 
     private static void PrepareSafeRemoteFireScenario(GameState state, Npc responder)
