@@ -969,7 +969,10 @@ public sealed class PersonalPossession
     /// owner a direct memory (they were physically present, as the holder
     /// taken from or destroyed from) leaves this true. Only a theft or
     /// destruction the owner is absent for — the one case nobody tells them
-    /// anything — sets it false, for the simulation layer to notice once.
+    /// anything — sets it false, for <c>PossessionTheftNoticeSystem</c> to
+    /// notice once the owner is physically back where they hid it. A destroyed
+    /// item stays false after that notice, so the owner keeps seeing it as
+    /// missing rather than learning it was destroyed.
     /// </summary>
     public bool OwnerAwareOfCurrentState { get; set; } = true;
 }

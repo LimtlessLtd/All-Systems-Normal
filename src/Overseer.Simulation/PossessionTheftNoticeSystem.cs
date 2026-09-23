@@ -3,13 +3,11 @@ using Overseer.Domain;
 namespace Overseer.Simulation;
 
 /// <summary>
-/// Owner idea #3, slices 4-5: the "surprised realization" moment when an
-/// owner's possession was taken from a hidden stash or destroyed while they
-/// were absent — the one case nobody directly notifies them of. An owner
-/// already knows their own possession's live current state every tick (the
-/// YOUR PERSONAL POSSESSIONS prompt block), but that alone never produces a
-/// discrete, gossip-able memory of the moment they realized. Fires exactly
-/// once per event via <see cref="PersonalPossession.OwnerAwareOfCurrentState"/>.
+/// Owner idea #3: the "surprised realization" when an owner finds their
+/// hidden possession is no longer where they left it. Grounded in physical
+/// presence: it fires only once the owner is standing in the room their own
+/// belief places the stash, and never names a culprit (they saw nobody).
+/// Their belief is then cleared, so the prompt shows the item as missing.
 /// </summary>
 public sealed class PossessionTheftNoticeSystem
 {
@@ -17,29 +15,36 @@ public sealed class PossessionTheftNoticeSystem
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        foreach (var possession in state.Possessions.Where(candidate =>
-                     !candidate.OwnerAwareOfCurrentState
-                     && (candidate.IsDestroyed
-                         || (candidate.CurrentHolderId is not null && candidate.CurrentHolderId != candidate.OwnerId))))
+        foreach (var possession in state.Possessions.Where(candidate => !candidate.OwnerAwareOfCurrentState))
         {
-            var owner = state.Crew.FirstOrDefault(npc => npc.Id == possession.OwnerId && npc.IsAlive);
-            if (owner is null)
+            var owner = state.Crew.FirstOrDefault(npc => npc.Id == possession.OwnerId && npc.IsAlive && npc.IsPresent);
+            if (owner is null
+                || !owner.KnownPossessions.TryGetValue(possession.Id, out var belief)
+                || belief.HiddenAtRoomId is null
+                || !belief.HiddenAtRoomId.Equals(owner.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
+            {
                 continue;
+            }
 
-            // The owner was absent for this event by construction (nobody
-            // confronted them directly — that path already grants its own
-            // memory and never sets OwnerAwareOfCurrentState false), so they
-            // have no observation establishing who took or destroyed it.
-            // Naming a culprit here would be omniscient knowledge; identity
-            // can only reach them later through an actual witness account.
+            var stillThere = !possession.IsDestroyed
+                && possession.HiddenAtRoomId is not null
+                && possession.HiddenAtRoomId.Equals(belief.HiddenAtRoomId, StringComparison.OrdinalIgnoreCase);
+            if (stillThere)
+            {
+                possession.OwnerAwareOfCurrentState = true;
+                continue;
+            }
+
+            // A destroyed item stays "unaware" so the owner keeps seeing it as
+            // missing; they found it gone, not destroyed.
+            if (!possession.IsDestroyed)
+                possession.OwnerAwareOfCurrentState = true;
+            owner.KnownPossessions.Remove(possession.Id);
             owner.Memories.Add(new Memory(
-                possession.IsDestroyed
-                    ? $"I noticed {possession.Name} is gone."
-                    : $"I noticed {possession.Name} is missing from where I hid it.",
+                $"I noticed {possession.Name} is missing from where I hid it.",
                 state.Elapsed,
                 0.5));
             owner.NeedsMindReconsideration = true;
-            possession.OwnerAwareOfCurrentState = true;
         }
     }
 }

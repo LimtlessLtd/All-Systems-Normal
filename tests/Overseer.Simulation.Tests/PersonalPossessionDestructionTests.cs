@@ -114,17 +114,25 @@ public sealed class PersonalPossessionDestructionTests
         Assert.True(possession.IsDestroyed);
         Assert.False(possession.OwnerAwareOfCurrentState);
 
+        owner.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, null, null, "storage", null, state.Elapsed);
+        new PossessionTheftNoticeSystem().Tick(state);
+        Assert.DoesNotContain(owner.Memories, memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal));
+
+        owner.CurrentRoomId = "storage";
         new PossessionTheftNoticeSystem().Tick(state);
 
-        // The owner was absent and never witnessed who did it, so the
-        // realization memory must not name a culprit — only that it's gone.
+        // Back at the stash they find it gone, but never who did it, and they
+        // can't tell destroyed from missing.
         Assert.Contains(
             owner.Memories,
-            memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal));
+            memory => memory.Description == $"I noticed {possession.Name} is missing from where I hid it.");
         Assert.DoesNotContain(
             owner.Memories,
             memory => memory.Description.Contains(actor.Name, StringComparison.Ordinal));
-        Assert.True(possession.OwnerAwareOfCurrentState);
+        Assert.Contains(
+            $"{possession.Id}: {possession.Name} ({possession.Kind}) — missing; you don't know where it is",
+            Overseer.AI.NpcPromptBuilder.Build(owner, state));
     }
 
     [Fact]

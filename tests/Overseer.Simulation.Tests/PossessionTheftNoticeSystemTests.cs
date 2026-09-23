@@ -4,91 +4,71 @@ using Overseer.Simulation;
 namespace Overseer.Simulation.Tests;
 
 /// <summary>
-/// Owner idea #3, slice 4: the owner's one-time "surprised realization"
-/// memory when a possession was stolen from a hidden stash while they were
-/// absent — the only case where nobody else already tells them directly.
+/// Owner idea #3: the owner's one-time "surprised realization" when a hidden
+/// possession is gone. Grounded in presence: it fires only once the owner is
+/// back in the room where they believe they hid it.
 /// </summary>
 public sealed class PossessionTheftNoticeSystemTests
 {
     [Fact]
-    public void OwnerGetsAOneTimeMemoryWhenAHiddenPossessionIsStolenWhileTheyAreAbsent()
+    public void OwnerNoticesOnlyOnceBackWhereTheyHidTheStolenItem()
     {
-        var state = FacilitySeeder.CreateDefault();
-        var owner = state.Crew[0];
-        var thief = state.Crew[1];
-        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
-        possession.CurrentHolderId = thief.Id;
-        possession.OwnerAwareOfCurrentState = false;
+        var (state, owner, thief, possession) = StolenFromStorage();
+        var system = new PossessionTheftNoticeSystem();
 
-        new PossessionTheftNoticeSystem().Tick(state);
+        system.Tick(state);
+        Assert.DoesNotContain(owner.Memories, memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal));
+        Assert.False(possession.OwnerAwareOfCurrentState);
+
+        owner.CurrentRoomId = "storage";
+        system.Tick(state);
 
         Assert.Contains(
             owner.Memories,
-            memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal));
+            memory => memory.Description == $"I noticed {possession.Name} is missing from where I hid it.");
+        Assert.DoesNotContain(owner.Memories, memory => memory.Description.Contains(thief.Name, StringComparison.Ordinal));
         Assert.True(possession.OwnerAwareOfCurrentState);
         Assert.True(owner.NeedsMindReconsideration);
+        Assert.False(owner.KnownPossessions.ContainsKey(possession.Id));
     }
 
     [Fact]
-    public void RealizationMemoryNeverNamesACulpritTheOwnerNeverWitnessed()
+    public void TheNoticeFiresOnlyOnceEvenAcrossManyTicks()
     {
-        // The owner was absent by construction for every case this system
-        // fires on, so they have no observation establishing who took or
-        // destroyed the item — naming one would be omniscient knowledge.
+        var (state, owner, _, possession) = StolenFromStorage();
+        owner.CurrentRoomId = "storage";
+        var system = new PossessionTheftNoticeSystem();
+
+        system.Tick(state);
+        system.Tick(state);
+        system.Tick(state);
+
+        Assert.Single(owner.Memories, memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void NoNoticeWhenTheItemIsStillWhereTheOwnerLeftIt()
+    {
         var state = FacilitySeeder.CreateDefault();
         var owner = state.Crew[0];
-        var thief = state.Crew[1];
-        var stolen = state.Possessions.First(p => p.OwnerId == owner.Id);
-        stolen.CurrentHolderId = thief.Id;
-        stolen.OwnerAwareOfCurrentState = false;
-
-        var otherOwner = state.Crew[2];
-        var destroyer = state.Crew[3];
-        var destroyed = state.Possessions.First(p => p.OwnerId == otherOwner.Id);
-        destroyed.IsDestroyed = true;
-        destroyed.CurrentHolderId = destroyer.Id;
-        destroyed.OwnerAwareOfCurrentState = false;
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        possession.CurrentHolderId = null;
+        possession.HiddenAtRoomId = owner.CurrentRoomId;
+        possession.OwnerAwareOfCurrentState = false;
+        owner.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, null, null, owner.CurrentRoomId, null, state.Elapsed);
 
         new PossessionTheftNoticeSystem().Tick(state);
 
-        Assert.DoesNotContain(
-            owner.Memories,
-            memory => memory.Description.Contains(thief.Name, StringComparison.Ordinal));
-        Assert.DoesNotContain(
-            otherOwner.Memories,
-            memory => memory.Description.Contains(destroyer.Name, StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public void TheNoticeFiresOnlyOnceEvenAcrossManyTicksWhileTheItemStaysElsewhere()
-    {
-        var state = FacilitySeeder.CreateDefault();
-        var owner = state.Crew[0];
-        var thief = state.Crew[1];
-        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
-        possession.CurrentHolderId = thief.Id;
-        possession.OwnerAwareOfCurrentState = false;
-
-        var system = new PossessionTheftNoticeSystem();
-        system.Tick(state);
-        var noticeCountAfterFirstTick = owner.Memories.Count(
-            memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal));
-
-        system.Tick(state);
-        system.Tick(state);
-
-        Assert.Equal(
-            noticeCountAfterFirstTick,
-            owner.Memories.Count(memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal)));
+        Assert.DoesNotContain(owner.Memories, memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal));
+        Assert.True(possession.OwnerAwareOfCurrentState);
     }
 
     [Fact]
     public void NoNoticeWhenTheOwnerWasDirectlyPresentAsTheHolderTakenFrom()
     {
-        // TryStealPossession/TryBorrowPossession already grant a direct
-        // memory in this case (see PersonalPossessionInteractionTests), so
-        // OwnerAwareOfCurrentState stays true and this system must not
-        // double up on it.
+        // StealItem already grants the holder a direct memory, so
+        // OwnerAwareOfCurrentState stays true and this system adds nothing.
         var state = FacilitySeeder.CreateDefault();
         var owner = state.Crew[0];
         var actor = state.Crew[1];
@@ -112,50 +92,27 @@ public sealed class PossessionTheftNoticeSystemTests
         Assert.Equal(memoryCountBefore, owner.Memories.Count);
     }
 
-    [Fact]
-    public void StealingFromAHiddenStashMarksTheOwnerAsNotYetNoticed()
+    private static (GameState State, Npc Owner, Npc Thief, PersonalPossession Possession) StolenFromStorage()
     {
         var state = FacilitySeeder.CreateDefault();
         var owner = state.Crew[0];
-        var actor = state.Crew[1];
+        var thief = state.Crew[1];
         var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
         possession.CurrentHolderId = null;
         possession.HiddenAtRoomId = "storage";
-        actor.CurrentRoomId = "storage";
+        owner.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, null, null, "storage", null, state.Elapsed);
+        thief.CurrentRoomId = "storage";
         owner.CurrentRoomId = "control";
-        actor.KnownPossessions[possession.Id] = new PossessionSighting(
+        thief.KnownPossessions[possession.Id] = new PossessionSighting(
             possession.Id, null, null, "storage", null, state.Elapsed);
 
-        var stolen = new ActionResolver().TryApply(
+        Assert.True(new ActionResolver().TryApply(
             state,
-            actor.Id,
+            thief.Id,
             new NpcAction(ActionKind.StealItem, possession.Id, "No one will know."),
-            out _);
-
-        Assert.True(stolen);
+            out _));
         Assert.False(possession.OwnerAwareOfCurrentState);
-
-        new PossessionTheftNoticeSystem().Tick(state);
-
-        Assert.Contains(
-            owner.Memories,
-            memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal));
-        Assert.True(possession.OwnerAwareOfCurrentState);
-    }
-
-    [Fact]
-    public void AHiddenPossessionNotYetStolenNeverTriggersANotice()
-    {
-        var state = FacilitySeeder.CreateDefault();
-        var owner = state.Crew[0];
-        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
-        possession.CurrentHolderId = null;
-        possession.HiddenAtRoomId = owner.CurrentRoomId;
-
-        new PossessionTheftNoticeSystem().Tick(state);
-
-        Assert.DoesNotContain(
-            owner.Memories,
-            memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal));
+        return (state, owner, thief, possession);
     }
 }

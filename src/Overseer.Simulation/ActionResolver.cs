@@ -952,17 +952,12 @@ public sealed class ActionResolver
     {
         var possession = FindPossessionById(state, action.TargetId);
 
-        // The true owner always knows their own possession's live location
-        // (matches YOUR PERSONAL POSSESSIONS always reading live state in
-        // NpcPromptBuilder, never a possibly-stale belief). Owner idea #11
-        // (contraband): anyone else may only retrieve a stash their own
-        // belief actually places here — the same rule StealItem already
-        // uses for a hiding spot — never an omniscient live-state lookup.
+        // Anyone, the owner included, may only retrieve a stash their own
+        // belief places here — never an omniscient live-state lookup.
         var knowsWhereHidden = possession is not null
-            && (possession.OwnerId == npc.Id
-                || (npc.KnownPossessions.TryGetValue(possession.Id, out var belief)
-                    && belief.HiddenAtRoomId is not null
-                    && belief.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)));
+            && npc.KnownPossessions.TryGetValue(possession.Id, out var belief)
+            && belief.HiddenAtRoomId is not null
+            && belief.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase);
 
         if (possession is null
             || !knowsWhereHidden
