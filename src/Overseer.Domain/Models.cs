@@ -762,6 +762,35 @@ public sealed record BloodEvidence(
     double Severity,
     TimeSpan CreatedAt);
 
+public enum PossessionKind
+{
+    FoodStash,
+    Photograph,
+    Medication,
+    Tool,
+    Keepsake
+}
+
+/// <summary>
+/// A small personally meaningful item (idea #3): a food stash, photograph,
+/// medication, tool or keepsake. Deterministic simulation owns every state
+/// change; the LLM only ever chooses to borrow/steal/hide/return/destroy it
+/// through future affordances. Exactly one of <see cref="CurrentHolderId"/>
+/// or <see cref="HiddenAtRoomId"/> is set while the item is not destroyed;
+/// it starts held by its owner.
+/// </summary>
+public sealed class PersonalPossession
+{
+    public required string Id { get; init; }
+    public required Guid OwnerId { get; init; }
+    public required string Name { get; init; }
+    public required PossessionKind Kind { get; init; }
+    public Guid? CurrentHolderId { get; set; }
+    public string? HiddenAtRoomId { get; set; }
+    public string? HiddenAtFixtureLabel { get; set; }
+    public bool IsDestroyed { get; set; }
+}
+
 public sealed class MedicalState
 {
     public double Supplies { get; set; } = 12;
@@ -909,6 +938,12 @@ public sealed class Npc : IStationMobileEntity
     public HashSet<string> ObservedUnsafeAirlocks { get; } =
         new(StringComparer.OrdinalIgnoreCase);
     public HashSet<string> ObservedBloodEvidenceIds { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    // Possessions (owned or otherwise) this person knows exist: their own
+    // items plus any they have witnessed being hidden/borrowed/stolen, or
+    // found by searching. Never populated omnisciently.
+    public HashSet<string> KnownPossessionIds { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
     // Faults this person has personally noticed, keyed "roomId:fault". Cleared
@@ -1141,6 +1176,7 @@ public sealed class GameState
     public List<AudioCue> AudioCues { get; } = [];
     public long NextAudioCueSequence { get; set; } = 1;
     public List<BloodEvidence> BloodEvidence { get; } = [];
+    public List<PersonalPossession> Possessions { get; } = [];
     public MedicalState Medical { get; } = new();
 
     // Overseer's own voice. Messages are the player's only non-physical verb.
