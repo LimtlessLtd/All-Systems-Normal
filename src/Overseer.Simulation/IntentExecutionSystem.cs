@@ -1229,7 +1229,11 @@ public sealed class IntentExecutionSystem
         npc.CurrentAction = new NpcAction(ActionKind.Idle, null, reason);
         npc.Intent = null;
         npc.PlannedDestinationRoomId = null;
-        npc.Memories.Add(new Memory(reason, state.Elapsed, FailedIntentMemoryImportance));
+        npc.Memories.Add(new Memory(
+            reason,
+            state.Elapsed,
+            FailedIntentMemoryImportance,
+            IsFailedAttempt: true));
         npc.Stress = Math.Clamp(npc.Stress + FailedIntentStressCost, 0, 100);
     }
 
