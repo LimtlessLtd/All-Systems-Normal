@@ -642,6 +642,41 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Size: small-to-medium (toolbar interaction + room targeting; station-wide alarm message/memory; cognition context; audio/presentation + regression coverage).
 - Status: ready — composes with the existing panic/fire-information gap and preserves the core want/can boundary.
 
+### 90. Sit down to eat at visible, room-themed tables and chairs
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790201540463659 (2026-09-23)
+- Idea: "humans should seek somewhere to sit down and eat/drink, so we need to make visible chairs and tables (perhaps different colours/materials for medical bays vs crew quarters vs recreation room) in the appropriate places in rooms, and they add like a comfort modifier or stress reduction when eating food. If they dont find somewhere to sit and eat, they should get a small stress increase."
+- Outcome: dining-capable rooms (kitchen, recreation, quarters; medical as bedside) get enough visible `Table`/`Chair` fixtures (they already exist in `FixtureType` with `FixtureUsePose.Sit`) with per-room-type material/colour styling. When cognition chooses `Eat`, deterministic execution resolves the nearest free reachable seat the same way it resolves a bed, and a seat is capacity-1 (reusing #20's contested-resource pattern). Eating while seated applies a small stress-relief/comfort consequence; eating standing because no seat was free/reachable applies a small stress increase. C# never decides *whether* to eat — only where the body sits and what that costs. The seat state is visible to cognition in the room description so minds can choose to wait, eat elsewhere or eat standing.
+- Size: large (slices: seat fixtures + per-room styling in the default layout, browser-checked; seat resolution/occupancy for Eat + seated/standing stress consequence with regression tests; expose free/occupied seats to cognition)
+- Status: ready.
+
+### 91. Per-crew event log of what changed their stats
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790201540463659 (2026-09-23)
+- Idea: "We should display each event which affects each humans various stats like an event log for each human you select."
+- Outcome: each `Npc` keeps a bounded (e.g. last 40) ring of stat-change entries — timestamp, stat (Health/Stress/Hunger/Fatigue/Morale/Trust/relationship…), signed delta and a short cause ("ate a meal", "witnessed Kim attack Rao", "smoke inhalation") — recorded at the deterministic consequence sites, with per-tick continuous drift (hunger/fatigue growth) coalesced so it doesn't flood the list. Selecting a crew member shows this log in the Inspector. Presentation/diagnostic only; not persisted across campaign saves (see Deliberate decisions → persistence).
+- Size: large (slices: bounded log model + coalescing + wiring the highest-impact consequence sites (damage, eating, sleep, social/witness stress) with tests; Inspector panel with browser check; progressively cover remaining sites)
+- Status: ready.
+
+### 92. Television and more recreational activities
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790201540463659 (2026-09-23)
+- Idea: "Add a television to the recreation room and increase number of recreational activities."
+- Outcome: the recreation room gets a visible TV fixture (the room already has a `Screen`; make it a watchable TV with its own interaction point) and the `Recreate` affordance family grows to several distinct physical activities (watch TV, play the recreation console, cards/board game at the table with others, read on the sofa), each tied to a real fixture/capacity and with slightly different recreation/social/stress consequences. Cognition chooses which activity; C# validates the fixture is free/reachable and applies the consequence.
+- Size: medium-to-large (slices: TV fixture + WatchTV activity; additional solo activities; a multi-person social activity that composes with relationships)
+- Status: ready.
+
+### 93. Gym room with weightlifting and boxing
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790201540463659 (2026-09-23)
+- Idea: "Perhaps we should add a gym room or something where some crew like security can do weight lifting and have boxing matches (which could result in real lasting injuries and rivalries)."
+- Outcome: a new `Gym` room type in generated layouts with weights and a boxing ring; exercise is a mind-chosen activity that relieves stress and slowly raises a physical/Security-relevant skill (composes with #7 skill learning); a boxing match is a consensual two-party interaction (one proposes, the other's mind accepts or declines) resolved deterministically from skills/fatigue, producing real injuries (composing with #54 body-part health once it exists; flat Health damage until then) and relationship/rivalry changes for both participants and witnesses.
+- Size: large (slices: Gym room + layout generation; weightlifting activity; consensual sparring proposal/acceptance plumbing; match resolution + injuries + rivalry consequences)
+- Status: ready — the injury half should reuse #54's health model if it lands first rather than inventing another.
+
+### 94. Designated smoking area in the recreation room
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790201540463659 (2026-09-23)
+- Idea: "There should be a smoking area in the recreation room where people can smoke cigarettes without a social debuff."
+- Outcome: some generated crew have a smoking habit (a craving need that grows over time, composing with #75's addiction model); cognition may choose to smoke anywhere, but smoking outside the recreation room's marked smoking area gives a small relationship/annoyance debuff with non-smokers who perceive it (and a trace smoke contribution to the room), while smoking inside the area carries no social penalty. Relief of the craving and stress are deterministic consequences.
+- Size: medium (slices: smoking trait + craving need + Smoke activity/consequences; smoking-area fixture + social-debuff-by-location rule; cognition context)
+- Status: ready — implies smoking outside the area *does* carry a social debuff; implemented that way unless the owner says otherwise. Sequence with #75's addiction model.
+
 ## Deliberate decisions (do not "fix")
 
 - The server tick awaits the Ollama decision, so the station pauses while a mind thinks. The owner wants the model to have time to take in the situation. Do not make cognition non-blocking unless asked.
