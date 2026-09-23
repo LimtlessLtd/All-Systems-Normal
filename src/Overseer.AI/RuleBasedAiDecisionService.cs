@@ -513,21 +513,39 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
             120);
     }
 
+    /// <summary>
+    /// Converged with <c>BrowserMindSystem.FindSaferRoom</c> (P1 ladder
+    /// convergence): costs each candidate via a real crew-traversable path
+    /// (<see cref="NavigationSystem.FindPathForCrew"/>) rather than a BFS
+    /// reachable-set membership test, so both minds tie-break on genuine
+    /// shortest-path length instead of possibly disagreeing on a tie.
+    /// </summary>
     private static Room? FindSaferRoom(GameState state, Npc npc, Room currentRoom)
     {
         var currentRisk = CrewEnvironmentSafety.RiskScore(currentRoom);
-        var reachable = ReachableRooms(state, npc, currentRoom.Id);
+        var navigation = new NavigationSystem();
 
         return state.Facility.Rooms.Values
             .Where(room =>
                 room.Id != currentRoom.Id
-                && room.Type != RoomType.Corridor
-                && reachable.Contains(room.Id)
-                && CrewEnvironmentSafety.RiskScore(room) + 0.1 < currentRisk)
-            .OrderBy(room => CrewEnvironmentSafety.IsHabitable(room) ? 0 : 1)
-            .ThenBy(CrewEnvironmentSafety.RiskScore)
-            .ThenBy(room => Math.Abs(room.MapX - currentRoom.MapX) + Math.Abs(room.MapY - currentRoom.MapY))
-            .ThenBy(room => room.Id)
+                && room.Type != RoomType.Corridor)
+            .Select(room => new
+            {
+                Room = room,
+                Risk = CrewEnvironmentSafety.RiskScore(room),
+                Path = navigation.FindPathForCrew(state, npc, currentRoom.Id, room.Id)
+            })
+            .Where(candidate =>
+                candidate.Path.Count >= 2
+                && candidate.Risk + 0.1 < currentRisk)
+            .OrderBy(candidate => CrewEnvironmentSafety.IsHabitable(candidate.Room) ? 0 : 1)
+            .ThenBy(candidate => candidate.Risk)
+            .ThenBy(candidate => candidate.Path.Count)
+            .ThenBy(candidate =>
+                Math.Abs(candidate.Room.MapX - currentRoom.MapX)
+                + Math.Abs(candidate.Room.MapY - currentRoom.MapY))
+            .ThenBy(candidate => candidate.Room.Id)
+            .Select(candidate => candidate.Room)
             .FirstOrDefault();
     }
 
