@@ -100,6 +100,8 @@ public sealed class ActionResolver
                 or ActionKind.PurgeSecurityController
                 => TrySecurityControllerCountermeasure(state, npc, action, out message),
             ActionKind.RecapturePrisoner => TryRecapturePrisoner(state, npc, action, out message),
+            ActionKind.HideItem => TryHidePossession(state, npc, action, out message),
+            ActionKind.ReturnItem => TryReturnPossession(state, npc, action, out message),
             ActionKind.Idle => SetAction(state, npc, action, "waits", out message),
             _ => Fail("Unsupported action.", out message)
         };
@@ -832,6 +834,76 @@ public sealed class ActionResolver
         }
         return SetAction(state, npc, action, $"begins operating {mechanism.Label}", out message);
     }
+
+    private static bool TryHidePossession(GameState state, Npc npc, NpcAction action, out string message)
+    {
+        var possession = FindOwnPossession(state, npc, action.TargetId);
+        if (possession is null || possession.CurrentHolderId != npc.Id)
+        {
+            message = $"{npc.Name} is not holding that possession.";
+            return false;
+        }
+
+        var fixtureLabel = state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var room)
+            ? room.Fixtures.FirstOrDefault(fixture =>
+                fixture.Type is FixtureType.Locker
+                    or FixtureType.SuitLocker
+                    or FixtureType.Cabinet
+                    or FixtureType.ToolCabinet
+                    or FixtureType.Crate
+                    or FixtureType.StorageRack)?.Label
+            : null;
+
+        possession.CurrentHolderId = null;
+        possession.HiddenAtRoomId = npc.CurrentRoomId;
+        possession.HiddenAtFixtureLabel = fixtureLabel;
+
+        npc.CurrentAction = action;
+        npc.Memories.Add(new Memory(
+            fixtureLabel is null
+                ? $"I hid {possession.Name} here."
+                : $"I hid {possession.Name} in the {fixtureLabel}.",
+            state.Elapsed,
+            0.45));
+
+        message = $"{npc.Name} tucks {possession.Name} away.";
+        Log(state, message);
+        return true;
+    }
+
+    private static bool TryReturnPossession(GameState state, Npc npc, NpcAction action, out string message)
+    {
+        var possession = FindOwnPossession(state, npc, action.TargetId);
+        if (possession is null
+            || possession.HiddenAtRoomId is null
+            || !possession.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
+        {
+            message = $"{npc.Name} has nothing hidden here to retrieve.";
+            return false;
+        }
+
+        possession.CurrentHolderId = npc.Id;
+        possession.HiddenAtRoomId = null;
+        possession.HiddenAtFixtureLabel = null;
+
+        npc.CurrentAction = action;
+        npc.Memories.Add(new Memory(
+            $"I retrieved {possession.Name} from where I'd hidden it.",
+            state.Elapsed,
+            0.35));
+
+        message = $"{npc.Name} retrieves {possession.Name}.";
+        Log(state, message);
+        return true;
+    }
+
+    private static PersonalPossession? FindOwnPossession(GameState state, Npc npc, string? possessionId) =>
+        string.IsNullOrWhiteSpace(possessionId)
+            ? null
+            : state.Possessions.FirstOrDefault(candidate =>
+                candidate.Id.Equals(possessionId, StringComparison.OrdinalIgnoreCase)
+                && candidate.OwnerId == npc.Id
+                && !candidate.IsDestroyed);
 
     private static bool SetAction(
         GameState state,

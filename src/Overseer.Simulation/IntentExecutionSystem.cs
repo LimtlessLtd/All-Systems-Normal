@@ -146,6 +146,11 @@ public sealed class IntentExecutionSystem
                     ExecuteSettlePactIntent(state, npc, intent);
                     break;
 
+                case ActionKind.HideItem:
+                case ActionKind.ReturnItem:
+                    ExecutePossessionIntent(state, npc, intent);
+                    break;
+
                 case ActionKind.JoinShutdownTeam:
                     ExecuteJoinShutdownTeamIntent(state, npc, intent);
                     break;
@@ -1000,6 +1005,30 @@ public sealed class IntentExecutionSystem
                 intent.Action,
                 pact.Id,
                 intent.Reason),
+            out _);
+
+        npc.Intent = null;
+    }
+
+    private void ExecutePossessionIntent(GameState state, Npc npc, NpcIntent intent)
+    {
+        var possession = string.IsNullOrWhiteSpace(intent.TargetId)
+            ? null
+            : state.Possessions.FirstOrDefault(candidate =>
+                candidate.Id.Equals(intent.TargetId, StringComparison.OrdinalIgnoreCase)
+                && candidate.OwnerId == npc.Id
+                && !candidate.IsDestroyed);
+
+        if (possession is null)
+        {
+            FailIntent(state, npc, "There is no matching possession of my own to act on.");
+            return;
+        }
+
+        _actions.TryApply(
+            state,
+            npc.Id,
+            new NpcAction(intent.Action, possession.Id, intent.Reason),
             out _);
 
         npc.Intent = null;

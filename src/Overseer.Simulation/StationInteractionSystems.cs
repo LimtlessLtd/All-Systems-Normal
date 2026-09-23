@@ -55,6 +55,8 @@ public static class CrewAffordanceSystem
         new(ActionKind.CloseDoor, "adjacent-door", "Close an adjacent unlocked powered hatch."),
         new(ActionKind.LockDoor, "adjacent-door", "Lock an adjacent hatch if authorised."),
         new(ActionKind.UnlockDoor, "adjacent-door", "Unlock an adjacent hatch if authorised."),
+        new(ActionKind.HideItem, "possession", "Hide one of your own possessions somewhere in your current room."),
+        new(ActionKind.ReturnItem, "possession", "Retrieve one of your own possessions from where you hid it (you must be in that room)."),
         new(ActionKind.ForceDoor, "adjacent-door", "Defeat a blocked hatch by force or technical bypass."),
         new(ActionKind.RestoreSystem, "system", "Restore a disabled station system."),
         new(ActionKind.SecureAirlock, "airlock", "Secure an unsafe exterior airlock."),
@@ -202,6 +204,26 @@ public static class CrewAffordanceSystem
 
             normalizedTarget = prisoner.Name;
             return true;
+        }
+
+        if (action is ActionKind.HideItem or ActionKind.ReturnItem)
+        {
+            var possession = state.Possessions.FirstOrDefault(candidate =>
+                !candidate.IsDestroyed
+                && candidate.OwnerId == npc.Id
+                && candidate.Id.Equals(requested, StringComparison.OrdinalIgnoreCase));
+
+            if (possession is null)
+                return false;
+
+            normalizedTarget = possession.Id;
+            return action switch
+            {
+                ActionKind.HideItem => possession.CurrentHolderId == npc.Id,
+                ActionKind.ReturnItem => possession.HiddenAtRoomId is not null
+                    && possession.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase),
+                _ => false
+            };
         }
 
         if (IsDoorOperation(action))

@@ -260,6 +260,19 @@ public static class NpcPromptBuilder
             ? $"from {proposal.FromNpcName}: \"{proposal.PromiseText}\""
             : "none";
 
+        var ownedPossessions = state.Possessions
+            .Where(possession => possession.OwnerId == npc.Id && !possession.IsDestroyed)
+            .Select(possession =>
+            {
+                var status = possession.CurrentHolderId == npc.Id
+                    ? "with you"
+                    : possession.HiddenAtFixtureLabel is not null
+                        ? $"hidden in {possession.HiddenAtRoomId} ({possession.HiddenAtFixtureLabel})"
+                        : $"hidden in {possession.HiddenAtRoomId}";
+                return $"- {possession.Id}: {possession.Name} ({possession.Kind}) — {status}";
+            })
+            .ToArray();
+
         var builder = new StringBuilder();
         builder.AppendLine("You are choosing ONE high-level intention for a human NPC in a space-station simulation.");
         builder.AppendLine("You are not the station AI and you do not control reality.");
@@ -275,6 +288,7 @@ public static class NpcPromptBuilder
         builder.AppendLine("Only VERIFIED SHUTDOWN CONTROLS are controls this person personally knows exist. A teammate's claim or a room name does not grant control knowledge.");
         builder.AppendLine("You MAY propose a personal promise or deal to a co-located crew member with ProposePact (put the concrete promise in Reason, e.g. \"I'll cover your night shift\" or \"I won't mention what I saw\"). This only creates an offer; it becomes a real commitment only once they choose AcceptPact. Making or keeping a pact is entirely your own choice grounded in your relationships and personality, not a scripted obligation.");
         builder.AppendLine("If a PENDING PACT PROPOSAL is addressed to you, you MAY choose AcceptPact to agree to it, or simply do something else to leave it unanswered (it will expire).");
+        builder.AppendLine("Your PERSONAL POSSESSIONS are yours alone to hide or retrieve for now. HideItem tucks one away in your CURRENT room; it must currently be listed as \"with you\". ReturnItem retrieves one you previously hid; you must currently be standing in the room where it says it is hidden. This is an entirely private, personal choice grounded in this person's own reasons (privacy, safekeeping, sentiment) — no one else can see or act on your possessions yet.");
         builder.AppendLine("For a promise YOU made listed under YOUR ACTIVE PACTS, you MAY choose FulfillPact to keep it or BreakPact to break it, whenever it feels right to resolve (not necessarily only at its deadline). This is entirely your own choice grounded in your relationships and personality; you may also simply leave it unsettled by doing something else. Deterministic consequences (memories, trust, resentment) follow from whichever you choose.");
         builder.AppendLine("If personally convinced Overseer is dangerous and a verified shutdown control requires more crew, you MAY RecruitShutdownAlly. Recruitment creates a social invitation, not instant agreement.");
         builder.AppendLine("If you have a shutdown-team invitation, you MAY JoinShutdownTeam if you trust the recruiter and believe action is justified. Joining does not personally verify their hardware claim; investigating the claimed room can do that.");
@@ -383,6 +397,10 @@ public static class NpcPromptBuilder
         else foreach (var pact in activePacts) builder.AppendLine(pact);
         builder.AppendLine($"PENDING PACT PROPOSAL ADDRESSED TO YOU: {pendingPactProposalText}");
         builder.AppendLine();
+        builder.AppendLine("YOUR PERSONAL POSSESSIONS:");
+        if (ownedPossessions.Length == 0) builder.AppendLine("- none");
+        else foreach (var possession in ownedPossessions) builder.AppendLine(possession);
+        builder.AppendLine();
         builder.AppendLine("STATION STATUS-PANEL ROOM READINGS:");
         builder.AppendLine("These are the compartment readings currently available to this crew member; route status reflects passable hatches.");
         foreach (var knownRoom in rooms) builder.AppendLine($"- {knownRoom}");
@@ -410,6 +428,8 @@ public static class NpcPromptBuilder
         builder.AppendLine("For ProposePact, TargetId must be an exact name from the known crew roster, and Reason must state the concrete promise.");
         builder.AppendLine("For AcceptPact, TargetId must be the exact proposer name from PENDING PACT PROPOSAL ADDRESSED TO YOU.");
         builder.AppendLine("For FulfillPact/BreakPact, TargetId must be the exact pact Id (e.g. pact-0001) from YOUR ACTIVE PACTS for a promise you made (\"I promised\"), not one made to you.");
+        builder.AppendLine("For HideItem, TargetId must be the exact possession Id from YOUR PERSONAL POSSESSIONS currently listed as \"with you\".");
+        builder.AppendLine("For ReturnItem, TargetId must be the exact possession Id from YOUR PERSONAL POSSESSIONS currently listed as hidden in your CURRENT room.");
         builder.AppendLine("For JoinShutdownTeam, TargetId must be the exact team ID from PENDING TEAM INVITATION.");
         builder.AppendLine("For ShutdownOverseer, TargetId must be the exact mechanism ID from VERIFIED SHUTDOWN CONTROLS.");
         builder.AppendLine("For ShutdownRobot/DamageRobot/ReprogramRobot, TargetId must be the exact robot ID from ROBOTS PHYSICALLY IN YOUR CURRENT ROOM.");
