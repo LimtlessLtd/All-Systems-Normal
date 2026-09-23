@@ -567,6 +567,8 @@
                             }
 
                             <span class="crew-shadow" aria-hidden="true"></span>
+                            <span class="crew-facing-cue" aria-hidden="true"></span>
+                            <span class="person-orientation" aria-hidden="true">
                             <span class="person-icon" aria-hidden="true">
                                 <i class="person-backpack"></i>
                                 <i class="person-leg person-leg-left"></i>
@@ -576,6 +578,7 @@
                                 <i class="person-body"></i>
                                 <i class="person-head"><i class="person-visor"></i></i>
                                 <i class="person-role-mark">@RoleGlyph(npc.Role)</i>
+                            </span>
                             </span>
                             var mapTaskProgress = MapTaskProgress(npc);
                             <span class="crew-nameplate @(mapTaskProgress is null ? "" : "has-task-progress")">
@@ -2430,6 +2433,10 @@
         if (SelectedCrew?.Id == npc.Id)
             classes.Add("selected");
 
+        // Owner idea #86: heading mostly up-screen shows the upright figure's back.
+        if (Math.Sin(npc.FacingDegrees * Math.PI / 180) < -0.5)
+            classes.Add("facing-away");
+
         if (npc.IsAlive && (npc.Fear >= 65 || npc.Stress >= 75))
             classes.Add("is-panicked");
 
@@ -2855,12 +2862,19 @@
         return room.MapY + (((targetY - 50) / 100) * room.MapHeight);
     }
 
+    /// <summary>
+    /// Owner idea #86: the human body always stands upright (the pose
+    /// animations' <c>--crew-facing</c> stays 0deg) and faces left or right
+    /// by mirroring (<c>--crew-flip</c>); the exact authoritative heading is
+    /// shown by a separate ground cue (<c>--crew-heading</c>).
+    /// </summary>
     private string CrewStyle(Npc npc)
     {
-        var facing = CrewFacingAngle(npc);
+        var heading = CrewFacingAngle(npc);
+        var flip = Math.Cos(npc.FacingDegrees * Math.PI / 180) < -0.01 ? -1 : 1;
 
         return FormattableString.Invariant(
-            $"left:{CrewMapX(npc)}%;top:{CrewMapY(npc)}%;--crew-facing:{facing:0.##}deg;");
+            $"left:{CrewMapX(npc)}%;top:{CrewMapY(npc)}%;--crew-facing:0deg;--crew-flip:{flip};--crew-heading:{heading:0.##}deg;");
     }
 
     private string BloodStyle(BloodEvidence evidence)
