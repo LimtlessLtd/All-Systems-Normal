@@ -577,8 +577,21 @@
                                 <i class="person-head"><i class="person-visor"></i></i>
                                 <i class="person-role-mark">@RoleGlyph(npc.Role)</i>
                             </span>
-                            <span class="crew-nameplate">
+                            var mapTaskProgress = MapTaskProgress(npc);
+                            <span class="crew-nameplate @(mapTaskProgress is null ? "" : "has-task-progress")">
                                 <span class="crew-full-name">@npc.Name</span>
+                                @if (mapTaskProgress is { } progress)
+                                {
+                                    @* Owner idea #84: fixed nameplate-width bar; duration only changes how fast it fills. *@
+                                    <span class="crew-nameplate-progress"
+                                          role="progressbar"
+                                          aria-label="@($"{npc.Name} task progress")"
+                                          aria-valuemin="0"
+                                          aria-valuemax="100"
+                                          aria-valuenow="@progress.ToString("0")">
+                                        <span style="@($"width:{progress.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%")"></span>
+                                    </span>
+                                }
                             </span>
                         }
                         else
@@ -1087,13 +1100,13 @@
                 {
                     var taskProgress = crewTask.ProgressPercent(Session.State.Elapsed);
                     <div class="action-card crew-task-progress-card status-@crewTask.Status.ToString().ToLowerInvariant()">
-                        <span>AUTHORITATIVE TASK · @crewTask.Status.ToString().ToUpperInvariant()</span>
+                        <span>AUTHORITATIVE TASK · @TaskStatusLabel(crewTask.Status)</span>
                         <strong>@crewTask.Description</strong>
                         <div class="crew-task-meter" role="progressbar"
                              aria-valuemin="0" aria-valuemax="100" aria-valuenow="@taskProgress.ToString("0")">
                             <span style="@($"width:{taskProgress:0.##}%")"></span>
                         </div>
-                        <p>@taskProgress.ToString("0")% · @crewTask.Outcome</p>
+                        <p>@(crewTask.Status == CrewTaskStatus.InProgress ? $"{taskProgress:0}%" : $"Ended at {taskProgress:0}%") · @crewTask.Outcome</p>
                     </div>
                 }
 
@@ -2077,6 +2090,25 @@
                 _ => room.MapY
             });
 
+
+    /// <summary>
+    /// Owner idea #84: the map shows task progress only while authoritative
+    /// work is genuinely running; finished, interrupted or failed work keeps
+    /// its outcome in the Inspector instead of a lingering full bar.
+    /// </summary>
+    private double? MapTaskProgress(Npc npc) =>
+        npc.ActiveTask is { Status: CrewTaskStatus.InProgress } task
+            ? task.ProgressPercent(Session.State.Elapsed)
+            : null;
+
+    private static string TaskStatusLabel(CrewTaskStatus status) => status switch
+    {
+        CrewTaskStatus.InProgress => "IN PROGRESS",
+        CrewTaskStatus.Succeeded => "COMPLETED · NOT ACTIVE",
+        CrewTaskStatus.Interrupted => "INTERRUPTED · NOT ACTIVE",
+        CrewTaskStatus.Failed => "FAILED · NOT ACTIVE",
+        _ => status.ToString().ToUpperInvariant()
+    };
 
     private void SelectRoom(string roomId)
     {
