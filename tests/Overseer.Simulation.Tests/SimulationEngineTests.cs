@@ -196,8 +196,8 @@ public sealed class SimulationEngineTests
     {
         var state = FacilitySeeder.CreateDefault();
         var washroom = state.Facility.Rooms["washroom"];
-        var toilet = Assert.Single(washroom.Fixtures.Where(fixture =>
-            fixture.Type == FixtureType.Toilet));
+        Assert.Single(washroom.Fixtures, fixture =>
+            fixture.Type == FixtureType.Toilet);
         var contenders = state.Crew
             .Take(2)
             .OrderBy(npc => npc.Name, StringComparer.OrdinalIgnoreCase)
@@ -208,8 +208,8 @@ public sealed class SimulationEngineTests
         foreach (var npc in contenders)
         {
             npc.CurrentRoomId = washroom.Id;
-            npc.PositionX = toilet.InteractionX ?? toilet.X;
-            npc.PositionY = toilet.InteractionY ?? toilet.Y;
+            npc.PositionX = 50;
+            npc.PositionY = 50;
             npc.BladderNeed = 80;
             npc.CurrentAction = new NpcAction(
                 ActionKind.UseToilet,
@@ -217,6 +217,10 @@ public sealed class SimulationEngineTests
                 "Trying to use the toilet.");
         }
 
+        // Use the same production local-movement contract to reach the
+        // collision-safe interaction point; the authored fixture centre itself
+        // is not a walkable use position.
+        new LocalMovementSystem().Tick(state, TimeSpan.FromMinutes(20));
         new SimulationEngine().Tick(state, TimeSpan.FromMinutes(1));
 
         Assert.True(occupant.BladderNeed < 80);
