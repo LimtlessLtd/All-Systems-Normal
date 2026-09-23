@@ -107,6 +107,46 @@ public sealed class EmergentWorldSystemsTests
     }
 
     [Fact]
+    public void Fire_ImmediatelyExtinguishesWithoutOxygenBeforeFurtherDamageOrHeat()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 480043);
+        var room = state.Facility.Rooms["engineering"];
+        room.FireIntensity = 60;
+        room.OxygenPercent = 0;
+        room.TemperatureC = 42;
+        room.SmokePercent = 25;
+        room.HullIntegrityPercent = 80;
+
+        new StationHazardSystem().Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.Equal(0, room.FireIntensity);
+        Assert.Equal(42, room.TemperatureC);
+        Assert.Equal(80, room.HullIntegrityPercent);
+        Assert.Contains(state.EventLog, entry =>
+            entry.Contains("oxygen starvation", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Fire_DecaysFasterAsOxygenFalls()
+    {
+        var oxygenRich = FacilitySeeder.CreateDefault(stationSeed: 480043);
+        var oxygenPoor = FacilitySeeder.CreateDefault(stationSeed: 480043);
+        var richRoom = oxygenRich.Facility.Rooms["engineering"];
+        var poorRoom = oxygenPoor.Facility.Rooms["engineering"];
+
+        richRoom.FireIntensity = 60;
+        poorRoom.FireIntensity = 60;
+        richRoom.OxygenPercent = 17;
+        poorRoom.OxygenPercent = 5;
+
+        new StationHazardSystem().Tick(oxygenRich, TimeSpan.FromMinutes(1));
+        new StationHazardSystem().Tick(oxygenPoor, TimeSpan.FromMinutes(1));
+
+        Assert.True(richRoom.FireIntensity < 60);
+        Assert.True(poorRoom.FireIntensity < richRoom.FireIntensity);
+    }
+
+    [Fact]
     public void LifecycleAudit_KeepsOrdinaryBodiesAndExplainsSilentLateDeaths()
     {
         var state = FacilitySeeder.CreateDefault(stationSeed: 480044);
