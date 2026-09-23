@@ -215,6 +215,15 @@ public sealed class LocalMovementSystem
             };
         }
 
+        if (preferredFixture is null
+            && npc.CurrentAction.Kind == ActionKind.DisconnectDevice
+            && npc.CurrentAction.TargetId is { } tamperTarget
+            && state.Devices.TryGetValue(tamperTarget, out var tamperDevice)
+            && tamperDevice.RoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
+        {
+            preferredFixture = FixtureForDevice(room, tamperDevice.Kind);
+        }
+
         preferredFixture ??= npc.CurrentAction.Kind switch
         {
             ActionKind.Rest or ActionKind.Sleep or ActionKind.Intimacy =>
@@ -354,7 +363,7 @@ public sealed class LocalMovementSystem
         return null;
     }
 
-    private static RoomFixture? FixtureForDevice(Room room, StationSystemKind kind) =>
+    public static RoomFixture? FixtureForDevice(Room room, StationSystemKind kind) =>
         kind switch
         {
             StationSystemKind.Camera =>
