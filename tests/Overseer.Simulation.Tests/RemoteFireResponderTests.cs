@@ -148,7 +148,6 @@ public sealed class RemoteFireResponderTests
         var idleResponder = state.Crew.First(npc => npc.Id != committedExpert.Id);
         idleResponder.Skills["Engineering"] = 45;
         idleResponder.Skills["Security"] = 45;
-        idleResponder.Personality = idleResponder.Personality with { Courage = 80 };
 
         committedExpert.Skills["Engineering"] = 100;
         CrewTaskSystem.Start(
