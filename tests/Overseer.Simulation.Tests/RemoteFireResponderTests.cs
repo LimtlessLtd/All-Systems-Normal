@@ -103,6 +103,64 @@ public sealed class RemoteFireResponderTests
         Assert.False(StationHazardSystem.ShouldFightFire(responder, room));
     }
 
+    [Fact]
+    public void RemoteFire_WakesOneAvailableResponderBeforeTheNormalBrowserMindCadence()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 480043);
+        state.Elapsed = TimeSpan.FromMinutes(1);
+        var responder = state.Crew.First(npc => npc.Role == CrewRole.Engineer);
+        PrepareSafeRemoteFireScenario(state, responder);
+
+        // Protect every other crew member with committed work so the hazard
+        // event has exactly one eligible responder to wake.
+        foreach (var other in state.Crew.Where(npc => npc.Id != responder.Id))
+        {
+            CrewTaskSystem.Start(
+                state,
+                other,
+                ActionKind.Work,
+                other.CurrentRoomId,
+                "Protected test work.",
+                TimeSpan.FromHours(1));
+        }
+
+        new StationHazardSystem().Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.True(responder.NeedsMindReconsideration);
+
+        // Minute 1 is deliberately outside BrowserMindSystem's ordinary
+        // six-minute rotation. Event reconsideration must still run now.
+        new BrowserMindSystem().Tick(state);
+
+        Assert.NotNull(responder.Intent);
+        Assert.Equal(ActionKind.FightFire, responder.Intent!.Action);
+        Assert.Equal("engineering", responder.Intent.TargetId);
+    }
+
+    [Fact]
+    public void RemoteFire_DoesNotInterruptCommittedWorkJustToCreateAResponder()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 480043);
+        var responder = state.Crew.First(npc => npc.Role == CrewRole.Engineer);
+        PrepareSafeRemoteFireScenario(state, responder);
+
+        foreach (var npc in state.Crew)
+        {
+            CrewTaskSystem.Start(
+                state,
+                npc,
+                ActionKind.Work,
+                npc.CurrentRoomId,
+                "Protected committed work.",
+                TimeSpan.FromHours(1));
+        }
+
+        new StationHazardSystem().Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.All(state.Crew, npc => Assert.False(npc.NeedsMindReconsideration));
+        Assert.Equal(CrewTaskStatus.InProgress, responder.ActiveTask?.Status);
+    }
+
     private static void PrepareSafeRemoteFireScenario(GameState state, Npc responder)
     {
         foreach (var npc in state.Crew)
