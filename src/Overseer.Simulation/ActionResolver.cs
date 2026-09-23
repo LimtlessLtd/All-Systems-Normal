@@ -1039,6 +1039,13 @@ public sealed class ActionResolver
                 0.55));
             holder.NeedsMindReconsideration = true;
         }
+        else
+        {
+            // Taken from a hiding spot with the owner absent: nobody was
+            // there to notice directly, so PossessionTheftNoticeSystem gives
+            // the owner their own "surprised realization" memory later.
+            possession.OwnerNoticedCurrentHolder = false;
+        }
 
         var stolenSighting = CurrentSighting(state, possession);
         npc.KnownPossessions[possession.Id] = stolenSighting;

@@ -16,6 +16,7 @@ public abstract class StationSession
     private readonly MedicalSystem _medical = new();
     private readonly MedicalEvidenceSystem _medicalEvidence = new();
     private readonly PossessionAwarenessSystem _possessionAwareness = new();
+    private readonly PossessionTheftNoticeSystem _possessionTheftNotice = new();
     private readonly EnvironmentSystem _environment = new();
     private readonly AirlockSafetySystem _airlockSafety = new();
     private readonly VacuumConsequenceSystem _vacuum = new();
@@ -811,6 +812,7 @@ public abstract class StationSession
         _simulation.Tick(State, turn);
         _medicalEvidence.Tick(State);
         _possessionAwareness.Tick(State);
+        _possessionTheftNotice.Tick(State);
         _perception.Tick(State);
         _medical.Tick(State);
         _missingPeople.Tick(State);
