@@ -20,6 +20,21 @@ public sealed class StationSessionTests
         Assert.Equal(TimeSpan.FromMinutes(5), session.State.Elapsed);
     }
 
+    [Theory]
+    [InlineData(4242)]
+    [InlineData(480043)]
+    public async Task FreshStation_FirstMinuteDoesNotKillTheRoster(int stationSeed)
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: stationSeed);
+        var initialCrew = state.Crew.Count;
+        var session = new RecordingSession(state);
+
+        await session.AdvanceOneMinuteAsync();
+
+        Assert.Equal(initialCrew, session.State.Crew.Count(npc => npc.IsAlive && npc.IsPresent));
+        Assert.All(session.State.Crew, npc => Assert.True(npc.Health > 0));
+    }
+
     [Fact]
     public async Task EndedScenario_StopsAdvancingAndThinking()
     {
@@ -126,9 +141,16 @@ public sealed class StationSessionTests
             File.ReadAllText(Path.Combine(root, "src/Overseer.Web/Components/App.razor")));
     }
 
-    private sealed class RecordingSession()
-        : StationSession(new RuleBasedOverseerMessageInterpreter(), FacilitySeeder.CreateDefault(stationSeed: 4242))
+    private sealed class RecordingSession
+        : StationSession
     {
+        public RecordingSession(GameState? initialState = null)
+            : base(
+                new RuleBasedOverseerMessageInterpreter(),
+                initialState ?? FacilitySeeder.CreateDefault(stationSeed: 4242))
+        {
+        }
+
         public int ThinkCalls { get; private set; }
 
         public override Task ResetAsync(CancellationToken cancellationToken = default) =>

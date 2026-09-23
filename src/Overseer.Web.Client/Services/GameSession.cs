@@ -76,6 +76,20 @@ public sealed class GameSession : StationSession
         ArgumentNullException.ThrowIfNull(campaign);
 
         PauseClock();
+
+        if (!CampaignProgressionSystem.CanAutoRestoreCampaign(campaign))
+        {
+            Campaign = new CampaignState();
+            State = CreateStateForScenario(
+                Campaign,
+                ScenarioCatalog.SecureContinuity,
+                Random.Shared.Next());
+            State.EventLog.Insert(
+                0,
+                "T+00:00: Previous campaign could not continue because no living crew remained; a fresh assignment was started.");
+            return Task.CompletedTask;
+        }
+
         Campaign = campaign;
 
         var next = CampaignProgressionSystem.NextScenario(Campaign);

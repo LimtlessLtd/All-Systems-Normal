@@ -42,6 +42,27 @@ public static class CampaignProgressionSystem
         campaign.RevealStage = RevealFor(campaign.MissionHistory.Count);
     }
 
+    /// <summary>
+    /// Whether a persisted campaign can be restored directly into its next
+    /// assignment without fabricating a replacement roster. A continuing
+    /// assignment with zero living, present crew is a dead-end until the
+    /// physical crew-resupply flow exists; auto-restoring it makes an initial
+    /// fresh roster flash briefly and then appear to die on startup.
+    /// </summary>
+    public static bool CanAutoRestoreCampaign(CampaignState campaign)
+    {
+        ArgumentNullException.ThrowIfNull(campaign);
+
+        var next = NextScenario(campaign);
+        if (next is null || next.RosterPolicy != ScenarioRosterPolicy.CampaignContinuing)
+        {
+            return true;
+        }
+
+        return campaign.Crew.Any(snapshot =>
+            snapshot.IsPresent && snapshot.Health > 0);
+    }
+
     public static IReadOnlyList<Npc>? CreateContinuingCrew(CampaignState campaign)
     {
         if (campaign.Crew.Count == 0)

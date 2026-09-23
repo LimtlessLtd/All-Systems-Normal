@@ -98,6 +98,22 @@ public sealed class GameSession(
 
         PauseClock();
         _mindCursor = 0;
+
+        if (!CampaignProgressionSystem.CanAutoRestoreCampaign(campaign))
+        {
+            Campaign = new CampaignState();
+            var freshScenario = ScenarioCatalog.SecureContinuity;
+            var freshCrew = await CreateCrewForScenarioAsync(freshScenario, cancellationToken);
+            State = FacilitySeeder.CreateDefault(
+                freshCrew,
+                stationConstraints: freshScenario.StationConstraints);
+            State.EventLog.Insert(
+                0,
+                "T+00:00: Previous campaign could not continue because no living crew remained; a fresh assignment was started.");
+            _initialized = true;
+            return;
+        }
+
         Campaign = campaign;
 
         var next = CampaignProgressionSystem.NextScenario(Campaign);

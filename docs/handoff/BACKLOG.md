@@ -587,7 +587,7 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Idea: "The AI Overseer (player) should be able to request more crew from The Corp. if the current humans are all or mostly dead or become incapacitated." The player must submit (1) how the previous crew died/were incapacitated and (2) their justification for needing more crew; an LLM evaluates whether the reasoning is convincing enough that The Corp would get a good return on investment, and only then approves. Approval spawns new crew who arrive physically: "I want a space shuttle to actually fly in, dock at the airlock, the crew to come aboard, and then the space shuttle to leave" — not crew magically appearing in the airlock.
 - Outcome: a player-submitted resupply request (structured: cause-of-loss text + justification text) is judged by an LLM evaluator against an implicit ROI-style rubric — approve/deny plus reasoning, never a scripted pass/fail threshold — mirroring how cognition already judges other player-facing asks rather than adding a hidden numeric score. On approval, new crew are generated via the existing crew-generation machinery and arrive through a deterministic physical docking sequence: a shuttle flies toward the station, docks at a hatch on the Airlock room that leads to space, new crew board through the Airlock once docked, then the shuttle departs. Denial leaves the station exactly as it was — no crew, no shuttle, and (per idea #56/human-facing directive patterns) the player can presumably re-request later with a stronger justification.
 - Size: large (slices: request UI capturing the two required fields; LLM evaluation call + structured approve/deny-with-reasoning response, reusing existing `Microsoft.Extensions.AI` structured-output plumbing; crew generation on approval reusing existing roster generation; Airlock-hatch-to-space physical fixture; shuttle dock/board/depart sequence and its presentation)
-- Status: ready — shares its "something docks at the Airlock and crew come aboard" physical plumbing with idea #70 (transient outsiders); sequence together or have whichever lands first build the shared dock/board/depart machinery generically rather than twice.
+- Status: ready — shares its "something docks at the Airlock and crew come aboard" physical plumbing with idea #70 (transient outsiders); sequence together or have whichever lands first build the shared dock/board/depart machinery generically rather than twice. Until this ships, an all-dead persisted roster is deliberately not auto-restored into a continuing assignment; startup falls back to a fresh Secure Continuity run rather than presenting an instant-dead crew.
 
 
 ### 82. Disabled/unpowered machinery should visually stop
@@ -599,12 +599,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 
 ---
 
-### 83. First-tick mass-death regression
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790199596081209 (2026-09-23)
-- Idea: "I just encountered a bug where the game started and everyone immediately died on the first tick."
-- Outcome: a freshly generated ordinary station/crew cannot lose the entire roster on its first simulation minute without an explicit lethal scenario condition; reproduce the reported path, identify the authoritative health/environment cause, and add a deterministic regression test before changing behaviour.
-- Size: small once reproduced (root-cause fix + regression test).
-- Status: ready — health-first investigation. Initial code review found no intentional first-minute ignition (`StationHazardSystem.TryIgniteEquipment` starts at minute 12), crew health defaults to 100, and ordinary room atmosphere defaults safe; do not paper over the report with a startup health clamp without reproducing the real cause.
 
 ### 84. Crew task progress under nameplates and clear completed state
 - Sources: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790199651491459 and https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790199995222929 (2026-09-23)
@@ -619,6 +613,34 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Outcome: in the Ollama runtime, cognition may supply character/trait-aware wording for non-authoritative speech/thought bubbles while deterministic C# remains authoritative for actions, state and consequences; browser fallback keeps deterministic copy.
 - Size: small-to-medium (extend structured LLM response/prompt with optional presentation text; validate/length-limit it; wire only to bubble presentation; regression coverage).
 - Status: ready.
+
+### 86. Keep human models visually upright while preserving facing
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790200095135429 (2026-09-23)
+- Idea: "can we make it so the human models are always upright please ... they should still be able to turn to face wherever they are going or looking, but keep them at a 90 degree angle"
+- Outcome: the humanoid body/silhouette stays visually upright relative to the station camera instead of rotating the entire person sideways; authoritative `FacingDegrees` still drives a smaller directional cue (head/arms/facing marker) so players can tell where the person is looking or moving.
+- Size: small (presentation/CSS/SVG adjustment + browser regression check).
+- Status: ready.
+
+### 87. Selected-unit vision arcs and robot route visualization
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790200721530759 (2026-09-23)
+- Idea: "When selecting a human or robot, it should show the vision arc of the unit and when selecting a robot it should show the pathing of the robot."
+- Outcome: selecting a human or robot overlays that unit's authoritative perception cone/range using the existing LOS contract; selecting a robot also shows its current authoritative movement/path route with the same presentation-only rule as crew route visualization.
+- Size: small-to-medium (selection overlay + robot route presentation + browser regression check).
+- Status: ready.
+
+### 88. Variable crew and robot roster sizes
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790200721530759 (2026-09-23)
+- Idea: "there should be between 1 and 4 robots in any given run ... theres always at least 4 crew and 1 robot" with crew/robot count combinations equally likely.
+- Outcome: fresh-run generation samples roster-size combinations uniformly across a bounded crew range (minimum 4) and 1-4 robots, then sizes station provisioning/objective targets from the actual generated roster rather than assuming twelve crew; no combination receives hidden weighting.
+- Size: large (slices: explicit uniform roster-size contract + deterministic seed coverage; dynamic provisioning/objective sizing; robot seeding count; long-run viability coverage for representative combinations).
+- Status: ready — coordinate with #80's competence-distribution/soak work so smaller crews remain intentionally viable rather than accidentally starved.
+
+### 89. Player-triggered room-specific fire alarm
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790200721530759 (2026-09-23)
+- Idea: "There should be a 'Fire Alarm' button that the AI (player) can click and then select the room that the fire is in ... telling everyone where the fire is and to respond ASAP."
+- Outcome: the Overseer can activate a FIRE ALARM workflow and select a real room; C# broadcasts a station-wide alarm/claim naming that room and its urgency to every reachable crew member, but does **not** assign `FightFire` or force compliance — each mind decides whether/how to respond from the shared alarm information. False alarms remain possible if the player selects a room without a fire.
+- Size: small-to-medium (toolbar interaction + room targeting; station-wide alarm message/memory; cognition context; audio/presentation + regression coverage).
+- Status: ready — composes with the existing panic/fire-information gap and preserves the core want/can boundary.
 
 ## Deliberate decisions (do not "fix")
 
