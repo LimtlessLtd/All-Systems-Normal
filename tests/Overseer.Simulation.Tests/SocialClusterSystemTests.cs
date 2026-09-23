@@ -103,4 +103,60 @@ public sealed class SocialClusterSystemTests
         a.Relationships[b.Name].Affinity = aToB;
         b.Relationships[a.Name].Affinity = bToA;
     }
+    [Fact]
+    public void WitnessingCliqueMate_SidesWithTheirFriendInAnArgument()
+    {
+        var (state, friend, opponent, witness) = ArgumentTrio();
+        witness.CliqueId = 3;
+        friend.CliqueId = 3;
+        var before = witness.Relationships[opponent.Name].Resentment;
+
+        SocialSimulationSystem.SideWithCliqueMate(state, friend, opponent);
+
+        Assert.Equal(before + SocialSimulationSystem.CliqueSidingResentment, witness.Relationships[opponent.Name].Resentment, 6);
+        Assert.Contains(witness.Memories, m => m.Description == $"Saw {opponent.Name} argue with my friend {friend.Name}.");
+    }
+
+    [Fact]
+    public void ArgumentSiding_SkipsOutsidersAbsentFriendsAndSharedCliqueMembers()
+    {
+        var (state, friend, opponent, witness) = ArgumentTrio();
+        var before = witness.Relationships[opponent.Name].Resentment;
+
+        // Not in the friend's clique.
+        SocialSimulationSystem.SideWithCliqueMate(state, friend, opponent);
+        Assert.Equal(before, witness.Relationships[opponent.Name].Resentment);
+
+        // In both parties' clique: stays neutral.
+        witness.CliqueId = friend.CliqueId = opponent.CliqueId = 1;
+        SocialSimulationSystem.SideWithCliqueMate(state, friend, opponent);
+        Assert.Equal(before, witness.Relationships[opponent.Name].Resentment);
+
+        // Clique-mate, but not there to see it.
+        opponent.CliqueId = null;
+        witness.CurrentRoomId = state.Facility.Rooms.Keys.First(id => id != friend.CurrentRoomId);
+        SocialSimulationSystem.SideWithCliqueMate(state, friend, opponent);
+        Assert.Equal(before, witness.Relationships[opponent.Name].Resentment);
+        Assert.Empty(witness.Memories);
+    }
+
+    private static (GameState State, Npc Friend, Npc Opponent, Npc Witness) ArgumentTrio()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 202);
+        var friend = state.Crew[0];
+        var opponent = state.Crew[1];
+        var witness = state.Crew[2];
+        foreach (var npc in state.Crew)
+        {
+            npc.CliqueId = null;
+            npc.Memories.Clear();
+            if (npc != friend && npc != opponent && npc != witness)
+                npc.CurrentRoomId = state.Facility.Rooms.Keys.First(id => id != friend.CurrentRoomId);
+        }
+
+        opponent.CurrentRoomId = friend.CurrentRoomId;
+        witness.CurrentRoomId = friend.CurrentRoomId;
+        witness.Relationships[opponent.Name].Resentment = 10;
+        return (state, friend, opponent, witness);
+    }
 }

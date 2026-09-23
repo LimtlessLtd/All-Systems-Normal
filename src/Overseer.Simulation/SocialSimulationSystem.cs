@@ -454,6 +454,37 @@ public sealed class SocialSimulationSystem
             0.55));
 
         Log(state, $"{first.Name} and {second.Name} get into an argument{about}.");
+
+        SideWithCliqueMate(state, first, second);
+        SideWithCliqueMate(state, second, first);
+    }
+
+    public const double CliqueSidingResentment = 1.0;
+
+    // Owner idea #13: disputes propagate within a clique, but only to friends
+    // who actually witness them; someone in both parties' clique stays neutral.
+    public static void SideWithCliqueMate(GameState state, Npc friend, Npc opponent)
+    {
+        foreach (var witness in state.Crew)
+        {
+            if (witness.Id == friend.Id
+                || witness.Id == opponent.Id
+                || !witness.IsAlive
+                || !witness.IsPresent
+                || witness.CurrentRoomId != friend.CurrentRoomId
+                || !SocialClusterSystem.SharesClique(witness, friend)
+                || SocialClusterSystem.SharesClique(witness, opponent)
+                || !witness.Relationships.TryGetValue(opponent.Name, out var witnessToOpponent))
+            {
+                continue;
+            }
+
+            witnessToOpponent.Resentment = Clamp(witnessToOpponent.Resentment + CliqueSidingResentment);
+            witness.Memories.Add(new Memory(
+                $"Saw {opponent.Name} argue with my friend {friend.Name}.",
+                state.Elapsed,
+                0.35));
+        }
     }
 
     private static bool TryViolence(

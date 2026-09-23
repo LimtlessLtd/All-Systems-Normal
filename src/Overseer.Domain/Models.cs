@@ -1150,9 +1150,9 @@ public sealed class Npc : IStationMobileEntity
     /// Deterministic social clique this NPC currently belongs to, derived purely
     /// from the existing mutual-affinity relationship graph by
     /// <see cref="SocialClusterSystem"/>. Null while alone or estranged from
-    /// everyone. Recomputed every tick; nothing yet biases cognition or gossip
-    /// propagation by it (that is a later slice) — it is present-state telemetry,
-    /// not a stored allegiance.
+    /// everyone. Recomputed every tick; it amplifies in-clique gossip and lets
+    /// witnessing clique-mates side with a friend in an argument, but it is
+    /// present-state telemetry, not a stored allegiance.
     /// </summary>
     public int? CliqueId { get; set; }
 

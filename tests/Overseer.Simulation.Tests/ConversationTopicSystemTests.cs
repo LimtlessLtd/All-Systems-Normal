@@ -27,6 +27,27 @@ public sealed class ConversationTopicSystemTests
     }
 
     [Fact]
+    public void Gossip_LandsHarderBetweenCliqueMates()
+    {
+        var (outsiderState, outsiderDavid, outsiderEmma, outsiderMarcus) = Trio();
+        outsiderDavid.Relationships[outsiderMarcus.Name].Resentment = 70;
+        outsiderEmma.Relationships[outsiderDavid.Name].Trust = 60;
+        ConversationTopicSystem.Converse(outsiderState, outsiderDavid, outsiderEmma, LastTopicRoll);
+        var outsiderShift = outsiderEmma.Relationships[outsiderMarcus.Name].Resentment;
+
+        var (state, david, emma, marcus) = Trio();
+        david.Relationships[marcus.Name].Resentment = 70;
+        emma.Relationships[david.Name].Trust = 60;
+        david.CliqueId = 0;
+        emma.CliqueId = 0;
+        ConversationTopicSystem.Converse(state, david, emma, LastTopicRoll);
+        var cliqueShift = emma.Relationships[marcus.Name].Resentment;
+
+        Assert.True(outsiderShift > 0);
+        Assert.Equal(outsiderShift * ConversationTopicSystem.CliqueGossipMultiplier, cliqueShift, 6);
+    }
+
+    [Fact]
     public void Gossip_AboutAFriendIsResistedAndCostsTheGossiper()
     {
         var (state, david, emma, marcus) = Trio();
