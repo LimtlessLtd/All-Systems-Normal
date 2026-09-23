@@ -139,6 +139,379 @@ One batch, 20 entries, from the owner's 2026-09-22 22:17 BST message in `#new-id
 - Size: large (slices: model one singular resource as contested; expose queue/wait/negotiate/take affordances)
 - Status: ready
 
+One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message in `#new-ideas-and-functionality` — a further emergent-narrative/systems programme. The owner's own closing line governs every entry in this batch: "*none of these should be implemented as "events" in the RimWorld sense where code says Sarah starts a strike. Add physical state and generic affordances, then give the LLM reasons to use them.*" Several items are natural building blocks for others (noted per-entry); in particular #21/#22/#24 want **#12's generic tamper-interaction engine** once it exists, #31/#32 share one authority-claim type, and #54 (body-part injuries) is a prerequisite for #55/#56.
+
+### 21. Control-network partitions
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Let crew physically disconnect sections of the station from Overseer. The player suddenly loses cameras, remote door control or machinery control there, while humans can still use local panels. A rebellion could organically create a genuinely AI-free enclave."
+- Outcome: crew can physically disconnect a section's control-network link at a deterministic junction/fixture; while disconnected, Overseer loses camera/remote-door/remote-machinery access there (local panels still work for humans on-site); the LLM decides who does this and why, C# owns the connectivity state and what it gates.
+- Size: large (slices: junction/fixture data model + disconnect/reconnect interaction; wire Overseer's camera/remote-door/remote-machinery access to section connectivity; local-panel-only fallback for humans)
+- Status: ready — builds on #12's generic tamper-interaction engine once it exists.
+
+### 22. Sensor spoofing
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Give humans physical ways to make sensors lie: bridge an O₂ sensor, loop a camera feed, heat a temperature probe, place something in front of a motion detector. C# determines what the sensor reports; the LLM decides why somebody wants to fool you."
+- Outcome: a small set of physical tamper interactions (bridge/loop/heat/obstruct) against deterministic sensor fixtures makes that sensor's reported value diverge from ground truth until fixed or discovered; C# owns the reported-vs-real split, the LLM decides whether/why to use it.
+- Size: large (slices: sensor "reported value" vs "true value" split per sensor type; tamper interactions per sensor type; discovery via inspection/repair)
+- Status: ready — composes on #12's generic tamper-interaction engine.
+
+### 23. Imperfect player knowledge
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Overseer should know only what its functioning sensors know. A dead camera, blocked microphone or disconnected control bus should create a genuine black hole on the player's map rather than merely hiding graphics."
+- Outcome: the player's map/knowledge is derived only from currently-functioning sensor coverage (camera/mic/control-bus state); a dead/blocked/disconnected sensor produces a genuine unknown region (last-known state, not live truth) rather than a cosmetically hidden overlay.
+- Size: large (slices: sensor-coverage-driven knowledge derivation for the player view; "last known" vs "live" state distinction; UI for genuine unknown regions)
+- Status: ready — extends the existing observer-specific-knowledge invariant (`ARCHITECTURE.md`) to the player's own view of the station.
+
+### 24. Local/manual control mode
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Machines can be switched from `NETWORK CONTROL` to `LOCAL CONTROL`. Someone has to physically reach them to operate them, and Overseer cannot simply switch them back remotely."
+- Outcome: a deterministic per-machine control-mode flag (`NETWORK`/`LOCAL`); in `LOCAL`, only a crew member physically present can operate the machine, and the Overseer verb that would remotely toggle it is rejected until a crew member switches it back at the machine.
+- Size: large (slices: control-mode flag on relevant machine types; local-only operation gate; reject remote toggle while local; crew affordance to switch modes)
+- Status: ready — natural pairing with #21.
+
+### 25. Physical credentials
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Keycards, access tokens, PIN knowledge, biometric permissions and stolen credentials. Suddenly giving one engineer access to Security creates dozens of possible stories without scripting any."
+- Outcome: door/console access is gated by a deterministic credential an NPC holds (keycard/token/PIN/biometric), not just role; credentials can be granted, shared, stolen or copied through existing possession/theft affordances (idea #3, shipped); the LLM decides who to grant/share/steal from, C# owns whether an access attempt succeeds.
+- Size: large (slices: credential data model bound to doors/consoles; grant/revoke interaction; theft/sharing via existing possession affordances; access-check wiring)
+- Status: ready
+
+### 26. Forensic system logs
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Doors, consoles, airlocks and machinery remember who accessed them, when and using which credential. Humans can investigate the logs—and sufficiently skilled people can wipe or falsify them."
+- Outcome: door/console/airlock/machinery access is logged deterministically (who, when, credential used); an investigating NPC can read a log as evidence through the existing observer/evidence pipeline; a sufficiently skilled NPC can wipe or falsify an entry as a deterministic skill-gated interaction, itself discoverable like any other tamper.
+- Size: large (slices: access-log data model; log-reading investigation affordance; skill-gated wipe/falsify interaction)
+- Status: ready — depends on #25 for "using which credential."
+
+### 27. Real communication topology
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Intercoms, radios and terminals require power/network coverage. Damage Engineering's antenna and half the crew may literally not hear an evacuation warning, while somebody physically carrying news becomes important."
+- Outcome: intercom/radio/terminal messages only reach NPCs whose location has live power+network coverage per a deterministic coverage model; damaging a coverage node creates real communication dead zones; an NPC can still physically relay news by moving and speaking, using existing perception/conversation systems.
+- Size: large (slices: power/network coverage model per room/zone; message delivery gated by coverage; damage-a-node interaction)
+- Status: ready
+
+### 28. Station policies
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Let Overseer establish policies such as rationing, quarantine, restricted areas, curfew, weapons prohibition or mandatory medical checks. C# exposes/enforces the policy where possible; humans independently decide whether to comply, protest, evade or exploit it."
+- Outcome: a small set of Overseer-settable station policies (rationing, quarantine, restricted-area, curfew, weapons-prohibition, mandatory-medical-check); C# enforces what's physically enforceable (locks, restricted-area flags) and exposes the active policy as context; the LLM independently decides whether an NPC complies, protests, evades or exploits it.
+- Size: large (slices: policy data model + Overseer verb; per-policy deterministic enforcement where physical; expose active policies in cognition prompts)
+- Status: ready
+
+### 29. Alarm fatigue
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "If Overseer repeatedly cries wolf, individual humans begin discounting that particular alarm/source. Later, a real reactor evacuation could become terrifying because Marcus decides, 'Last three reactor warnings were bullshit.'"
+- Outcome: a deterministic per-NPC, per-alarm-source false-alarm counter that decays over time; above a threshold it's surfaced in cognition as context ("the last N alerts from this source were false"), and the LLM decides whether to still react urgently — no forced behaviour change.
+- Size: small (one PR: per-source false-alarm counter + prompt context)
+- Status: ready
+
+### 30. Domain-specific trust in Overseer
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Don't make AI trust one number. Sarah might trust your engineering advice completely but believe your personnel accusations are manipulative. It makes persuasion much richer."
+- Outcome: split the single Trust-in-Overseer scalar into a small fixed set of domains (e.g. technical advice, personnel/accusations, safety directives); each domain moves independently from its own evidence; cognition prompts expose per-domain trust instead of one number.
+- Size: large (slices: domain enum + per-domain trust fields; migrate existing single-Trust update sites to the right domain; expose per-domain trust in prompts)
+- Status: ready — touches the same Trust plumbing #6 (emergent leadership) reads; sequence alongside or after it.
+
+### 31. Formal chain of command
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Captain, doctor, chief engineer, security officer etc. can issue requests based on legitimate authority. A subordinate then weighs rank, relationship, circumstances and their own judgment rather than magically obeying."
+- Outcome: crew roles carry a deterministic rank/authority-domain tag; a role-holder's request is exposed as a perceivable claim carrying that authority, which the LLM weighs against relationship/circumstances/judgment exactly like #6's trust-weighted suggestions — never auto-obeyed by C#.
+- Size: large (slices: rank/authority tag per role; authority-carrying request claim type; expose in cognition alongside #6's suggestion claims)
+- Status: ready — shares claim plumbing with #6.
+
+### 32. Conflicting orders
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Security says seal Engineering; the doctor says open it because somebody is trapped inside; Overseer says preserve the reactor. Let the LLM choose whose instruction it believes matters most."
+- Outcome: when an NPC holds two or more live authority-carrying requests (#31) that conflict, C# does not arbitrate; the LLM picks which to act on using its own weighing of authority/relationship/circumstance, and the unchosen request remains a live claim it can revisit later.
+- Size: small (one PR, once #31 exists: allow multiple concurrent authority claims to coexist and let cognition choose)
+- Status: ready — depends on #31.
+
+### 33. Labour disputes and strikes
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Humans can collectively stop non-essential work when grievances get bad enough. Don't create a `StrikeEvent`; simply allow `RefuseWork`, `DemandChange`, `Picket`, `ReturnToWork`."
+- Outcome: four generic affordances (RefuseWork, DemandChange, Picket, ReturnToWork) available to any NPC once their existing grievance/resentment stats cross a threshold; no scripted strike event or station-wide trigger — each NPC decides independently whether to use them.
+- Size: large (slices: the four affordances against existing grievance/resentment state; task-availability gating while RefuseWork is active; picket as a location-occupying state)
+- Status: ready
+
+### 34. Sit-ins and occupations
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Angry crew might physically occupy Control, Hydroponics or an access corridor without becoming violent. Now the player must work around bodies, doors and life-support consequences."
+- Outcome: an angry NPC can occupy a room/doorway as a non-violent physical-presence affordance, blocking normal traffic/door use through existing collision/pathing, resolved only by negotiation, force or the NPC choosing to leave — no scripted occupation event.
+- Size: large (slices: occupy-location affordance; collision/pathing interaction with an occupied doorway; resolution affordances (negotiate/force/leave))
+- Status: ready — natural extension of #33.
+
+### 35. Romance
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Attraction, relationships, intimacy and breakups create enormous amounts of emergent material from your existing memory/relationship system without needing authored quests."
+- Outcome: a romantic-interest dimension alongside existing Trust/Affinity/Resentment, moved by the same kind of interaction-driven deltas; the LLM decides pursuit/reciprocation/breakup, C# only tracks the resulting relationship state — no scripted romance quest.
+- Size: large (slices: romantic-interest relationship dimension; interaction deltas for existing social affordances; breakup as a relationship-state transition)
+- Status: ready — foundational for #36.
+
+### 36. Jealousy and love triangles
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Combine romance with rumours, stale information and existing resentment and you get some spectacularly stupid human decisions during extremely serious emergencies."
+- Outcome: no new mechanic — once #35 exists, witnessing or hearing (via existing gossip/rumour decay, idea #4, shipped) about a rival's romantic interest feeds existing resentment/jealousy-adjacent deltas; the LLM decides how that affects behaviour.
+- Size: small (one PR, once #35 exists: wire romantic-interest awareness into existing gossip/resentment deltas)
+- Status: ready — depends on #35.
+
+### 37. Career ambition
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "NPCs can desire promotion, recognition, better duties or greater responsibility. Someone repeatedly overlooked may become disengaged, competitive or eager to publicly solve crises."
+- Outcome: a deterministic per-NPC ambition/recognition-seeking trait (existing personality-trait pattern) the LLM can act on (volunteering, competing, publicly solving crises); repeated being-overlooked (existing task-assignment history) nudges an existing disengagement-style stat; no scripted promotion system.
+- Size: large (slices: ambition personality trait; overlooked-tracking from existing task-assignment history; expose both in cognition)
+- Status: ready
+
+### 38. Status and prestige
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Successful rescues, technical accomplishments, cowardice and embarrassing failures become socially remembered. This is different from formal rank: the janitor who saved six people might command more respect than Security."
+- Outcome: notable witnessed acts (rescue, major technical fix, cowardice, embarrassing failure) create a persistent reputation-style memory via the existing witnessed-evidence pipeline, feeding a deterministic reputation delta independent of formal rank; the LLM weighs it socially.
+- Size: large (slices: tag notable existing events as reputation-salient; reputation stat separate from rank; expose in cognition/relationships)
+- Status: ready — reuses #16's witnessed-evidence tagging pattern.
+
+### 39. Deep personal values
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Give NPCs principles such as privacy, loyalty, pacifism, duty, scientific curiosity, personal liberty or 'the mission comes first.' The LLM gets these as motivations; C# never decides the moral conclusion."
+- Outcome: each NPC is generated with 1-2 deterministic value tags from a fixed catalogue, surfaced to cognition as motivations; C# never derives or enforces a "correct" moral choice from them — purely LLM-facing context.
+- Size: large (slices: value-tag catalogue + crew-generation assignment; surface in cognition prompts)
+- Status: ready
+
+### 40. Station traditions and superstitions
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Repeated events can become cultural behaviour. 'Never use Airlock Three after midnight' might begin because two accidents happened there—even though mechanically nothing is wrong with it."
+- Outcome: when the same kind of notable incident (existing witnessed-evidence pipeline) recurs at the same location above a threshold, it becomes a persistent "local reputation" memory tag on that room, visible to cognition as context; no mechanical effect on the room itself, purely an LLM-facing belief.
+- Size: large (slices: recurring-incident-at-location detection; room reputation-tag memory; expose in cognition)
+- Status: ready
+
+### 41. Funerals and memorials
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "A death leaves a body and social problem, not merely `Health = 0`. People may hold a service, avoid the location, build a memorial, blame someone or refuse to work immediately afterward."
+- Outcome: a death creates a persistent witnessed-death memory and a body as physical state (not despawned); grieving affordances (hold a service, avoid the location, build a memorial marker, refuse work briefly) become available to nearby/related NPCs; the LLM decides which, if any, to use.
+- Size: large (slices: body persists as physical state after death; grieving affordance set; location-avoidance feeding existing fear/stress weighting)
+- Status: ready — the "avoid the location" half reuses #15 (fear conditioning tied to locations).
+
+### 42. Disciplining other crew
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Security or leadership can warn, suspend, restrict access or detain ordinary crew members—not just prisoners."
+- Outcome: a security/leadership-role NPC gets warn/suspend/restrict-access/detain affordances usable against any crew member, not only existing `PrisonerDefinition` prisoners; detaining an ordinary crew member creates a prisoner-like containment record without requiring the mission to have pre-authored them as a prisoner.
+- Size: large (slices: warn/suspend/restrict-access affordances; runtime detain-an-ordinary-crew-member path onto existing containment mechanics)
+- Status: ready — extends the existing prisoner/containment system rather than replacing it.
+
+### 43. Wrongful detention
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Because knowledge is observer-specific, the wrong person can genuinely be imprisoned based on misleading testimony. Friends might protest, investigate, free them or retaliate."
+- Outcome: no new mechanic — a detention (#42) based on one NPC's mistaken/misleading testimony is already possible once knowledge is observer-specific; add protest/investigate/free/retaliate affordances for allies of a detained NPC.
+- Size: small (one PR, once #42 exists: protest/investigate/free/retaliate affordances for a detained NPC's allies)
+- Status: ready — depends on #42.
+
+### 44. Crew tribunals
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Serious accusations could organically produce meetings where people compare testimony/evidence and independently reach conclusions. Your existing rumours, memories, logs and perceptions would suddenly matter enormously."
+- Outcome: a serious accusation can trigger a gathering affordance where present NPCs each independently weigh their own observer-specific memories/rumours/evidence (existing pipelines) via the LLM to reach a personal conclusion about guilt; C# never computes a verdict, only convenes the meeting and exposes each attendee's own evidence to their own prompt.
+- Size: large (slices: accusation-triggered gathering affordance; per-attendee evidence exposure (no shared omniscient summary); independent LLM conclusion per attendee)
+- Status: ready
+
+### 45. Prisoner privilege levels
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Cooperative prisoners gradually gain recreation, work access, unlocked movement or better food. Misbehaviour loses those privileges."
+- Outcome: a deterministic privilege-level field on existing prisoner state, moved up/down by existing cooperative/misbehaviour signals; each level deterministically gates recreation/work/movement/food access.
+- Size: large (slices: privilege-level field + deterministic move triggers; per-level access gating across recreation/work/movement/food)
+- Status: ready
+
+### 46. Prisoner rehabilitation and reintegration
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "A prisoner could eventually become socially embedded enough that crew disagree about whether they should still be confined."
+- Outcome: no new mechanic — once a prisoner accumulates enough positive relationship stats (existing Trust/Affinity) with enough crew via #45's privilege interactions, crew members independently form (via the LLM) differing opinions on continued confinement, surfaced as an ordinary claim/suggestion like #6.
+- Size: small (one PR, once #45 exists: expose a prisoner's aggregate crew relationship state as context for a "should they still be confined" opinion)
+- Status: ready — depends on #45.
+
+### 47. Guard-prisoner relationships
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Guards can sympathise with, hate, befriend or be manipulated by specific prisoners. A guard might break procedure because they personally trust someone."
+- Outcome: no new stat — guard and prisoner already accrue ordinary Trust/Affinity/Resentment through interaction; expose a guard's relationship toward a specific prisoner in the guard's own cognition context when deciding whether to enforce a containment rule, so the LLM can choose to bend it.
+- Size: small (one PR: expose guard-prisoner relationship in containment-decision prompts)
+- Status: ready
+
+### 48. Informants
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Prisoners or crew can secretly feed information to Security/Overseer in exchange for protection or privileges. Discovery produces very strong social consequences."
+- Outcome: an "inform" affordance lets an NPC privately disclose a secret/rumour/accusation to Security/Overseer in exchange for a deterministic protection/privilege grant; if another NPC later witnesses or is told about the informing, existing disclosure/trust-penalty mechanics (#14, secrets and blackmail) apply.
+- Size: large (slices: inform affordance + protection/privilege grant; discovery path reusing #14's disclosure-penalty mechanics)
+- Status: ready — depends on #14.
+
+### 49. Hostage situations
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "No bespoke hostage mission required: a desperate NPC has another NPC, a locked room, perhaps a weapon, and demands. Everyone else independently figures out what to do."
+- Outcome: a desperate NPC can lock a room with another NPC inside (existing door-lock mechanics) and issue a demand as a broadcastable claim; every other NPC independently decides (negotiate, call security, attempt entry, ignore) via the LLM using existing affordances — no scripted hostage-mission state machine.
+- Size: large (slices: demand-claim broadcast affordance; expose to nearby NPCs' cognition as an ongoing situation; resolution reuses existing door/force/negotiate affordances)
+- Status: ready — composes with #17 (bystander behaviour) and existing door mechanics.
+
+### 50. Riots
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "A prison riot should emerge from enough angry people seeing an opportunity—not from a random 'RIOT' dice roll. Some prisoners fight, some escape, some hide, some protect staff, some loot supplies."
+- Outcome: no new "riot" mechanic — once enough prisoners independently have high resentment and perceive a real opportunity (e.g. an unlocked door, an outnumbered guard), each decides individually via the LLM to fight/escape/hide/protect staff/loot, using existing fight/movement/theft affordances; a riot is the emergent aggregate, not a triggered event.
+- Size: large (slices: opportunity-perception signals (unlocked door, guard ratio) surfaced to prisoner cognition; verify existing fight/escape/hide/loot affordances compose without a central trigger)
+- Status: ready — depends on #45 (privilege levels) for a meaningful "opportunity" signal.
+
+### 51. Contagious disease
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Infection status + physical contact + ventilation + surfaces gives you another system capable of cascading across the entire station."
+- Outcome: a deterministic infection-status field spreads via physical contact, shared ventilation and surface contamination using deterministic transmission rules; symptoms feed existing health/stress systems; the LLM decides how an NPC reacts (isolate, hide it, seek treatment), never whether transmission occurs.
+- Size: large (slices: infection-status field + deterministic transmission via contact/ventilation/surfaces; symptom effects on existing health/stress; treatment/recovery path)
+- Status: ready
+
+### 52. Quarantine resistance
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Healthy-but-exposed crew may not believe they're infected and may resent being locked down. Others might demand they be confined."
+- Outcome: no new mechanic — once #51 and #28 (station policies, quarantine) exist, an exposed-but-asymptomatic NPC's belief about their own infection status is just their own (possibly wrong) knowledge state, and compliance with a quarantine policy is already the LLM's independent decision per #28.
+- Size: small (one PR, once #51 and #28 exist: wire infection-status belief into quarantine-policy compliance context)
+- Status: ready — depends on #51 and #28.
+
+### 53. Medical triage
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "When three people need treatment and there is one doctor/bed, somebody must choose priority. The LLM chooses whom it wants to save first; C# owns actual treatment capability."
+- Outcome: when multiple injured NPCs are waiting for one doctor/medbay, the doctor's cognition sees all waiting patients and their conditions and picks who to treat first; C# continues to own whether treatment is physically possible/successful — only priority ordering moves to the LLM.
+- Size: small (one PR: expose all waiting patients to the doctor's prompt and let priority choice come from cognition instead of a fixed C# ordering)
+- Status: ready
+
+### 54. Body-part injuries
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Damaged hand → worse repair work. Broken leg → slow walking. Eye injury → reduced perception. Lung damage → much greater vulnerability to low O₂/smoke."
+- Outcome: a small set of body-part injury flags, each with one deterministic mechanical consequence wired into an existing formula (repair-skill, movement speed, perception range, low-O₂/smoke vulnerability) — no new injury-simulation engine, just flags plus existing-formula modifiers.
+- Size: large (slices: injury-flag data model; wire each flag into its one existing formula (repair/movement/perception/O₂-vulnerability))
+- Status: ready
+
+### 55. Prosthetics
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Lost capability can be replaced by manufactured prostheses of varying quality, creating resource and maintenance dependencies."
+- Outcome: once #54 exists, a prosthesis is a craftable/installable item that offsets a specific injury flag's penalty by an amount depending on its deterministic quality tier, and itself needs periodic maintenance (existing equipment-condition pattern) or the penalty returns.
+- Size: large (slices: prosthesis item + quality tiers; install interaction offsetting an injury flag; maintenance/degradation reusing existing equipment-condition pattern)
+- Status: ready — depends on #54.
+
+### 56. Chronic pain and medication
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "An injured NPC may need painkillers to work effectively. Scarcity produces hoarding, theft, sacrifice or withdrawal from duty."
+- Outcome: once #54 and #8 (work-quality) exist, an unmedicated injury-flagged NPC works at reduced effectiveness via #8's existing quality/modifier pattern; a painkiller item temporarily offsets it; scarcity plays out entirely through existing possession/hoarding/theft affordances, no new social mechanic needed.
+- Size: small (one PR, once #54 and #8 exist: painkiller item + temporary effectiveness offset)
+- Status: ready — depends on #54 and #8.
+
+### 57. Stimulants and sedatives
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Humans can trade tomorrow's fatigue for staying awake during an emergency, or use sedatives to sleep under extreme stress. Repeated abuse has deterministic consequences."
+- Outcome: a stimulant item temporarily suppresses fatigue need at the cost of a larger deterministic fatigue debt later; a sedative item forces/accelerates sleep under high stress; repeated use accumulates a deterministic dependency/health-cost stat; the LLM decides whether to use either.
+- Size: large (slices: stimulant item + fatigue-debt mechanic; sedative item + stress-triggered sleep; cumulative-abuse consequence stat)
+- Status: ready
+
+### 58. Delirium and unreliable perception
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Severe hypoxia, smoke, fever, drugs or exhaustion can cause C# to degrade what an NPC perceives before it reaches the LLM. Now sincere eyewitnesses can be completely wrong."
+- Outcome: above deterministic thresholds of hypoxia/smoke exposure/fever/drug use/exhaustion, C# deterministically corrupts or omits perception events before they become memories, so the LLM sincerely reports a degraded/wrong account; extends the existing light-dependent-perception invariant with a physiological-state dimension.
+- Size: large (slices: per-condition perception-degradation thresholds; deterministic corruption/omission at the perception→memory boundary)
+- Status: ready
+
+### 59. Sanitation and waste
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Toilets, showers, waste tanks and sewage processing become physical systems. A broken recycler goes from inconvenience → smell → stress → contamination → illness."
+- Outcome: waste tanks/recyclers get a deterministic fill/process state; a broken or overfull recycler raises a room "unsanitary" flag that applies existing-style stress/contamination deltas, escalating to illness (once #51 exists) if left unresolved.
+- Size: large (slices: waste-tank/recycler fill-and-process state; unsanitary-room flag + stress/contamination deltas; illness-escalation hook for #51)
+- Status: ready
+
+### 60. Water quality
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Water is recycled but can become contaminated. Humans may notice taste/sickness before Overseer conclusively identifies the source."
+- Outcome: recycled water carries a deterministic contamination level that can rise from a physical cause (e.g. #59's sanitation failures, a leak); crew drinking contaminated water take a small stress/health tell before Overseer's own diagnostics conclusively surface the reading, creating a genuine detection gap.
+- Size: large (slices: water-contamination level + physical causes; crew-side early "something's off" symptom; Overseer diagnostic lag)
+- Status: ready
+
+### 61. Food spoilage and refrigeration
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Storage needs power. A brownout can silently ruin half the food supply and trigger arguments about whether questionable food is safe to eat."
+- Outcome: stored food carries a deterministic freshness state that decays faster without powered refrigeration (composes with #66's power quality); crew independently judge (via the LLM, with imperfect information) whether to eat questionable food, with a real deterministic illness risk if they're wrong.
+- Size: large (slices: food freshness/decay state gated by power; illness risk on eating spoiled food; expose freshness ambiguity to cognition rather than a clean flag)
+- Status: ready — depends on #66 for the brownout trigger to matter.
+
+### 62. Actual cooking
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Raw ingredients can become meals requiring time, equipment and skill. Better cooks produce better morale; desperate crews eat raw potatoes when the galley is offline."
+- Outcome: a cooking task (existing task-state pattern) converts raw ingredients into a meal at the galley, taking time and gated by an existing-style cooking skill; meal quality (#8's quality-not-binary pattern) affects an existing morale-adjacent stat more than eating raw ingredients does; raw ingredients remain edible as a worse fallback.
+- Size: large (slices: cooking task + skill; meal-quality-to-morale wiring; raw-ingredient fallback eating)
+- Status: ready — reuses #8's quality formula pattern.
+
+### 63. Hydroponic diseases and pests
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Fungus, nutrient imbalance, mites or bacterial contamination can move between bays. Crew decide whether to isolate, destroy or gamble on saving crops."
+- Outcome: hydroponic bays gain a deterministic crop-health hazard that can spread to adjacent bays via existing bay-adjacency data; isolate/destroy/treat affordances are available to crew, who independently decide (via the LLM) whether to act or gamble.
+- Size: large (slices: crop-health hazard + spread-between-bays rule; isolate/destroy/treat affordances)
+- Status: ready — extends the existing per-bay hydroponics system (V0.13).
+
+### 64. Trace atmospheric contaminants
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Add gases beyond O₂/CO₂: coolant vapour, ammonia, combustion products or industrial solvents. Different filters handle different contaminants."
+- Outcome: a small fixed set of additional gas types tracked alongside existing O₂/CO₂ per room, each sourced from a specific deterministic cause (coolant leak, industrial process, combustion) and cleared only by a matching filter/ventilation type; symptoms feed existing health/perception systems.
+- Size: large (slices: additional gas types + per-room tracking; source events per gas type; filter-type-specific clearing; symptom wiring)
+- Status: ready
+
+### 65. Noise and vibration
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Running a damaged pump beside crew quarters could prevent sleep. People might shut it down despite it technically being needed elsewhere."
+- Outcome: a small set of machinery types gets a deterministic noise-level property, raised when damaged/running hard; a room's noise level above threshold degrades existing sleep-quality mechanics for occupants; shutting the machine down is an ordinary existing operator affordance, chosen by the LLM.
+- Size: small (one PR: noise-level property on relevant machinery + sleep-quality penalty in noisy rooms)
+- Status: ready
+
+### 66. Power quality
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Brownouts, surges, overloaded buses and fuse trips. A reactor can produce enough total energy yet still have unstable distribution that makes machinery behave unpredictably."
+- Outcome: extend the existing power system from a single on/off state to a deterministic quality dimension (nominal/brownout/surge/tripped) per bus, driven by load vs. distribution capacity rather than only total supply; machinery behaviour degrades or trips deterministically under bad power quality.
+- Size: large (slices: per-bus power-quality state + load/capacity model; brownout/surge/trip consequences on machinery; fuse-trip reset interaction)
+- Status: ready — #61 (food spoilage) and others key off this.
+
+### 67. Thermal simulation and radiator loops
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Machinery produces heat; coolant transports it; external radiators reject it. Closing off a burning compartment might contain smoke but also sever the coolant route and slowly cook the reactor."
+- Outcome: a deterministic heat-generation → coolant-loop → radiator-rejection model per relevant machinery chain; sealing a compartment a coolant route passes through physically interrupts that route, with a deterministic consequence (heat buildup) at the machinery it serves — no scripted "sever coolant" event, just real topology.
+- Size: large (slices: heat/coolant/radiator model for one machinery chain (e.g. reactor) first; door-seal interrupts route topology; extend to other machinery)
+- Status: ready — #73 (room-gas-loss cooling) is a related but smaller, separable case; sequence independently.
+
+### 68. Fluid leaks
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Coolant/water/fuel physically spreads across floor regions. It can make surfaces slippery, damage equipment, conduct electricity or contaminate supplies."
+- Outcome: a leak source (from damage or #12's tamper interactions) spreads a deterministic fluid-coverage state across adjacent floor regions over time; covered regions apply existing-style consequences (slip/movement penalty, equipment damage, electrical-conduction hazard near powered fixtures, supply contamination per #60).
+- Size: large (slices: fluid-coverage spread model over floor regions; per-fluid-type consequence set; cleanup/mop affordance)
+- Status: ready
+
+### 69. Slow hull leaks
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Not every breach should explosively decompress. A microscopic pressure loss somewhere forces crew to hunt for the source while people argue about whether the readings are even abnormal."
+- Outcome: a breach can be seeded as a slow deterministic pressure-loss rate instead of the existing instant-decompression path; crew must physically search to locate the source (reusing existing search/investigation affordances) while the room's O₂/pressure readings drift gradually, genuinely ambiguous at first.
+- Size: large (slices: slow-leak pressure-loss rate as an alternative to instant decompression; source-search affordance; gradual-reading ambiguity)
+- Status: ready
+
+### 70. Transient outsiders
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
+- Idea: "Traders, inspectors, refugees, rescue pods, replacement crew, scientists and survivors occasionally dock. They bring resources, information, diseases, relationships, secrets and opinions about Overseer into an already-running social ecosystem."
+- Outcome: a deterministic docking event (frequency/type from campaign constraints, not hardcoded) spawns a temporary visitor NPC generated with the same crew-generation machinery, carrying a role-appropriate resource/information/secret payload and an initial Overseer-disposition value; the LLM plays them like any other NPC for their stay.
+- Size: large (slices: docking event + visitor lifecycle (arrive/depart); visitor generation reusing existing crew-generation; role-appropriate payload catalogue (trader/inspector/refugee/etc.))
+- Status: ready
+
+### 71. AI Safety Officer crew role
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790153014624779 (2026-09-23)
+- Idea: "I think we should also introduce a crew position 'AI Safety Officer' who is the one responsible for keeping the AI (player) under control, so the player has an incentive to either remove this crew member or get them on the players side so they like the AI, or perhaps the player can just slowly make this crew member go crazy by getting others to bully them or getting others to steal from them etc. etc."
+- Outcome: a new crew role tag ("AI Safety Officer") assigned at generation, whose deterministic authority hooks into existing Overseer-restraining affordances from this same batch (#21 control-network partitioning, #24 local-control switching, #28 policy vetoes) directed specifically at the player; the player gets no bespoke "sabotage the safety officer" verb — persuasion/alliance-building already exists as ordinary relationship deltas, and "make them go crazy" already composes from #9 (private coping under stress) plus existing bullying/theft interactions.
+- Size: large (slices: AI Safety Officer role tag + generation weighting; wire the role's authority into #21/#24/#28's enforcement hooks; verify existing stress/bullying/theft affordances are sufficient for the "make them go crazy" path with no new mechanic)
+- Status: ready — deliberately scoped to compose on #9/#21/#24/#28 rather than add new player-vs-NPC mechanics; sequence after those.
+
+### 72. Sounds and music enabled by default
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790154558923439 (2026-09-23)
+- Idea: "sounds and music should be enabled by default."
+- Outcome: the audio/music settings default flips from off to on for a new session; existing mute controls are unchanged.
+- Size: small (one PR: flip the default in the settings/audio initialization)
+- Status: ready
+
+### 73. Zero-atmosphere rooms cool toward absolute zero
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790156242647279 (2026-09-23)
+- Idea: "If a rooms oxygen/gas content falls to 0, then temperature should fall towards absolute zero just like real space."
+- Outcome: a room whose gas content reaches 0 loses its normal thermal equilibrium and its temperature drifts deterministically toward a very low floor (far colder than any powered/atmosphere-present room; need not be exact 0 K), reusing whatever heat-loss model exists; restoring atmosphere/power lets it recover normally.
+- Size: small (one PR against current systems: no-atmosphere rooms get a deterministic cooling-toward-floor rate instead of holding/decaying toward ambient) — a fuller version composes naturally with #67's thermal-simulation work once that lands, but this slice doesn't need to wait for it.
+- Status: ready
+
 ---
 
 ## Deliberate decisions (do not "fix")
@@ -207,6 +580,7 @@ No `ISystem` interface; `Tick` is duck-typed with two signatures (`Tick(GameStat
 
 - The JWST backdrop competes with the small crew tokens: dim/desaturate/vignette it. Door frames are brighter than crew; give each crew member one colour used everywhere and larger tokens.
 - Station state is shown as text rather than atmosphere: power loss as darkness with emergency strips, low O₂ as haze, decompression as particles, ambient room audio.
+- Fire animations don't appear to render in rooms (owner report, 2026-09-23, `#new-ideas-and-functionality`). Not yet investigated in a real browser — the underlying `FireIntensity` simulation itself is confirmed working (`StationHazardSystem`, exercised by passing tests), so this looks like a presentation-layer gap rather than a simulation bug, but needs an actual visual check before diagnosing further.
 
 **Diagnostics**
 
