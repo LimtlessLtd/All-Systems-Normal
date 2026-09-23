@@ -18,6 +18,7 @@ public sealed class StationHazardSystem
         AdvanceFires(state, delta);
         PropagateSmoke(state, delta);
         ApplySmokeExposure(state, delta);
+        WakeRemoteFireResponders(state);
     }
 
     private static void TryIgniteEquipment(GameState state)
@@ -409,10 +410,124 @@ public sealed class StationHazardSystem
         var practical = Math.Max(
             npc.Skills.GetValueOrDefault("Engineering"),
             npc.Skills.GetValueOrDefault("Security"));
-        return room.FireIntensity <= 58
+        return room.FireIntensity > 0
+            && room.FireIntensity <= 58
+            && room.SmokePercent <= 70
+            && room.OxygenPercent >= 14
+            && room.PressureKpa >= 65
+            && npc.Health >= 35
             && npc.Stress < 88
             && npc.Fatigue < 88
             && (practical >= 45 || courage >= 72);
+    }
+
+    /// <summary>
+    /// Chooses one remote fire this fallback mind can physically reach and
+    /// safely attempt to suppress. Ollama cognition already receives
+    /// station-wide fire/smoke readings; this gives deterministic fallback
+    /// minds the same grounded opportunity without scripting an all-hands
+    /// response.
+    ///
+    /// At most one responder is nominated per fire while another crew member
+    /// already holds a FightFire intent or active FightFire task for it.
+    /// </summary>
+    public static Room? FindRemoteFireForResponder(
+        GameState state,
+        Npc npc,
+        NavigationSystem navigation,
+        IReadOnlySet<string>? excludedRoomIds = null)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(npc);
+        ArgumentNullException.ThrowIfNull(navigation);
+
+        if (!npc.IsAlive
+            || !npc.IsPresent
+            || npc.Hunger >= CrewNeedThresholds.HungerCritical
+            || npc.Fatigue >= CrewNeedThresholds.FatigueCritical)
+        {
+            return null;
+        }
+
+        return state.Facility.Rooms.Values
+            .Where(room =>
+                !room.Id.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
+                && (excludedRoomIds is null || !excludedRoomIds.Contains(room.Id))
+                && ShouldFightFire(npc, room)
+                && !state.Crew.Any(other =>
+                    other.Id != npc.Id
+                    && other.IsAlive
+                    && other.IsPresent
+                    && ((other.Intent is
+                            {
+                                Action: ActionKind.FightFire,
+                                TargetId: { } intentTarget
+                            }
+                            && intentTarget.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+                        || (other.ActiveTask is
+                            {
+                                Status: CrewTaskStatus.InProgress,
+                                Action: ActionKind.FightFire,
+                                TargetId: { } taskTarget
+                            }
+                            && taskTarget.Equals(room.Id, StringComparison.OrdinalIgnoreCase)))))
+            .Select(room => new
+            {
+                Room = room,
+                Path = navigation.FindPathForCrew(
+                    state,
+                    npc,
+                    npc.CurrentRoomId,
+                    room.Id)
+            })
+            .Where(candidate => candidate.Path.Count >= 2)
+            .OrderByDescending(candidate => candidate.Room.FireIntensity)
+            .ThenBy(candidate => candidate.Path.Count)
+            .ThenBy(candidate => candidate.Room.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(candidate => candidate.Room)
+            .FirstOrDefault();
+    }
+
+    /// <summary>
+    /// A remote fire is a station event worth reconsidering, but not permission
+    /// for C# to choose anybody's goal. Wake at most one available, capable
+    /// responder per fire so the active mind gets a prompt now instead of
+    /// waiting for the ordinary 4-6 minute cognition rotation. Committed work
+    /// and high-urgency intents remain protected.
+    /// </summary>
+    private static void WakeRemoteFireResponders(GameState state)
+    {
+        var navigation = new NavigationSystem();
+        var reservedFireRooms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var npc in state.Crew
+                     .Where(candidate =>
+                         candidate.IsAlive
+                         && candidate.IsPresent
+                         && !candidate.IsContainmentBreachInProgress
+                         && !CrewTaskSystem.IsWorking(candidate)
+                         && !CrewEnvironmentSafety.IsDangerous(
+                             state.Facility.Rooms[candidate.CurrentRoomId])
+                         && (candidate.Intent is null || candidate.Intent.Urgency < 85))
+                     .OrderByDescending(candidate =>
+                         Math.Max(
+                             candidate.Skills.GetValueOrDefault("Engineering"),
+                             candidate.Skills.GetValueOrDefault("Security")))
+                     .ThenByDescending(candidate => candidate.Personality.Courage)
+                     .ThenBy(candidate => candidate.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            var fire = FindRemoteFireForResponder(
+                state,
+                npc,
+                navigation,
+                reservedFireRooms);
+
+            if (fire is null)
+                continue;
+
+            npc.NeedsMindReconsideration = true;
+            reservedFireRooms.Add(fire.Id);
+        }
     }
 
     private static double StableRoll(int seed, int minute, string a, string b, string salt)
