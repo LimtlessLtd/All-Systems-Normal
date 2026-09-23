@@ -590,13 +590,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Status: ready — shares its "something docks at the Airlock and crew come aboard" physical plumbing with idea #70 (transient outsiders); sequence together or have whichever lands first build the shared dock/board/depart machinery generically rather than twice. Until this ships, an all-dead persisted roster is deliberately not auto-restored into a continuing assignment; startup falls back to a fresh Secure Continuity run rather than presenting an instant-dead crew.
 
 
-### 85. LLM-varied character speech bubbles
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790199697378649 (2026-09-23)
-- Idea: "when using an LLM, can we vary the speech bubble text by passing it into there to suggest variations based on the character and its traits etc.?"
-- Outcome: in the Ollama runtime, cognition may supply character/trait-aware wording for non-authoritative speech/thought bubbles while deterministic C# remains authoritative for actions, state and consequences; browser fallback keeps deterministic copy.
-- Size: small-to-medium (extend structured LLM response/prompt with optional presentation text; validate/length-limit it; wire only to bubble presentation; regression coverage).
-- Status: ready.
-
 ### 88. Variable crew and robot roster sizes
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790200721530759 (2026-09-23)
 - Idea: "there should be between 1 and 4 robots in any given run ... theres always at least 4 crew and 1 robot" with crew/robot count combinations equally likely.

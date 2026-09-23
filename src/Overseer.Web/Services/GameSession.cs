@@ -321,8 +321,11 @@ public sealed class GameSession(
         npc.MindMode = intent.Source;
         npc.LastThought = intent.Reason;
         npc.LastThoughtAt = State.Elapsed;
+        // Owner idea #85: an in-character line from cognition, when given,
+        // replaces the functional goal in the bubble; the goal still drives
+        // everything else.
         npc.Bubble = new NpcBubble(
-            intent.Goal,
+            intent.BubbleText ?? intent.Goal,
             emergency ? NpcBubbleKind.Alert : NpcBubbleKind.Thought,
             State.Elapsed,
             State.Elapsed + TimeSpan.FromMinutes(emergency ? 4 : 3));

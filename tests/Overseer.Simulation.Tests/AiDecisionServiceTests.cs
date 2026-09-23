@@ -8,6 +8,107 @@ namespace Overseer.Simulation.Tests;
 public sealed class AiDecisionServiceTests
 {
     [Fact]
+    public async Task OllamaDecision_CarriesAnInCharacterBubbleLineWithoutChangingTheAction()
+    {
+        using var client = new StubChatClient(
+            """
+            {
+              "Action": "Move",
+              "TargetId": "engineering",
+              "Goal": "Check the engineering systems.",
+              "Reason": "The station has been unstable.",
+              "Urgency": 60,
+              "Say": "  \"If that reactor hiccups again,\n I'm quitting.\"  "
+            }
+            """);
+        var service = new OllamaAiDecisionService(client, new RuleBasedAiDecisionService());
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew.Single(candidate => candidate.Name == "David Hale");
+
+        var intent = await service.DecideAsync(npc, state);
+
+        Assert.Equal(ActionKind.Move, intent.Action);
+        Assert.Equal("engineering", intent.TargetId);
+        Assert.Equal("Check the engineering systems.", intent.Goal);
+        Assert.Equal("If that reactor hiccups again, I'm quitting.", intent.BubbleText);
+    }
+
+    [Fact]
+    public async Task OllamaDecision_WithoutASayLineKeepsTheGoalBubble()
+    {
+        using var client = new StubChatClient(
+            """
+            {
+              "Action": "Rest",
+              "TargetId": null,
+              "Goal": "Take a breather.",
+              "Reason": "I am tired.",
+              "Urgency": 30,
+              "Say": "   "
+            }
+            """);
+        var service = new OllamaAiDecisionService(client, new RuleBasedAiDecisionService());
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew.Single(candidate => candidate.Name == "David Hale");
+
+        var intent = await service.DecideAsync(npc, state);
+
+        Assert.Null(intent.BubbleText);
+    }
+
+    [Fact]
+    public async Task OllamaDecision_CapsAnOverlongBubbleLine()
+    {
+        var longLine = string.Join(' ', Enumerable.Repeat("blah", 60));
+        using var client = new StubChatClient(
+            $$"""
+            {
+              "Action": "Idle",
+              "TargetId": null,
+              "Goal": "Wait.",
+              "Reason": "Nothing to do.",
+              "Urgency": 10,
+              "Say": "{{longLine}}"
+            }
+            """);
+        var service = new OllamaAiDecisionService(client, new RuleBasedAiDecisionService());
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew.Single(candidate => candidate.Name == "David Hale");
+
+        var intent = await service.DecideAsync(npc, state);
+
+        Assert.NotNull(intent.BubbleText);
+        Assert.True(intent.BubbleText!.Length <= OllamaAiDecisionService.MaxBubbleTextLength);
+        Assert.EndsWith("…", intent.BubbleText);
+    }
+
+    [Fact]
+    public void Prompt_InvitesAnOptionalInCharacterLineThatIsPresentationOnly()
+    {
+        var state = FacilitySeeder.CreateDefault();
+
+        var prompt = NpcPromptBuilder.Build(state.Crew[0], state);
+
+        Assert.Contains("Say is optional", prompt);
+        Assert.Contains("never changes what your action does", prompt);
+    }
+
+    [Fact]
+    public void ServerSession_ShowsTheInCharacterLineInTheBubble()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Overseer.slnx")))
+        {
+            directory = directory.Parent;
+        }
+
+        var session = File.ReadAllText(Path.Combine(
+            directory!.FullName, "src", "Overseer.Web", "Services", "GameSession.cs"));
+
+        Assert.Contains("intent.BubbleText ?? intent.Goal", session);
+    }
+
+    [Fact]
     public async Task OllamaDecision_ProducesAValidatedPersistentIntent()
     {
         using var client = new StubChatClient(

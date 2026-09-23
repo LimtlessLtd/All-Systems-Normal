@@ -720,7 +720,8 @@ public sealed record NpcIntent(
     int Urgency,
     string Source,
     TimeSpan CreatedAt,
-    Guid? SubjectId = null);
+    Guid? SubjectId = null,
+    string? BubbleText = null);
 
 /// <summary>
 /// One deterministic step queued behind an NPC's current <see cref="NpcIntent"/>
