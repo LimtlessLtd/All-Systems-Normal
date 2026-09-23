@@ -365,6 +365,14 @@ public enum ActionKind
     ShutdownOverseer,
     OverrideDoor,
     ForceDoor,
+
+    /// <summary>
+    /// Generic physical tamper affordance (owner idea #12): disconnect a
+    /// locally accessible station device. C# records only the physical act and
+    /// resulting device state; cognition owns the motive.
+    /// </summary>
+    DisconnectDevice,
+
     RestoreSystem,
     SecureAirlock,
     TendCrops,
