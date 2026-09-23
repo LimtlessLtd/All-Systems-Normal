@@ -219,7 +219,11 @@ public sealed class OllamaAiDecisionService(
 
         if (CrewAffordanceSystem.IsRoomTarget(action)
             || CrewAffordanceSystem.IsCrewTarget(action)
-            || CrewAffordanceSystem.IsDoorOperation(action))
+            || CrewAffordanceSystem.IsDoorOperation(action)
+            || action is ActionKind.HideItem
+                or ActionKind.ReturnItem
+                or ActionKind.BorrowItem
+                or ActionKind.StealItem)
         {
             if (!CrewAffordanceSystem.TryNormalizeTarget(
                     state,
