@@ -214,6 +214,7 @@ public sealed class IntentExecutionSystemTests
         var state = FacilitySeeder.CreateDefault();
         var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
         var emma = state.Crew.Single(npc => npc.Name == "Emma Voss");
+        var nadia = state.Crew.Single(npc => npc.Name == "Nadia Okafor");
 
         marcus.CurrentRoomId = "reactor";
         emma.CurrentRoomId = "reactor";
@@ -225,13 +226,18 @@ public sealed class IntentExecutionSystemTests
             "I haven't seen Nadia in a while.",
             30,
             "Test",
-            state.Elapsed);
+            state.Elapsed,
+            nadia.Id);
 
         new IntentExecutionSystem().Tick(state);
 
         Assert.Null(marcus.Intent);
         Assert.Equal(ActionKind.AskAboutLocation, marcus.CurrentAction.Kind);
         Assert.Equal(emma.Name, marcus.CurrentAction.TargetId);
+        // The subject captured at decision time (which missing-person concern
+        // this ask is actually about) must survive into the staged action so
+        // it can still be resolved even after a multi-tick walk to arrive.
+        Assert.Equal(nadia.Id, marcus.CurrentAction.SubjectId);
     }
 
     [Fact]

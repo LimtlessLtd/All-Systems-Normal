@@ -245,6 +245,62 @@ public sealed class AiDecisionServiceTests
 
         Assert.Equal(ActionKind.AskAboutLocation, intent.Action);
         Assert.Equal("Sarah Chen", intent.TargetId);
+        Assert.Equal(marcus.Id, intent.SubjectId);
+    }
+
+    [Fact]
+    public async Task OllamaDecision_AskAboutLocationCapturesTheMostPressingConcernAsTheSubjectAtDecisionTime()
+    {
+        // Regression: the subject must be captured now, when the LLM decides
+        // to ask, not re-derived when the ask finally resolves after a
+        // multi-tick walk to reach the askee -- otherwise a concern that
+        // becomes more pressing in the meantime could silently swap the
+        // subject of an already-issued question.
+        using var client = new StubChatClient(
+            """
+            {
+              "Action": "AskAboutLocation",
+              "TargetId": "Sarah Chen",
+              "Goal": "Find out if Sarah has seen Marcus.",
+              "Reason": "Marcus is the one I'm worried about right now.",
+              "Urgency": 30
+            }
+            """);
+
+        var service = new OllamaAiDecisionService(
+            client,
+            new RuleBasedAiDecisionService());
+
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var felix = state.Crew.Single(npc => npc.Name == "Felix Ward");
+
+        // Marcus is the most pressing concern (Escalated) at decision time.
+        david.MissingPersonConcerns[marcus.Id] = new MissingPersonConcern
+        {
+            PersonId = marcus.Id,
+            PersonName = marcus.Name,
+            ExpectedRoomId = "reactor",
+            FirstConcernAt = TimeSpan.FromHours(1),
+            LastUpdatedAt = TimeSpan.FromHours(1),
+            Stage = MissingPersonConcernStage.Escalated
+        };
+        // Felix is only mildly concerning right now.
+        david.MissingPersonConcerns[felix.Id] = new MissingPersonConcern
+        {
+            PersonId = felix.Id,
+            PersonName = felix.Name,
+            ExpectedRoomId = "hydroponics",
+            FirstConcernAt = TimeSpan.FromHours(2),
+            LastUpdatedAt = TimeSpan.FromHours(2),
+            Stage = MissingPersonConcernStage.Concerned
+        };
+
+        var intent = await service.DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.AskAboutLocation, intent.Action);
+        Assert.Equal(marcus.Id, intent.SubjectId);
     }
 
     [Fact]

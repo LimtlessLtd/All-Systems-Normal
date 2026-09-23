@@ -396,13 +396,20 @@ public sealed class MissingPersonSystem
     /// that automatic <see cref="ShareConcerns"/> propagation would eventually
     /// spread, but triggered immediately by the asker's own choice rather than
     /// waiting on proximity, an already-escalated concern and a trust threshold.
+    /// <paramref name="subjectId"/> is the missing person the LLM actually
+    /// intended to ask about, captured when the ask intent was decided
+    /// (<see cref="MostPressingAskableConcern"/> at that moment) — resolution
+    /// can happen many ticks later, after the asker has walked to reach
+    /// <paramref name="askedOf"/>, during which a different concern could
+    /// otherwise have become more pressing and silently swapped the subject.
+    /// Falls back to re-deriving the most pressing concern when no subject
+    /// was captured (e.g. an older/synthetic action).
     /// </summary>
-    public static void ResolveAsk(GameState state, Npc asker, Npc askedOf)
+    public static void ResolveAsk(GameState state, Npc asker, Npc askedOf, Guid? subjectId = null)
     {
-        var concern = asker.MissingPersonConcerns.Values
-            .OrderByDescending(item => item.Stage)
-            .ThenBy(item => item.FirstConcernAt)
-            .FirstOrDefault();
+        var concern = subjectId is { } id
+            ? asker.MissingPersonConcerns.GetValueOrDefault(id)
+            : MostPressingAskableConcern(asker);
 
         if (concern is null)
             return;
@@ -467,6 +474,19 @@ public sealed class MissingPersonSystem
     public static MissingPersonConcern? MostPressingConcern(Npc npc) =>
         npc.MissingPersonConcerns.Values
             .Where(concern => concern.Stage != MissingPersonConcernStage.Concerned)
+            .OrderByDescending(concern => concern.Stage)
+            .ThenBy(concern => concern.FirstConcernAt)
+            .FirstOrDefault();
+
+    /// <summary>
+    /// The concern <paramref name="npc"/> would ask about first via
+    /// <see cref="ResolveAsk"/> when no subject has been captured. Unlike
+    /// <see cref="MostPressingConcern"/>, this does not exclude a
+    /// merely-<see cref="MissingPersonConcernStage.Concerned"/> concern:
+    /// asking works at any concern stage, per the AskAboutLocation affordance.
+    /// </summary>
+    public static MissingPersonConcern? MostPressingAskableConcern(Npc npc) =>
+        npc.MissingPersonConcerns.Values
             .OrderByDescending(concern => concern.Stage)
             .ThenBy(concern => concern.FirstConcernAt)
             .FirstOrDefault();
