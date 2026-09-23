@@ -169,7 +169,8 @@ public sealed class RemoteFireResponderTests
         new IntentExecutionSystem().Tick(state);
 
         Assert.Equal(CrewTaskStatus.Interrupted, responder.ActiveTask?.Status);
-        Assert.Equal(ActionKind.FightFire, responder.CurrentAction.Kind);
+        Assert.Equal(ActionKind.FightFire, responder.Intent?.Action);
+        Assert.Equal(ActionKind.Move, responder.CurrentAction.Kind);
     }
 
     [Fact]
