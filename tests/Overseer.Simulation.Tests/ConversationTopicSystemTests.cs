@@ -80,6 +80,26 @@ public sealed class ConversationTopicSystemTests
     }
 
     [Fact]
+    public void News_NeverSelectsASensitiveMemoryAsAutomaticBackgroundChatter()
+    {
+        // Owner idea #14 (secrets): a sensitive memory must never leak
+        // through C#'s own automatic News selection, however newsworthy it
+        // would otherwise look — disclosure has to be a deliberate choice.
+        var (state, david, emma, _) = Trio();
+        state.Elapsed = TimeSpan.FromHours(2);
+        david.Memories.Add(new Memory(
+            "Witnessed Marcus Reed hide a personal multitool.",
+            state.Elapsed,
+            0.9,
+            IsSensitive: true));
+
+        var exchange = ConversationTopicSystem.Converse(state, david, emma, LastTopicRoll);
+
+        Assert.NotEqual(ConversationTopic.News, exchange.Topic);
+        Assert.DoesNotContain(emma.Memories, memory => memory.Description.Contains("hide a personal multitool", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void News_ARetoldMemoryIsMarkedHopOneAndRetellingItAgainDegradesIntoHedgedLanguage()
     {
         var (state, david, emma, _) = Trio();

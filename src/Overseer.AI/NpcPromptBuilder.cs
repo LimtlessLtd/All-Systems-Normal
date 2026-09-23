@@ -103,6 +103,19 @@ public static class NpcPromptBuilder
             .Take(3)
             .Select(m => $"- {m.Description}");
 
+        // Owner idea #14 (secrets): surfaced separately for the same reason
+        // failed attempts are — a sensitive memory's ordinary importance
+        // (0.3-0.45) can be crowded out of general salience ranking by other
+        // same-tick memories. Unlike a failed attempt this has no time
+        // window: a secret stays relevant for as long as the memory itself
+        // naturally persists (existing salience decay/retention still
+        // eventually forgets it), not just a couple of hours.
+        var sensitiveMemories = npc.Memories
+            .Where(m => m.IsSensitive)
+            .OrderByDescending(m => m.OccurredAt)
+            .Take(5)
+            .Select(m => $"- {m.Description}");
+
         var beliefs = npc.Beliefs
             .Take(5)
             .Select(b => $"- {b.Subject}: {b.Statement} (confidence {b.Confidence:0.00})");
@@ -407,6 +420,11 @@ public static class NpcPromptBuilder
         var recentFailedAttemptsList = recentFailedAttempts.ToArray();
         if (recentFailedAttemptsList.Length == 0) builder.AppendLine("- none");
         else foreach (var attempt in recentFailedAttemptsList) builder.AppendLine(attempt);
+        builder.AppendLine();
+        builder.AppendLine("THINGS YOU KNOW THAT OTHERS WOULD WANT KEPT PRIVATE: these never get repeated as ordinary background gossip or news, on purpose. Whether to ever mention one to someone else — and to whom, and why — is entirely your own judgment call; nothing here forces disclosure or silence.");
+        var sensitiveMemoriesList = sensitiveMemories.ToArray();
+        if (sensitiveMemoriesList.Length == 0) builder.AppendLine("- none");
+        else foreach (var secret in sensitiveMemoriesList) builder.AppendLine(secret);
         builder.AppendLine();
         builder.AppendLine("BELIEFS:");
         foreach (var belief in beliefs) builder.AppendLine(belief);

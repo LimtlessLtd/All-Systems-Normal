@@ -497,13 +497,24 @@ public sealed record StationSelection(
 /// <c>NpcPromptBuilder</c> surfaces these in their own dedicated section
 /// instead, guaranteed visible regardless of general salience competition.
 /// </summary>
+/// <param name="IsSensitive">
+/// Owner idea #14 (secrets): this memory is something its holder would
+/// reasonably want kept private, e.g. witnessing someone hide a possession.
+/// Automatic background gossip (<c>ConversationTopicSystem</c>) never
+/// selects a sensitive memory as a topic — the only way it reaches another
+/// person is a deliberate LLM-authored social action naming a specific
+/// target, exactly like any other judgment call cognition makes. No
+/// disclosure consequence or blackmail affordance exists yet; those are
+/// separate, later slices.
+/// </param>
 public sealed record Memory(
     string Description,
     TimeSpan OccurredAt,
     double Importance,
     int RumourHopCount = 0,
     string? RumourCoreDescription = null,
-    bool IsFailedAttempt = false);
+    bool IsFailedAttempt = false,
+    bool IsSensitive = false);
 
 public sealed record Belief(
     string Subject,

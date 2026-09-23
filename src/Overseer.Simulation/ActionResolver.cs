@@ -926,7 +926,8 @@ public sealed class ActionResolver
                 ? $"I hid {possession.Name} here."
                 : $"I hid {possession.Name} in the {fixtureLabel}.",
             state.Elapsed,
-            0.45));
+            0.45,
+            IsSensitive: true));
 
         // The actor's own belief must reflect the hide they just did
         // themselves — NotifyPossessionWitnesses below only updates everyone
@@ -936,7 +937,11 @@ public sealed class ActionResolver
         // would incorrectly see stale knowledge of their own hiding spot.
         npc.KnownPossessions[possession.Id] = CurrentSighting(state, possession);
 
-        NotifyPossessionWitnesses(state, npc, null, possession, "hides", "someone hide something");
+        // Owner idea #14 (secrets): hiding something is the paradigmatic
+        // secretive act, so a witness's memory of it is sensitive too —
+        // genuine leverage for a later blackmail slice, never automatically
+        // gossiped about by anyone who saw it.
+        NotifyPossessionWitnesses(state, npc, null, possession, "hides", "someone hide something", isSensitive: true);
 
         message = $"{npc.Name} tucks {possession.Name} away.";
         Log(state, message);
@@ -1238,7 +1243,8 @@ public sealed class ActionResolver
         Npc? directlyInvolved,
         PersonalPossession possession,
         string verb,
-        string unattributedGerundPhrase)
+        string unattributedGerundPhrase,
+        bool isSensitive = false)
     {
         foreach (var witness in state.Crew.Where(candidate =>
                      candidate.IsAlive
@@ -1254,7 +1260,8 @@ public sealed class ActionResolver
                 witness.Memories.Add(new Memory(
                     $"Saw {unattributedGerundPhrase}: {possession.Name}.",
                     state.Elapsed,
-                    0.3));
+                    0.3,
+                    IsSensitive: isSensitive));
                 continue;
             }
 
@@ -1263,7 +1270,8 @@ public sealed class ActionResolver
                     ? $"Witnessed {actor.Name} {verb} {possession.Name}."
                     : $"Witnessed {actor.Name} {verb} {possession.Name} from {directlyInvolved.Name}.",
                 state.Elapsed,
-                0.35));
+                0.35,
+                IsSensitive: isSensitive));
         }
     }
 

@@ -338,6 +338,11 @@ public static class ConversationTopicSystem
                 memory.Importance >= 0.5
                 && state.Elapsed - memory.OccurredAt <= NewsWindow
                 && !memory.Description.StartsWith("I decided to:", StringComparison.Ordinal)
+                // Owner idea #14 (secrets): a sensitive memory is never
+                // passed along as automatic background chatter — the only
+                // way it reaches someone is a deliberate LLM-authored social
+                // action, not C#'s own discretion.
+                && !memory.IsSensitive
                 // Nobody needs to be told news about themselves.
                 && !memory.Description.Contains(listener.Name, StringComparison.OrdinalIgnoreCase)
                 && !listener.Memories.Any(heard => heard.Description.EndsWith(memory.Description, StringComparison.Ordinal)))
