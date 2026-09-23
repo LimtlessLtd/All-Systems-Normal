@@ -138,6 +138,40 @@ public sealed class RemoteFireResponderTests
     }
 
     [Fact]
+    public void RemoteFire_PrefersIdleCapableResponderOverMoreSkilledCommittedWorker()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 480043);
+        state.Elapsed = TimeSpan.FromMinutes(1);
+        var committedExpert = state.Crew.First(npc => npc.Role == CrewRole.Engineer);
+        PrepareSafeRemoteFireScenario(state, committedExpert);
+
+        var idleResponder = state.Crew.First(npc => npc.Id != committedExpert.Id);
+        idleResponder.Skills["Engineering"] = 45;
+        idleResponder.Skills["Security"] = 45;
+
+        committedExpert.Skills["Engineering"] = 100;
+
+        // Keep the comparison focused: exactly one idle capable responder and
+        // one more-skilled committed responder are eligible for this fire.
+        foreach (var worker in state.Crew.Where(npc => npc.Id != idleResponder.Id))
+        {
+            CrewTaskSystem.Start(
+                state,
+                worker,
+                ActionKind.Work,
+                worker.CurrentRoomId,
+                "Important routine work.",
+                TimeSpan.FromHours(1));
+        }
+
+        new StationHazardSystem().Tick(state, TimeSpan.FromMinutes(1));
+
+        var awakened = Assert.Single(state.Crew.Where(npc => npc.NeedsMindReconsideration));
+        Assert.Equal(idleResponder.Id, awakened.Id);
+        Assert.Equal(CrewTaskStatus.InProgress, committedExpert.ActiveTask?.Status);
+    }
+
+    [Fact]
     public void RemoteFire_CanInterruptMundaneCommittedWorkAfterCognitionChoosesResponse()
     {
         var state = FacilitySeeder.CreateDefault(stationSeed: 480043);
