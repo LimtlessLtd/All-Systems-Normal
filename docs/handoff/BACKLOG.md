@@ -600,13 +600,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 ---
 
 
-### 84. Crew task progress under nameplates and clear completed state
-- Sources: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790199651491459 and https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790199995222929 (2026-09-23)
-- Ideas: "show the progress bar underneath peoples names ... same width as the name box" and when a task reaches 100%, make it clearly "not active" / improve the completed-state presentation.
-- Outcome: whenever a visible crew member has authoritative timed work, render its existing `CrewTaskState.ProgressPercent` directly beneath the map nameplate at exactly the nameplate width; duration changes fill the same fixed-width bar rather than changing its geometry. Once work is no longer `InProgress`, the UI must not present a full 100% bar as if work were still active: show a clear completed/interrupted/inactive outcome or hide the active-progress treatment while retaining task outcome in the Inspector.
-- Size: small (UI/CSS + browser regression check).
-- Status: ready.
-
 ### 85. LLM-varied character speech bubbles
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790199697378649 (2026-09-23)
 - Idea: "when using an LLM, can we vary the speech bubble text by passing it into there to suggest variations based on the character and its traits etc.?"

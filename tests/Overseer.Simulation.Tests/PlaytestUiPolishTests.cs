@@ -59,7 +59,7 @@ public sealed class PlaytestUiPolishTests
     {
         foreach (var home in ReadMirroredHomes())
         {
-            var nameplate = home.IndexOf("<span class=\"crew-nameplate\">", StringComparison.Ordinal);
+            var nameplate = home.IndexOf("<span class=\"crew-nameplate ", StringComparison.Ordinal);
             Assert.True(nameplate >= 0);
 
             var end = home.IndexOf("</span>", nameplate + 1, StringComparison.Ordinal);

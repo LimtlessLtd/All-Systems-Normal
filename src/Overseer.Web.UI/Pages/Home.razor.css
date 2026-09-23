@@ -7377,3 +7377,38 @@ button.turret-token {
     outline: 2px solid rgba(214, 68, 48, .85);
     outline-offset: -2px;
 }
+
+/* Owner idea #84: live task progress sits under the crew nameplate at exactly
+   the nameplate's width; the bar only exists while work is in progress. */
+.crew-nameplate.has-task-progress {
+    padding-bottom: 5px;
+}
+
+.crew-nameplate-progress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    overflow: hidden;
+    border-radius: 0 0 4px 4px;
+    background: rgba(37, 42, 46, .16);
+    pointer-events: none;
+}
+
+.crew-nameplate-progress > span {
+    display: block;
+    height: 100%;
+    background: #3fae66;
+    transition: width .18s linear;
+}
+
+/* A finished task is history, not activity: mute it instead of a bright full bar. */
+.crew-task-progress-card:not(.status-inprogress) {
+    opacity: .72;
+}
+
+.crew-task-progress-card.status-succeeded .crew-task-meter > span {
+    background: #7d9a88;
+    transition: none;
+}
