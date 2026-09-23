@@ -105,6 +105,10 @@ public sealed class IntentExecutionSystemTests
         var innerAirlockDoor = state.Facility.FindDoorBetween("airlock", "hall-airlock")!;
         innerAirlockDoor.IsOpen = true;
 
+        // Marcus must have a genuine sighting of Emma in the reactor for him
+        // to path there; otherwise he'd path toward her duty-schedule room.
+        marcus.LastSeenCrew[emma.Id] = new CrewSighting(emma.Id, emma.Name, "reactor", state.Elapsed);
+
         marcus.Intent = new NpcIntent(
             ActionKind.Talk,
             emma.Name,
@@ -129,6 +133,79 @@ public sealed class IntentExecutionSystemTests
         Assert.Equal("hall-airlock", marcus.CurrentRoomId);
         Assert.Null(marcus.Movement);
         Assert.NotNull(marcus.Intent);
+    }
+
+    [Fact]
+    public void SocialIntent_WithNoSightingRoutesTowardTheDutyScheduleRoomNotTheTruePosition()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var emma = state.Crew.Single(npc => npc.Name == "Emma Voss");
+
+        Assert.False(marcus.LastSeenCrew.ContainsKey(emma.Id));
+
+        var expectedDutyRoomId = CrewDutySchedule.ExpectedDutyRoomId(emma.Role, state.Elapsed);
+        // Sanity check: the fallback must genuinely differ from Emma's true
+        // room for this test to prove anything.
+        Assert.NotEqual(emma.CurrentRoomId, expectedDutyRoomId);
+
+        marcus.Intent = new NpcIntent(
+            ActionKind.CheckOnCrew,
+            emma.Name,
+            "Check on Emma.",
+            "I want to see how Emma is doing.",
+            50,
+            "Test",
+            state.Elapsed);
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.Equal(expectedDutyRoomId, marcus.PlannedDestinationRoomId);
+    }
+
+    [Fact]
+    public void SocialIntent_ReportsAMissWithoutGivingUpWhenTheTargetIsNotAtTheBelievedLocation()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var emma = state.Crew.Single(npc => npc.Name == "Emma Voss");
+
+        marcus.CurrentRoomId = "storage";
+        emma.CurrentRoomId = "reactor";
+        marcus.LastSeenCrew[emma.Id] = new CrewSighting(
+            emma.Id,
+            emma.Name,
+            "storage",
+            state.Elapsed - TimeSpan.FromHours(3));
+
+        var originalIntent = new NpcIntent(
+            ActionKind.CheckOnCrew,
+            emma.Name,
+            "Check on Emma.",
+            "I want to make sure Emma is okay.",
+            50,
+            "Test",
+            state.Elapsed);
+        marcus.Intent = originalIntent;
+
+        new IntentExecutionSystem().Tick(state);
+
+        // No search affordance exists yet to act on a hard failure, so the
+        // actor keeps the goal alive and just reports the miss — the intent
+        // re-routes on its own the moment a fresher sighting arrives, and
+        // otherwise expires normally like any other unreachable goal.
+        Assert.Same(originalIntent, marcus.Intent);
+        Assert.Null(marcus.PlannedDestinationRoomId);
+        Assert.Equal(ActionKind.Idle, marcus.CurrentAction.Kind);
+        Assert.Contains("not here", marcus.CurrentAction.Reason, StringComparison.OrdinalIgnoreCase);
+
+        // Once a fresher sighting places Emma elsewhere, the very next tick
+        // resumes pursuit toward the updated belief instead of staying stuck.
+        marcus.LastSeenCrew[emma.Id] = new CrewSighting(emma.Id, emma.Name, "reactor", state.Elapsed);
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.NotNull(marcus.Intent);
+        Assert.Equal("reactor", marcus.PlannedDestinationRoomId);
     }
 
     [Fact]
