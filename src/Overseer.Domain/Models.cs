@@ -520,6 +520,15 @@ public sealed record StationSelection(
 /// venting a compartment with people inside). C# only tags who did what;
 /// whether it was justified is cognition's judgment.
 /// </param>
+/// <param name="PanicClaimRoomId">
+/// Owner idea #19 (collective panic cascades): the room a panicked crew
+/// member was fleeing when this memory was recorded, set by
+/// <see cref="Simulation.PanicAlertSystem"/>. Null for an ordinary memory.
+/// The claim's source is named in <see cref="Description"/> when the hearer
+/// could identify them, or left anonymous when only the shout itself
+/// carried (e.g. through a hatch); either way, whether to react immediately,
+/// investigate first, or ignore it is the hearer's own judgment call.
+/// </param>
 public sealed record Memory(
     string Description,
     TimeSpan OccurredAt,
@@ -529,7 +538,8 @@ public sealed record Memory(
     bool IsFailedAttempt = false,
     bool IsSensitive = false,
     string? TraumaRoomId = null,
-    string? MoralActorName = null);
+    string? MoralActorName = null,
+    string? PanicClaimRoomId = null);
 
 public sealed record Belief(
     string Subject,
@@ -1032,6 +1042,16 @@ public sealed class Npc : IStationMobileEntity
     /// threshold, so a later, separate crisis can be recorded again.
     /// </summary>
     public bool NearDeathCrisisRecorded { get; set; }
+
+    /// <summary>
+    /// Owner idea #19 (collective panic cascades): true once this person's
+    /// current dangerous-room flight has already sounded an audible panic
+    /// claim for anyone in earshot, so a multi-tick escape produces one
+    /// shout instead of spamming a fresh one every tick. Resets once they
+    /// are no longer in a dangerous room, so a later, separate flight can be
+    /// heard again. See <see cref="Simulation.PanicAlertSystem"/>.
+    /// </summary>
+    public bool PanicAlertSounded { get; set; }
 
     public TimeSpan? LastBloodEvidenceAt { get; set; }
     public TimeSpan? LastMedicalCheckupAt { get; set; }

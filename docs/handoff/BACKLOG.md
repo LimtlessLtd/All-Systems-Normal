@@ -151,14 +151,18 @@ One batch, 20 entries, from the owner's 2026-09-22 22:17 BST message in `#new-id
 - Idea: "People can notice recurring problems and start regarding them as 'their responsibility.' ... Another crew member doing it badly might genuinely annoy them."
 - Outcome: an NPC who repeatedly resolves the same recurring job starts checking it unprompted above baseline frequency, from existing task-history tracking; another NPC handling "their" job poorly applies an existing irritation/resentment delta.
 - Size: large (slices: recurring-task frequency tracking per NPC per job type; self-initiated check bias; irritation delta when displaced)
-- Status: ready
+- Status: **in progress** (ChatGPT) — slice 1 shipped in #149: successful recurring provisioning completions (TendCrops/Harvest/Cook) are now counted per NPC per job type.
+
+  Remaining slices: self-initiated check bias above baseline frequency from that count; irritation/resentment delta when someone else handles "their" job poorly.
 
 ### 19. Collective panic cascades
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790111822683539 (2026-09-22)
 - Idea: "One terrified person flees Engineering shouting about a fire. People who trust them react before personally verifying it; sceptics investigate first. False alarms therefore become emergent too."
 - Outcome: panicked flight-and-shout becomes a perceivable/audible claim; hearers react-before-verifying or investigate-first based on existing Trust weighting toward the source, reusing #6's suggestion-claim plumbing.
 - Size: large (slices: panic-flight as a witnessable/audible claim; Trust-weighted react-vs-verify branch in cognition)
-- Status: ready
+- Status: **in progress** — slice 1 shipped: the moment any mind (Ollama, `RuleBasedAiDecisionService` or `BrowserMindSystem`) decides to flee a genuinely dangerous room, `PanicAlertSystem` turns that into a witnessable/audible claim — a same-room witness gets a `Memory` naming the fleeing crew member when perception allows identification (or an anonymous one in the dark), tagged `PanicClaimRoomId`; the shout also carries anonymously through an open hatch into the adjacent room, the same open-door convention smoke/sound already follow. One alarm per continuous danger episode, not one per tick. `NpcPromptBuilder`'s new "PANICKED WARNINGS YOU'VE HEARD" block surfaces these non-prescriptively; the hearer's own Trust in a named source is already visible in the RELATIONSHIPS block above it for cognition to weigh, so no separate deterministic branch was needed for the "Trust-weighted react-vs-verify" half of this idea's outcome — reacting immediately, investigating first, or dismissing it as a false alarm is left entirely to cognition.
+
+  Remaining slice: nothing deterministic decides an outcome yet if many people flee the same real hazard at once (a true cascade) — this slice only makes each individual flight audible. Also worth a follow-up: propagating the claim more than one hatch away for a station-wide "false alarm" scenario, if single-hop turns out too limited in practice.
 
 ### 20. Needs that compete over scarce shared resources
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790111822683539 (2026-09-22)

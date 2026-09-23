@@ -7,6 +7,7 @@ namespace Overseer.AI;
 public static class NpcPromptBuilder
 {
     private static readonly TimeSpan RecentFailedAttemptWindow = TimeSpan.FromHours(2);
+    private static readonly TimeSpan PanicClaimWindow = TimeSpan.FromMinutes(15);
 
     public static string Build(Npc npc, GameState state)
     {
@@ -160,6 +161,18 @@ public static class NpcPromptBuilder
             .Where(m => m.MoralActorName is not null)
             .OrderByDescending(m => m.OccurredAt)
             .Take(5)
+            .Select(m => $"- {m.Description}")
+            .ToArray();
+
+        // Owner idea #19 (collective panic cascades): a nearby panicked
+        // flight, overheard as an audible claim. Reacting before verifying,
+        // investigating first, or dismissing it as a false alarm is
+        // cognition's own call, weighed against Trust in the named source
+        // (see RELATIONSHIPS above) when the hearer could identify them.
+        var panicClaims = npc.Memories
+            .Where(m => m.PanicClaimRoomId is not null && state.Elapsed - m.OccurredAt <= PanicClaimWindow)
+            .OrderByDescending(m => m.OccurredAt)
+            .Take(3)
             .Select(m => $"- {m.Description}")
             .ToArray();
 
@@ -489,6 +502,10 @@ public static class NpcPromptBuilder
         builder.AppendLine("PLACES WHERE YOU NEARLY DIED: how you feel about going back is your own call. You might avoid the room, ask someone to come with you, or go in anyway because the situation demands it; nothing here stops you entering.");
         if (traumaRooms.Length == 0) builder.AppendLine("- none");
         else foreach (var traumaRoom in traumaRooms) builder.AppendLine(traumaRoom);
+        builder.AppendLine();
+        builder.AppendLine("PANICKED WARNINGS YOU'VE HEARD: whether to react immediately, investigate first, or dismiss one as a false alarm is entirely your own judgment — weigh it against how much you trust whoever raised it (see RELATIONSHIPS above, when named) and what you can see for yourself.");
+        if (panicClaims.Length == 0) builder.AppendLine("- none");
+        else foreach (var claim in panicClaims) builder.AppendLine(claim);
         builder.AppendLine();
         builder.AppendLine("BELIEFS:");
         foreach (var belief in beliefs) builder.AppendLine(belief);
