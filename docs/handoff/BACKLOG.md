@@ -599,6 +599,27 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 
 ---
 
+### 83. First-tick mass-death regression
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790199596081209 (2026-09-23)
+- Idea: "I just encountered a bug where the game started and everyone immediately died on the first tick."
+- Outcome: a freshly generated ordinary station/crew cannot lose the entire roster on its first simulation minute without an explicit lethal scenario condition; reproduce the reported path, identify the authoritative health/environment cause, and add a deterministic regression test before changing behaviour.
+- Size: small once reproduced (root-cause fix + regression test).
+- Status: ready — health-first investigation. Initial code review found no intentional first-minute ignition (`StationHazardSystem.TryIgniteEquipment` starts at minute 12), crew health defaults to 100, and ordinary room atmosphere defaults safe; do not paper over the report with a startup health clamp without reproducing the real cause.
+
+### 84. Crew task progress under nameplates
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790199651491459 (2026-09-23)
+- Idea: "we should show the progress bar underneath peoples names, it should be the same width as the name box regardless of how long the progress bar takes, so adjust it accordingly."
+- Outcome: whenever a visible crew member has authoritative timed work, render its existing `CrewTaskState.ProgressPercent` directly beneath the map nameplate at exactly the nameplate width; duration changes fill the same fixed-width bar rather than changing its geometry.
+- Size: small (UI/CSS + browser regression check).
+- Status: ready.
+
+### 85. LLM-varied character speech bubbles
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790199697378649 (2026-09-23)
+- Idea: "when using an LLM, can we vary the speech bubble text by passing it into there to suggest variations based on the character and its traits etc.?"
+- Outcome: in the Ollama runtime, cognition may supply character/trait-aware wording for non-authoritative speech/thought bubbles while deterministic C# remains authoritative for actions, state and consequences; browser fallback keeps deterministic copy.
+- Size: small-to-medium (extend structured LLM response/prompt with optional presentation text; validate/length-limit it; wire only to bubble presentation; regression coverage).
+- Status: ready.
+
 ## Deliberate decisions (do not "fix")
 
 - The server tick awaits the Ollama decision, so the station pauses while a mind thinks. The owner wants the model to have time to take in the situation. Do not make cognition non-blocking unless asked.
@@ -663,7 +684,6 @@ No `ISystem` interface; `Tick` is duck-typed with two signatures (`Tick(GameStat
   1. `ActionKind.SealHazardRoom`/`VentHazardRoom` are never chosen by either fallback mind — they are reachable only through genuine Ollama LLM cognition. Since the deployed Pages build runs `BrowserMindSystem` exclusively, doors are never sealed around a fire there. This still needs a real design pass because `SealHazardRoom` currently requires the actor inside the compartment and closes every operable door around it, so a naive fallback choice could trap the responder.
   2. No explicit fire communication/alert mechanism exists: a crew member who discovers a fire does not yet create a specific shareable fire claim/memory for others. This can likely compose with the existing memory/news pipeline rather than introducing an order script.
 
-  Minor, non-blocking: `StationHazardSystem.WakeRemoteFireResponders` ranks candidates purely by skill/courage/name, with no preference for an idle crew member over one already doing committed work — a busy-but-marginally-more-skilled person can be pulled off their task ahead of an equally-capable idle one for the same fire. Not covered by an existing test (both wake-one-responder tests assert on whichever crew member actually got woken, not a specific one), so it can regress silently; worth an idle-first tie-break if it turns out to matter in practice.
 - Prisoners get only the four `PrisonerDefinition` fields plus standard relationship texture: no prisoner-specific bonds, goals or backstory; escape/flee/recapture motive is fully deterministic rather than mind-authored.
 - `BrowserMindSystem.FindInvestigationLead`/`FindMissingSearchRoom` and their `RuleBasedAiDecisionService` counterparts are not byte-identical (each uses a different reachability mechanism — `NavigationSystem.ReachableRoomsForCrew` membership vs. a per-candidate `FindPathForCrew` length check, the same class of divergence `FindSaferRoom` had) but were deliberately left as-is during P1: unlike `FindSaferRoom`, converging them isn't a mechanical tie-break fix — it needs a determinism/behaviour review of the missing-person search flow first. Low priority; pick up when someone is already touching missing-person search behaviour.
 - **Crew reportedly never seem to reach restorative sleep (owner report, 2026-09-23 21:35 BST, `#new-ideas-and-functionality`).** Not yet root-caused. `SimulationEngine` only restores Fatigue once an NPC has physically reached a bed (deliberate — see its own comment: "Merely having Sleep in CurrentAction is not restorative"), so any repeated interruption before arrival/completion would silently prevent real rest. `Npc.NeedsMindReconsideration` is now set from many more places than a few runs ago (this run cycle alone added it for every attack witness and every panic-claim hearer, on top of existing triggers) which forces cognition to reconsider — and potentially abandon a Sleep intent — far more often than before; worth checking whether Sleep/Rest intents are being preempted before completing rather than assuming a single root cause. Needs investigation before sizing a fix.
