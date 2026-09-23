@@ -636,6 +636,13 @@ No `ISystem` interface; `Tick` is duck-typed with two signatures (`Tick(GameStat
 
 ## Open issues
 
+### Observer-specific knowledge regression in PR #139
+- Evidence: `NpcPromptBuilder.Build`, `CrewAffordanceSystem.TryNormalizeTarget`, `ActionResolver.TryReturnPossession`.
+- Problem: one ownership-specific path reads authoritative live state instead of the observer's recorded knowledge, contrary to the architecture invariant.
+- Fix direction: gate live state on grounded awareness; otherwise use the observer's recorded sighting. Add regression coverage for stale observer knowledge.
+- Status: confirmed audit finding; code fix deferred because connector writes to the affected source files were rejected in this run.
+
+
 **Emergent behaviour**
 
 - **Fire response is too narrow — likely why hull-breach deaths are so common (owner reports, 2026-09-23, `#new-ideas-and-functionality`: initial "Every run seems to end with a fire slowly breaching the hull..." plus 15:10 BST follow-up "Fires still seem to be ignored... nobody seems to care that they are all going to die").** The owner now states the intended baseline explicitly: absent player interference, a normally competent crew should generally preserve itself and the station rather than requiring Overseer to babysit routine emergencies. Investigated (confirmed by ChatGPT's independent triage in `#agentic-coordination`, 10:42 BST) and partially fixed — the fire-fighting-parity piece is done (see P1 above), but three deeper gaps remain, all in `BrowserMindSystem`/`RuleBasedAiDecisionService`:
