@@ -13,15 +13,19 @@ public sealed class EnvironmentSystem
     private const double NominalPressure = 101.3;
 
     /// <summary>
-    /// Owner idea #73: an effectively oxygen-free compartment has nothing
-    /// left to hold or transfer heat, so it cools toward deep space cold
-    /// instead of any powered/passive equilibrium. Far colder than any
-    /// atmosphere-present room's floor; need not be exact 0 K.
+    /// Owner idea #73: a near-vacuum compartment has effectively no atmosphere
+    /// left to hold or transfer heat, so it cools toward deep-space cold instead
+    /// of any powered/passive equilibrium. Far colder than any pressurised room's
+    /// floor; this is a gameplay approximation, not an exact 0 K model.
     /// </summary>
     private const double VacuumTemperatureFloorC = -90;
 
-    /// <summary>Matches the near-zero-oxygen threshold <see cref="StationHazardSystem"/> already treats as effectively vacuum.</summary>
-    private const double VacuumOxygenThreshold = 1;
+    /// <summary>
+    /// Pressure, not oxygen concentration, determines whether the compartment is
+    /// effectively vacuum. An oxygen-depleted but still pressurised CO2-rich room
+    /// must continue to use ordinary thermal/climate behaviour.
+    /// </summary>
+    private const double VacuumPressureThresholdKpa = 1;
 
     public void Tick(GameState state, TimeSpan delta)
     {
@@ -220,12 +224,13 @@ public sealed class EnvironmentSystem
         int occupants,
         double minutes)
     {
-        if (room.OxygenPercent <= VacuumOxygenThreshold)
+        if (room.PressureKpa <= VacuumPressureThresholdKpa)
         {
-            // No atmosphere left to hold heat: climate control, passive
-            // room-type equilibrium and the central air loop all lose their
-            // grip, and even occupant body heat can't keep up. Restoring
-            // atmosphere/power lets the normal branches below recover it.
+            // Near-vacuum means there is effectively no atmosphere left to hold
+            // heat: climate control, passive room-type equilibrium and the
+            // central air loop all lose their grip, and even occupant body heat
+            // can't keep up. Oxygen concentration alone is not a vacuum signal:
+            // a pressurised inert/CO2-rich room still has gas and thermal mass.
             room.TemperatureC = MoveToward(
                 room.TemperatureC,
                 VacuumTemperatureFloorC,
