@@ -62,6 +62,7 @@ public static class CrewAffordanceSystem
         new(ActionKind.StealItem, "possession", "Take a possession you know about without asking — from a co-located crew member currently holding it, or from a hiding spot you know about in your current room."),
         new(ActionKind.DestroyItem, "possession", "Destroy a possession — one you currently hold (your own, or one you previously borrowed/stole), one a co-located crew member currently holds, or one hidden in your current room you know about."),
         new(ActionKind.ForceDoor, "adjacent-door", "Defeat a blocked hatch by force or technical bypass."),
+        new(ActionKind.DisconnectDevice, "local-device", "Physically disconnect a non-door station device in your current room. This only changes the machine; why you want to do it is your decision."),
         new(ActionKind.RestoreSystem, "system", "Restore a disabled station system."),
         new(ActionKind.SecureAirlock, "airlock", "Secure an unsafe exterior airlock."),
         new(ActionKind.RepairDoor, "adjacent-door", "Repair a damaged or bypassed hatch."),
@@ -273,6 +274,24 @@ public static class CrewAffordanceSystem
                 && belief.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
                 && possession.HiddenAtRoomId is not null
                 && possession.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (action == ActionKind.DisconnectDevice)
+        {
+            if (string.IsNullOrWhiteSpace(requested)
+                || !state.Devices.TryGetValue(requested, out var device)
+                || device.Kind == StationSystemKind.Door
+                || !device.RoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
+                || !device.IsEnabled
+                || device.IsFailed
+                || !state.Facility.Rooms.TryGetValue(device.RoomId, out var deviceRoom)
+                || LocalMovementSystem.FixtureForDevice(deviceRoom, device.Kind) is null)
+            {
+                return false;
+            }
+
+            normalizedTarget = device.Id;
+            return true;
         }
 
         if (IsDoorOperation(action))
