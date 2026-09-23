@@ -12,6 +12,17 @@ public sealed class EnvironmentSystem
     private const double NominalCo2 = 0.04;
     private const double NominalPressure = 101.3;
 
+    /// <summary>
+    /// Owner idea #73: an effectively oxygen-free compartment has nothing
+    /// left to hold or transfer heat, so it cools toward deep space cold
+    /// instead of any powered/passive equilibrium. Far colder than any
+    /// atmosphere-present room's floor; need not be exact 0 K.
+    /// </summary>
+    private const double VacuumTemperatureFloorC = -90;
+
+    /// <summary>Matches the near-zero-oxygen threshold <see cref="StationHazardSystem"/> already treats as effectively vacuum.</summary>
+    private const double VacuumOxygenThreshold = 1;
+
     public void Tick(GameState state, TimeSpan delta)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -209,6 +220,20 @@ public sealed class EnvironmentSystem
         int occupants,
         double minutes)
     {
+        if (room.OxygenPercent <= VacuumOxygenThreshold)
+        {
+            // No atmosphere left to hold heat: climate control, passive
+            // room-type equilibrium and the central air loop all lose their
+            // grip, and even occupant body heat can't keep up. Restoring
+            // atmosphere/power lets the normal branches below recover it.
+            room.TemperatureC = MoveToward(
+                room.TemperatureC,
+                VacuumTemperatureFloorC,
+                0.5 * minutes);
+            room.TemperatureC = Math.Clamp(room.TemperatureC, VacuumTemperatureFloorC, 60);
+            return;
+        }
+
         var activeClimate =
             room.IsPowered
             && room.HasTemperatureControl

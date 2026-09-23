@@ -20,6 +20,42 @@ public sealed class EnvironmentSystemTests
     }
 
     [Fact]
+    public void OxygenFreeRoom_ColdsTowardDeepSpaceFloorRegardlessOfClimateControl()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var room = state.Facility.Rooms["quarters"];
+        room.TemperatureC = 21;
+        room.TemperatureSetpointC = 21;
+        room.IsPowered = true;
+        room.HasTemperatureControl = true;
+        room.TemperatureControlOnline = true;
+        // Isolated (no ventilation) so the central air loop's own oxygen
+        // restoration doesn't immediately refill the room within this tick.
+        room.VentilationEnabled = false;
+        room.OxygenPercent = 0;
+
+        new EnvironmentSystem().Tick(state, TimeSpan.FromMinutes(120));
+
+        // Far colder than the old -20 floor any powered/atmosphere-present
+        // room could ever reach, even with active climate control fighting it.
+        Assert.True(room.TemperatureC < -20);
+    }
+
+    [Fact]
+    public void RestoringOxygenLetsAFormerVacuumRoomWarmBackTowardNormal()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var room = state.Facility.Rooms["quarters"];
+        room.TemperatureC = -90;
+        room.TemperatureSetpointC = 21;
+        room.OxygenPercent = 20.9;
+
+        new EnvironmentSystem().Tick(state, TimeSpan.FromMinutes(10));
+
+        Assert.True(room.TemperatureC > -90);
+    }
+
+    [Fact]
     public void IsolatedOccupiedRoom_LosesOxygenAndAccumulatesCo2()
     {
         var state = FacilitySeeder.CreateDefault();
