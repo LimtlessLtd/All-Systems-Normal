@@ -655,6 +655,62 @@ public sealed record NpcIntent(
     TimeSpan CreatedAt,
     Guid? SubjectId = null);
 
+/// <summary>
+/// One deterministic step queued behind an NPC's current <see cref="NpcIntent"/>
+/// as part of a bounded <see cref="NpcPlan"/> (owner idea #5: crew-generated
+/// multi-step plans). Carries only what is needed to become the next
+/// <see cref="NpcIntent"/> when it activates; a queued step is never
+/// pre-validated at plan-creation time, it is validated by the exact same
+/// execution-time checks any freshly decided intent already goes through.
+/// </summary>
+public sealed record NpcPlanStep(ActionKind Action, string? TargetId, string Goal, Guid? SubjectId = null);
+
+/// <summary>
+/// A short ordered sequence of <see cref="NpcPlanStep"/>s a mind has
+/// committed to pursuing one step at a time. The step at index 0 promotes
+/// into <see cref="Npc.Intent"/> only once the current intent completes;
+/// deterministic C# never chooses or validates plan content itself beyond
+/// the existing per-intent execution checks, and the plan is abandoned
+/// (<see cref="Npc.Plan"/> cleared) the moment a step fails, expires or is
+/// pre-empted, rather than blindly continuing a plan whose premise may no
+/// longer hold. Nothing produces an <see cref="NpcPlan"/> yet: this is the
+/// deterministic foundation a future cognition slice builds on.
+/// </summary>
+public sealed record NpcPlan
+{
+    /// <summary>Bounded: a plan is a short list of near-term steps, not a script.</summary>
+    public const int MaxSteps = 4;
+
+    public IReadOnlyList<NpcPlanStep> Steps { get; }
+    public string Reason { get; }
+    public int Urgency { get; }
+    public string Source { get; }
+
+    private NpcPlan(IReadOnlyList<NpcPlanStep> steps, string reason, int urgency, string source)
+    {
+        Steps = steps;
+        Reason = reason;
+        Urgency = urgency;
+        Source = source;
+    }
+
+    public static NpcPlan Create(IReadOnlyList<NpcPlanStep> steps, string reason, int urgency, string source)
+    {
+        if (steps is not { Count: > 0 and <= MaxSteps })
+        {
+            throw new ArgumentException(
+                $"A plan must have between 1 and {MaxSteps} steps.",
+                nameof(steps));
+        }
+
+        return new NpcPlan(steps, reason, urgency, source);
+    }
+
+    /// <summary>The remaining plan once its first step has been promoted, or null once none are left.</summary>
+    public NpcPlan? WithoutFirstStep() =>
+        Steps.Count <= 1 ? null : new NpcPlan(Steps.Skip(1).ToList(), Reason, Urgency, Source);
+}
+
 public sealed record CognitionTelemetryEntry(
     long Sequence,
     TimeSpan CreatedAt,
@@ -1041,6 +1097,16 @@ public sealed class Npc : IStationMobileEntity
         new(ActionKind.Idle, null, "Waiting for something to happen.");
 
     public NpcIntent? Intent { get; set; }
+
+    /// <summary>
+    /// Steps queued behind <see cref="Intent"/> as part of a bounded
+    /// <see cref="NpcPlan"/> (owner idea #5). Promoted by the deterministic
+    /// simulation's plan-execution system one step at a time; cleared
+    /// whenever the current step fails, expires or is pre-empted rather than
+    /// continued blindly.
+    /// </summary>
+    public NpcPlan? Plan { get; set; }
+
     public TimeSpan RoutineUntil { get; set; }
 
     /// <summary>

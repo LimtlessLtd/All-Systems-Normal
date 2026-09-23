@@ -22,6 +22,7 @@ public sealed class IntentExecutionSystem
                 if (!CrewTaskSystem.CanInterruptForLifeThreat(state, npc, intent))
                 {
                     npc.Intent = null;
+                    npc.Plan = null;
                     continue;
                 }
 
@@ -37,6 +38,7 @@ public sealed class IntentExecutionSystem
             if (state.Elapsed - intent.CreatedAt > IntentLifetime(intent))
             {
                 npc.Intent = null;
+                npc.Plan = null;
                 npc.CurrentAction = new NpcAction(
                     ActionKind.Idle,
                     null,
@@ -1228,6 +1230,7 @@ public sealed class IntentExecutionSystem
     {
         npc.CurrentAction = new NpcAction(ActionKind.Idle, null, reason);
         npc.Intent = null;
+        npc.Plan = null;
         npc.PlannedDestinationRoomId = null;
         npc.Memories.Add(new Memory(
             reason,
