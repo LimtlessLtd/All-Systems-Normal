@@ -897,7 +897,9 @@ public sealed class ActionResolver
 
     private static bool TryHidePossession(GameState state, Npc npc, NpcAction action, out string message)
     {
-        var possession = FindOwnPossession(state, npc, action.TargetId);
+        // Owner idea #11 (contraband): gated on currently holding the item,
+        // not owning it — a thief can stash something they stole here too.
+        var possession = FindPossessionById(state, action.TargetId);
         if (possession is null || possession.CurrentHolderId != npc.Id)
         {
             message = $"{npc.Name} is not holding that possession.";
@@ -926,6 +928,14 @@ public sealed class ActionResolver
             state.Elapsed,
             0.45));
 
+        // The actor's own belief must reflect the hide they just did
+        // themselves — NotifyPossessionWitnesses below only updates everyone
+        // ELSE co-located, since an actor obviously already knows their own
+        // act. Without this, a non-owner (contraband) hider's own later
+        // ReturnItem eligibility (which is belief-gated, not ownership-gated)
+        // would incorrectly see stale knowledge of their own hiding spot.
+        npc.KnownPossessions[possession.Id] = CurrentSighting(state, possession);
+
         NotifyPossessionWitnesses(state, npc, null, possession, "hides", "someone hide something");
 
         message = $"{npc.Name} tucks {possession.Name} away.";
@@ -935,8 +945,22 @@ public sealed class ActionResolver
 
     private static bool TryReturnPossession(GameState state, Npc npc, NpcAction action, out string message)
     {
-        var possession = FindOwnPossession(state, npc, action.TargetId);
+        var possession = FindPossessionById(state, action.TargetId);
+
+        // The true owner always knows their own possession's live location
+        // (matches YOUR PERSONAL POSSESSIONS always reading live state in
+        // NpcPromptBuilder, never a possibly-stale belief). Owner idea #11
+        // (contraband): anyone else may only retrieve a stash their own
+        // belief actually places here — the same rule StealItem already
+        // uses for a hiding spot — never an omniscient live-state lookup.
+        var knowsWhereHidden = possession is not null
+            && (possession.OwnerId == npc.Id
+                || (npc.KnownPossessions.TryGetValue(possession.Id, out var belief)
+                    && belief.HiddenAtRoomId is not null
+                    && belief.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)));
+
         if (possession is null
+            || !knowsWhereHidden
             || possession.HiddenAtRoomId is null
             || !possession.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
         {
@@ -950,10 +974,11 @@ public sealed class ActionResolver
 
         npc.CurrentAction = action;
         npc.Memories.Add(new Memory(
-            $"I retrieved {possession.Name} from where I'd hidden it.",
+            $"I retrieved {possession.Name} from its hiding spot.",
             state.Elapsed,
             0.35));
 
+        npc.KnownPossessions[possession.Id] = CurrentSighting(state, possession);
         NotifyPossessionWitnesses(state, npc, null, possession, "retrieves", "someone retrieve something");
 
         message = $"{npc.Name} retrieves {possession.Name}.";
@@ -961,12 +986,11 @@ public sealed class ActionResolver
         return true;
     }
 
-    private static PersonalPossession? FindOwnPossession(GameState state, Npc npc, string? possessionId) =>
+    private static PersonalPossession? FindPossessionById(GameState state, string? possessionId) =>
         string.IsNullOrWhiteSpace(possessionId)
             ? null
             : state.Possessions.FirstOrDefault(candidate =>
                 candidate.Id.Equals(possessionId, StringComparison.OrdinalIgnoreCase)
-                && candidate.OwnerId == npc.Id
                 && !candidate.IsDestroyed);
 
     private static PersonalPossession? FindKnownPossession(GameState state, Npc npc, string? possessionId) =>
