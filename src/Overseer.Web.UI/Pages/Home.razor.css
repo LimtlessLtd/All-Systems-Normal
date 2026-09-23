@@ -7197,7 +7197,7 @@ button.turret-token {
         inset 0 0 32px rgba(255, 67, 12, .45);
 }
 
-.station-authority-layer .room-node.has-fire::after {
+.station-authority-layer .room-node[data-room-id].has-fire::after {
     content: "🔥";
     position: absolute;
     inset: 2%;
@@ -7222,11 +7222,11 @@ button.turret-token {
     animation: compartment-fire-flicker .46s steps(2, end) infinite alternate;
 }
 
-.station-authority-layer .room-node.fire-minor::after {
+.station-authority-layer .room-node[data-room-id].fire-minor::after {
     opacity: .72;
 }
 
-.station-authority-layer .room-node.fire-growing::after {
+.station-authority-layer .room-node[data-room-id].fire-growing::after {
     content: "🔥  🔥";
     font-size: clamp(17px, 1.8vw, 34px);
     background:
@@ -7235,7 +7235,7 @@ button.turret-token {
         linear-gradient(to top, rgba(49, 10, 5, .5), rgba(37, 41, 43, .2) 72%, transparent);
 }
 
-.station-authority-layer .room-node.fire-severe::after {
+.station-authority-layer .room-node[data-room-id].fire-severe::after {
     content: "🔥  🔥  🔥";
     font-size: clamp(20px, 2.2vw, 40px);
     background:
@@ -7245,7 +7245,7 @@ button.turret-token {
     animation-duration: .3s;
 }
 
-.station-authority-layer .room-node.fire-inferno::after {
+.station-authority-layer .room-node[data-room-id].fire-inferno::after {
     content: "🔥  🔥  🔥  🔥";
     inset: 0;
     font-size: clamp(24px, 2.8vw, 48px);
@@ -7260,7 +7260,7 @@ button.turret-token {
 /* Smoke is an atmospheric layer, independent of flames. It deliberately
    replaces the decorative room ::before inset while present, so dense smoke
    can genuinely obscure machines/crew without disabling their hit targets. */
-.station-authority-layer .room-node.has-smoke::before {
+.station-authority-layer .room-node[data-room-id].has-smoke::before {
     content: "";
     position: absolute;
     inset: 0;
@@ -7276,15 +7276,15 @@ button.turret-token {
     animation: compartment-smoke-drift 3.4s ease-in-out infinite alternate;
 }
 
-.station-authority-layer .room-node.smoke-light::before {
+.station-authority-layer .room-node[data-room-id].smoke-light::before {
     opacity: .18;
 }
 
-.station-authority-layer .room-node.smoke-building::before {
+.station-authority-layer .room-node[data-room-id].smoke-building::before {
     opacity: .42;
 }
 
-.station-authority-layer .room-node.smoke-heavy::before {
+.station-authority-layer .room-node[data-room-id].smoke-heavy::before {
     opacity: .72;
     background:
         radial-gradient(ellipse at 20% 24%, rgba(42, 47, 50, .86), transparent 50%),
@@ -7292,7 +7292,7 @@ button.turret-token {
         linear-gradient(rgba(16, 19, 21, .54), rgba(9, 12, 14, .7));
 }
 
-.station-authority-layer .room-node.smoke-blackout::before {
+.station-authority-layer .room-node[data-room-id].smoke-blackout::before {
     opacity: .96;
     background:
         radial-gradient(ellipse at 20% 24%, rgba(20, 23, 24, .98), transparent 58%),
@@ -7312,8 +7312,8 @@ button.turret-token {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .station-authority-layer .room-node.has-fire::after,
-    .station-authority-layer .room-node.has-smoke::before {
+    .station-authority-layer .room-node[data-room-id].has-fire::after,
+    .station-authority-layer .room-node[data-room-id].has-smoke::before {
         animation: none !important;
     }
 }

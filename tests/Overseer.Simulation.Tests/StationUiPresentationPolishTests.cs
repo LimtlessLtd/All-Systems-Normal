@@ -123,12 +123,62 @@ public sealed class StationUiPresentationPolishTests
                  })
         {
             Assert.Contains(severity, home);
-            Assert.Contains($".room-node.{severity}", css);
+            Assert.Contains($".room-node[data-room-id].{severity}", css);
         }
 
-        Assert.Contains(".room-node.has-smoke::before", css);
+        Assert.Contains(".room-node[data-room-id].has-smoke::before", css);
         Assert.Contains("compartment-smoke-drift", css);
         Assert.Contains("content: \"🔥  🔥  🔥  🔥\"", css);
+    }
+
+    [Fact]
+    public void FireAndSmokeOverlaySelectors_OutrankTheDecorativeRoomPseudoElements()
+    {
+        // Every room already carries its own decorative ::before (corner dots) and ::after
+        // (bottom accent strip) via a `.station-authority-layer > .room-node:not(.hallway):not(.main-corridor)`
+        // selector. That selector is MORE specific than a plain `.station-authority-layer .room-node.has-fire::after`,
+        // so without an equally-specific qualifier the cascade silently discards the fire/smoke
+        // overlay's own `content`/`background` in favour of the decorative rule's - the room's
+        // FireIntensity/SmokePercent simulate correctly but nothing visible ever renders. The
+        // `[data-room-id]` attribute qualifier (present on every room-node) closes that gap; this
+        // test fails if a future edit drops it and silently reintroduces the invisible-fire bug.
+        var root = FindRepositoryRoot();
+        var css = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor.css"));
+
+        const string decorativeBefore = ".station-authority-layer > .room-node:not(.hallway):not(.main-corridor)::before";
+        const string decorativeAfter = ".station-authority-layer > .room-node:not(.hallway):not(.main-corridor)::after";
+        Assert.Contains(decorativeBefore, css);
+        Assert.Contains(decorativeAfter, css);
+
+        var decorativeSpecificity = ClassLevelSpecificity(decorativeBefore);
+        Assert.Equal(decorativeSpecificity, ClassLevelSpecificity(decorativeAfter));
+
+        foreach (var selector in new[]
+                 {
+                     ".station-authority-layer .room-node[data-room-id].has-fire::after",
+                     ".station-authority-layer .room-node[data-room-id].fire-minor::after",
+                     ".station-authority-layer .room-node[data-room-id].fire-growing::after",
+                     ".station-authority-layer .room-node[data-room-id].fire-severe::after",
+                     ".station-authority-layer .room-node[data-room-id].fire-inferno::after",
+                     ".station-authority-layer .room-node[data-room-id].has-smoke::before",
+                     ".station-authority-layer .room-node[data-room-id].smoke-light::before",
+                     ".station-authority-layer .room-node[data-room-id].smoke-building::before",
+                     ".station-authority-layer .room-node[data-room-id].smoke-heavy::before",
+                     ".station-authority-layer .room-node[data-room-id].smoke-blackout::before",
+                 })
+        {
+            Assert.Contains(selector, css);
+            Assert.True(
+                ClassLevelSpecificity(selector) >= decorativeSpecificity,
+                $"{selector} must be at least as specific as the decorative pseudo-element it overlays, " +
+                "or its content/background is silently discarded by the CSS cascade.");
+        }
+    }
+
+    private static int ClassLevelSpecificity(string selector)
+    {
+        var withoutPseudoElement = selector.Replace("::before", string.Empty).Replace("::after", string.Empty);
+        return withoutPseudoElement.Count(c => c is '.' or '[');
     }
 
     [Fact]
