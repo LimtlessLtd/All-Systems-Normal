@@ -30,6 +30,32 @@ public sealed class PersonalPossessionInteractionTests
         Assert.Contains(npc.Memories, memory => memory.Description.Contains("hid", StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// Owner idea #14 (secrets): hiding a possession is the paradigmatic
+    /// secretive act, so both the hider's own memory and a witness's memory
+    /// of it are flagged sensitive — genuine future blackmail leverage,
+    /// never automatic background gossip.
+    /// </summary>
+    [Fact]
+    public void HideItem_MarksBothTheHidersOwnMemoryAndAWitnessesMemoryAsSensitive()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew[0];
+        var witness = state.Crew[1];
+        witness.CurrentRoomId = npc.CurrentRoomId;
+        var possession = state.Possessions.First(p => p.OwnerId == npc.Id);
+
+        var success = new ActionResolver().TryApply(
+            state,
+            npc.Id,
+            new NpcAction(ActionKind.HideItem, possession.Id, "I want this out of sight."),
+            out _);
+
+        Assert.True(success);
+        Assert.Contains(npc.Memories, memory => memory.Description.Contains("hid", StringComparison.OrdinalIgnoreCase) && memory.IsSensitive);
+        Assert.Contains(witness.Memories, memory => memory.Description.Contains("hide", StringComparison.OrdinalIgnoreCase) && memory.IsSensitive);
+    }
+
     [Fact]
     public void HideItem_FailsWhenTheItemIsAlreadyHidden()
     {
