@@ -391,6 +391,13 @@ public enum ActionKind
     UnlockDoor,
 
     /// <summary>
+    /// Owner idea #3, slice 2: hide or retrieve one of your own personal
+    /// possessions. Owner-only; no borrow/steal/discovery yet.
+    /// </summary>
+    HideItem,
+    ReturnItem,
+
+    /// <summary>
     /// Physically restrain an escaped prisoner and return them to containment.
     /// Always resolved deterministically by simulation, never by the mind.
     /// </summary>
