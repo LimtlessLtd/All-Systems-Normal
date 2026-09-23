@@ -80,6 +80,7 @@ public sealed class ActionResolver
                 or ActionKind.UnlockDoor
                 => TryCrewDoorOperation(state, npc, action, out message),
             ActionKind.ForceDoor => TryForceDoor(state, npc, action, out message),
+            ActionKind.DisconnectDevice => TryDisconnectDevice(state, npc, action, out message),
             ActionKind.RestoreSystem => TryRestoreSystem(state, npc, action, out message),
             ActionKind.SecureAirlock => TrySecureAirlock(state, npc, action, out message),
             ActionKind.RepairDoor => TryDoorWork(state, npc, action, "repair", out message),
@@ -641,6 +642,61 @@ public sealed class ActionResolver
             action,
             $"starts trying to defeat {door.Id}",
             out message);
+    }
+
+    private static bool TryDisconnectDevice(
+        GameState state,
+        Npc npc,
+        NpcAction action,
+        out string message)
+    {
+        if (string.IsNullOrWhiteSpace(action.TargetId)
+            || !state.Devices.TryGetValue(action.TargetId, out var device)
+            || device.Kind == StationSystemKind.Door)
+        {
+            message = "Disconnect target is not a valid station device.";
+            return false;
+        }
+
+        if (!device.RoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
+            || !state.Facility.Rooms.TryGetValue(device.RoomId, out var room))
+        {
+            message = $"{npc.Name} must physically reach {device.Label} before disconnecting it.";
+            return false;
+        }
+
+        var fixture = LocalMovementSystem.FixtureForDevice(room, device.Kind);
+        if (fixture is null || !LocalMovementSystem.IsAtInteractionPoint(room, npc, fixture))
+        {
+            message = $"{npc.Name} must physically reach {device.Label}'s local hardware.";
+            return false;
+        }
+
+        if (device.IsFailed)
+        {
+            message = $"{device.Label} has already failed.";
+            return false;
+        }
+
+        if (!device.IsEnabled)
+        {
+            message = $"{device.Label} is already disconnected.";
+            return false;
+        }
+
+        device.IsEnabled = false;
+
+        if (device.Kind == StationSystemKind.LifeSupport)
+        {
+            state.LifeSupport.RequestedOnline = false;
+            state.LifeSupport.IsOnline = false;
+        }
+
+        npc.RoutineUntil = TimeSpan.Zero;
+        npc.CurrentAction = action with { TargetId = device.Id };
+        message = $"{npc.Name} physically disconnects {device.Label}.";
+        Log(state, message);
+        return true;
     }
 
     private static bool TryRestoreSystem(
