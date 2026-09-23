@@ -252,6 +252,20 @@ public sealed class BrowserMindSystem
                 90);
         }
 
+        if (StationHazardSystem.FindRemoteFireForResponder(
+                state,
+                npc,
+                _navigation) is { } remoteFire)
+        {
+            return Create(
+                state,
+                ActionKind.FightFire,
+                remoteFire.Id,
+                $"Respond to the fire in {remoteFire.Name}.",
+                "The station status panel shows an unattended reachable fire and I am capable of helping suppress it.",
+                94);
+        }
+
         var repairSkill = CrewCounterplaySystem.BestRepairSkill(npc);
 
         if (FindSecurityMalwareResponse(state, npc) is { } malwareResponse)
