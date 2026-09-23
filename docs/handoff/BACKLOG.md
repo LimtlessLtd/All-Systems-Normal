@@ -607,13 +607,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Size: small-to-medium (extend structured LLM response/prompt with optional presentation text; validate/length-limit it; wire only to bubble presentation; regression coverage).
 - Status: ready.
 
-### 86. Keep human models visually upright while preserving facing
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790200095135429 (2026-09-23)
-- Idea: "can we make it so the human models are always upright please ... they should still be able to turn to face wherever they are going or looking, but keep them at a 90 degree angle"
-- Outcome: the humanoid body/silhouette stays visually upright relative to the station camera instead of rotating the entire person sideways; authoritative `FacingDegrees` still drives a smaller directional cue (head/arms/facing marker) so players can tell where the person is looking or moving.
-- Size: small (presentation/CSS/SVG adjustment + browser regression check).
-- Status: ready.
-
 ### 87. Selected-unit vision arcs and robot route visualization
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790200721530759 (2026-09-23)
 - Idea: "When selecting a human or robot, it should show the vision arc of the unit and when selecting a robot it should show the pathing of the robot."
