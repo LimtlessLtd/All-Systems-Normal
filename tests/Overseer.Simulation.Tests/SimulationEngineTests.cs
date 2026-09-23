@@ -218,9 +218,13 @@ public sealed class SimulationEngineTests
         }
 
         // Use the same production local-movement contract to reach the
-        // collision-safe interaction point; the authored fixture centre itself
-        // is not a walkable use position.
-        new LocalMovementSystem().Tick(state, TimeSpan.FromMinutes(20));
+        // collision-safe interaction point. Local routing advances one detour
+        // segment per tick, so walk it normally rather than assuming one giant
+        // delta can skip the route.
+        var movement = new LocalMovementSystem();
+        for (var minute = 0; minute < 30; minute++)
+            movement.Tick(state, TimeSpan.FromMinutes(1));
+
         new SimulationEngine().Tick(state, TimeSpan.FromMinutes(1));
 
         Assert.True(occupant.BladderNeed < 80);
