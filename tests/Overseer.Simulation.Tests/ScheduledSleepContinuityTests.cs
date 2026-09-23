@@ -206,4 +206,54 @@ public sealed class ScheduledSleepContinuityTests
         new CrewProvisioningSystem().Tick(state, TimeSpan.FromMinutes(1));
         Assert.Contains(state.Crew, npc => npc.ProvisioningJob is not null);
     }
+
+    [Fact]
+    public void FullDormOfSleepers_DoesNotCrossTheCo2DangerLineWhileVentilated()
+    {
+        var (state, quarters) = DormWithEightOccupants(asleep: true);
+
+        for (var minute = 0; minute < 8 * 60; minute++)
+        {
+            new EnvironmentSystem().Tick(state, TimeSpan.FromMinutes(1));
+            Assert.False(
+                CrewEnvironmentSafety.IsDangerous(quarters),
+                $"Quarters became dangerous after {minute + 1} min (CO2 {quarters.CarbonDioxidePercent:0.00}%).");
+        }
+    }
+
+    [Fact]
+    public void SealedDormOfSleepers_StillBecomesDangerousWithoutVentilation()
+    {
+        var (state, quarters) = DormWithEightOccupants(asleep: true);
+        quarters.VentilationEnabled = false;
+
+        for (var minute = 0; minute < 8 * 60 && !CrewEnvironmentSafety.IsDangerous(quarters); minute++)
+            new EnvironmentSystem().Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.True(CrewEnvironmentSafety.IsDangerous(quarters));
+    }
+
+    private static (GameState State, Room Quarters) DormWithEightOccupants(bool asleep)
+    {
+        var state = FacilitySeeder.CreateDefault(SeededCrewRosterGenerator.Generate(4242), stationSeed: 4242);
+        state.Elapsed = DayCohortNight;
+        var quarters = state.Facility.Rooms["quarters"];
+        var beds = quarters.Fixtures.Where(fixture => fixture.Type == FixtureType.Bed).ToList();
+        var sleepers = state.Crew.Where(npc => !npc.IsPrisoner).Take(8).ToList();
+        Assert.Equal(8, sleepers.Count);
+
+        for (var i = 0; i < sleepers.Count; i++)
+        {
+            sleepers[i].CurrentRoomId = quarters.Id;
+            sleepers[i].PositionX = beds[i % beds.Count].X;
+            sleepers[i].PositionY = beds[i % beds.Count].Y;
+            sleepers[i].CurrentAction = new NpcAction(asleep ? ActionKind.Sleep : ActionKind.Idle, null, "Test.");
+        }
+
+        foreach (var other in state.Crew.Except(sleepers))
+            other.CurrentRoomId = "control";
+
+        Assert.All(sleepers, npc => Assert.Equal(asleep, SimulationEngine.IsPhysicallyAsleep(state, npc)));
+        return (state, quarters);
+    }
 }
