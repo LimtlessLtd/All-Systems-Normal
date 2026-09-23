@@ -54,6 +54,62 @@ public sealed class SimulationEngineTests
     }
 
     [Fact]
+    public void Tick_PhysicalBedUseAccumulatesIntoDeterministicPreference()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew[0];
+        var quarters = state.Facility.Rooms["quarters"];
+        var beds = quarters.Fixtures
+            .Where(fixture => fixture.Type == FixtureType.Bed)
+            .Take(2)
+            .ToList();
+
+        Assert.True(beds.Count >= 2);
+
+        npc.CurrentRoomId = quarters.Id;
+        npc.CurrentAction = new NpcAction(
+            ActionKind.Sleep,
+            null,
+            "Sleeping physically at a bed.");
+
+        npc.PositionX = beds[0].X;
+        npc.PositionY = beds[0].Y;
+        new SimulationEngine().Tick(state, TimeSpan.FromMinutes(10));
+
+        npc.PositionX = beds[1].X;
+        npc.PositionY = beds[1].Y;
+        new SimulationEngine().Tick(state, TimeSpan.FromMinutes(20));
+
+        var firstKey = PersonalSpaceSystem.FixtureKey(quarters.Id, beds[0]);
+        var secondKey = PersonalSpaceSystem.FixtureKey(quarters.Id, beds[1]);
+
+        Assert.Equal(10, npc.FixtureUseMinutes[firstKey], 3);
+        Assert.Equal(20, npc.FixtureUseMinutes[secondKey], 3);
+        Assert.Equal(secondKey, PersonalSpaceSystem.PreferredBedKey(npc));
+    }
+
+    [Fact]
+    public void Tick_SleepFlagAwayFromBedDoesNotCreatePreference()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew[0];
+        var quarters = state.Facility.Rooms["quarters"];
+
+        npc.CurrentRoomId = quarters.Id;
+        npc.PositionX = 50;
+        npc.PositionY = 50;
+        npc.CurrentAction = new NpcAction(
+            ActionKind.Sleep,
+            null,
+            "Trying to sleep away from a bed.");
+
+        new SimulationEngine().Tick(state, TimeSpan.FromMinutes(10));
+
+        Assert.Empty(npc.FixtureUseMinutes);
+        Assert.Null(PersonalSpaceSystem.PreferredBedKey(npc));
+    }
+
+    [Fact]
     public void Tick_ComfortEatingWhileStressedAndNotHungryRelievesStress()
     {
         var state = FacilitySeeder.CreateDefault();
