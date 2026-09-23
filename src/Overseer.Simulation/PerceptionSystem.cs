@@ -134,6 +134,132 @@ public sealed class PerceptionSystem
             evidence.X,
             evidence.Y);
 
+    /// <summary>
+    /// Presentation helper (owner idea #87): the outline, in map coordinates,
+    /// of where this person can currently see — their forward 180-degree cone
+    /// out to lit/dark human range, clipped by the same walls and closed or
+    /// secured doors <see cref="CanSee(GameState, Npc, Npc)"/> respects. Range
+    /// uses the observer's own compartment lighting. The first point is the
+    /// observer. Empty when they cannot see at all.
+    /// </summary>
+    public static IReadOnlyList<(double X, double Y)> VisionOutline(GameState state, Npc observer)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(observer);
+
+        if (!observer.IsAlive || !observer.IsPresent)
+            return [];
+
+        var range = IsLit(state, observer.CurrentRoomId)
+            ? HumanRange
+            : HumanRange * DarkRangeFactor;
+
+        return Outline(
+            state.Facility,
+            observer.CurrentRoomId,
+            observer.PositionX,
+            observer.PositionY,
+            observer.FacingDegrees - 90,
+            180,
+            range);
+    }
+
+    /// <summary>
+    /// Presentation helper (owner idea #87): the omnidirectional sensor
+    /// outline of an operational robot, clipped like its real sightlines.
+    /// </summary>
+    public static IReadOnlyList<(double X, double Y)> VisionOutline(GameState state, StationRobot observer)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(observer);
+
+        if (!observer.IsOperational)
+            return [];
+
+        return Outline(
+            state.Facility,
+            observer.CurrentRoomId,
+            observer.PositionX,
+            observer.PositionY,
+            0,
+            360,
+            SensorRange);
+    }
+
+    private static IReadOnlyList<(double X, double Y)> Outline(
+        Facility facility,
+        string roomId,
+        double localX,
+        double localY,
+        double startDegrees,
+        double sweepDegrees,
+        double range)
+    {
+        if (!facility.Rooms.TryGetValue(roomId, out var room))
+            return [];
+
+        const double StepDegrees = 4;
+        var origin = ToMap(room, localX, localY);
+        var fullCircle = sweepDegrees >= 360;
+        var rays = (int)Math.Ceiling(sweepDegrees / StepDegrees);
+        var points = new List<(double X, double Y)>(rays + 2);
+
+        if (!fullCircle)
+            points.Add(origin);
+
+        for (var index = 0; index <= rays; index++)
+        {
+            if (fullCircle && index == rays)
+                break;
+
+            var radians = (startDegrees + (sweepDegrees * index / rays)) * Math.PI / 180;
+            points.Add(RayReach(facility, roomId, origin, Math.Cos(radians), Math.Sin(radians), range));
+        }
+
+        return points;
+    }
+
+    /// <summary>
+    /// Marches a sightline outward with the same step and door rules as
+    /// <see cref="HasClearRay"/>, returning the farthest point still visible.
+    /// </summary>
+    private static (double X, double Y) RayReach(
+        Facility facility,
+        string roomId,
+        (double X, double Y) origin,
+        double directionX,
+        double directionY,
+        double range)
+    {
+        var steps = Math.Max(1, (int)Math.Ceiling(range / RayStep));
+        var currentRoomId = roomId;
+        var reach = origin;
+
+        for (var index = 1; index <= steps; index++)
+        {
+            var distance = range * index / steps;
+            var x = origin.X + (directionX * distance);
+            var y = origin.Y + (directionY * distance);
+            var nextRoom = FindContainingRoom(facility, x, y, currentRoomId);
+
+            if (nextRoom is null)
+                break;
+
+            if (!nextRoom.Id.Equals(currentRoomId, StringComparison.OrdinalIgnoreCase))
+            {
+                var door = facility.FindDoorBetween(currentRoomId, nextRoom.Id);
+                if (door is null || !door.IsOpen || door.HasPhysicalSecuring)
+                    break;
+
+                currentRoomId = nextRoom.Id;
+            }
+
+            reach = (x, y);
+        }
+
+        return reach;
+    }
+
     private static bool CanSeePoint(
         GameState state,
         string observerRoomId,

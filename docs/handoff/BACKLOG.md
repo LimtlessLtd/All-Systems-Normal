@@ -597,13 +597,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Size: small-to-medium (extend structured LLM response/prompt with optional presentation text; validate/length-limit it; wire only to bubble presentation; regression coverage).
 - Status: ready.
 
-### 87. Selected-unit vision arcs and robot route visualization
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790200721530759 (2026-09-23)
-- Idea: "When selecting a human or robot, it should show the vision arc of the unit and when selecting a robot it should show the pathing of the robot."
-- Outcome: selecting a human or robot overlays that unit's authoritative perception cone/range using the existing LOS contract; selecting a robot also shows its current authoritative movement/path route with the same presentation-only rule as crew route visualization.
-- Size: small-to-medium (selection overlay + robot route presentation + browser regression check).
-- Status: ready.
-
 ### 88. Variable crew and robot roster sizes
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790200721530759 (2026-09-23)
 - Idea: "there should be between 1 and 4 robots in any given run ... theres always at least 4 crew and 1 robot" with crew/robot count combinations equally likely.
