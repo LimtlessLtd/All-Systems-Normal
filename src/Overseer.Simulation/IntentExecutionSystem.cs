@@ -1059,7 +1059,7 @@ public sealed class IntentExecutionSystem
             _actions.TryApply(
                 state,
                 npc.Id,
-                new NpcAction(intent.Action, target.Name, intent.Reason),
+                new NpcAction(intent.Action, target.Name, intent.Reason, intent.SubjectId),
                 out _);
 
             npc.Intent = null;

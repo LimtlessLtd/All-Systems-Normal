@@ -510,6 +510,13 @@ public sealed class OllamaAiDecisionService(
         var goal = Clean(decision.Goal, "Decide what to do next.");
         var reason = Clean(decision.Reason, "I need a moment to decide what matters.");
 
+        // Captured now rather than re-derived on arrival: the asker may walk
+        // several ticks to reach the askee, during which a different concern
+        // could become more pressing and silently swap the subject.
+        var subjectId = action == ActionKind.AskAboutLocation
+            ? MissingPersonSystem.MostPressingAskableConcern(npc)?.PersonId
+            : null;
+
         return new NpcIntent(
             action,
             target,
@@ -517,7 +524,8 @@ public sealed class OllamaAiDecisionService(
             reason,
             Math.Clamp(decision.Urgency, 0, 100),
             "Ollama",
-            state.Elapsed);
+            state.Elapsed,
+            subjectId);
     }
 
     private static bool IsRestorableTarget(GameState state, string target)

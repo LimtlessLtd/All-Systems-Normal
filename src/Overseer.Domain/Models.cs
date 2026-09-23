@@ -597,7 +597,8 @@ public sealed class CrewTaskState
 public sealed record NpcAction(
     ActionKind Kind,
     string? TargetId,
-    string Reason);
+    string Reason,
+    Guid? SubjectId = null);
 
 public sealed record NpcIntent(
     ActionKind Action,
@@ -606,7 +607,8 @@ public sealed record NpcIntent(
     string Reason,
     int Urgency,
     string Source,
-    TimeSpan CreatedAt);
+    TimeSpan CreatedAt,
+    Guid? SubjectId = null);
 
 public sealed record CognitionTelemetryEntry(
     long Sequence,

@@ -254,7 +254,7 @@ public sealed class SocialSimulationSystem
                 // or not the answer turns out to be useful; the substance of
                 // the answer (and any belief update) is resolved deterministically.
                 targetToActor.Trust = Clamp(targetToActor.Trust + 0.2);
-                MissingPersonSystem.ResolveAsk(state, actor, target);
+                MissingPersonSystem.ResolveAsk(state, actor, target, actor.CurrentAction.SubjectId);
                 break;
         }
 

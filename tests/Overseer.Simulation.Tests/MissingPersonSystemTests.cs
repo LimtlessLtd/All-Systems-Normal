@@ -350,6 +350,62 @@ public sealed class MissingPersonSystemTests
     }
 
     [Fact]
+    public void ResolveAsk_WithACapturedSubject_ResolvesThatConcernEvenIfADifferentOneBecomesMorePressingMeanwhile()
+    {
+        // Regression: without a captured subject, ResolveAsk re-derives "the
+        // most pressing concern" at resolution time, which can silently
+        // differ from the concern that was most pressing (and thus intended)
+        // when the ask was originally decided -- e.g. after the asker spends
+        // several ticks walking to reach the askee.
+        var state = FacilitySeeder.CreateDefault();
+        var nadia = state.Crew.Single(npc => npc.Name == "Nadia Okafor");
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        var emma = state.Crew.Single(npc => npc.Name == "Emma Voss");
+
+        state.Elapsed = TimeSpan.FromHours(4);
+        nadia.MissingPersonConcerns[marcus.Id] = new MissingPersonConcern
+        {
+            PersonId = marcus.Id,
+            PersonName = marcus.Name,
+            ExpectedRoomId = "reactor",
+            FirstConcernAt = TimeSpan.FromHours(1),
+            LastUpdatedAt = TimeSpan.FromHours(1),
+            Stage = MissingPersonConcernStage.Searching
+        };
+        nadia.MissingPersonConcerns[david.Id] = new MissingPersonConcern
+        {
+            PersonId = david.Id,
+            PersonName = david.Name,
+            ExpectedRoomId = "hydroponics",
+            FirstConcernAt = TimeSpan.FromHours(3),
+            LastUpdatedAt = TimeSpan.FromHours(3),
+            Stage = MissingPersonConcernStage.Concerned
+        };
+
+        // Marcus is most pressing when the ask is decided; this is what gets
+        // captured as the subject at that moment.
+        var subjectId = MissingPersonSystem.MostPressingAskableConcern(nadia)?.PersonId;
+        Assert.Equal(marcus.Id, subjectId);
+
+        // While the asker is still travelling to reach Emma, David's concern
+        // escalates past Marcus's.
+        nadia.MissingPersonConcerns[david.Id].Stage = MissingPersonConcernStage.Escalated;
+        Assert.Equal(david.Id, MissingPersonSystem.MostPressingAskableConcern(nadia)?.PersonId);
+
+        emma.LastSeenCrew[marcus.Id] = new CrewSighting(marcus.Id, marcus.Name, "reactor", TimeSpan.FromHours(3.5));
+        emma.LastSeenCrew[david.Id] = new CrewSighting(david.Id, david.Name, "hydroponics", TimeSpan.FromHours(3.5));
+
+        MissingPersonSystem.ResolveAsk(state, nadia, emma, subjectId);
+
+        Assert.Equal("reactor", nadia.MissingPersonConcerns[marcus.Id].LastKnownRoomId);
+        Assert.Null(nadia.MissingPersonConcerns[david.Id].LastKnownRoomId);
+        Assert.Contains(
+            nadia.Beliefs,
+            belief => belief.Statement.Contains(marcus.Name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void ResolveAsk_AskerHasNoActiveConcern_DoesNothing()
     {
         var state = FacilitySeeder.CreateDefault();
