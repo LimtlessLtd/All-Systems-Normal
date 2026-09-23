@@ -1144,12 +1144,14 @@ public sealed class Npc : IStationMobileEntity
         new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Deterministic count of authoritative physical tasks this NPC has
-    /// successfully completed, grouped by action. This is history/telemetry,
-    /// not a job assignment: cognition may later use repeated real work as
-    /// evidence that a responsibility feels familiar or personally important.
+    /// Deterministic count of successful authoritative tasks, grouped by action.
+    /// This is history only; no decision logic reads it yet.
     /// </summary>
     public Dictionary<ActionKind, int> CompletedTaskCounts { get; } = [];
+
+    public void RecordTaskCompletion(ActionKind action) =>
+        CompletedTaskCounts[action] =
+            CompletedTaskCounts.GetValueOrDefault(action) + 1;
 
     public Dictionary<string, Relationship> Relationships { get; } =
         new(StringComparer.OrdinalIgnoreCase);
