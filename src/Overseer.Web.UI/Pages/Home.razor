@@ -1637,8 +1637,11 @@
     private StationSelection? _selection =
         new(StationSelectionKind.Room, "control");
     private int _delayMs = 2800;
-    private bool _soundEnabled;
-    private bool _musicEnabled;
+    // Owner idea #72: sound and music are on by default; audio.js mirrors
+    // this and silently resumes playback on the page's first interaction
+    // since browsers block an unprompted AudioContext.
+    private bool _soundEnabled = true;
+    private bool _musicEnabled = true;
     private string? _stationOverlay;
     private bool _paused;
     private bool _confirmingReset;
@@ -2136,6 +2139,12 @@
             await JS.InvokeVoidAsync("overseerLayout.registerPauseHandler", _selfReference);
 
             await RestorePersistedCampaignAsync();
+
+            // Sound defaults to on: skip any cues already queued during
+            // startup/restore so the player isn't hit with a burst of every
+            // historical cue at once the moment audio actually starts.
+            _lastAudioSequence = Session.State.AudioCues.LastOrDefault()?.Sequence ?? 0;
+
             StartAutoClock();
             StateHasChanged();
         }
