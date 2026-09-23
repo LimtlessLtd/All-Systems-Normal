@@ -11,13 +11,32 @@ public static class NpcPromptBuilder
     public static string Build(Npc npc, GameState state)
     {
         var room = state.Facility.Rooms[npc.CurrentRoomId];
-        var occupants = state.Crew
+        var occupantNpcs = state.Crew
             .Where(other => other.IsAlive
                 && other.IsPresent
                 && other.Id != npc.Id
                 && other.CurrentRoomId == npc.CurrentRoomId)
-            .Select(other => $"{other.Name} ({other.Role})")
             .ToArray();
+        // Owner idea #17: visible conflict is perceivable, so bystanders can
+        // decide how to respond; only what this observer can actually make out.
+        var visibleConflicts = occupantNpcs
+            .Where(other => other.CurrentAction.Kind is ActionKind.Attack or ActionKind.Argue
+                && other.CurrentAction.TargetId is not null
+                && PerceptionSystem.CanMakeOut(state, npc, other))
+            .ToDictionary(
+                other => other.Id,
+                other => other.CurrentAction.Kind == ActionKind.Attack
+                    ? $"attacking {(other.CurrentAction.TargetId == npc.Name ? "you" : other.CurrentAction.TargetId)}"
+                    : $"arguing with {(other.CurrentAction.TargetId == npc.Name ? "you" : other.CurrentAction.TargetId)}");
+        var occupants = occupantNpcs
+            .Select(other => visibleConflicts.TryGetValue(other.Id, out var conflict)
+                ? $"{other.Name} ({other.Role}, {conflict})"
+                : $"{other.Name} ({other.Role})")
+            .ToArray();
+        var fightHere = occupantNpcs.Any(other =>
+            other.CurrentAction.Kind == ActionKind.Attack
+            && visibleConflicts.ContainsKey(other.Id)
+            && other.CurrentAction.TargetId != npc.Name);
 
         var connectedDoors = state.Facility.Doors
             .Where(door => door.RoomAId == room.Id || door.RoomBId == room.Id)
@@ -435,6 +454,8 @@ public static class NpcPromptBuilder
             builder.AppendLine("YOUR LOCAL SECURITY DIAGNOSTICS: no personally observed MR/ST malware diagnostic.");
         }
         builder.AppendLine($"PEOPLE HERE: {(occupants.Length == 0 ? "nobody" : string.Join(", ", occupants))}");
+        if (fightHere)
+            builder.AppendLine("A FIGHT IS HAPPENING IN FRONT OF YOU. How you respond is up to you: step in to help someone (AssistCrew), fetch or call for help from someone else (RequestHelp/ReportConcern), get out (SeekSafety), close or lock a hatch between people, just watch (Idle), back a friend, or use the distraction for your own ends. Nothing is expected of you.");
         builder.AppendLine();
         builder.AppendLine("CONNECTED DOORS YOU CAN DIRECTLY PERCEIVE:");
         foreach (var door in connectedDoors) builder.AppendLine($"- {door}");
