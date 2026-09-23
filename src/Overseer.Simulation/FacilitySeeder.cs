@@ -118,6 +118,8 @@ public static class FacilitySeeder
             }
         }
 
+        SeedPersonalPossessions(state);
+
         if (suppliedCrew is null)
         {
             ApplyDemoSocialHistory(state);
@@ -1220,6 +1222,58 @@ public static class FacilitySeeder
             }
 
             return hash;
+        }
+    }
+
+    private static readonly string[] FoodStashPossessionNames =
+        ["a hoarded ration bar", "a tin of preserved fruit", "a pouch of dried meat"];
+    private static readonly string[] PhotographPossessionNames =
+        ["a folded photo of home", "a photo of their family", "a photo from before the station"];
+    private static readonly string[] MedicationPossessionNames =
+        ["a personal medication vial", "a spare inhaler", "a strip of unlisted pills"];
+    private static readonly string[] ToolPossessionNames =
+        ["a personal multitool", "a worn hand tool", "a small pocketknife"];
+    private static readonly string[] KeepsakePossessionNames =
+        ["a keepsake trinket", "an old ring", "a child's drawing"];
+
+    /// <summary>
+    /// Owner idea #3, slice 1: give each crew member 1-2 small personally
+    /// meaningful items (idea's own examples: food stash, photograph,
+    /// medication, tool, keepsake), deterministic on name like
+    /// <see cref="InitialBond"/>. Every item starts held by its owner; no
+    /// borrow/steal/hide/destroy interaction exists yet.
+    /// </summary>
+    private static void SeedPersonalPossessions(GameState state)
+    {
+        foreach (var npc in state.Crew)
+        {
+            var itemCount = 1 + (int)(StableHashText($"{npc.Name}#possession-count") % 2);
+
+            for (var index = 0; index < itemCount; index++)
+            {
+                var kind = (PossessionKind)(StableHashText($"{npc.Name}#possession-kind-{index}") % 5);
+                var names = kind switch
+                {
+                    PossessionKind.FoodStash => FoodStashPossessionNames,
+                    PossessionKind.Photograph => PhotographPossessionNames,
+                    PossessionKind.Medication => MedicationPossessionNames,
+                    PossessionKind.Tool => ToolPossessionNames,
+                    _ => KeepsakePossessionNames
+                };
+                var name = names[StableHashText($"{npc.Name}#possession-name-{index}") % (uint)names.Length];
+
+                var possession = new PersonalPossession
+                {
+                    Id = $"possession-{npc.Id:N}-{index}",
+                    OwnerId = npc.Id,
+                    Name = name,
+                    Kind = kind,
+                    CurrentHolderId = npc.Id
+                };
+
+                state.Possessions.Add(possession);
+                npc.KnownPossessionIds.Add(possession.Id);
+            }
         }
     }
 
