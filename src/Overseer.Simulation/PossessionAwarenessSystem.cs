@@ -30,11 +30,14 @@ public sealed class PossessionAwarenessSystem
                          npc.IsAlive
                          && npc.IsPresent
                          && npc.Id != holder.Id
-                         && !npc.KnownPossessionIds.Contains(possession.Id)
                          && npc.CurrentRoomId.Equals(holder.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
                          && PerceptionSystem.CanMakeOut(state, npc, holder)))
             {
-                observer.KnownPossessionIds.Add(possession.Id);
+                // Refreshed every tick this stays true, exactly like directly
+                // seeing someone in the same room is real perception, not
+                // memory — so this never goes stale while it remains true.
+                observer.KnownPossessions[possession.Id] = new PossessionSighting(
+                    possession.Id, holder.Id, holder.Name, null, null, state.Elapsed);
             }
         }
     }

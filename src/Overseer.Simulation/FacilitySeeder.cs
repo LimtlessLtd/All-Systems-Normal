@@ -1272,7 +1272,8 @@ public static class FacilitySeeder
                 };
 
                 state.Possessions.Add(possession);
-                npc.KnownPossessionIds.Add(possession.Id);
+                npc.KnownPossessions[possession.Id] = new PossessionSighting(
+                    possession.Id, npc.Id, npc.Name, null, null, state.Elapsed);
             }
         }
     }

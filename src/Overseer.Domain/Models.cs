@@ -401,8 +401,8 @@ public enum ActionKind
     /// Owner idea #3, slice 3: take a possession that is not your own — from
     /// a co-located crew member currently holding it (with or without their
     /// consent), or, for <see cref="StealItem"/> only, from a hiding spot you
-    /// know about in your current room. Requires the possession to already be
-    /// in <c>KnownPossessionIds</c>; never omniscient.
+    /// yourself believe (per <c>KnownPossessions</c>) is in your current
+    /// room. Never omniscient.
     /// </summary>
     BorrowItem,
     StealItem,
@@ -810,6 +810,22 @@ public sealed class PersonalPossession
     public bool IsDestroyed { get; set; }
 }
 
+/// <summary>
+/// An observer's own belief about a possession they know exists, as of the
+/// last time they actually perceived it — mirroring <see cref="CrewSighting"/>.
+/// Exactly one of <see cref="HolderId"/> or <see cref="HiddenAtRoomId"/> is
+/// set, reflecting what this observer last actually saw or was told, not the
+/// item's live global state. A belief only updates through ambient co-located
+/// perception of a held item, or by witnessing a hide/borrow/steal act.
+/// </summary>
+public sealed record PossessionSighting(
+    string PossessionId,
+    Guid? HolderId,
+    string? HolderName,
+    string? HiddenAtRoomId,
+    string? HiddenAtFixtureLabel,
+    TimeSpan ObservedAt);
+
 public sealed class MedicalState
 {
     public double Supplies { get; set; } = 12;
@@ -959,10 +975,13 @@ public sealed class Npc : IStationMobileEntity
     public HashSet<string> ObservedBloodEvidenceIds { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
-    // Possessions (owned or otherwise) this person knows exist: their own
-    // items plus any they have witnessed being hidden/borrowed/stolen, or
-    // found by searching. Never populated omnisciently.
-    public HashSet<string> KnownPossessionIds { get; } =
+    // Possessions (owned or otherwise) this person knows exist and their last
+    // actually-observed state: their own items plus any they have witnessed
+    // being held, hidden, borrowed or stolen, or found by searching. Reading
+    // this key set answers "have I ever perceived this item"; reading a
+    // value answers "what did I last actually see" — never the item's live
+    // global state, which the observer may not know has changed since.
+    public Dictionary<string, PossessionSighting> KnownPossessions { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
     // Faults this person has personally noticed, keyed "roomId:fault". Cleared

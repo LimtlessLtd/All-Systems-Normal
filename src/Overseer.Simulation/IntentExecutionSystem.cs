@@ -1023,7 +1023,7 @@ public sealed class IntentExecutionSystem
                 && !candidate.IsDestroyed
                 && (isOwnItemOnly
                     ? candidate.OwnerId == npc.Id
-                    : npc.KnownPossessionIds.Contains(candidate.Id)));
+                    : npc.KnownPossessions.ContainsKey(candidate.Id)));
 
         if (possession is null)
         {
