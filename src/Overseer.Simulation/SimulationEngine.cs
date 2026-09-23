@@ -116,8 +116,18 @@ public sealed class SimulationEngine
             // Merely having "Sleep" in CurrentAction is not restorative.
             // The person must physically reach a bed/rest fixture first so sleep
             // remains visible station behaviour rather than a remote state flag.
-            var sleeping = IsPhysicallyResting(state, npc);
+            var restFixture = FindPhysicalRestFixture(state, npc);
+            var sleeping = restFixture is not null;
             var scheduledSleep = CrewDutySchedule.IsSleepWindow(npc, state.Elapsed);
+
+            if (restFixture is { Type: FixtureType.Bed })
+            {
+                PersonalSpaceSystem.RecordUse(
+                    npc,
+                    npc.CurrentRoomId,
+                    restFixture,
+                    minutes);
+            }
 
             if (scheduledSleep && !sleeping)
                 npc.SleepDebtMinutes = Math.Clamp(npc.SleepDebtMinutes + minutes, 0, 16 * 60);
@@ -285,12 +295,12 @@ public sealed class SimulationEngine
         }
     }
 
-    private static bool IsPhysicallyResting(GameState state, Npc npc)
+    private static RoomFixture? FindPhysicalRestFixture(GameState state, Npc npc)
     {
         if (npc.CurrentAction.Kind is not (ActionKind.Rest or ActionKind.Sleep)
             || !state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var room))
         {
-            return false;
+            return null;
         }
 
         var fixtures = room.Fixtures.Where(fixture =>
@@ -307,7 +317,7 @@ public sealed class SimulationEngine
             // footprint (lying down). Both are genuine physical attendance; a
             // remote Sleep flag alone is never restorative.
             if (LocalMovementSystem.IsAtInteractionPoint(room, npc, fixture))
-                return true;
+                return fixture;
 
             var nearestX = Math.Clamp(
                 npc.PositionX,
@@ -321,10 +331,10 @@ public sealed class SimulationEngine
             var dy = (npc.PositionY - nearestY) / 100d * room.MapHeight;
 
             if (Math.Sqrt((dx * dx) + (dy * dy)) <= 0.10)
-                return true;
+                return fixture;
         }
 
-        return false;
+        return null;
     }
 
     private static CropKind? ChooseRawCrop(StationStores stores, Npc npc) =>
