@@ -154,6 +154,16 @@ public sealed class RemoteFireResponderTests
                 npc.CurrentRoomId,
                 "Committed routine work.",
                 TimeSpan.FromHours(1));
+
+            // With everyone equally committed to work, the responder selector
+            // falls back to a skill tie-break. Neutralise every other crew
+            // member's Engineering/Security so this test's named responder is
+            // unambiguously the one chosen, regardless of the seeded roster.
+            if (npc.Id != responder.Id)
+            {
+                npc.Skills["Engineering"] = 0;
+                npc.Skills["Security"] = 0;
+            }
         }
 
         new StationHazardSystem().Tick(state, TimeSpan.FromMinutes(1));

@@ -507,7 +507,11 @@ public sealed class StationHazardSystem
                          && !CrewEnvironmentSafety.IsDangerous(
                              state.Facility.Rooms[candidate.CurrentRoomId])
                          && (candidate.Intent is null || candidate.Intent.Urgency < 85))
-                     .OrderByDescending(candidate =>
+                     // Prefer an already-available responder; only reach past
+                     // one into someone doing committed work when nobody idle
+                     // and capable exists for that fire.
+                     .OrderBy(candidate => CrewTaskSystem.IsWorking(candidate) ? 1 : 0)
+                     .ThenByDescending(candidate =>
                          Math.Max(
                              candidate.Skills.GetValueOrDefault("Engineering"),
                              candidate.Skills.GetValueOrDefault("Security")))
