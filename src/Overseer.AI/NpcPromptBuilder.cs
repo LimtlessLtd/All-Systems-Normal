@@ -6,6 +6,8 @@ namespace Overseer.AI;
 
 public static class NpcPromptBuilder
 {
+    private static readonly TimeSpan RecentFailedAttemptWindow = TimeSpan.FromHours(2);
+
     public static string Build(Npc npc, GameState state)
     {
         var room = state.Facility.Rooms[npc.CurrentRoomId];
@@ -76,6 +78,17 @@ public static class NpcPromptBuilder
         // Most salient now, not most important ever: old entries fade so the
         // prompt follows what is actually on this person's mind.
         var memories = MemorySalience.MostSalient(npc, state.Elapsed, 6)
+            .Select(m => $"- {m.Description}");
+
+        // Surfaced separately from RECENT/IMPORTANT MEMORIES rather than
+        // relying on general salience: a freshly failed attempt's low
+        // importance can otherwise be crowded out by other same-tick
+        // memories and never actually reach cognition, letting a mind
+        // silently retry the exact same rejected action forever.
+        var recentFailedAttempts = npc.Memories
+            .Where(m => m.IsFailedAttempt && state.Elapsed - m.OccurredAt <= RecentFailedAttemptWindow)
+            .OrderByDescending(m => m.OccurredAt)
+            .Take(3)
             .Select(m => $"- {m.Description}");
 
         var beliefs = npc.Beliefs
@@ -366,6 +379,11 @@ public static class NpcPromptBuilder
         builder.AppendLine("RECENT / IMPORTANT MEMORIES:");
         if (npc.Memories.Count == 0) builder.AppendLine("- none");
         else foreach (var memory in memories) builder.AppendLine(memory);
+        builder.AppendLine();
+        builder.AppendLine("YOUR RECENT FAILED ATTEMPTS (do not simply repeat the same rejected choice; try something different):");
+        var recentFailedAttemptsList = recentFailedAttempts.ToArray();
+        if (recentFailedAttemptsList.Length == 0) builder.AppendLine("- none");
+        else foreach (var attempt in recentFailedAttemptsList) builder.AppendLine(attempt);
         builder.AppendLine();
         builder.AppendLine("BELIEFS:");
         foreach (var belief in beliefs) builder.AppendLine(belief);

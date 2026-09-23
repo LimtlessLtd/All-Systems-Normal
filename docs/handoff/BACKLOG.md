@@ -32,7 +32,7 @@ One batch, 20 entries, from the owner's 2026-09-22 22:17 BST message in `#new-id
 - Idea: "Let the LLM propose small multi-step goals ... C# validates every individual step. Plans can adapt when reality changes rather than collapsing immediately."
 - Outcome: the LLM can propose a short ordered plan; C# validates each step's capability at execution time using existing intent checks and lets cognition re-plan a step that becomes invalid, instead of either scripting the whole plan or collapsing to idle on the first obstacle.
 - Size: large (slices: bounded plan/step data model; per-step deterministic validation reusing existing intent checks; re-plan-on-failure feedback loop)
-- Status: ready — matches the "bounded plans/triggers/goal predicates" step already named in `ARCHITECTURE.md` → Emergent-agency direction.
+- Status: **not safely startable yet** — `ARCHITECTURE.md` → Emergent-agency direction's planned sequence places "bounded plans/triggers/goal predicates" *after* a "rejection feedback" step, and that prerequisite was real and unfinished: `IntentExecutionSystem.FailIntent` wrote a plain low-importance memory with no way for cognition to reliably notice it (a fresh 0.35-importance memory could be crowded out of the salience-ranked RECENT/IMPORTANT MEMORIES prompt block by other same-tick memories and never reach the LLM at all), so a mind could silently retry the exact same rejected action forever — exactly the failure mode idea #5's own premise ("plans adapt ... rather than collapsing immediately") depends on not happening. **Fixed** in a prerequisite PR: `Memory.IsFailedAttempt` is now an explicit typed marker set by `FailIntent`, and `NpcPromptBuilder` surfaces the last 3 (within 2 hours) in a dedicated "YOUR RECENT FAILED ATTEMPTS" block, guaranteed visible regardless of general memory-salience competition. Idea #5 itself is now unblocked and ready to scope/start on a future run — it still needs its own slice-1 investigation (a bounded plan/step data model touching the core single-intent-per-tick decision loop, `NpcIntent`/`OllamaAiDecisionService`/`IntentExecutionSystem`, and likely creating fallback-ladder-parity risk with `RuleBasedAiDecisionService`/`BrowserMindSystem` similar to the still-open P1 problem) — not attempted this run given its scale.
 
 ### 6. Emergent leadership via trust
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790111822683539 (2026-09-22)
@@ -196,7 +196,6 @@ No `ISystem` interface; `Tick` is duck-typed with two signatures (`Tick(GameStat
 
 **Emergent behaviour**
 
-- Failed intents are remembered (`FailIntent` writes a memory) but nothing feeds that back into cognition prompts/options, so a mind can repeat the same rejected choice.
 - Prisoners get only the four `PrisonerDefinition` fields plus standard relationship texture: no prisoner-specific bonds, goals or backstory; escape/flee/recapture motive is fully deterministic rather than mind-authored.
 
 **UI/UX**

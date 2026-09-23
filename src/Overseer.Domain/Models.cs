@@ -457,13 +457,22 @@ public sealed record StationSelection(
 /// same original content instead of re-wrapping an already-wrapped string
 /// (which would nest indefinitely). Null for a hop-0 memory, whose own
 /// <paramref name="Description"/> already is the core content.
+/// <paramref name="IsFailedAttempt"/> marks a memory written by
+/// <c>IntentExecutionSystem.FailIntent</c> — a rejected/impossible action
+/// this person just tried. A plain importance value is not a reliable
+/// enough marker for cognition to reliably notice "I already tried this"
+/// (a fresh low-importance memory can be crowded out of the salience-based
+/// RECENT/IMPORTANT MEMORIES prompt block by other same-tick memories), so
+/// <c>NpcPromptBuilder</c> surfaces these in their own dedicated section
+/// instead, guaranteed visible regardless of general salience competition.
 /// </summary>
 public sealed record Memory(
     string Description,
     TimeSpan OccurredAt,
     double Importance,
     int RumourHopCount = 0,
-    string? RumourCoreDescription = null);
+    string? RumourCoreDescription = null,
+    bool IsFailedAttempt = false);
 
 public sealed record Belief(
     string Subject,

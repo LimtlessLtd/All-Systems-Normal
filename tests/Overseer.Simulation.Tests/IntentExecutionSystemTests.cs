@@ -1,3 +1,4 @@
+using Overseer.AI;
 using Overseer.Domain;
 using Overseer.Simulation;
 
@@ -5,6 +6,81 @@ namespace Overseer.Simulation.Tests;
 
 public sealed class IntentExecutionSystemTests
 {
+    [Fact]
+    public void FailIntent_MarksTheMemoryAsAFailedAttemptRatherThanAnOrdinaryOne()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+
+        marcus.Intent = new NpcIntent(
+            ActionKind.RepairDoor,
+            "not-a-real-door",
+            "Fix that hatch.",
+            "It looked damaged.",
+            40,
+            "Test",
+            state.Elapsed);
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.Null(marcus.Intent);
+        Assert.Equal(ActionKind.Idle, marcus.CurrentAction.Kind);
+        Assert.Contains(
+            marcus.Memories,
+            memory => memory.Description == "I cannot identify that hatch." && memory.IsFailedAttempt);
+    }
+
+    [Fact]
+    public void Prompt_SurfacesARecentFailedAttemptEvenWhenCrowdedOutOfGeneralMemorySalience()
+    {
+        // Regression: a freshly failed attempt's low importance (0.35) can be
+        // crowded out of the top-6 salience-ranked RECENT/IMPORTANT MEMORIES
+        // block by other, more important same-tick memories — meaning
+        // cognition could never actually see it and would silently retry the
+        // same rejected action. The dedicated failed-attempts block must
+        // surface it regardless.
+        var state = FacilitySeeder.CreateDefault();
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        marcus.Memories.Clear();
+        marcus.Memories.Add(new Memory(
+            "I cannot identify that hatch.",
+            state.Elapsed,
+            0.35,
+            IsFailedAttempt: true));
+
+        // Six higher-importance memories, enough to fill MemorySalience.MostSalient's cap.
+        for (var i = 0; i < 6; i++)
+        {
+            marcus.Memories.Add(new Memory($"Something noteworthy happened #{i}.", state.Elapsed, 0.9));
+        }
+
+        var prompt = NpcPromptBuilder.Build(marcus, state);
+
+        Assert.Contains("YOUR RECENT FAILED ATTEMPTS", prompt);
+        Assert.Contains("- I cannot identify that hatch.", prompt);
+    }
+
+    [Fact]
+    public void Prompt_DoesNotSurfaceAFailedAttemptOnceItHasAgedOutOfTheDedicatedBlock()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        marcus.Memories.Clear();
+        marcus.Memories.Add(new Memory(
+            "I cannot identify that hatch.",
+            TimeSpan.Zero,
+            0.35,
+            IsFailedAttempt: true));
+        state.Elapsed = TimeSpan.FromHours(3);
+
+        var prompt = NpcPromptBuilder.Build(marcus, state);
+
+        var failedAttemptsSection = prompt[prompt.IndexOf("YOUR RECENT FAILED ATTEMPTS", StringComparison.Ordinal)..
+            prompt.IndexOf("BELIEFS:", StringComparison.Ordinal)];
+        Assert.Contains("- none", failedAttemptsSection);
+        Assert.DoesNotContain("I cannot identify that hatch.", failedAttemptsSection);
+    }
+
     [Fact]
     public void PersistentIntent_CannotReachARoomWithALockedHallwayDoor()
     {
