@@ -165,14 +165,26 @@ public static class StationUpkeepRules
         return SkillOf(npc, device.Discipline) >= device.ServiceDifficulty * 0.55;
     }
 
+    /// <summary>Restoration lost at maximum stress (owner idea #8: work quality,
+    /// not a binary pass/fail). Stress below 50 costs nothing; it ramps linearly
+    /// to this fraction at Stress 100.</summary>
+    private const double MaxStressRestorationPenalty = 0.3;
+
     /// <summary>
     /// How much condition one visit restores. Somebody out of their depth makes
-    /// a partial job of it.
+    /// a partial job of it, and a stressed pair of hands makes a worse one even
+    /// when properly qualified - the device is left closer to failing again, so
+    /// it needs re-servicing sooner through the same Condition/decay machinery
+    /// any other service visit already uses, rather than a new "quality" stat.
     /// </summary>
-    public static double RestorationBy(Npc npc, StationDevice device) =>
-        CanService(npc, device)
+    public static double RestorationBy(Npc npc, StationDevice device)
+    {
+        var baseAmount = CanService(npc, device)
             ? ServiceRestoration
             : ServiceRestoration * 0.5;
+        var stressPenalty = Math.Clamp(npc.Stress - 50, 0, 50) / 50d * MaxStressRestorationPenalty;
+        return baseAmount * (1 - stressPenalty);
+    }
 }
 
 /// <summary>
