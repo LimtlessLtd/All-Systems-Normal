@@ -417,7 +417,7 @@
                                 {
                                     <button @key="fixture"
                                             type="button"
-                                            class="@FixtureClass(fixture)"
+                                            class="@MachineFixtureClass(room, fixture)"
                                             style="@FixtureStyle(fixture)"
                                             title="@FixtureTitle(room, fixture)"
                                             aria-label="@($"Inspect {FixtureTitle(room, fixture)}")"
@@ -429,7 +429,7 @@
                                 else
                                 {
                                     <i @key="fixture"
-                                       class="@FixtureClass(fixture)"
+                                       class="@MachineFixtureClass(room, fixture)"
                                        style="@FixtureStyle(fixture)"
                                        title="@FixtureTitle(room, fixture)"
                                        aria-hidden="true"></i>
@@ -2610,6 +2610,34 @@
         var display = StationPresentationSystem.FixtureDisplayName(fixture);
         var crop = CropFixtureLabel(room, fixture);
         return string.IsNullOrWhiteSpace(crop) ? display : $"{display} — {crop}";
+    }
+
+    /// <summary>
+    /// Owner idea #82: animated machinery only moves and glows while it is
+    /// actually running. Presentation reads authoritative state: a fixture
+    /// wired to a device needs that device enabled and not failed, and
+    /// anything that draws power also needs its compartment powered (load
+    /// shedding clears <see cref="Room.IsPowered"/> too). Generators and the
+    /// reactor are sources, so their own room's feed does not stop them.
+    /// </summary>
+    private string MachineFixtureClass(Room room, RoomFixture fixture) =>
+        FixtureIsRunning(room, fixture)
+            ? FixtureClass(fixture)
+            : $"{FixtureClass(fixture)} fixture-inert";
+
+    private bool FixtureIsRunning(Room room, RoomFixture fixture)
+    {
+        if (fixture.DeviceId is { } deviceId
+            && Session.State.Devices.TryGetValue(deviceId, out var device))
+        {
+            if (!device.IsOperational)
+                return false;
+
+            if (device.Kind is StationSystemKind.Reactor or StationSystemKind.PowerGenerator)
+                return true;
+        }
+
+        return room.IsPowered;
     }
 
     private static string FixtureClass(RoomFixture fixture)
