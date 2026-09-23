@@ -67,6 +67,14 @@ public sealed class SocialSimulationSystem
             return true;
         }
 
+        // Someone asleep in bed is not available to chat; ambient pairing
+        // used to pull sleepers up for a conversation every few minutes.
+        if (SimulationEngine.IsPhysicallyAsleep(state, first)
+            || SimulationEngine.IsPhysicallyAsleep(state, second))
+        {
+            return false;
+        }
+
         if (state.Elapsed < first.NextConversationAt
             || state.Elapsed < second.NextConversationAt)
         {

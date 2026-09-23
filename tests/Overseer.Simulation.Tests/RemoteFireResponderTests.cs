@@ -126,7 +126,7 @@ public sealed class RemoteFireResponderTests
 
         new StationHazardSystem().Tick(state, TimeSpan.FromMinutes(1));
 
-        var awakened = Assert.Single(state.Crew.Where(npc => npc.NeedsMindReconsideration));
+        var awakened = Assert.Single(state.Crew, npc => npc.NeedsMindReconsideration);
 
         // Minute 1 is deliberately outside BrowserMindSystem's ordinary
         // six-minute rotation. Event reconsideration must still run now.
@@ -166,7 +166,7 @@ public sealed class RemoteFireResponderTests
 
         new StationHazardSystem().Tick(state, TimeSpan.FromMinutes(1));
 
-        var awakened = Assert.Single(state.Crew.Where(npc => npc.NeedsMindReconsideration));
+        var awakened = Assert.Single(state.Crew, npc => npc.NeedsMindReconsideration);
         Assert.Equal(idleResponder.Id, awakened.Id);
         Assert.Equal(CrewTaskStatus.InProgress, committedExpert.ActiveTask?.Status);
     }
@@ -192,7 +192,7 @@ public sealed class RemoteFireResponderTests
 
         new StationHazardSystem().Tick(state, TimeSpan.FromMinutes(1));
 
-        var awakened = Assert.Single(state.Crew.Where(npc => npc.NeedsMindReconsideration));
+        var awakened = Assert.Single(state.Crew, npc => npc.NeedsMindReconsideration);
         Assert.Equal(CrewTaskStatus.InProgress, awakened.ActiveTask?.Status);
 
         // C# has only raised the event. Browser cognition now chooses the

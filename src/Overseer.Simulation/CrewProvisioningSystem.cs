@@ -680,6 +680,11 @@ public sealed class CrewProvisioningSystem
         && npc.ServicingDeviceId is null
         && npc.ProvisioningJob is null
 
+        // Routine provisioning is on-shift duty; off-shift crew stay in bed
+        // and the other cohort covers the galley and the bays. An empty
+        // galley is a food emergency, so it still calls sleepers out.
+        && (!ScheduledSleepRules.IsOffShift(npc, state.Elapsed) || !state.Stores.HasMeal)
+
         // A patient waiting for care and a clinician in the middle of a
         // procedure are not spare hydroponics/galley labour. Without these
         // guards, end-of-turn provisioning could pull either out of Medical
