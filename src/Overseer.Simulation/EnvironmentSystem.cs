@@ -12,6 +12,9 @@ public sealed class EnvironmentSystem
     private const double NominalCo2 = 0.04;
     private const double NominalPressure = 101.3;
 
+    /// <summary>Respiration of someone physically asleep, relative to awake.</summary>
+    public const double SleepingRespirationFactor = 0.6;
+
     /// <summary>
     /// Owner idea #73: a near-vacuum compartment has effectively no atmosphere
     /// left to hold or transfer heat, so it cools toward deep-space cold instead
@@ -76,8 +79,19 @@ public sealed class EnvironmentSystem
 
         foreach (var room in state.Facility.Rooms.Values)
         {
-            var occupants = livingCrew.Count(npc =>
-                npc.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase));
+            var roomCrew = livingCrew
+                .Where(npc => npc.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var occupants = roomCrew.Count;
+
+            // People asleep breathe at a resting rate. Without this, a
+            // normally ventilated Crew Quarters full of sleepers crossed the
+            // CO2 danger line within the hour, and the whole room evacuated
+            // and came back every ~2.5h all night.
+            var breathingLoad = roomCrew.Sum(npc =>
+                SimulationEngine.IsPhysicallyAsleep(state, npc)
+                    ? SleepingRespirationFactor
+                    : 1d);
 
             if (vacuumDepths.TryGetValue(room.Id, out var vacuumDepth))
             {
@@ -85,7 +99,7 @@ public sealed class EnvironmentSystem
             }
             else
             {
-                TickAtmosphere(state, room, occupants, minutes);
+                TickAtmosphere(state, room, breathingLoad, minutes);
             }
 
             TickTemperature(state, room, occupants, minutes);
@@ -167,7 +181,7 @@ public sealed class EnvironmentSystem
     private static void TickAtmosphere(
         GameState state,
         Room room,
-        int occupants,
+        double breathingLoad,
         double minutes)
     {
         var ventilationActive =
@@ -206,12 +220,12 @@ public sealed class EnvironmentSystem
                 repressurisationRate * minutes);
         }
 
-        if (occupants > 0)
+        if (breathingLoad > 0)
         {
             // Gameplay-scaled consumption so isolating a populated room becomes
             // meaningful on session timescales without becoming instant death.
-            room.OxygenPercent -= occupants * 0.012 * minutes;
-            room.CarbonDioxidePercent += occupants * 0.009 * minutes;
+            room.OxygenPercent -= breathingLoad * 0.012 * minutes;
+            room.CarbonDioxidePercent += breathingLoad * 0.009 * minutes;
         }
 
         room.OxygenPercent = Math.Clamp(room.OxygenPercent, 0, 23);
