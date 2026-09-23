@@ -64,6 +64,7 @@ public sealed class ActionResolver
             ActionKind.BreakPact => TrySettlePact(state, npc, action, "decides to break", out message),
             ActionKind.CheckOnCrew => TrySocialAction(state, npc, action, "checks on", out message),
             ActionKind.AssistCrew => TrySocialAction(state, npc, action, "offers practical help to", out message),
+            ActionKind.AskAboutLocation => TrySocialAction(state, npc, action, "asks about a missing crewmate", out message),
             ActionKind.CoordinateWork => TrySocialAction(state, npc, action, "coordinates work with", out message),
             ActionKind.ReassureCrew => TrySocialAction(state, npc, action, "reassures", out message),
             ActionKind.MisleadCrew => TrySocialAction(state, npc, action, "tries to misdirect", out message),

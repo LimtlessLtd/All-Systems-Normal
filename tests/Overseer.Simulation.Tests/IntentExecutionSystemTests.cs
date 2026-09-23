@@ -209,6 +209,32 @@ public sealed class IntentExecutionSystemTests
     }
 
     [Fact]
+    public void AskAboutLocationIntent_RoutesLikeAnyOtherSocialIntentAndStagesOnArrival()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var emma = state.Crew.Single(npc => npc.Name == "Emma Voss");
+
+        marcus.CurrentRoomId = "reactor";
+        emma.CurrentRoomId = "reactor";
+
+        marcus.Intent = new NpcIntent(
+            ActionKind.AskAboutLocation,
+            emma.Name,
+            "Ask Emma about Nadia.",
+            "I haven't seen Nadia in a while.",
+            30,
+            "Test",
+            state.Elapsed);
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.Null(marcus.Intent);
+        Assert.Equal(ActionKind.AskAboutLocation, marcus.CurrentAction.Kind);
+        Assert.Equal(emma.Name, marcus.CurrentAction.TargetId);
+    }
+
+    [Fact]
     public void HungerIntent_PersistsLongEnoughForPhysicalStationTraversal()
     {
         var state = FacilitySeeder.CreateDefault();

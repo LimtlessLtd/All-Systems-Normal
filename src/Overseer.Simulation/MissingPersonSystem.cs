@@ -390,6 +390,76 @@ public sealed class MissingPersonSystem
     }
 
     /// <summary>
+    /// Deterministic resolution for a deliberately LLM-chosen ask: <paramref name="asker"/>
+    /// asks <paramref name="askedOf"/> whether they have seen the subject of the
+    /// asker's most pressing missing-person concern. This is the same knowledge
+    /// that automatic <see cref="ShareConcerns"/> propagation would eventually
+    /// spread, but triggered immediately by the asker's own choice rather than
+    /// waiting on proximity, an already-escalated concern and a trust threshold.
+    /// </summary>
+    public static void ResolveAsk(GameState state, Npc asker, Npc askedOf)
+    {
+        var concern = asker.MissingPersonConcerns.Values
+            .OrderByDescending(item => item.Stage)
+            .ThenBy(item => item.FirstConcernAt)
+            .FirstOrDefault();
+
+        if (concern is null)
+            return;
+
+        var sighting = askedOf.LastSeenCrew.GetValueOrDefault(concern.PersonId);
+        var askedOfKnowsSomethingNewer =
+            sighting is not null
+            && (concern.LastSeenAt is not { } known || sighting.SeenAt > known);
+
+        if (askedOfKnowsSomethingNewer)
+        {
+            concern.LastSeenAt = sighting!.SeenAt;
+            concern.LastKnownRoomId = sighting.RoomId;
+            concern.LastUpdatedAt = state.Elapsed;
+            asker.NeedsMindReconsideration = true;
+
+            var roomName = state.Facility.Rooms[sighting.RoomId].Name;
+            var statement =
+                $"{askedOf.Name} told me they last saw {concern.PersonName} in {roomName} at T+{sighting.SeenAt:hh\\:mm}.";
+            SetWhereaboutsBelief(asker, concern.PersonId, statement, .7);
+            asker.Memories.Add(new Memory(statement, state.Elapsed, .5));
+
+            ConversationPacingSystem.Schedule(
+                askedOf,
+                $"I saw {FirstName(concern.PersonName)} in {roomName} a while ago.",
+                NpcBubbleKind.Speech,
+                state.Elapsed,
+                2);
+
+            Log(state, $"{askedOf.Name} tells {asker.Name} where they last saw {concern.PersonName}.");
+        }
+        else
+        {
+            askedOf.Memories.Add(new Memory(
+                $"{asker.Name} asked me if I had seen {concern.PersonName}. I had not.",
+                state.Elapsed,
+                .3));
+
+            ConversationPacingSystem.Schedule(
+                askedOf,
+                $"Sorry, I haven't seen {FirstName(concern.PersonName)} either.",
+                NpcBubbleKind.Speech,
+                state.Elapsed,
+                2);
+
+            Log(state, $"{askedOf.Name} has nothing new to tell {asker.Name} about {concern.PersonName}.");
+        }
+
+        ConversationPacingSystem.Schedule(
+            asker,
+            $"Have you seen {FirstName(concern.PersonName)}?",
+            NpcBubbleKind.Speech,
+            state.Elapsed,
+            2);
+    }
+
+    /// <summary>
     /// The concern <paramref name="npc"/> would act on first if choosing to
     /// search, favouring the most escalated and then oldest. Shared by every
     /// mind that decides whether to go looking for someone.

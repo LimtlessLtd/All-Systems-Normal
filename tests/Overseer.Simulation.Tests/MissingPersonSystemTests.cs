@@ -270,4 +270,97 @@ public sealed class MissingPersonSystemTests
                 StringComparison.OrdinalIgnoreCase));
         Assert.True(nadia.OverseerSuspicion > 22);
     }
+
+    [Fact]
+    public void ResolveAsk_AskedOfHasANewerSighting_UpdatesAskersBeliefAndConcern()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var nadia = state.Crew.Single(npc => npc.Name == "Nadia Okafor");
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var emma = state.Crew.Single(npc => npc.Name == "Emma Voss");
+
+        state.Elapsed = TimeSpan.FromHours(4);
+        nadia.MissingPersonConcerns[marcus.Id] = new MissingPersonConcern
+        {
+            PersonId = marcus.Id,
+            PersonName = marcus.Name,
+            LastKnownRoomId = "storage",
+            LastSeenAt = TimeSpan.FromHours(1),
+            ExpectedRoomId = "reactor",
+            FirstConcernAt = TimeSpan.FromHours(2),
+            LastUpdatedAt = TimeSpan.FromHours(2),
+            Stage = MissingPersonConcernStage.Concerned
+        };
+        emma.LastSeenCrew[marcus.Id] = new CrewSighting(
+            marcus.Id,
+            marcus.Name,
+            "reactor",
+            TimeSpan.FromHours(3));
+
+        MissingPersonSystem.ResolveAsk(state, nadia, emma);
+
+        var concern = nadia.MissingPersonConcerns[marcus.Id];
+        Assert.Equal("reactor", concern.LastKnownRoomId);
+        Assert.Equal(TimeSpan.FromHours(3), concern.LastSeenAt);
+        Assert.True(nadia.NeedsMindReconsideration);
+        Assert.Contains(
+            nadia.Beliefs,
+            belief => belief.Statement.Contains("Emma Voss told me", StringComparison.OrdinalIgnoreCase)
+                && belief.Statement.Contains(marcus.Name, StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(
+            nadia.Memories,
+            memory => memory.Description.Contains("Emma Voss told me", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void ResolveAsk_AskedOfKnowsNothingNewer_LeavesTheConcernAndBeliefUnchanged()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var nadia = state.Crew.Single(npc => npc.Name == "Nadia Okafor");
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var emma = state.Crew.Single(npc => npc.Name == "Emma Voss");
+
+        state.Elapsed = TimeSpan.FromHours(4);
+        nadia.MissingPersonConcerns[marcus.Id] = new MissingPersonConcern
+        {
+            PersonId = marcus.Id,
+            PersonName = marcus.Name,
+            LastKnownRoomId = "storage",
+            LastSeenAt = TimeSpan.FromHours(3),
+            ExpectedRoomId = "reactor",
+            FirstConcernAt = TimeSpan.FromHours(2),
+            LastUpdatedAt = TimeSpan.FromHours(2),
+            Stage = MissingPersonConcernStage.Concerned
+        };
+        // Emma has no sighting at all of Marcus, so she has nothing to add.
+        Assert.False(emma.LastSeenCrew.ContainsKey(marcus.Id));
+
+        MissingPersonSystem.ResolveAsk(state, nadia, emma);
+
+        var concern = nadia.MissingPersonConcerns[marcus.Id];
+        Assert.Equal("storage", concern.LastKnownRoomId);
+        Assert.Equal(TimeSpan.FromHours(3), concern.LastSeenAt);
+        Assert.False(nadia.NeedsMindReconsideration);
+        Assert.DoesNotContain(
+            nadia.Beliefs,
+            belief => belief.Statement.Contains("Emma Voss told me", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(
+            emma.Memories,
+            memory => memory.Description.Contains("asked me if I had seen", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void ResolveAsk_AskerHasNoActiveConcern_DoesNothing()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var nadia = state.Crew.Single(npc => npc.Name == "Nadia Okafor");
+        var emma = state.Crew.Single(npc => npc.Name == "Emma Voss");
+        var memoriesBefore = emma.Memories.Count;
+        var beliefsBefore = nadia.Beliefs.Count;
+
+        MissingPersonSystem.ResolveAsk(state, nadia, emma);
+
+        Assert.Equal(memoriesBefore, emma.Memories.Count);
+        Assert.Equal(beliefsBefore, nadia.Beliefs.Count);
+    }
 }
