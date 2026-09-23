@@ -509,13 +509,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Size: large (slices: AI Safety Officer role tag + generation weighting; wire the role's authority into #21/#24/#28's enforcement hooks; verify existing stress/bullying/theft affordances are sufficient for the "make them go crazy" path with no new mechanic)
 - Status: ready — deliberately scoped to compose on #9/#21/#24/#28 rather than add new player-vs-NPC mechanics; sequence after those.
 
-### 72. Sounds and music enabled by default
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790154558923439 (2026-09-23)
-- Idea: "sounds and music should be enabled by default."
-- Outcome: the audio/music settings default flips from off to on for a new session; existing mute controls are unchanged.
-- Size: small (one PR: flip the default in the settings/audio initialization)
-- Status: ready
-
 ### 73. Zero-atmosphere rooms cool toward absolute zero
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790156242647279 (2026-09-23)
 - Idea: "If a rooms oxygen/gas content falls to 0, then temperature should fall towards absolute zero just like real space."

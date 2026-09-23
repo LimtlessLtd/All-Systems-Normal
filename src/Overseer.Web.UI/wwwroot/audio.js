@@ -1,7 +1,12 @@
 window.overseerAudio = (() => {
     let context = null;
-    let enabled = false;
-    let musicEnabled = false;
+    // Owner idea #72: sound and music are on by default. Browsers require a
+    // user gesture before an AudioContext can actually run, so these flags
+    // record the intent immediately; armAutoStart() below resumes playback
+    // silently on the page's first click/keypress without the player having
+    // to find and press an "enable sound" button first.
+    let enabled = true;
+    let musicEnabled = true;
     let musicTimer = null;
     let musicStep = 0;
     let musicBus = null;
@@ -241,9 +246,9 @@ window.overseerAudio = (() => {
 
     const setMusicEnabled = async value => {
         const next = !!value;
+        musicEnabled = next;
 
         if (!next) {
-            musicEnabled = false;
             stopMusic();
             return true;
         }
@@ -261,7 +266,6 @@ window.overseerAudio = (() => {
 
         if (ctx.state !== "running") return false;
 
-        musicEnabled = true;
         const bus = ensureMusicBus(ctx);
         const now = ctx.currentTime;
         bus.gain.gain.cancelScheduledValues(now);
@@ -276,6 +280,44 @@ window.overseerAudio = (() => {
 
         return true;
     };
+
+    // Sound/music default to on (owner idea #72), but every major browser
+    // keeps a fresh AudioContext suspended until a user gesture. Arm a
+    // one-time listener for the page's very first click/keypress/touch to
+    // silently resume it and, if music is still intended on, start the loop
+    // - the same effect as pressing the toggle buttons, without requiring it.
+    let autoStartArmed = false;
+    const armAutoStart = () => {
+        if (autoStartArmed) return;
+        autoStartArmed = true;
+
+        const tryAutoStart = async () => {
+            const ctx = ensureContext();
+            if (!ctx) return;
+
+            if (ctx.state === "suspended") {
+                try {
+                    await ctx.resume();
+                } catch {
+                    return;
+                }
+            }
+
+            if (ctx.state !== "running") return;
+
+            if (musicEnabled && musicTimer === null) {
+                scheduleMusicPhrase();
+            }
+
+            document.removeEventListener("pointerdown", tryAutoStart);
+            document.removeEventListener("keydown", tryAutoStart);
+        };
+
+        document.addEventListener("pointerdown", tryAutoStart);
+        document.addEventListener("keydown", tryAutoStart);
+    };
+
+    armAutoStart();
 
     return { play, setEnabled, setMusicEnabled };
 })();
