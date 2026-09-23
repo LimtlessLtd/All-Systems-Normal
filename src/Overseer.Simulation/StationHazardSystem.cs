@@ -32,7 +32,8 @@ public sealed class StationHazardSystem
         {
             if (!state.Facility.Rooms.TryGetValue(device.RoomId, out var room)
                 || room.Type == RoomType.Corridor
-                || room.FireIntensity > 0)
+                || room.FireIntensity > 0
+                || room.OxygenPercent <= 1)
                 continue;
 
             var conditionRisk = Math.Clamp((device.DegradedAt - device.Condition) / 140d, 0, .22);
@@ -70,22 +71,42 @@ public sealed class StationHazardSystem
 
         foreach (var room in burning)
         {
+            // Combustion cannot persist without oxidizer. Previously a 60%
+            // fire at 0% O2 took almost 100 simulated minutes to decay while
+            // still making heat/smoke, damaging the hull and remaining eligible
+            // to spread. Extinguish before applying any combustion consequences.
+            if (room.OxygenPercent <= 1)
+            {
+                room.FireIntensity = 0;
+                Log(state, $"Fire in {room.Name} goes out from oxygen starvation.");
+                continue;
+            }
+
             var intensity = room.FireIntensity;
-            room.OxygenPercent = Math.Clamp(room.OxygenPercent - (intensity * .00055 * minutes), 0, 23);
-            room.CarbonDioxidePercent = Math.Clamp(room.CarbonDioxidePercent + (intensity * .00038 * minutes), 0, 20);
-            room.TemperatureC = Math.Clamp(room.TemperatureC + (intensity * .0045 * minutes), -50, 180);
+            var oxygenAvailability = Math.Clamp(room.OxygenPercent / 18d, 0, 1);
+            room.OxygenPercent = Math.Clamp(
+                room.OxygenPercent - (intensity * .00055 * oxygenAvailability * minutes),
+                0,
+                23);
+            room.CarbonDioxidePercent = Math.Clamp(
+                room.CarbonDioxidePercent + (intensity * .00038 * oxygenAvailability * minutes),
+                0,
+                20);
+            room.TemperatureC = Math.Clamp(
+                room.TemperatureC + (intensity * .0045 * oxygenAvailability * minutes),
+                -50,
+                180);
             room.SmokePercent = Math.Clamp(
-                room.SmokePercent + (intensity * .05 * minutes),
+                room.SmokePercent + (intensity * .05 * oxygenAvailability * minutes),
                 0,
                 100);
 
-            // A healthy oxygen supply lets an unattended fire visibly escalate.
-            // Starving the compartment of oxygen remains a powerful emergent
-            // countermeasure, but conventional firefighting is intentionally
-            // not a one-click reset.
+            // Healthy oxygen lets an unattended fire escalate. Below that,
+            // starvation progressively accelerates decay instead of applying
+            // one flat low-O2 rate all the way down to vacuum.
             var growth = room.OxygenPercent >= 18
                 ? .32 * minutes
-                : -.62 * minutes;
+                : -(0.62 + ((18 - room.OxygenPercent) / 17d * 1.38)) * minutes;
             if (!room.IsPowered) growth -= .06 * minutes;
             room.FireIntensity = Math.Clamp(room.FireIntensity + growth, 0, 100);
 
