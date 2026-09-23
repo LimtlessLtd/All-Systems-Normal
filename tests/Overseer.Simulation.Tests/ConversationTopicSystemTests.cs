@@ -80,6 +80,30 @@ public sealed class ConversationTopicSystemTests
     }
 
     [Fact]
+    public void News_APrivateMemoryIsNeverPassedOnEvenIfOtherwiseNewsworthy()
+    {
+        var (state, david, emma, _) = Trio();
+        state.Elapsed = TimeSpan.FromHours(2);
+        david.Memories.Add(new Memory(
+            "Witnessed Marcus Reed steal the medication.",
+            state.Elapsed,
+            0.9,
+            IsPrivate: true));
+
+        var withheld = ConversationTopicSystem.Converse(state, david, emma, LastTopicRoll);
+        Assert.NotEqual(ConversationTopic.News, withheld.Topic);
+        Assert.DoesNotContain(
+            emma.Memories,
+            memory => memory.Description.Contains("steal the medication", StringComparison.Ordinal));
+
+        // An otherwise-identical non-private memory of the same importance is
+        // passed on as usual — the flag, not the content, is what withheld it.
+        david.Memories.Add(new Memory("Found blood near the Reactor hatch.", state.Elapsed, 0.9));
+        var passedOn = ConversationTopicSystem.Converse(state, david, emma, LastTopicRoll);
+        Assert.Equal(ConversationTopic.News, passedOn.Topic);
+    }
+
+    [Fact]
     public void News_ARetoldMemoryIsMarkedHopOneAndRetellingItAgainDegradesIntoHedgedLanguage()
     {
         var (state, david, emma, _) = Trio();

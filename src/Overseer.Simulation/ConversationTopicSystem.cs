@@ -336,6 +336,7 @@ public static class ConversationTopicSystem
         speaker.Memories
             .Where(memory =>
                 memory.Importance >= 0.5
+                && !memory.IsPrivate
                 && state.Elapsed - memory.OccurredAt <= NewsWindow
                 && !memory.Description.StartsWith("I decided to:", StringComparison.Ordinal)
                 // Nobody needs to be told news about themselves.

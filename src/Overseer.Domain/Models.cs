@@ -496,6 +496,15 @@ public sealed record StationSelection(
 /// RECENT/IMPORTANT MEMORIES prompt block by other same-tick memories), so
 /// <c>NpcPromptBuilder</c> surfaces these in their own dedicated section
 /// instead, guaranteed visible regardless of general salience competition.
+/// <paramref name="IsPrivate"/> marks a memory as something its holder would
+/// not want to end up common knowledge (owner idea #14: secrets and
+/// blackmail). Nothing yet sets it in production — that is a deliberately
+/// separate slice — but the flag already has real teeth:
+/// <c>ConversationTopicSystem.RecentNews</c> (the passive "pass on notable
+/// memories" pipeline) excludes it, so a private memory can never leak
+/// involuntarily through ordinary small talk. Deliberate, trust-gated
+/// disclosure is the intended way to reveal one, once that affordance
+/// exists.
 /// </summary>
 public sealed record Memory(
     string Description,
@@ -503,7 +512,8 @@ public sealed record Memory(
     double Importance,
     int RumourHopCount = 0,
     string? RumourCoreDescription = null,
-    bool IsFailedAttempt = false);
+    bool IsFailedAttempt = false,
+    bool IsPrivate = false);
 
 public sealed record Belief(
     string Subject,
