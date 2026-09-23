@@ -135,6 +135,7 @@ public sealed class IntentExecutionSystem
                 case ActionKind.MisleadCrew:
                 case ActionKind.ReportConcern:
                 case ActionKind.ProposePact:
+                case ActionKind.Suggest:
                 case ActionKind.RecruitShutdownAlly:
                     ExecuteSocialIntent(state, npc, intent);
                     break;

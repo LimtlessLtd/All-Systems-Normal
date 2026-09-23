@@ -40,13 +40,6 @@ One batch, 20 entries, from the owner's 2026-09-22 22:17 BST message in `#new-id
   1. Have `OllamaAiDecisionService`/`NpcPromptBuilder` let cognition propose an `NpcPlan` (reusing the existing `Microsoft.Extensions.AI` structured-output schema machinery — `GetResponseAsync<T>` is already generic, so a `List<Step>`-shaped response DTO is additive, not a new plumbing pattern) instead of a single `NpcMindDecision`, validated the same way single intents are today before becoming a plan's first `NpcIntent`.
   2. Decide (with the owner, if it's not obvious) whether `RuleBasedAiDecisionService`/`BrowserMindSystem` should ever propose plans themselves, or whether multi-step plans are deliberately an LLM-only affordance — per the fallback-vs-LLM design principle just recorded in `ARCHITECTURE.md`, the deterministic fallback ladders don't need every LLM-only capability to stay "model citizens," so this may simply be out of scope for them rather than a parity gap.
 
-### 6. Emergent leadership via trust
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790111822683539 (2026-09-22)
-- Idea: "Someone repeatedly fixing problems gets listened to ... a high-trust NPC might say 'everyone get to Medical' and other NPCs independently decide whether to comply. No magical command mechanic needed."
-- Outcome: a high-`Trust` NPC's suggestion is exposed as a perceivable claim other NPCs weigh via existing Trust/credibility stats when the LLM independently decides whether to comply; no new leader role.
-- Size: large (slices: expose a "suggestion" claim type; weight compliance by existing Trust/credibility in cognition prompts)
-- Status: ready
-
 ### 7. Skill learning and mentorship
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790111822683539 (2026-09-22)
 - Idea: "Doing something improves skill slowly. Watching/helping a skilled crewmate improves it faster."

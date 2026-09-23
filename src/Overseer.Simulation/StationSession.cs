@@ -37,6 +37,7 @@ public abstract class StationSession
     private readonly InvestigationSystem _investigations = new();
     private readonly ShutdownCoordinationSystem _shutdownCoordination = new();
     private readonly PactCoordinationSystem _pactCoordination = new();
+    private readonly SuggestionCoordinationSystem _suggestionCoordination = new();
     private readonly ScenarioProgressSystem _scenarioProgress = new();
     private readonly LocalMovementSystem _movement = new();
     private readonly CrewDoorInteractionSystem _crewDoors = new();
@@ -835,6 +836,7 @@ public abstract class StationSession
         _manualOverrides.Tick(State);
         _shutdownCoordination.Tick(State);
         _pactCoordination.Tick(State);
+        _suggestionCoordination.Tick(State);
         _social.Tick(State);
         _suspicion.Tick(State);
         _conversationPacing.Tick(State);

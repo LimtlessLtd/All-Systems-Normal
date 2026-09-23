@@ -305,6 +305,18 @@ public sealed record PactProposal(
     TimeSpan? Deadline,
     TimeSpan OfferedAt);
 
+/// <summary>
+/// An unsettled suggestion one crew member has made to another (owner idea
+/// #6: emergent leadership via trust — "someone repeatedly fixing problems
+/// gets listened to"). No new leader role and no compliance mechanic: C#
+/// only exposes this alongside the target's existing <see cref="Relationship.Trust"/>
+/// in the suggester; the target's own cognition independently decides
+/// whether to act on it, ignore it, or do something else entirely.
+/// </summary>
+public sealed record NpcSuggestion(
+    string FromNpcName,
+    string SuggestionText,
+    TimeSpan MadeAt);
 
 public enum AirlockCycleMode
 {
@@ -337,6 +349,17 @@ public enum ActionKind
     AcceptPact,
     FulfillPact,
     BreakPact,
+
+    /// <summary>
+    /// Owner idea #6 (emergent leadership via trust): suggest a concrete
+    /// action to a co-located crew member. C# never scripts compliance —
+    /// it only places the suggestion in the target's awareness
+    /// (<see cref="Npc.PendingSuggestion"/>) alongside how much the target
+    /// trusts the suggester; the target's own cognition independently
+    /// decides whether to act on it.
+    /// </summary>
+    Suggest,
+
     RecruitShutdownAlly,
     JoinShutdownTeam,
     ShutdownOverseer,
@@ -1009,6 +1032,12 @@ public sealed class Npc : IStationMobileEntity
     public string? ShutdownTeamId { get; set; }
     public ShutdownTeamInvitation? PendingShutdownTeamInvitation { get; set; }
     public PactProposal? PendingPactProposal { get; set; }
+
+    /// <summary>
+    /// A suggestion another crew member recently made to this person (owner
+    /// idea #6). Expires unacted-on; see <see cref="NpcSuggestion"/>.
+    /// </summary>
+    public NpcSuggestion? PendingSuggestion { get; set; }
 
     /// <summary>
     /// How far this person takes Overseer at its word, 0..100. Being caught in
