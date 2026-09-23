@@ -557,13 +557,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Size: small (one PR: central canonical fixture-size table + generation regression asserting repeated family dimensions are identical)
 - Status: ready
 
-### 79. Ollama request/response first-class on the debug page
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790171535927359 (2026-09-23)
-- Idea: "!!THIS ITEM SHOULD BE WORKED ON NEXT!! Add Ollama LLM input and response output to the debug page ... Otherwise I cant debug what we are sending to the LLM and what happens afterwards."
-- Outcome: /debug shows a dedicated, immediately visible Ollama I/O section with the exact captured request (options + prompt) and raw provider response side-by-side, newest first, plus a clear explanation when the current runtime has no Ollama traffic.
-- Size: small (one PR; telemetry capture already exists, this is the missing first-class diagnostics presentation)
-- Status: **in progress** — ChatGPT branch `chatgpt/debug-ollama-telemetry-priority-20260923`; owner explicitly overrides normal oldest-ready ordering for this item.
-
 
 ---
 
