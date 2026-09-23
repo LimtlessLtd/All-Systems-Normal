@@ -27,6 +27,12 @@
                             title="@AlertHoverTitle"
                             @onclick='() => ToggleStationOverlay("alerts")'>@Session.AlertCount ALERT@(Session.AlertCount == 1 ? "" : "S")</button>
                     <button type="button"
+                            class="mini fire-alarm-toggle @(_fireAlarmArming ? "armed" : "")"
+                            aria-pressed="@_fireAlarmArming"
+                            disabled="@(Session.State.ScenarioStatus != ScenarioStatus.Running)"
+                            title="Sound the station-wide fire alarm: press, then click the burning room. Crew decide for themselves how to respond, and a false alarm costs their trust."
+                            @onclick="ToggleFireAlarmArming">@(_fireAlarmArming ? "SELECT ROOM · CANCEL" : "FIRE ALARM")</button>
+                    <button type="button"
                             class="secondary mini pause-toggle @(_paused ? "is-paused" : "")"
                             aria-pressed="@_paused"
                             title="Pause or resume the station (Space)"
@@ -325,6 +331,10 @@
 
             <div class="station-map-viewport" data-map-camera tabindex="0" aria-label="Station map. Drag to pan; use WASD or arrow keys to move the camera.">
                 <div class="@StationMapClass" style="@StationMapStyle">
+                @if (_fireAlarmArming)
+                {
+                    <div class="fire-alarm-arming-hint" role="status">FIRE ALARM ARMED — click the room that is on fire.</div>
+                }
                 <div class="station-map-camera" data-map-camera-content>
                 <div class="station-world" style="@StationWorldStyle">
                 <svg class="room-callout-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
@@ -1643,6 +1653,7 @@
     private bool _soundEnabled = true;
     private bool _musicEnabled = true;
     private string? _stationOverlay;
+    private bool _fireAlarmArming;
     private bool _paused;
     private bool _confirmingReset;
     private bool _confirmingStandalone;
@@ -2028,7 +2039,7 @@
         StationPresentationSystem.Build(Session.State);
 
     private string StationMapClass =>
-        $"station-map {StationPresentation.CssClasses} zoom-normal";
+        $"station-map {StationPresentation.CssClasses} zoom-normal{(_fireAlarmArming ? " fire-alarm-arming" : "")}";
 
     private string StationMapStyle =>
         FormattableString.Invariant(
@@ -2067,8 +2078,22 @@
             });
 
 
-    private void SelectRoom(string roomId) =>
+    private void SelectRoom(string roomId)
+    {
         _selection = new(StationSelectionKind.Room, roomId);
+
+        // Owner idea #89: while the FIRE ALARM is armed, the next room the
+        // player picks is the one the alarm names.
+        if (_fireAlarmArming)
+        {
+            _fireAlarmArming = false;
+            Session.SoundFireAlarm(roomId);
+        }
+    }
+
+    private void ToggleFireAlarmArming() =>
+        _fireAlarmArming = !_fireAlarmArming
+            && Session.State.ScenarioStatus == ScenarioStatus.Running;
 
     private void SelectCrew(Guid crewId) =>
         _selection = new(StationSelectionKind.Crew, crewId.ToString());

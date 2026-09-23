@@ -635,13 +635,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Size: large (slices: explicit uniform roster-size contract + deterministic seed coverage; dynamic provisioning/objective sizing; robot seeding count; long-run viability coverage for representative combinations).
 - Status: ready — coordinate with #80's competence-distribution/soak work so smaller crews remain intentionally viable rather than accidentally starved.
 
-### 89. Player-triggered room-specific fire alarm
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790200721530759 (2026-09-23)
-- Idea: "There should be a 'Fire Alarm' button that the AI (player) can click and then select the room that the fire is in ... telling everyone where the fire is and to respond ASAP."
-- Outcome: the Overseer can activate a FIRE ALARM workflow and select a real room; C# broadcasts a station-wide alarm/claim naming that room and its urgency to every reachable crew member, but does **not** assign `FightFire` or force compliance — each mind decides whether/how to respond from the shared alarm information. False alarms remain possible if the player selects a room without a fire.
-- Size: small-to-medium (toolbar interaction + room targeting; station-wide alarm message/memory; cognition context; audio/presentation + regression coverage).
-- Status: ready — composes with the existing panic/fire-information gap and preserves the core want/can boundary.
-
 ### 90. Sit down to eat at visible, room-themed tables and chairs
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790201540463659 (2026-09-23)
 - Idea: "humans should seek somewhere to sit down and eat/drink, so we need to make visible chairs and tables (perhaps different colours/materials for medical bays vs crew quarters vs recreation room) in the appropriate places in rooms, and they add like a comfort modifier or stress reduction when eating food. If they dont find somewhere to sit and eat, they should get a small stress increase."
@@ -739,7 +732,7 @@ No `ISystem` interface; `Tick` is duck-typed with two signatures (`Tick(GameStat
 
   Two deeper gaps remain:
   1. `ActionKind.SealHazardRoom`/`VentHazardRoom` are never chosen by either fallback mind — they are reachable only through genuine Ollama LLM cognition. Since the deployed Pages build runs `BrowserMindSystem` exclusively, doors are never sealed around a fire there. This still needs a real design pass because `SealHazardRoom` currently requires the actor inside the compartment and closes every operable door around it, so a naive fallback choice could trap the responder.
-  2. No explicit fire communication/alert mechanism exists: a crew member who discovers a fire does not yet create a specific shareable fire claim/memory for others. This can likely compose with the existing memory/news pipeline rather than introducing an order script.
+  2. Crew-originated fire communication is still missing: a crew member who discovers a fire does not yet create a specific shareable fire claim/memory for others beyond the flee-triggered panic shout (#19). The Overseer-side FIRE ALARM ships (#89, see `SYSTEMS.md`); a crew-side "raise the alarm" affordance could reuse the same `OverseerClaimKind.FireAlarm`-style room-named broadcast/memory plumbing rather than introducing an order script.
 
 - Prisoners get only the four `PrisonerDefinition` fields plus standard relationship texture: no prisoner-specific bonds, goals or backstory; escape/flee/recapture motive is fully deterministic rather than mind-authored.
 - `BrowserMindSystem.FindInvestigationLead`/`FindMissingSearchRoom` and their `RuleBasedAiDecisionService` counterparts are not byte-identical (each uses a different reachability mechanism — `NavigationSystem.ReachableRoomsForCrew` membership vs. a per-candidate `FindPathForCrew` length check, the same class of divergence `FindSaferRoom` had) but were deliberately left as-is during P1: unlike `FindSaferRoom`, converging them isn't a mechanical tie-break fix — it needs a determinism/behaviour review of the missing-person search flow first. Low priority; pick up when someone is already touching missing-person search behaviour.

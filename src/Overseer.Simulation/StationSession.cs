@@ -636,6 +636,14 @@ public abstract class StationSession
         return true;
     }
 
+    /// <summary>
+    /// Sounds Overseer's station-wide FIRE ALARM for one compartment. See
+    /// <see cref="OverseerCommsSystem.SoundFireAlarm"/>: the alarm informs
+    /// every mind and is graded true or false; it never assigns a responder.
+    /// </summary>
+    public bool SoundFireAlarm(string roomId) =>
+        OverseerCommsSystem.SoundFireAlarm(State, roomId) is not null;
+
     public void ToggleLifeSupport()
     {
         if (!State.LifeSupport.IsAiControllable)
