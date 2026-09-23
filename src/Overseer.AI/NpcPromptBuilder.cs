@@ -330,21 +330,28 @@ public static class NpcPromptBuilder
             ? $"from {suggestion.FromNpcName} (your trust in them: {(npc.Relationships.TryGetValue(suggestion.FromNpcName, out var suggesterRelationship) ? suggesterRelationship.Trust : 50):0}/100): \"{suggestion.SuggestionText}\""
             : "none";
 
+        // Observer-specific like everything else: an owner knows an item is
+        // with them only while physically holding it; otherwise they have
+        // their own last sighting, which may be stale. A destroyed item stays
+        // listed until the owner has actually learned it is gone.
         var ownedPossessions = state.Possessions
-            .Where(possession => possession.OwnerId == npc.Id && !possession.IsDestroyed)
+            .Where(possession => possession.OwnerId == npc.Id
+                && (!possession.IsDestroyed || !possession.OwnerAwareOfCurrentState))
             .Select(possession =>
             {
-                // You always know your own possession's current state, exactly
-                // like you always know where you hid it — this is what lets you
-                // notice it has been borrowed or stolen without needing to
-                // physically go check first.
-                var status = possession.CurrentHolderId == npc.Id
-                    ? "with you"
-                    : possession.CurrentHolderId is { } holderId
-                        ? $"with {state.Crew.FirstOrDefault(other => other.Id == holderId)?.Name ?? "someone else"}"
-                        : possession.HiddenAtFixtureLabel is not null
-                            ? $"hidden in {possession.HiddenAtRoomId} ({possession.HiddenAtFixtureLabel})"
-                            : $"hidden in {possession.HiddenAtRoomId}";
+                string status;
+                if (!possession.IsDestroyed && possession.CurrentHolderId == npc.Id)
+                    status = "with you";
+                else if (npc.KnownPossessions.TryGetValue(possession.Id, out var sighting))
+                    status = sighting.HolderId == npc.Id
+                        ? "with you, as far as you know"
+                        : sighting.HolderName is not null
+                            ? $"with {sighting.HolderName}, as far as you know"
+                            : sighting.HiddenAtFixtureLabel is not null
+                                ? $"hidden in {sighting.HiddenAtRoomId} ({sighting.HiddenAtFixtureLabel}), as far as you know"
+                                : $"hidden in {sighting.HiddenAtRoomId}, as far as you know";
+                else
+                    status = "missing; you don't know where it is";
                 return $"- {possession.Id}: {possession.Name} ({possession.Kind}) — {status}";
             })
             .ToArray();

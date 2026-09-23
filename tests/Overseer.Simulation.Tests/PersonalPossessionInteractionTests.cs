@@ -102,6 +102,8 @@ public sealed class PersonalPossessionInteractionTests
         possession.CurrentHolderId = null;
         possession.HiddenAtRoomId = npc.CurrentRoomId;
         possession.HiddenAtFixtureLabel = "Personal Lockers";
+        npc.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, null, null, npc.CurrentRoomId, "Personal Lockers", state.Elapsed);
 
         var success = new ActionResolver().TryApply(
             state,
@@ -290,6 +292,8 @@ public sealed class PersonalPossessionInteractionTests
         possession.CurrentHolderId = null;
         possession.HiddenAtRoomId = "storage";
         npc.CurrentRoomId = "control";
+        npc.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, null, null, "storage", null, state.Elapsed);
 
         Assert.False(CrewAffordanceSystem.TryNormalizeTarget(
             state, npc, ActionKind.ReturnItem, possession.Id, out _));
@@ -589,27 +593,75 @@ public sealed class PersonalPossessionInteractionTests
     }
 
     [Fact]
-    public void Prompt_OwnersPossessionBlockShowsWhoElseIsCurrentlyHoldingIt()
+    public void Prompt_OwnersPossessionBlockShowsWhoTheyKnowIsHoldingIt()
     {
-        // Regression: the status text only ever handled "with you" or a
-        // hidden-location description. Once BorrowItem/StealItem could leave
-        // CurrentHolderId pointing at a third party, that branch was reached
-        // with a null HiddenAtRoomId and rendered a garbled "hidden in "
-        // line instead of naming who has it. An owner always knows their own
-        // possession's current state (same precedent as always knowing where
-        // they hid it), so this is also how they'd notice a borrow or theft
-        // without needing to physically go check first.
+        // Regression: a third-party holder once rendered a garbled "hidden in "
+        // line. The owner who knowingly lent it names the borrower.
         var state = FacilitySeeder.CreateDefault();
         var owner = state.Crew[0];
         var other = state.Crew[1];
         var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
         possession.CurrentHolderId = other.Id;
+        owner.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, other.Id, other.Name, null, null, state.Elapsed);
 
         var prompt = NpcPromptBuilder.Build(owner, state);
 
         Assert.Contains(
-            $"{possession.Id}: {possession.Name} ({possession.Kind}) — with {other.Name}",
+            $"{possession.Id}: {possession.Name} ({possession.Kind}) — with {other.Name}, as far as you know",
             prompt);
+    }
+
+    [Fact]
+    public void Prompt_OwnerNeverSeesAnUnwitnessedThiefOrNewHidingSpot()
+    {
+        // Observer-specific knowledge: the owner hid it in storage; a thief
+        // they never saw re-hid it elsewhere. The owner still believes storage.
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var thief = state.Crew[1];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        possession.CurrentHolderId = null;
+        possession.HiddenAtRoomId = "medical";
+        owner.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, null, null, "storage", null, state.Elapsed);
+
+        var prompt = NpcPromptBuilder.Build(owner, state);
+
+        Assert.Contains($"{possession.Id}: {possession.Name} ({possession.Kind}) — hidden in storage, as far as you know", prompt);
+        Assert.DoesNotContain("hidden in medical", prompt, StringComparison.Ordinal);
+
+        possession.HiddenAtRoomId = null;
+        possession.CurrentHolderId = thief.Id;
+        owner.KnownPossessions.Remove(possession.Id);
+
+        prompt = NpcPromptBuilder.Build(owner, state);
+
+        Assert.Contains($"{possession.Id}: {possession.Name} ({possession.Kind}) — missing; you don't know where it is", prompt);
+        Assert.DoesNotContain($"with {thief.Name}", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReturnItem_OwnerCannotRetrieveFromAStashTheyDoNotKnowAbout()
+    {
+        // A thief re-hid the owner's item in the owner's current room; the
+        // owner believes it is elsewhere, so ownership alone grants nothing.
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        possession.CurrentHolderId = null;
+        possession.HiddenAtRoomId = owner.CurrentRoomId;
+        owner.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, null, null, "somewhere-else", null, state.Elapsed);
+
+        Assert.False(CrewAffordanceSystem.TryNormalizeTarget(
+            state, owner, ActionKind.ReturnItem, possession.Id, out _));
+        Assert.False(new ActionResolver().TryApply(
+            state,
+            owner.Id,
+            new NpcAction(ActionKind.ReturnItem, possession.Id, "Mine."),
+            out _));
+        Assert.Null(possession.CurrentHolderId);
     }
 
     [Fact]

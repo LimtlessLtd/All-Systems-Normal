@@ -214,15 +214,10 @@ public static class CrewAffordanceSystem
 
         if (action is ActionKind.HideItem or ActionKind.ReturnItem)
         {
-            // Owner idea #11 (contraband): no longer ownership-gated. HideItem
-            // only needs you to currently hold the item (your own, borrowed or
-            // stolen); ReturnItem needs it live-hidden in your current room
-            // AND — for anything not your own — your own belief to actually
-            // place it there, the same hiding-spot rule StealItem already
-            // uses. The true owner always knows their own possession's live
-            // location (matches NpcPromptBuilder's YOUR PERSONAL POSSESSIONS,
-            // which is never belief-based), so ownership alone still suffices
-            // for them without a fresh KnownPossessions entry.
+            // HideItem needs you to physically hold the item (own, borrowed or
+            // stolen). ReturnItem needs it hidden in your current room AND your
+            // own belief to place it there — owners included, since an owner
+            // only knows where their item is from what they last saw.
             var possession = state.Possessions.FirstOrDefault(candidate =>
                 !candidate.IsDestroyed
                 && candidate.Id.Equals(requested, StringComparison.OrdinalIgnoreCase));
@@ -236,10 +231,9 @@ public static class CrewAffordanceSystem
                 ActionKind.HideItem => possession.CurrentHolderId == npc.Id,
                 ActionKind.ReturnItem => possession.HiddenAtRoomId is not null
                     && possession.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
-                    && (possession.OwnerId == npc.Id
-                        || (npc.KnownPossessions.TryGetValue(possession.Id, out var belief)
-                            && belief.HiddenAtRoomId is not null
-                            && belief.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))),
+                    && npc.KnownPossessions.TryGetValue(possession.Id, out var belief)
+                    && belief.HiddenAtRoomId is not null
+                    && belief.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase),
                 _ => false
             };
         }
