@@ -7317,3 +7317,63 @@ button.turret-token {
         animation: none !important;
     }
 }
+
+/* Owner idea #89: FIRE ALARM console control and room-targeting mode. */
+.station-header-actions .fire-alarm-toggle {
+    padding: .2rem .35rem;
+    border: 1px solid rgba(214, 68, 48, .75);
+    border-radius: 3px;
+    background: rgba(214, 68, 48, .12);
+    color: #b3261e;
+    font-weight: 700;
+    letter-spacing: .04em;
+}
+
+.station-header-actions .fire-alarm-toggle.armed {
+    background: #c62f22;
+    color: #fff;
+    animation: fire-alarm-armed-pulse 1s ease-in-out infinite;
+}
+
+.station-header-actions .fire-alarm-toggle:disabled {
+    opacity: .45;
+    animation: none;
+}
+
+@keyframes fire-alarm-armed-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(214, 68, 48, .55); }
+    50% { box-shadow: 0 0 0 4px rgba(214, 68, 48, 0); }
+}
+
+.fire-alarm-arming-hint {
+    position: absolute;
+    top: .5rem;
+    left: 50%;
+    z-index: 40;
+    transform: translateX(-50%);
+    padding: .3rem .6rem;
+    border: 1px solid rgba(214, 68, 48, .8);
+    border-radius: 3px;
+    background: rgba(40, 8, 6, .88);
+    color: #ffd9d4;
+    font-size: .62rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+/* While targeting, every click on the map lands on a room: tokens, doors
+   and fixtures stop catching the pointer so it falls through to the room. */
+.station-map.fire-alarm-arming .station-world button {
+    pointer-events: none;
+}
+
+.station-map.fire-alarm-arming .room-node {
+    cursor: crosshair;
+}
+
+.station-map.fire-alarm-arming .room-node:hover {
+    outline: 2px solid rgba(214, 68, 48, .85);
+    outline-offset: -2px;
+}

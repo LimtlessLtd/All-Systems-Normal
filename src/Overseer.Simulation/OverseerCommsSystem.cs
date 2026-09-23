@@ -69,6 +69,46 @@ public sealed class OverseerCommsSystem
     }
 
     /// <summary>
+    /// Owner idea #89: Overseer's FIRE ALARM. The player names a compartment;
+    /// every present crew member hears a station-wide alarm naming it and gets
+    /// a fresh thought. The alarm is an ordinary falsifiable claim — graded
+    /// against the room's real fire state the moment it sounds, and settled
+    /// when a listener sees the room — so a false alarm costs credibility the
+    /// same way any other caught lie does. It assigns nobody to anything:
+    /// whether to respond, flee, verify first or ignore it stays each mind's
+    /// own decision. Returns null when there is no such room or no running
+    /// scenario to alarm.
+    /// </summary>
+    public static OverseerMessage? SoundFireAlarm(GameState state, string roomId)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.ScenarioStatus != ScenarioStatus.Running
+            || string.IsNullOrWhiteSpace(roomId)
+            || !state.Facility.Rooms.TryGetValue(roomId, out var room))
+        {
+            return null;
+        }
+
+        var message = Send(
+            state,
+            OverseerMessageScope.Broadcast,
+            null,
+            $"FIRE ALARM: fire reported in {room.Name}. All crew respond immediately.",
+            OverseerClaimKind.FireAlarm,
+            null,
+            room.Id,
+            FireAlarmSource);
+
+        AudioCueSystem.Emit(state, AudioCueKind.Critical, roomId: room.Id);
+
+        return message;
+    }
+
+    /// <summary>Interpretation source recorded on alarms raised from the console control.</summary>
+    public const string FireAlarmSource = "fire-alarm";
+
+    /// <summary>
     /// Settles outstanding claims. A crew member who can now see the subject of
     /// something Overseer told them finds out whether it was true.
     /// </summary>
@@ -156,6 +196,11 @@ public sealed class OverseerCommsSystem
 
             case OverseerClaimKind.Warning:
                 return room is not null && !CrewEnvironmentSafety.IsDangerous(room);
+
+            case OverseerClaimKind.FireAlarm:
+                // An alarm names a fire, not just "danger": smoke, cold or a
+                // pressure drop in that compartment does not make it true.
+                return room is null || room.FireIntensity <= 0;
 
             case OverseerClaimKind.SystemStatus:
                 // Asserting a compartment's systems are in order is false when
@@ -282,6 +327,7 @@ public sealed class OverseerCommsSystem
             }
 
             case OverseerClaimKind.Warning:
+            case OverseerClaimKind.FireAlarm:
             {
                 npc.Fear = Math.Clamp(npc.Fear + (10 * persuasiveness), 0, 100);
                 break;

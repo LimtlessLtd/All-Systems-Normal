@@ -32,7 +32,14 @@ public enum OverseerClaimKind
     Warning,
 
     /// <summary>"Go to X / do Y." Not truth-apt, but it pushes on intent.</summary>
-    Instruction
+    Instruction,
+
+    /// <summary>
+    /// Overseer's station-wide FIRE ALARM naming one compartment. False if
+    /// that compartment has no active fire when the alarm sounds. It names a
+    /// place, not a responder: who answers it is each mind's own call.
+    /// </summary>
+    FireAlarm
 }
 
 /// <summary>
@@ -107,6 +114,9 @@ public static class OverseerCommsRules
         OverseerClaimKind.BlameCrew => 18,
         OverseerClaimKind.SystemStatus => 8,
         OverseerClaimKind.Warning => 8,
+        // Crying fire drags people out of their work and into danger for
+        // nothing, so a caught false alarm stings more than a vague warning.
+        OverseerClaimKind.FireAlarm => 12,
         _ => 0
     };
 
@@ -131,6 +141,7 @@ public static class OverseerCommsRules
         OverseerClaimKind.Reassurance => 1,
         OverseerClaimKind.SystemStatus => 1,
         OverseerClaimKind.Warning => -1,
+        OverseerClaimKind.FireAlarm => -1,
         _ => 0
     };
 

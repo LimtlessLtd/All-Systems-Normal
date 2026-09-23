@@ -60,6 +60,13 @@ public static class OverseerMessageValidator
             ? found
             : null;
 
+        // The FIRE ALARM is its own console control, not something free text
+        // can trip; a typed "there's a fire in X" is an ordinary warning.
+        if (claim == OverseerClaimKind.FireAlarm)
+        {
+            claim = OverseerClaimKind.Warning;
+        }
+
         // Blaming nobody is not blame; a hazard warning about nowhere is noise.
         if (claim == OverseerClaimKind.BlameCrew && person is null)
         {

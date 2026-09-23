@@ -429,7 +429,10 @@ public sealed class StationHazardSystem
     /// response.
     ///
     /// At most one responder is nominated per fire while another crew member
-    /// already holds a FightFire intent or active FightFire task for it.
+    /// already holds a FightFire intent or active FightFire task for it —
+    /// unless this crew member heard a recent Overseer FIRE ALARM for that
+    /// compartment and finds Overseer credible enough to act on it (owner idea
+    /// #89), in which case they will join one responder already there.
     /// </summary>
     public static Room? FindRemoteFireForResponder(
         GameState state,
@@ -451,7 +454,7 @@ public sealed class StationHazardSystem
                 !room.Id.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
                 && (excludedRoomIds is null || !excludedRoomIds.Contains(room.Id))
                 && ShouldFightFire(npc, room)
-                && !state.Crew.Any(other =>
+                && state.Crew.Count(other =>
                     other.Id != npc.Id
                     && other.IsAlive
                     && other.IsPresent
@@ -467,7 +470,8 @@ public sealed class StationHazardSystem
                                 Action: ActionKind.FightFire,
                                 TargetId: { } taskTarget
                             }
-                            && taskTarget.Equals(room.Id, StringComparison.OrdinalIgnoreCase)))))
+                            && taskTarget.Equals(room.Id, StringComparison.OrdinalIgnoreCase))))
+                    < (HeardCredibleFireAlarm(state, npc, room) ? 2 : 1))
             .Select(room => new
             {
                 Room = room,
@@ -483,6 +487,29 @@ public sealed class StationHazardSystem
             .ThenBy(candidate => candidate.Room.Id, StringComparer.OrdinalIgnoreCase)
             .Select(candidate => candidate.Room)
             .FirstOrDefault();
+    }
+
+    /// <summary>How long an Overseer FIRE ALARM stays fresh enough for a fallback mind to act on.</summary>
+    public static readonly TimeSpan FireAlarmResponseWindow = TimeSpan.FromMinutes(30);
+
+    /// <summary>
+    /// Whether this crew member received an Overseer FIRE ALARM naming
+    /// <paramref name="room"/> recently and trusts Overseer enough to act on
+    /// it. This is the deterministic fallback minds' stand-in for weighing
+    /// the alarm; Ollama cognition sees the same broadcast in its prompt and
+    /// judges it for itself.
+    /// </summary>
+    public static bool HeardCredibleFireAlarm(GameState state, Npc npc, Room room)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(npc);
+        ArgumentNullException.ThrowIfNull(room);
+
+        return OverseerCommsRules.Persuasiveness(npc.OverseerCredibility, npc.OverseerSuspicion) >= 0.5
+            && npc.ReceivedMessages.Any(message =>
+                message.Claim == OverseerClaimKind.FireAlarm
+                && room.Id.Equals(message.SubjectRoomId, StringComparison.OrdinalIgnoreCase)
+                && state.Elapsed - message.SentAt <= FireAlarmResponseWindow);
     }
 
     /// <summary>
