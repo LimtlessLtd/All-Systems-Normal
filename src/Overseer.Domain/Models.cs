@@ -511,9 +511,8 @@ public sealed record StationSelection(
 /// Owner idea #15 (fear conditioning): the room this memory is physically
 /// tied to, set by <see cref="Simulation.FearConditioningSystem"/> for a
 /// near-death survival memory. Null for an ordinary memory with no
-/// location-specific dread attached. Nothing yet reads it to bias room-entry
-/// reluctance or urgency — that is a deliberately separate slice; this is
-/// the tag a later slice will query.
+/// location-specific dread attached. <c>NpcPromptBuilder</c> surfaces it so
+/// cognition can weigh the dread; C# never blocks or biases room entry.
 /// </param>
 public sealed record Memory(
     string Description,

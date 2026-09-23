@@ -124,17 +124,6 @@ One batch, 20 entries, from the owner's 2026-09-22 22:17 BST message in `#new-id
 
   Remaining slices: a disclosure trust-penalty consequence (needs a way to tell a deliberate disclosure of someone else's secret apart from ordinary conversation, which today is free-text `NpcAction.Reason` that C# doesn't parse); blackmail as a pact-style interaction (a coerced promise referencing a specific sensitive memory as leverage — `CrewPact` has no memory-pointer/leverage field today, a real gap to close, not just wiring).
 
-### 15. Fear conditioning tied to locations
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790111822683539 (2026-09-22)
-- Idea: "If someone nearly dies in Reactor, Reactor itself becomes associated with that memory. They may hesitate to return there, ask someone to accompany them, or refuse unless the emergency is serious."
-- Outcome: surviving a near-death event creates a room-tagged traumatic memory that feeds into existing fear/stress weighting for that room, reduced by decay or overridden by a stronger emergency signal; no new stat.
-- Size: large (slices: room-tagged traumatic memory; feed into existing room-entry reluctance/urgency weighting)
-- Status: **in progress** — slice 1 (room-tagged traumatic memory) shipped: `FearConditioningSystem` runs last among the tick's health-affecting/accounting systems (after every hazard/medical/combat system has had its turn, right before `CrewLifecycleAuditSystem`), so it sees each NPC's true end-of-tick Health — the same value `Npc.IsAlive` reads. An NPC whose Health is at or below a new `NearDeathHealthThreshold` (15 — deliberately much lower than `CrewTaskSystem`'s existing Health &lt;= 40 "acute injury" threshold, since "nearly died" should sit close to the actual death threshold of 0, not merely "hurt") gets one `Memory` tagged with `TraumaRoomId` = their current room, gated by a new one-shot `Npc.NearDeathCrisisRecorded` flag so an extended low-health episode (e.g. slowly bleeding out over several ticks) produces exactly one traumatic memory per crisis rather than spamming a fresh one every tick; the gate resets once Health recovers, so a later separate crisis records its own memory. A dead NPC (`IsAlive` false) never gets one — this is specifically a *survived* near-death memory.
-
-  Pure derived telemetry, matching this backlog's established foundation-slice pattern: nothing yet reads `Memory.TraumaRoomId` to bias room-entry reluctance or urgency for either fallback mind or Ollama cognition — that is the deliberately separate remaining slice, and per the idea's own outcome should feed into existing fear/stress weighting (reduced by the existing `MemorySalience` decay, overridable by a strong enough emergency signal) rather than adding a new stat.
-
-  Remaining slice: read `TraumaRoomId`-tagged memories where feeding into room-entry decisions/urgency currently happens (`BrowserMindSystem`/`RuleBasedAiDecisionService`'s room-safety scoring, `NpcPromptBuilder`'s station status exposure) so a survivor's own dread of a specific room becomes something cognition can actually weigh.
-
 ### 16. Moral disagreements about witnessed crew decisions
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790111822683539 (2026-09-22)
 - Idea: "'You vented that compartment while Priya was still inside.' Witnessed decisions become persistent moral memories affecting relationships and future cooperation."
@@ -317,7 +306,7 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Idea: "A death leaves a body and social problem, not merely `Health = 0`. People may hold a service, avoid the location, build a memorial, blame someone or refuse to work immediately afterward."
 - Outcome: a death creates a persistent witnessed-death memory and a body as physical state (not despawned); grieving affordances (hold a service, avoid the location, build a memorial marker, refuse work briefly) become available to nearby/related NPCs; the LLM decides which, if any, to use.
 - Size: large (slices: body persists as physical state after death; grieving affordance set; location-avoidance feeding existing fear/stress weighting)
-- Status: ready — the "avoid the location" half reuses #15 (fear conditioning tied to locations).
+- Status: ready — the "avoid the location" half can reuse the shipped fear-conditioning pattern (`Memory.TraumaRoomId` plus its "PLACES WHERE YOU NEARLY DIED" prompt block, idea #15).
 
 ### 42. Disciplining other crew
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
