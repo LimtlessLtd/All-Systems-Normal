@@ -380,6 +380,73 @@ public sealed class StationHazardSystem
             && (practical >= 45 || courage >= 72);
     }
 
+    /// <summary>
+    /// Chooses a remote fire this fallback mind can physically reach and safely
+    /// attempt to suppress. Ollama cognition already receives the station-wide
+    /// fire/smoke status panel; this gives the deterministic fallback minds the
+    /// same grounded opportunity without scripting an all-hands response.
+    ///
+    /// At most one responder is nominated per fire while an existing FightFire
+    /// intent/task is active. The mind still chooses the intent; deterministic
+    /// navigation and hazard execution validate what actually happens.
+    /// </summary>
+    public static Room? FindRemoteFireForResponder(
+        GameState state,
+        Npc npc,
+        NavigationSystem navigation)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(npc);
+        ArgumentNullException.ThrowIfNull(navigation);
+
+        if (!npc.IsAlive
+            || !npc.IsPresent
+            || npc.Hunger >= CrewNeedThresholds.HungerCritical
+            || npc.Fatigue >= CrewNeedThresholds.FatigueCritical)
+        {
+            return null;
+        }
+
+        return state.Facility.Rooms.Values
+            .Where(room =>
+                !room.Id.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
+                && room.FireIntensity > 0
+                && room.OxygenPercent > 1
+                && ShouldFightFire(npc, room)
+                && !state.Crew.Any(other =>
+                    other.Id != npc.Id
+                    && other.IsAlive
+                    && other.IsPresent
+                    && ((other.Intent is
+                            {
+                                Action: ActionKind.FightFire,
+                                TargetId: { } intentTarget
+                            }
+                            && intentTarget.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+                        || (other.ActiveTask is
+                            {
+                                Status: CrewTaskStatus.InProgress,
+                                Action: ActionKind.FightFire,
+                                TargetId: { } taskTarget
+                            }
+                            && taskTarget.Equals(room.Id, StringComparison.OrdinalIgnoreCase)))))
+            .Select(room => new
+            {
+                Room = room,
+                Path = navigation.FindPathForCrew(
+                    state,
+                    npc,
+                    npc.CurrentRoomId,
+                    room.Id)
+            })
+            .Where(candidate => candidate.Path.Count >= 2)
+            .OrderByDescending(candidate => candidate.Room.FireIntensity)
+            .ThenBy(candidate => candidate.Path.Count)
+            .ThenBy(candidate => candidate.Room.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(candidate => candidate.Room)
+            .FirstOrDefault();
+    }
+
     private static double StableRoll(int seed, int minute, string a, string b, string salt)
     {
         unchecked
