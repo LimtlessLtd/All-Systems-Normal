@@ -12,10 +12,9 @@ namespace Overseer.Simulation;
 /// that friendship graph, recomputed every tick so they track the relationships
 /// as they actually evolve.
 ///
-/// This is pure derived telemetry: it never decides what an NPC wants and
-/// nothing yet reads <see cref="Npc.CliqueId"/> to bias behaviour. Biasing
-/// gossip/dispute propagation by cluster membership is the deliberately
-/// separate next slice named in BACKLOG.md.
+/// It never decides what an NPC wants. <see cref="ConversationTopicSystem"/>
+/// weights in-clique gossip more heavily, and <see cref="SocialSimulationSystem"/>
+/// lets a witnessing clique-mate side with their friend in an argument.
 /// </summary>
 public sealed class SocialClusterSystem
 {
@@ -93,6 +92,9 @@ public sealed class SocialClusterSystem
                 npc.CliqueId = cliqueId;
         }
     }
+
+    public static bool SharesClique(Npc first, Npc second) =>
+        first.CliqueId is { } clique && second.CliqueId == clique;
 
     private static bool IsMutualFriendship(Npc first, Npc second) =>
         first.Relationships.TryGetValue(second.Name, out var firstToSecond)

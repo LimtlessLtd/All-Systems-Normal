@@ -32,6 +32,9 @@ public sealed record ConversationExchange(
 public static class ConversationTopicSystem
 {
     private const double GossipStep = 1.2;
+
+    /// <summary>Owner idea #13: gossip lands harder between members of the same clique.</summary>
+    public const double CliqueGossipMultiplier = 1.5;
     private const int MaxRumourHopCount = 3;
     private static readonly TimeSpan NewsWindow = TimeSpan.FromHours(3);
     private static readonly TimeSpan RepeatWindow = TimeSpan.FromHours(6);
@@ -155,6 +158,8 @@ public static class ConversationTopicSystem
         var trustFactor = listener.Relationships.TryGetValue(speaker.Name, out var listenerToSpeaker)
             ? listenerToSpeaker.Trust / 100d
             : 0.5;
+        if (SocialClusterSystem.SharesClique(speaker, listener))
+            trustFactor *= CliqueGossipMultiplier;
         listener.Relationships.TryGetValue(subject, out var listenerToSubject);
 
         if (target.Negative)
