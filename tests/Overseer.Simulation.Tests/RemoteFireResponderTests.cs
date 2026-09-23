@@ -126,21 +126,22 @@ public sealed class RemoteFireResponderTests
 
         new StationHazardSystem().Tick(state, TimeSpan.FromMinutes(1));
 
-        Assert.True(responder.NeedsMindReconsideration);
+        var awakened = Assert.Single(state.Crew.Where(npc => npc.NeedsMindReconsideration));
 
         // Minute 1 is deliberately outside BrowserMindSystem's ordinary
         // six-minute rotation. Event reconsideration must still run now.
         new BrowserMindSystem().Tick(state);
 
-        Assert.NotNull(responder.Intent);
-        Assert.Equal(ActionKind.FightFire, responder.Intent!.Action);
-        Assert.Equal("engineering", responder.Intent.TargetId);
+        Assert.NotNull(awakened.Intent);
+        Assert.Equal(ActionKind.FightFire, awakened.Intent!.Action);
+        Assert.Equal("engineering", awakened.Intent.TargetId);
     }
 
     [Fact]
-    public void RemoteFire_DoesNotInterruptCommittedWorkJustToCreateAResponder()
+    public void RemoteFire_CanInterruptMundaneCommittedWorkAfterCognitionChoosesResponse()
     {
         var state = FacilitySeeder.CreateDefault(stationSeed: 480043);
+        state.Elapsed = TimeSpan.FromMinutes(1);
         var responder = state.Crew.First(npc => npc.Role == CrewRole.Engineer);
         PrepareSafeRemoteFireScenario(state, responder);
 
@@ -151,14 +152,40 @@ public sealed class RemoteFireResponderTests
                 npc,
                 ActionKind.Work,
                 npc.CurrentRoomId,
-                "Protected committed work.",
+                "Committed routine work.",
                 TimeSpan.FromHours(1));
         }
 
         new StationHazardSystem().Tick(state, TimeSpan.FromMinutes(1));
 
-        Assert.All(state.Crew, npc => Assert.False(npc.NeedsMindReconsideration));
-        Assert.Equal(CrewTaskStatus.InProgress, responder.ActiveTask?.Status);
+        var awakened = Assert.Single(state.Crew.Where(npc => npc.NeedsMindReconsideration));
+        Assert.Equal(CrewTaskStatus.InProgress, awakened.ActiveTask?.Status);
+
+        // C# has only raised the event. Browser cognition now chooses the
+        // response, and deterministic execution validates the interruption.
+        new BrowserMindSystem().Tick(state);
+        Assert.Equal(ActionKind.FightFire, awakened.Intent?.Action);
+        Assert.Equal("engineering", awakened.Intent?.TargetId);
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.Equal(CrewTaskStatus.Interrupted, awakened.ActiveTask?.Status);
+        Assert.Equal(ActionKind.FightFire, awakened.Intent?.Action);
+        Assert.Equal(ActionKind.Move, awakened.CurrentAction.Kind);
+    }
+
+    [Fact]
+    public async Task RuleBasedFallback_PrioritisesViableRemoteFireOverCriticalHunger()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 480043);
+        var responder = state.Crew.First(npc => npc.Role == CrewRole.Engineer);
+        PrepareSafeRemoteFireScenario(state, responder);
+        responder.Hunger = CrewNeedThresholds.HungerCritical;
+
+        var intent = await new RuleBasedAiDecisionService().DecideAsync(responder, state);
+
+        Assert.Equal(ActionKind.FightFire, intent.Action);
+        Assert.Equal("engineering", intent.TargetId);
     }
 
     private static void PrepareSafeRemoteFireScenario(GameState state, Npc responder)
