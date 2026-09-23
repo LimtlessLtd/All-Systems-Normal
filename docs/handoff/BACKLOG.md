@@ -606,10 +606,10 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Size: small once reproduced (root-cause fix + regression test).
 - Status: ready — health-first investigation. Initial code review found no intentional first-minute ignition (`StationHazardSystem.TryIgniteEquipment` starts at minute 12), crew health defaults to 100, and ordinary room atmosphere defaults safe; do not paper over the report with a startup health clamp without reproducing the real cause.
 
-### 84. Crew task progress under nameplates
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790199651491459 (2026-09-23)
-- Idea: "we should show the progress bar underneath peoples names, it should be the same width as the name box regardless of how long the progress bar takes, so adjust it accordingly."
-- Outcome: whenever a visible crew member has authoritative timed work, render its existing `CrewTaskState.ProgressPercent` directly beneath the map nameplate at exactly the nameplate width; duration changes fill the same fixed-width bar rather than changing its geometry.
+### 84. Crew task progress under nameplates and clear completed state
+- Sources: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790199651491459 and https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790199995222929 (2026-09-23)
+- Ideas: "show the progress bar underneath peoples names ... same width as the name box" and when a task reaches 100%, make it clearly "not active" / improve the completed-state presentation.
+- Outcome: whenever a visible crew member has authoritative timed work, render its existing `CrewTaskState.ProgressPercent` directly beneath the map nameplate at exactly the nameplate width; duration changes fill the same fixed-width bar rather than changing its geometry. Once work is no longer `InProgress`, the UI must not present a full 100% bar as if work were still active: show a clear completed/interrupted/inactive outcome or hide the active-progress treatment while retaining task outcome in the Inspector.
 - Size: small (UI/CSS + browser regression check).
 - Status: ready.
 
