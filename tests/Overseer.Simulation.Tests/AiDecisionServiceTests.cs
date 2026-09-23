@@ -998,6 +998,35 @@ public sealed class AiDecisionServiceTests
         Assert.Null(intent.TargetId);
     }
 
+    [Fact]
+    public async Task OllamaDecision_DestroyItemResolvesARealTargetThroughTheFullValidationPath()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew.Single(npc => npc.Name == "David Hale");
+        var actor = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        actor.CurrentRoomId = owner.CurrentRoomId;
+        actor.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, owner.Id, owner.Name, null, null, state.Elapsed);
+
+        using var client = new StubChatClient($$"""
+            {
+              "Action": "DestroyItem",
+              "TargetId": "{{possession.Id}}",
+              "Goal": "Get rid of that for good.",
+              "Reason": "I want it gone.",
+              "Urgency": 20
+            }
+            """);
+
+        var service = new OllamaAiDecisionService(client, new RuleBasedAiDecisionService());
+
+        var intent = await service.DecideAsync(actor, state);
+
+        Assert.Equal(ActionKind.DestroyItem, intent.Action);
+        Assert.Equal(possession.Id, intent.TargetId);
+    }
+
     private sealed class StubChatClient : IChatClient
     {
         private readonly Queue<string>? _jsonResponses;
