@@ -48,6 +48,7 @@ public static class CrewAffordanceSystem
         new(ActionKind.ReportConcern, "crew", "Share a concern or observation with another person."),
         new(ActionKind.RequestHelp, "crew", "Ask a specific person for help."),
         new(ActionKind.ProposePact, "crew", "Propose a personal promise or deal to another crew member (cover a shift, keep quiet, owe a favour, or any other concrete commitment)."),
+        new(ActionKind.Suggest, "crew", "Suggest a specific, concrete action to a co-located crew member. They independently decide whether to act on it, weighing how much they trust you; nothing is scripted or forced."),
         new(ActionKind.AcceptPact, "pact-proposal", "Accept a pending pact proposal made to you, turning it into a real commitment."),
         new(ActionKind.FulfillPact, "pact", "Keep an active promise you made, settling it and its trust/relationship consequences."),
         new(ActionKind.BreakPact, "pact", "Break an active promise you made, settling it and its trust/relationship consequences."),
@@ -113,6 +114,7 @@ public static class CrewAffordanceSystem
             or ActionKind.ReportConcern
             or ActionKind.RequestHelp
             or ActionKind.ProposePact
+            or ActionKind.Suggest
             or ActionKind.RecruitShutdownAlly
             or ActionKind.AskAboutLocation;
 

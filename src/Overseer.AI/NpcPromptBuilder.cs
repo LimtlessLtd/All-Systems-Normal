@@ -273,6 +273,10 @@ public static class NpcPromptBuilder
             ? $"from {proposal.FromNpcName}: \"{proposal.PromiseText}\""
             : "none";
 
+        var pendingSuggestionText = npc.PendingSuggestion is { } suggestion
+            ? $"from {suggestion.FromNpcName} (your trust in them: {(npc.Relationships.TryGetValue(suggestion.FromNpcName, out var suggesterRelationship) ? suggesterRelationship.Trust : 50):0}/100): \"{suggestion.SuggestionText}\""
+            : "none";
+
         var ownedPossessions = state.Possessions
             .Where(possession => possession.OwnerId == npc.Id && !possession.IsDestroyed)
             .Select(possession =>
@@ -329,6 +333,8 @@ public static class NpcPromptBuilder
         builder.AppendLine("Only VERIFIED SHUTDOWN CONTROLS are controls this person personally knows exist. A teammate's claim or a room name does not grant control knowledge.");
         builder.AppendLine("You MAY propose a personal promise or deal to a co-located crew member with ProposePact (put the concrete promise in Reason, e.g. \"I'll cover your night shift\" or \"I won't mention what I saw\"). This only creates an offer; it becomes a real commitment only once they choose AcceptPact. Making or keeping a pact is entirely your own choice grounded in your relationships and personality, not a scripted obligation.");
         builder.AppendLine("If a PENDING PACT PROPOSAL is addressed to you, you MAY choose AcceptPact to agree to it, or simply do something else to leave it unanswered (it will expire).");
+        builder.AppendLine("You MAY suggest a co-located crew member do something specific with Suggest (put the concrete suggestion in Reason, e.g. \"Everyone should get to Medical\" or \"You should weld that hatch shut\"). This only places the suggestion in their awareness alongside how much they trust you; it never forces, schedules or guarantees their compliance. There is no new leadership role — anyone can suggest anything to anyone.");
+        builder.AppendLine("If a PENDING SUGGESTION is addressed to you, whether to act on it, weigh it against your own priorities, or ignore it entirely is your own choice, informed by how much you trust and respect whoever made it — not a scripted obligation. It also simply expires if you do nothing.");
         builder.AppendLine("HideItem tucks one of your own PERSONAL POSSESSIONS away in your CURRENT room; it must currently be listed as \"with you\". ReturnItem retrieves one you previously hid; you must currently be standing in the room where it says it is hidden. This is a private, personal choice grounded in this person's own reasons (privacy, safekeeping, sentiment) — HideItem/ReturnItem only ever act on your own possessions.");
         builder.AppendLine("For a promise YOU made listed under YOUR ACTIVE PACTS, you MAY choose FulfillPact to keep it or BreakPact to break it, whenever it feels right to resolve (not necessarily only at its deadline). This is entirely your own choice grounded in your relationships and personality; you may also simply leave it unsettled by doing something else. Deterministic consequences (memories, trust, resentment) follow from whichever you choose.");
         builder.AppendLine("If personally convinced Overseer is dangerous and a verified shutdown control requires more crew, you MAY RecruitShutdownAlly. Recruitment creates a social invitation, not instant agreement.");
@@ -442,6 +448,7 @@ public static class NpcPromptBuilder
         if (activePacts.Length == 0) builder.AppendLine("- none");
         else foreach (var pact in activePacts) builder.AppendLine(pact);
         builder.AppendLine($"PENDING PACT PROPOSAL ADDRESSED TO YOU: {pendingPactProposalText}");
+        builder.AppendLine($"PENDING SUGGESTION ADDRESSED TO YOU: {pendingSuggestionText}");
         builder.AppendLine();
         builder.AppendLine("YOUR PERSONAL POSSESSIONS:");
         if (ownedPossessions.Length == 0) builder.AppendLine("- none");
@@ -478,6 +485,7 @@ public static class NpcPromptBuilder
         builder.AppendLine("For crew-target social/cooperative/deceptive actions, TargetId must be an exact name from the known crew roster. Physical interaction can still fail later if that person cannot actually be reached.");
         builder.AppendLine("For OpenDoor/CloseDoor/LockDoor/UnlockDoor, TargetId must be an exact adjacent hatch ID. Lock/unlock is only valid when your role/skills grant authority.");
         builder.AppendLine("For ProposePact, TargetId must be an exact name from the known crew roster, and Reason must state the concrete promise.");
+        builder.AppendLine("For Suggest, TargetId must be an exact name from the known crew roster, and Reason must state the concrete suggestion.");
         builder.AppendLine("For AcceptPact, TargetId must be the exact proposer name from PENDING PACT PROPOSAL ADDRESSED TO YOU.");
         builder.AppendLine("For FulfillPact/BreakPact, TargetId must be the exact pact Id (e.g. pact-0001) from YOUR ACTIVE PACTS for a promise you made (\"I promised\"), not one made to you.");
         builder.AppendLine("For HideItem, TargetId must be the exact possession Id from YOUR PERSONAL POSSESSIONS currently listed as \"with you\".");

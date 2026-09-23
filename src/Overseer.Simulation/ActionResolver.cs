@@ -59,6 +59,7 @@ public sealed class ActionResolver
             ActionKind.Attack => SetAction(state, npc, action, "attacks", out message),
             ActionKind.RequestHelp => TrySocialAction(state, npc, action, "requests help", out message),
             ActionKind.ProposePact => TrySocialAction(state, npc, action, "proposes a pact to", out message),
+            ActionKind.Suggest => TrySocialAction(state, npc, action, "suggests to", out message),
             ActionKind.AcceptPact => TryAcceptPact(state, npc, action, out message),
             ActionKind.FulfillPact => TrySettlePact(state, npc, action, "moves to keep", out message),
             ActionKind.BreakPact => TrySettlePact(state, npc, action, "decides to break", out message),
