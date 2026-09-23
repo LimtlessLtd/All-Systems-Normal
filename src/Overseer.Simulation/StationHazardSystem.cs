@@ -334,6 +334,31 @@ public sealed class StationHazardSystem
         }
     }
 
+    /// <summary>
+    /// Shared by <c>BrowserMindSystem</c> and <c>RuleBasedAiDecisionService</c>
+    /// (P1 ladder convergence): whether an ordinary crew member facing an
+    /// active fire in their own current room should stay and fight it rather
+    /// than flee, gated on fire intensity still being survivable and the
+    /// person having either the practical skill or the courage for it.
+    /// </summary>
+    public static bool ShouldFightFire(Npc npc, Room room)
+    {
+        ArgumentNullException.ThrowIfNull(npc);
+        ArgumentNullException.ThrowIfNull(room);
+
+        var courage = Math.Clamp(
+            npc.Personality.Courage + CrewTraitMath.Modifier(npc, TraitEffectKind.Courage),
+            0,
+            100);
+        var practical = Math.Max(
+            npc.Skills.GetValueOrDefault("Engineering"),
+            npc.Skills.GetValueOrDefault("Security"));
+        return room.FireIntensity <= 58
+            && npc.Stress < 88
+            && npc.Fatigue < 88
+            && (practical >= 45 || courage >= 72);
+    }
+
     private static double StableRoll(int seed, int minute, string a, string b, string salt)
     {
         unchecked

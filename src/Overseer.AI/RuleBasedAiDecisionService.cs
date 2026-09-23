@@ -15,9 +15,21 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
 
         if (CrewEnvironmentSafety.IsDangerous(room))
         {
-            var saferRoom = FindSaferRoom(state, npc, room);
+            var fightFire = room.FireIntensity > 0 && StationHazardSystem.ShouldFightFire(npc, room);
+            var saferRoom = fightFire ? null : FindSaferRoom(state, npc, room);
 
-            if (saferRoom is not null)
+            if (fightFire)
+            {
+                intent = Create(
+                    npc,
+                    state,
+                    ActionKind.FightFire,
+                    room.Id,
+                    $"Fight the fire in {room.Name}.",
+                    "The compartment is burning and I think staying to suppress it is worth the risk.",
+                    98);
+            }
+            else if (saferRoom is not null)
             {
                 intent = Create(
                     npc,
