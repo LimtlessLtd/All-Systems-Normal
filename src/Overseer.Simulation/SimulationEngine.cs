@@ -42,6 +42,22 @@ public sealed class SimulationEngine
             if (eatingPrepared)
             {
                 state.Stores.Meals = Math.Max(0, state.Stores.Meals - (0.07 * minutes));
+
+                // Owner idea #9 (private coping behaviours under stress): eating a
+                // prepared meal while not actually hungry is cognition choosing to
+                // comfort-eat rather than responding to a real need. Give it a real
+                // physical consequence — extra food burned for real stress relief —
+                // instead of a no-op beyond driving Hunger further below zero.
+                if (npc.Hunger < StationProvisionRules.HungryAt
+                    && npc.Stress >= StationProvisionRules.ComfortEatingStressThreshold)
+                {
+                    state.Stores.Meals = Math.Max(
+                        0,
+                        state.Stores.Meals - (StationProvisionRules.ComfortEatingExtraMealsPerMinute * minutes));
+                    npc.Stress = Clamp(
+                        npc.Stress
+                        - (StationProvisionRules.ComfortEatingStressReliefPerMinute * minutes));
+                }
             }
             else if (rawCrop is { } crop)
             {
