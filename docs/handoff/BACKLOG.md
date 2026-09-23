@@ -27,13 +27,6 @@ Entry format:
 
 One batch, 20 entries, from the owner's 2026-09-22 22:17 BST message in `#new-ideas-and-functionality` — a coherent emergent-narrative programme. Several items are natural building blocks for others: **#12 (generic tamper interactions)** is the "generic tag interaction engine" already named next in `ARCHITECTURE.md` → Emergent-agency direction and several later items (contraband, territory, moral disagreements, sabotage-adjacent behaviour) will want to compose on it once it exists; **#1 (pacts)** is the "structured claims/pacts" step in the same programme and #14 (secrets/blackmail) and #6/#19 (suggestion/panic claims) reuse its claim plumbing. Sequence accordingly rather than starting arbitrarily.
 
-### 4. Rumours that mutate on retelling
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790111822683539 (2026-09-22)
-- Idea: "Instead of copying a memory verbatim, each retelling can deterministically degrade its certainty/details. ... people can compare accounts against physical evidence."
-- Outcome: each gossip retelling deterministically degrades certainty/specificity along a fixed decay table rather than copying the memory verbatim; listeners can compare a rumour's stated details against physical evidence via the existing evidence pipeline.
-- Size: large (slices: decay table over existing gossip/evidence claim types; apply decay on retelling; surface degraded text to cognition/UI)
-- Status: ready — owner notes the existing gossip/evidence architecture already supports this.
-
 ### 5. Crew-generated multi-step plans
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790111822683539 (2026-09-22)
 - Idea: "Let the LLM propose small multi-step goals ... C# validates every individual step. Plans can adapt when reality changes rather than collapsing immediately."

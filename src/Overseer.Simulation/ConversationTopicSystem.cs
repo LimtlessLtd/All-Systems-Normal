@@ -32,6 +32,7 @@ public sealed record ConversationExchange(
 public static class ConversationTopicSystem
 {
     private const double GossipStep = 1.2;
+    private const int MaxRumourHopCount = 3;
     private static readonly TimeSpan NewsWindow = TimeSpan.FromHours(3);
     private static readonly TimeSpan RepeatWindow = TimeSpan.FromHours(6);
 
@@ -213,18 +214,50 @@ public static class ConversationTopicSystem
         Memory news,
         double roll)
     {
+        var hopCount = Math.Min(news.RumourHopCount + 1, MaxRumourHopCount);
+        var coreDescription = news.RumourCoreDescription ?? news.Description;
+
         Remember(
             state,
             listener,
-            $"{speaker.Name} told me: {news.Description}",
-            Math.Clamp(news.Importance * 0.7, 0.3, 0.7));
+            RetoldMemoryText(speaker.Name, coreDescription, hopCount),
+            Math.Clamp(news.Importance * 0.7, 0.3, 0.7),
+            hopCount,
+            coreDescription);
 
         return new ConversationExchange(
             ConversationTopic.News,
             roll < 0.5 ? "You need to hear about this." : "Something happened earlier.",
             "Go on.",
-            $"{speaker.Name} tells {listener.Name}: {news.Description}");
+            RetoldLogLine(speaker.Name, listener.Name, coreDescription, hopCount));
     }
+
+    /// <summary>
+    /// Owner idea #4: each retelling deterministically degrades certainty
+    /// and eventually specificity, instead of copying the previous holder's
+    /// memory verbatim. A one-hop retelling (the common case: hearing
+    /// something from whoever actually witnessed it) keeps the exact
+    /// original wording — only a rumour that has already passed through
+    /// someone else's retelling degrades further, first into hedged
+    /// language and then, past <see cref="MaxRumourHopCount"/>, into a
+    /// fixed template that carries no real content at all. This can only
+    /// ever be reached by an event important enough to keep clearing the
+    /// existing <c>Importance >= 0.5</c> newsworthiness bar after each
+    /// hop's own importance decay.
+    /// </summary>
+    private static string RetoldMemoryText(string speakerName, string description, int hopCount) => hopCount switch
+    {
+        <= 1 => $"{speakerName} told me: {description}",
+        2 => $"{speakerName} thinks: {description}",
+        _ => $"{speakerName} mentioned hearing some rumour about it, but couldn't say exactly what."
+    };
+
+    private static string RetoldLogLine(string speakerName, string listenerName, string description, int hopCount) => hopCount switch
+    {
+        <= 1 => $"{speakerName} tells {listenerName}: {description}",
+        2 => $"{speakerName} tells {listenerName} what they think happened: {description}",
+        _ => $"{speakerName} tells {listenerName} some half-remembered rumour."
+    };
 
     private static ConversationExchange Wellbeing(Npc speaker, Npc listener)
     {
@@ -305,7 +338,6 @@ public static class ConversationTopicSystem
                 memory.Importance >= 0.5
                 && state.Elapsed - memory.OccurredAt <= NewsWindow
                 && !memory.Description.StartsWith("I decided to:", StringComparison.Ordinal)
-                && !memory.Description.Contains(" told me", StringComparison.Ordinal)
                 // Nobody needs to be told news about themselves.
                 && !memory.Description.Contains(listener.Name, StringComparison.OrdinalIgnoreCase)
                 && !listener.Memories.Any(heard => heard.Description.EndsWith(memory.Description, StringComparison.Ordinal)))
@@ -313,7 +345,13 @@ public static class ConversationTopicSystem
             .ThenByDescending(memory => memory.OccurredAt)
             .FirstOrDefault();
 
-    private static void Remember(GameState state, Npc npc, string description, double importance)
+    private static void Remember(
+        GameState state,
+        Npc npc,
+        string description,
+        double importance,
+        int rumourHopCount = 0,
+        string? rumourCoreDescription = null)
     {
         // Hearing the same thing again adds nothing new.
         if (npc.Memories.Any(memory =>
@@ -321,7 +359,7 @@ public static class ConversationTopicSystem
                 && state.Elapsed - memory.OccurredAt < RepeatWindow))
             return;
 
-        npc.Memories.Add(new Memory(description, state.Elapsed, importance));
+        npc.Memories.Add(new Memory(description, state.Elapsed, importance, rumourHopCount, rumourCoreDescription));
     }
 
     private static string FirstName(string name)
