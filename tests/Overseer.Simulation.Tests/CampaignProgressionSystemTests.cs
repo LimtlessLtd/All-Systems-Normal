@@ -130,6 +130,40 @@ public sealed class CampaignProgressionSystemTests
     }
 
     [Fact]
+    public void AllDeadPersistedRoster_CannotAutoRestoreIntoContinuingAssignment()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 12);
+        foreach (var npc in state.Crew)
+        {
+            npc.Health = 0;
+            npc.IsPresent = true;
+        }
+
+        state.ScenarioStatus = ScenarioStatus.Won;
+        var campaign = new CampaignState();
+        CampaignProgressionSystem.CaptureCompletedMission(campaign, state);
+
+        Assert.Equal(
+            ScenarioRosterPolicy.CampaignContinuing,
+            CampaignProgressionSystem.NextScenario(campaign)?.RosterPolicy);
+        Assert.False(CampaignProgressionSystem.CanAutoRestoreCampaign(campaign));
+
+        campaign.Crew[0].Health = 50;
+        Assert.True(CampaignProgressionSystem.CanAutoRestoreCampaign(campaign));
+    }
+
+    [Fact]
+    public void FreshCampaign_CanAlwaysAutoRestoreItsFreshGeneratedOpeningAssignment()
+    {
+        var campaign = new CampaignState();
+
+        Assert.Equal(
+            ScenarioRosterPolicy.FreshGenerated,
+            CampaignProgressionSystem.NextScenario(campaign)?.RosterPolicy);
+        Assert.True(CampaignProgressionSystem.CanAutoRestoreCampaign(campaign));
+    }
+
+    [Fact]
     public void CampaignOnlyUnlocksTheNextAssignment()
     {
         var campaign = new CampaignState();
