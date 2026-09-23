@@ -525,6 +525,7 @@ public sealed class CrewProvisioningSystem
 
         var outcome = $"Harvested {yield:0.0} units of {crop}; bay returned to Empty.";
         CrewTaskSystem.Succeed(state, npc, outcome);
+        npc.RecordTaskCompletion(ActionKind.Harvest);
         npc.CurrentAction = new NpcAction(ActionKind.Idle, null, outcome);
         Log(state, $"{npc.Name} harvests {bed.Label}. {crop} stock {state.Stores.RawCrops[crop]:0.0}; total produce {state.Stores.Produce:0.0}.");
     }
@@ -560,6 +561,7 @@ public sealed class CrewProvisioningSystem
         state.Stores.Meals += StationProvisionRules.MealsPerCookingSession;
 
         CrewTaskSystem.Succeed(state, npc, "Meal service completed.");
+        npc.RecordTaskCompletion(ActionKind.Cook);
         npc.CurrentAction = new NpcAction(ActionKind.Idle, null, "Meal service is up.");
         Log(state, $"{npc.Name} prepares a meal service. {state.Stores.Meals:0} meals ready.");
     }
@@ -591,6 +593,7 @@ public sealed class CrewProvisioningSystem
             bed.Lifecycle = CropLifecycleState.Seedling;
             bed.LifecycleChangedAt = state.Elapsed;
             CrewTaskSystem.Succeed(state, npc, $"Planted {crop}; bay entered Seedling.");
+            npc.RecordTaskCompletion(ActionKind.TendCrops);
             npc.CurrentAction = new NpcAction(ActionKind.Idle, null, $"Planted {crop} in {bed.Label}.");
             return;
         }
@@ -601,6 +604,7 @@ public sealed class CrewProvisioningSystem
             bed.Lifecycle = CropLifecycleState.Empty;
             bed.LifecycleChangedAt = state.Elapsed;
             CrewTaskSystem.Succeed(state, npc, $"Cleared dead crop; {bed.Label} returned to Empty.");
+            npc.RecordTaskCompletion(ActionKind.TendCrops);
             npc.CurrentAction = new NpcAction(ActionKind.Idle, null, $"Cleared dead crop from {bed.Label}.");
             return;
         }
@@ -615,6 +619,7 @@ public sealed class CrewProvisioningSystem
         state.Stores.Nutrients -= feed;
 
         CrewTaskSystem.Succeed(state, npc, $"Tended {bed.Label}; water {bed.Water:0}%, nutrients {bed.Nutrients:0}%.");
+        npc.RecordTaskCompletion(ActionKind.TendCrops);
         npc.CurrentAction = new NpcAction(ActionKind.Idle, null, $"Tended {bed.Label}.");
     }
 

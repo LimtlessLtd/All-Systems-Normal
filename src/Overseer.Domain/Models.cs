@@ -1153,6 +1153,16 @@ public sealed class Npc : IStationMobileEntity
     public Dictionary<string, double> FixtureUseMinutes { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Deterministic count of successful authoritative tasks, grouped by action.
+    /// This is history only; no decision logic reads it yet.
+    /// </summary>
+    public Dictionary<ActionKind, int> CompletedTaskCounts { get; } = [];
+
+    public void RecordTaskCompletion(ActionKind action) =>
+        CompletedTaskCounts[action] =
+            CompletedTaskCounts.GetValueOrDefault(action) + 1;
+
     public Dictionary<string, Relationship> Relationships { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 

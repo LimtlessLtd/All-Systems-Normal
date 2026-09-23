@@ -31,6 +31,7 @@ public sealed class CrewProvisioningCompletionRegressionTests
         Assert.Equal(CropLifecycleState.Planting, bed.Lifecycle);
         Assert.NotNull(worker.ActiveTask);
         Assert.Equal(CrewTaskStatus.InProgress, worker.ActiveTask.Status);
+        Assert.Equal(0, worker.CompletedTaskCounts.GetValueOrDefault(ActionKind.TendCrops));
 
         var taskCompletesAt = worker.ActiveTask.CompletesAt;
         worker.ProvisioningCompletesAt = taskCompletesAt + TimeSpan.FromMinutes(30);
@@ -41,6 +42,7 @@ public sealed class CrewProvisioningCompletionRegressionTests
 
         Assert.Equal(CropLifecycleState.Seedling, bed.Lifecycle);
         Assert.Equal(CrewTaskStatus.Succeeded, worker.ActiveTask.Status);
+        Assert.Equal(1, worker.CompletedTaskCounts.GetValueOrDefault(ActionKind.TendCrops));
         Assert.NotEqual(bed.Id, worker.TendingBedId);
         Assert.Null(worker.ProvisioningCompletesAt);
     }
