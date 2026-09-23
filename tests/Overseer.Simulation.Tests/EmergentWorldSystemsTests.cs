@@ -319,7 +319,7 @@ public sealed class EmergentWorldSystemsTests
         Assert.Contains("station-space-twinkle", css);
         Assert.Contains("selected-route-destination", css);
         Assert.Contains(".robot-token:not(.turret-token).selected::after", css);
-        Assert.Contains(".room-node.has-fire::after", css);
+        Assert.Contains(".room-node[data-room-id].has-fire::after", css);
     }
 
     private static string FindRepositoryRoot()
