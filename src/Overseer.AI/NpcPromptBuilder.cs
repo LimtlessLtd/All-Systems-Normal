@@ -116,6 +116,25 @@ public static class NpcPromptBuilder
             .Take(5)
             .Select(m => $"- {m.Description}");
 
+        // Owner idea #15: dread of a specific room is cognition's to weigh.
+        // Strength follows the memory's own salience decay, so it fades
+        // without a separate fear stat.
+        var traumaRooms = npc.Memories
+            .Where(m => m.TraumaRoomId is not null && state.Facility.Rooms.ContainsKey(m.TraumaRoomId))
+            .GroupBy(m => m.TraumaRoomId!, StringComparer.OrdinalIgnoreCase)
+            .Select(group => (
+                RoomId: group.Key,
+                Salience: group.Max(m => MemorySalience.Score(m, state.Elapsed)),
+                Count: group.Count()))
+            .OrderByDescending(entry => entry.Salience)
+            .ThenBy(entry => entry.RoomId, StringComparer.OrdinalIgnoreCase)
+            .Select(entry =>
+                $"- {entry.RoomId} = {state.Facility.Rooms[entry.RoomId].Name} | "
+                + $"{TraumaStrengthLabel(entry.Salience)} memory"
+                + (entry.Count > 1 ? $" | {entry.Count} separate close calls" : string.Empty)
+                + (entry.RoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase) ? " | you are here now" : string.Empty))
+            .ToArray();
+
         var beliefs = npc.Beliefs
             .Take(5)
             .Select(b => $"- {b.Subject}: {b.Statement} (confidence {b.Confidence:0.00})");
@@ -426,6 +445,10 @@ public static class NpcPromptBuilder
         if (sensitiveMemoriesList.Length == 0) builder.AppendLine("- none");
         else foreach (var secret in sensitiveMemoriesList) builder.AppendLine(secret);
         builder.AppendLine();
+        builder.AppendLine("PLACES WHERE YOU NEARLY DIED: how you feel about going back is your own call. You might avoid the room, ask someone to come with you, or go in anyway because the situation demands it; nothing here stops you entering.");
+        if (traumaRooms.Length == 0) builder.AppendLine("- none");
+        else foreach (var traumaRoom in traumaRooms) builder.AppendLine(traumaRoom);
+        builder.AppendLine();
         builder.AppendLine("BELIEFS:");
         foreach (var belief in beliefs) builder.AppendLine(belief);
         builder.AppendLine();
@@ -539,6 +562,13 @@ public static class NpcPromptBuilder
         builder.AppendLine("Goal and Reason should each be one short sentence.");
         return builder.ToString();
     }
+
+    private static string TraumaStrengthLabel(double salience) => salience switch
+    {
+        >= 0.4 => "vivid",
+        >= 0.15 => "lingering",
+        _ => "faint",
+    };
 
     private static HashSet<string> ReachableRooms(GameState state, Npc npc, string startRoomId) =>
         new NavigationSystem().ReachableRoomsForCrew(state, npc, startRoomId);

@@ -7,9 +7,8 @@ namespace Overseer.Simulation;
 /// location-tagged traumatic memory, so cognition can later decide to
 /// hesitate returning to that room, bring company, or push through anyway
 /// under a strong enough emergency. C# only records the fact that it
-/// happened and where; nothing here decides how an NPC reacts to holding
-/// that memory (that is the deliberately separate remaining slice: feeding
-/// it into existing room-entry reluctance/urgency weighting).
+/// happened and where; <c>NpcPromptBuilder</c> shows it to cognition and
+/// nothing here decides how an NPC reacts to holding that memory.
 ///
 /// Runs at the end of the tick pipeline, after every health-affecting system
 /// has already had its turn this tick, so it sees each NPC's true
