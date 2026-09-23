@@ -207,6 +207,21 @@ public static class StationProvisionRules
     public const double HungryAt = 45;
 
     /// <summary>
+    /// Owner idea #9 (private coping behaviours under stress): a prepared
+    /// meal eaten while not actually hungry (<see cref="HungryAt"/>) is a
+    /// deliberate comfort-eating choice cognition made, not a genuine need
+    /// response. Below this stress level it is just a snack with no
+    /// meaningful physical effect either way.
+    /// </summary>
+    public const double ComfortEatingStressThreshold = 50;
+
+    /// <summary>Extra meal stock a comfort eater burns through on top of a normal meal.</summary>
+    public const double ComfortEatingExtraMealsPerMinute = 0.05;
+
+    /// <summary>Stress relief a comfort eater gets from the extra food, on top of an ordinary meal's none.</summary>
+    public const double ComfortEatingStressReliefPerMinute = 0.35;
+
+    /// <summary>
     /// Meal stock below which the galley is worth firing up. Six people eating
     /// through a day get through a lot, so the crew cook well before the
     /// cupboard is bare.

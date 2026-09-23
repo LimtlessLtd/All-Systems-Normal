@@ -54,6 +54,40 @@ public sealed class SimulationEngineTests
     }
 
     [Fact]
+    public void Tick_ComfortEatingWhileStressedAndNotHungryRelievesStress()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew[0];
+
+        npc.Hunger = 20;
+        npc.Stress = 65;
+        npc.CurrentAction = new NpcAction(ActionKind.Eat, null, "Eating for comfort.");
+        var mealsBefore = state.Stores.Meals;
+
+        new SimulationEngine().Tick(state, TimeSpan.FromMinutes(10));
+
+        Assert.True(npc.Stress < 65);
+        Assert.True(state.Stores.Meals < mealsBefore - (0.07 * 10));
+    }
+
+    [Fact]
+    public void Tick_OrdinaryMealWhileNotStressedGivesNoComfortEatingBonus()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew[0];
+
+        npc.Hunger = 20;
+        npc.Stress = 30;
+        npc.CurrentAction = new NpcAction(ActionKind.Eat, null, "Having a meal.");
+
+        new SimulationEngine().Tick(state, TimeSpan.FromMinutes(10));
+
+        // No comfort-eating relief below the stress threshold: only the small
+        // baseline stress decay every crew member gets regardless of action.
+        Assert.True(npc.Stress > 28);
+    }
+
+    [Fact]
     public void Tick_ShoweringCrewMemberReducesHygieneNeed()
     {
         var state = FacilitySeeder.CreateDefault();
