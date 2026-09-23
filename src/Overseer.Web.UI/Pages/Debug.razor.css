@@ -170,6 +170,82 @@
     border-left: 2px solid #203842;
 }
 
+
+
+.ollama-io-panel {
+    margin-top: .75rem;
+}
+
+.ollama-io-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.ollama-io-heading h2 {
+    margin-top: .2rem;
+}
+
+.ollama-io-count {
+    flex: 0 0 auto;
+    padding: .35rem .5rem;
+    border: 1px solid #355864;
+    color: #9bcbd0;
+    font-size: .58rem;
+}
+
+.ollama-io-help,
+.ollama-empty {
+    margin: 0 0 .7rem;
+}
+
+.ollama-io-help {
+    color: #8eaab0;
+    font-size: .61rem;
+    line-height: 1.5;
+}
+
+.ollama-io-help code {
+    color: #c6e0e3;
+}
+
+.ollama-io-entry {
+    border-left-color: #f0be6b;
+}
+
+.ollama-io-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: .6rem;
+    margin-top: .55rem;
+}
+
+.ollama-io-grid > section {
+    min-width: 0;
+}
+
+.ollama-io-grid h3 {
+    margin: 0 0 .35rem;
+    color: #81bec4;
+    font-size: .57rem;
+    letter-spacing: .05em;
+}
+
+.ollama-io-grid pre {
+    min-height: 9rem;
+    max-height: 34rem;
+    overflow: auto;
+    margin: 0;
+    padding: .6rem;
+    border: 1px solid #1f3640;
+    background: #02080c;
+    color: #b9d5d9;
+    font: .55rem/1.45 "Cascadia Code", Consolas, monospace;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
 @media (max-width: 900px) {
     .debug-header {
         display: block;
@@ -186,6 +262,19 @@
 
     .debug-grid {
         display: block;
+    }
+
+    .ollama-io-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .ollama-io-heading {
+        display: block;
+    }
+
+    .ollama-io-count {
+        display: inline-block;
+        margin-bottom: .6rem;
     }
 
     .debug-grid > aside,
