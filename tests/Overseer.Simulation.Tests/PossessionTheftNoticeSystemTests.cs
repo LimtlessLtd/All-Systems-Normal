@@ -24,10 +24,39 @@ public sealed class PossessionTheftNoticeSystemTests
 
         Assert.Contains(
             owner.Memories,
-            memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal)
-                && memory.Description.Contains(thief.Name, StringComparison.Ordinal));
+            memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal));
         Assert.True(possession.OwnerAwareOfCurrentState);
         Assert.True(owner.NeedsMindReconsideration);
+    }
+
+    [Fact]
+    public void RealizationMemoryNeverNamesACulpritTheOwnerNeverWitnessed()
+    {
+        // The owner was absent by construction for every case this system
+        // fires on, so they have no observation establishing who took or
+        // destroyed the item — naming one would be omniscient knowledge.
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var thief = state.Crew[1];
+        var stolen = state.Possessions.First(p => p.OwnerId == owner.Id);
+        stolen.CurrentHolderId = thief.Id;
+        stolen.OwnerAwareOfCurrentState = false;
+
+        var otherOwner = state.Crew[2];
+        var destroyer = state.Crew[3];
+        var destroyed = state.Possessions.First(p => p.OwnerId == otherOwner.Id);
+        destroyed.IsDestroyed = true;
+        destroyed.CurrentHolderId = destroyer.Id;
+        destroyed.OwnerAwareOfCurrentState = false;
+
+        new PossessionTheftNoticeSystem().Tick(state);
+
+        Assert.DoesNotContain(
+            owner.Memories,
+            memory => memory.Description.Contains(thief.Name, StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            otherOwner.Memories,
+            memory => memory.Description.Contains(destroyer.Name, StringComparison.Ordinal));
     }
 
     [Fact]

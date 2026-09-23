@@ -26,15 +26,16 @@ public sealed class PossessionTheftNoticeSystem
             if (owner is null)
                 continue;
 
-            var other = state.Crew.FirstOrDefault(npc => npc.Id == possession.CurrentHolderId);
+            // The owner was absent for this event by construction (nobody
+            // confronted them directly — that path already grants its own
+            // memory and never sets OwnerAwareOfCurrentState false), so they
+            // have no observation establishing who took or destroyed it.
+            // Naming a culprit here would be omniscient knowledge; identity
+            // can only reach them later through an actual witness account.
             owner.Memories.Add(new Memory(
                 possession.IsDestroyed
-                    ? other is not null
-                        ? $"I noticed {possession.Name} is gone — {other.Name} must have destroyed it."
-                        : $"I noticed {possession.Name} is gone."
-                    : other is not null
-                        ? $"I noticed {possession.Name} is missing from where I hid it — {other.Name} must have taken it."
-                        : $"I noticed {possession.Name} is missing from where I hid it.",
+                    ? $"I noticed {possession.Name} is gone."
+                    : $"I noticed {possession.Name} is missing from where I hid it.",
                 state.Elapsed,
                 0.5));
             owner.NeedsMindReconsideration = true;
