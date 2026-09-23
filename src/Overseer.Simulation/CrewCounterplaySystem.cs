@@ -46,10 +46,14 @@ public sealed class CrewCounterplaySystem
         }
     }
 
+    private static readonly string[] TechnicalSkillNames =
+        { "Engineering", "Electrical", "Operations", "Reactor" };
+
+    private const int RepairSkillGainPerTask = 1;
+
     public static int BestTechnicalSkill(Npc npc)
     {
-        var relevant = new[] { "Engineering", "Electrical", "Operations", "Reactor" };
-        var baseSkill = relevant
+        var baseSkill = TechnicalSkillNames
             .Select(skill => npc.Skills.TryGetValue(skill, out var value) ? value : 0)
             .DefaultIfEmpty(0)
             .Max();
@@ -83,6 +87,21 @@ public sealed class CrewCounterplaySystem
             + CrewTraitMath.Modifier(npc, TraitEffectKind.Repair),
             0,
             130);
+
+    /// <summary>
+    /// Completing repair-type work nudges the crew member's strongest technical
+    /// skill up slightly and deterministically — owner idea #7's "doing
+    /// something improves skill slowly" half. Mentorship (a nearby more-skilled
+    /// crewmate speeding this up) is a separate, not-yet-built slice.
+    /// </summary>
+    private static void GainTechnicalSkillFromRepairWork(Npc npc)
+    {
+        var skillName = TechnicalSkillNames
+            .OrderByDescending(skill => npc.Skills.TryGetValue(skill, out var value) ? value : 0)
+            .First();
+        var current = npc.Skills.TryGetValue(skillName, out var value) ? value : 0;
+        npc.Skills[skillName] = Math.Clamp(current + RepairSkillGainPerTask, 0, 100);
+    }
 
     public static bool HasRestorableProblem(GameState state, string targetId)
     {
@@ -290,6 +309,7 @@ public sealed class CrewCounterplaySystem
                 door.IsManuallyOverridden = false;
                 door.StructuralIntegrityPercent = 100;
                 door.IsAiControllable = true;
+                GainTechnicalSkillFromRepairWork(npc);
                 break;
             case DoorWorkKind.Weld:
                 door.IsOpen = false;
@@ -473,6 +493,7 @@ public sealed class CrewCounterplaySystem
         }
 
         TryRestoreOneProblem(state, targetId);
+        GainTechnicalSkillFromRepairWork(npc);
         EndAction(
             state,
             npc,
