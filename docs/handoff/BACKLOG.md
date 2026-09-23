@@ -590,16 +590,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Status: ready — shares its "something docks at the Airlock and crew come aboard" physical plumbing with idea #70 (transient outsiders); sequence together or have whichever lands first build the shared dock/board/depart machinery generically rather than twice. Until this ships, an all-dead persisted roster is deliberately not auto-restored into a continuing assignment; startup falls back to a fresh Secure Continuity run rather than presenting an instant-dead crew.
 
 
-### 82. Disabled/unpowered machinery should visually stop
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790177122374649 (2026-09-23)
-- Idea: "when you disable a machine or it loses power and is no longer functioning, it should not have any animations ... the reactor ... should go dim and dark and stop spinning ... until it is enabled and powered up again"
-- Outcome: presentation derives machinery animation/glow/activity from authoritative powered/enabled/operational state. Disabled or unpowered machinery renders inert (no spinning/pulsing/activity animation and emissive/glow elements dimmed); restoring power/enabled state resumes the same visuals. Apply this consistently to repeated animated machinery, with the reactor as the regression case.
-- Size: small (one PR: central operational-state presentation class/attribute where possible, reactor + other existing animated machinery wiring, real-browser regression check)
-- Status: ready — presentation-only reflection of deterministic machine state; requires a real-browser check per WORKFLOW.md.
-
----
-
-
 ### 85. LLM-varied character speech bubbles
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790199697378649 (2026-09-23)
 - Idea: "when using an LLM, can we vary the speech bubble text by passing it into there to suggest variations based on the character and its traits etc.?"

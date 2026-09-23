@@ -7452,3 +7452,25 @@ button.turret-token {
 .crew-token.facing-away .person-visor {
     opacity: 0;
 }
+
+/* Owner idea #82: disabled, failed or unpowered machinery is inert. Every
+   fixture layer above animates through the fixture and its pseudo-elements,
+   so one high-specificity rule stops them all and dims their glow; clearing
+   the class on restoration resumes the original animations. */
+.station-authority-layer .room-node .fixture.fixture-inert,
+.station-authority-layer .room-node .fixture.fixture-inert::before,
+.station-authority-layer .room-node .fixture.fixture-inert::after,
+.station-authority-layer .room-node .fixture.fixture-inert * {
+    animation: none !important;
+    transition: none !important;
+}
+
+.station-authority-layer .room-node .fixture.fixture-inert {
+    filter: grayscale(.85) brightness(.55) !important;
+}
+
+.station-authority-layer .room-node .fixture.fixture-inert::before,
+.station-authority-layer .room-node .fixture.fixture-inert::after {
+    box-shadow: none !important;
+    opacity: .45;
+}
