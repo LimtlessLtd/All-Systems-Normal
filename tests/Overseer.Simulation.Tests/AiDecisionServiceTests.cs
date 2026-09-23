@@ -275,6 +275,95 @@ public sealed class AiDecisionServiceTests
     }
 
     [Fact]
+    public async Task OllamaDecision_FulfillPactIsReducedToIdleWithoutAMatchingActivePact()
+    {
+        using var client = new StubChatClient(
+            """
+            {
+              "Action": "FulfillPact",
+              "TargetId": "pact-0001",
+              "Goal": "Keep my promise.",
+              "Reason": "I said I would.",
+              "Urgency": 40
+            }
+            """);
+
+        var service = new OllamaAiDecisionService(
+            client,
+            new RuleBasedAiDecisionService());
+
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+
+        var intent = await service.DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.Idle, intent.Action);
+        Assert.Null(intent.TargetId);
+    }
+
+    [Fact]
+    public async Task OllamaDecision_BreakPactSucceedsForAPactThisNpcIsThePromisorOf()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+        Assert.True(CrewPactSystem.TryCreate(
+            state, david.Id, sarah.Id, CrewPactKind.Other,
+            "I'll cover your next shift.", null, null, out var pact, out _));
+
+        using var client = new StubChatClient(
+            $$"""
+            {
+              "Action": "BreakPact",
+              "TargetId": "{{pact!.Id}}",
+              "Goal": "Back out of the deal.",
+              "Reason": "Something more important came up.",
+              "Urgency": 40
+            }
+            """);
+
+        var service = new OllamaAiDecisionService(
+            client,
+            new RuleBasedAiDecisionService());
+
+        var intent = await service.DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.BreakPact, intent.Action);
+        Assert.Equal(pact.Id, intent.TargetId);
+    }
+
+    [Fact]
+    public async Task OllamaDecision_FulfillPactIsReducedToIdleWhenThisNpcIsOnlyThePromisee()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+        Assert.True(CrewPactSystem.TryCreate(
+            state, sarah.Id, david.Id, CrewPactKind.Other,
+            "I'll cover your next shift.", null, null, out var pact, out _));
+
+        using var client = new StubChatClient(
+            $$"""
+            {
+              "Action": "FulfillPact",
+              "TargetId": "{{pact!.Id}}",
+              "Goal": "Settle the deal for Sarah.",
+              "Reason": "I'll just call it done.",
+              "Urgency": 40
+            }
+            """);
+
+        var service = new OllamaAiDecisionService(
+            client,
+            new RuleBasedAiDecisionService());
+
+        var intent = await service.DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.Idle, intent.Action);
+        Assert.Null(intent.TargetId);
+    }
+
+    [Fact]
     public async Task ProviderFailure_FallsBackWithoutStoppingTheSimulation()
     {
         using var client = new StubChatClient(

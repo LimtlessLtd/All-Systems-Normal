@@ -290,4 +290,71 @@ public sealed class IntentExecutionSystemTests
         Assert.Null(marcus.Intent);
     }
 
+    [Fact]
+    public void FulfillPactIntent_RequiresAMatchingActivePactWhereThisNpcIsThePromisor()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var emma = state.Crew.Single(npc => npc.Name == "Emma Voss");
+
+        marcus.Intent = new NpcIntent(
+            ActionKind.FulfillPact,
+            "pact-0001",
+            "Keep my promise to Emma.",
+            "I said I would.",
+            50,
+            "Test",
+            state.Elapsed);
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.Equal(ActionKind.Idle, marcus.CurrentAction.Kind);
+        Assert.Null(marcus.Intent);
+
+        Assert.True(CrewPactSystem.TryCreate(
+            state, marcus.Id, emma.Id, CrewPactKind.Other,
+            "I'll cover your shift.", null, null, out var pact, out _));
+
+        marcus.Intent = new NpcIntent(
+            ActionKind.FulfillPact,
+            pact!.Id,
+            "Keep my promise to Emma.",
+            "I said I would.",
+            50,
+            "Test",
+            state.Elapsed);
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.Equal(ActionKind.FulfillPact, marcus.CurrentAction.Kind);
+        Assert.Equal(pact.Id, marcus.CurrentAction.TargetId);
+        Assert.Null(marcus.Intent);
+    }
+
+    [Fact]
+    public void BreakPactIntent_RejectsAPactWhereThisNpcIsNotThePromisor()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var emma = state.Crew.Single(npc => npc.Name == "Emma Voss");
+
+        Assert.True(CrewPactSystem.TryCreate(
+            state, marcus.Id, emma.Id, CrewPactKind.Other,
+            "I'll cover your shift.", null, null, out var pact, out _));
+
+        emma.Intent = new NpcIntent(
+            ActionKind.BreakPact,
+            pact!.Id,
+            "Cancel the deal.",
+            "I never agreed to owe them anything.",
+            50,
+            "Test",
+            state.Elapsed);
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.Equal(ActionKind.Idle, emma.CurrentAction.Kind);
+        Assert.Null(emma.Intent);
+        Assert.Equal(CrewPactStatus.Active, pact.Status);
+    }
 }

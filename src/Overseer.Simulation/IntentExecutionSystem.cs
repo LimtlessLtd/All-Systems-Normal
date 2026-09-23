@@ -140,6 +140,11 @@ public sealed class IntentExecutionSystem
                     ExecuteAcceptPactIntent(state, npc, intent);
                     break;
 
+                case ActionKind.FulfillPact:
+                case ActionKind.BreakPact:
+                    ExecuteSettlePactIntent(state, npc, intent);
+                    break;
+
                 case ActionKind.JoinShutdownTeam:
                     ExecuteJoinShutdownTeamIntent(state, npc, intent);
                     break;
@@ -967,6 +972,32 @@ public sealed class IntentExecutionSystem
             new NpcAction(
                 ActionKind.AcceptPact,
                 proposal.FromNpcName,
+                intent.Reason),
+            out _);
+
+        npc.Intent = null;
+    }
+
+    private void ExecuteSettlePactIntent(GameState state, Npc npc, NpcIntent intent)
+    {
+        var pact = string.IsNullOrWhiteSpace(intent.TargetId)
+            ? null
+            : CrewPactSystem.ActiveFor(state, npc.Id).FirstOrDefault(candidate =>
+                candidate.Id.Equals(intent.TargetId, StringComparison.OrdinalIgnoreCase)
+                && candidate.PromisorId == npc.Id);
+
+        if (pact is null)
+        {
+            FailIntent(state, npc, "There is no matching active promise of their own to settle.");
+            return;
+        }
+
+        _actions.TryApply(
+            state,
+            npc.Id,
+            new NpcAction(
+                intent.Action,
+                pact.Id,
                 intent.Reason),
             out _);
 
