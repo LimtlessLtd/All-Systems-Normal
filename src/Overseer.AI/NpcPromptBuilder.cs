@@ -618,6 +618,7 @@ public static class NpcPromptBuilder
         builder.AppendLine("Do not choose Intimacy directly. Attraction may inform social choices, but mutual consent is resolved by deterministic simulation.");
         builder.AppendLine("Urgency must be 0-100.");
         builder.AppendLine("Goal and Reason should each be one short sentence.");
+        builder.AppendLine("Say is optional: one short line (at most 12 words) that YOU would actually say or mutter right now, in your own voice, personality and mood. It appears in your speech bubble only; it never changes what your action does. Leave it null if nothing fits.");
         return builder.ToString();
     }
 

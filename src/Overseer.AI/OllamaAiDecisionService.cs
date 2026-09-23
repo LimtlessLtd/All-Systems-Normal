@@ -39,7 +39,7 @@ public sealed class OllamaAiDecisionService(
             var options = new ChatOptions
             {
                 Temperature = 0.7f,
-                MaxOutputTokens = 240
+                MaxOutputTokens = 300
             }.AddOllamaOption(OllamaOption.NumCtx, ContextWindowTokens);
 
             var attempt = await RequestDecisionAsync(
@@ -531,7 +531,38 @@ public sealed class OllamaAiDecisionService(
             Math.Clamp(decision.Urgency, 0, 100),
             "Ollama",
             state.Elapsed,
-            subjectId);
+            subjectId,
+            CleanBubbleText(decision.Say));
+    }
+
+    /// <summary>Longest in-character bubble line kept (owner idea #85).</summary>
+    public const int MaxBubbleTextLength = 90;
+
+    /// <summary>
+    /// Owner idea #85: the model's in-character line is flavour for the
+    /// bubble only, so it is flattened to one line, stripped of wrapping
+    /// quotes and capped; a blank line means "use the Goal as before".
+    /// </summary>
+    private static string? CleanBubbleText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var clean = string.Join(
+                ' ',
+                value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+            .Trim('"', '\'', '“', '”', ' ');
+
+        if (clean.Length == 0)
+        {
+            return null;
+        }
+
+        return clean.Length <= MaxBubbleTextLength
+            ? clean
+            : clean[..(MaxBubbleTextLength - 1)].TrimEnd() + "…";
     }
 
     private static bool IsRestorableTarget(GameState state, string target)
