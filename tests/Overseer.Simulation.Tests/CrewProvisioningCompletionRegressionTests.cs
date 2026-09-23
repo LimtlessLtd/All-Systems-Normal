@@ -41,7 +41,7 @@ public sealed class CrewProvisioningCompletionRegressionTests
 
         Assert.Equal(CropLifecycleState.Seedling, bed.Lifecycle);
         Assert.Equal(CrewTaskStatus.Succeeded, worker.ActiveTask.Status);
-        Assert.Null(worker.ProvisioningJob);
+        Assert.NotEqual(bed.Id, worker.TendingBedId);
         Assert.Null(worker.ProvisioningCompletesAt);
     }
 }
