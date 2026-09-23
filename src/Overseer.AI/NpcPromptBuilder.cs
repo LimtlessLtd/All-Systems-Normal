@@ -69,6 +69,18 @@ public static class NpcPromptBuilder
             disabledSystems.Add("life-support");
         }
 
+        var disconnectableLocalDevices = state.Devices.Values
+            .Where(device =>
+                device.Kind != StationSystemKind.Door
+                && device.IsEnabled
+                && !device.IsFailed
+                && device.RoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)
+                && LocalMovementSystem.FixtureForDevice(room, device.Kind) is not null)
+            .OrderBy(device => device.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(device =>
+                $"- {device.Id} = {device.Label} | {device.Kind} | enabled")
+            .ToArray();
+
         var relationships = npc.Relationships.Values
             .OrderByDescending(r => r.Resentment)
             .ThenBy(r => r.PersonName)
@@ -379,6 +391,11 @@ public static class NpcPromptBuilder
         builder.AppendLine("CONNECTED DOORS YOU CAN DIRECTLY PERCEIVE:");
         foreach (var door in connectedDoors) builder.AppendLine($"- {door}");
         builder.AppendLine();
+        builder.AppendLine("LOCAL MACHINES YOU CAN PHYSICALLY DISCONNECT:");
+        builder.AppendLine("DisconnectDevice is a generic physical action, not a motive: use it only if you actually want this machine disconnected for your own reasons.");
+        if (disconnectableLocalDevices.Length == 0) builder.AppendLine("- none");
+        else foreach (var device in disconnectableLocalDevices) builder.AppendLine(device);
+        builder.AppendLine();
         builder.AppendLine("RELATIONSHIPS:");
         foreach (var relationship in relationships) builder.AppendLine($"- {relationship}");
         builder.AppendLine();
@@ -480,6 +497,7 @@ public static class NpcPromptBuilder
         builder.AppendLine("For room-target actions (including Move, SeekSafety, FightFire, EvacuateHazard, SealHazardRoom, VentHazardRoom, Investigate, VerifyClaim, InspectEquipment, Work, Repair and StandGuard), TargetId must be a valid room ID.");
         builder.AppendLine("Hazards are not scripted for you: decide what you WANT to do from the available affordances. The simulation will validate reachability, door state, pressure, equipment and consequences.");
         builder.AppendLine("For ForceDoor, TargetId must be the exact ID of a currently connected blocked hatch listed above.");
+        builder.AppendLine("For DisconnectDevice, TargetId must be an exact device ID from LOCAL MACHINES YOU CAN PHYSICALLY DISCONNECT. You will walk to its hardware before the physical disconnect happens.");
         builder.AppendLine("For RestoreSystem, TargetId must be one of the DISABLED SYSTEM TARGET IDS (room ID or life-support).");
         builder.AppendLine("For SecureAirlock, TargetId must be the exact airlock room ID shown as NEEDS SECURING in NEARBY AIRLOCK SAFETY PANELS.");
         builder.AppendLine("For crew-target social/cooperative/deceptive actions, TargetId must be an exact name from the known crew roster. Physical interaction can still fail later if that person cannot actually be reached.");
