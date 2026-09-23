@@ -548,7 +548,7 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Idea: a burning room should heat toward roughly 300°C; heat and smoke should move reasonably quickly through open doors; fire should weaken with falling oxygen and extinguish in oxygen-free/decompressed rooms.
 - Outcome: deterministic fire intensity consumes/depends on available oxygen; intensity falls as oxygen becomes scarce and reaches zero in effectively oxygen-free/vacuum compartments; active fire drives compartment temperature toward a high fire equilibrium (about 300°C at severe sustained fire), while heat/smoke equalize through open-door atmospheric connections at physically faster rates than current behaviour.
 - Size: large (slices: oxygen-dependent burn/extinguish regression tests; fire-driven temperature target; open-door heat-transfer tuning; smoke-transfer tuning and cross-room regression coverage)
-- Status: ready — health/simulation bug family; should be addressed before cosmetic fire polish where behaviour is wrong.
+- Status: **in progress** — oxygen slice implemented on PR #127: effectively oxygen-free rooms extinguish immediately before further combustion consequences, ignition is rejected at near-zero O₂, and sub-18% O₂ progressively accelerates fire decay instead of using one flat starvation rate. Remaining: fire-driven ~300°C equilibrium, open-door heat transfer, and smoke-transfer tuning/cross-room coverage.
 
 ### 78. Standardize repeated station-module fixture sizes
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790171325613139 (2026-09-23)
