@@ -156,6 +156,75 @@ public sealed class CrewCounterplaySystemTests
     }
 
     [Fact]
+    public void CompletingDoorRepairNudgesTheActorsStrongestTechnicalSkillUp()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+        var door = state.Facility.FindDoorBetween("engineering", "hall-engineering")!;
+        sarah.CurrentRoomId = "engineering";
+        var baseEngineering = sarah.Skills["Engineering"];
+        door.IsDamaged = true;
+
+        Assert.True(new ActionResolver().TryApply(state, sarah.Id,
+            new NpcAction(ActionKind.RepairDoor, door.Id, "Repair hatch."), out _));
+        var system = new CrewCounterplaySystem();
+        system.Tick(state);
+        state.Elapsed += TimeSpan.FromMinutes(10);
+        system.Tick(state);
+
+        Assert.False(door.IsDamaged);
+        Assert.Equal(baseEngineering + 1, sarah.Skills["Engineering"]);
+    }
+
+    [Fact]
+    public void CompletingRestoreSystemWorkNudgesTheActorsStrongestTechnicalSkillUp()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var felix = state.Crew.Single(npc => npc.Name == "Felix Ward");
+        var generator = state.Facility.Rooms["generator"];
+        generator.IsPowered = false;
+        var baseElectrical = felix.Skills["Electrical"];
+
+        felix.Intent = new NpcIntent(
+            ActionKind.RestoreSystem,
+            "generator",
+            "Restore generator power.",
+            "The station needs this machinery.",
+            85,
+            "Test",
+            state.Elapsed);
+
+        new IntentExecutionSystem().Tick(state);
+        var system = new CrewCounterplaySystem();
+        system.Tick(state);
+        state.Elapsed += TimeSpan.FromMinutes(10);
+        system.Tick(state);
+
+        Assert.True(generator.IsPowered);
+        Assert.Equal(baseElectrical + 1, felix.Skills["Electrical"]);
+    }
+
+    [Fact]
+    public void TechnicalSkillGainFromRepairWorkNeverExceedsOneHundred()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var sarah = state.Crew.Single(npc => npc.Name == "Sarah Chen");
+        var door = state.Facility.FindDoorBetween("engineering", "hall-engineering")!;
+        sarah.CurrentRoomId = "engineering";
+        sarah.Skills["Engineering"] = 100;
+        door.IsDamaged = true;
+
+        Assert.True(new ActionResolver().TryApply(state, sarah.Id,
+            new NpcAction(ActionKind.RepairDoor, door.Id, "Repair hatch."), out _));
+        var system = new CrewCounterplaySystem();
+        system.Tick(state);
+        state.Elapsed += TimeSpan.FromMinutes(10);
+        system.Tick(state);
+
+        Assert.Equal(100, sarah.Skills["Engineering"]);
+    }
+
+    [Fact]
     public void WeldedAndBarricadedDoorsArePhysicallyImpassableAndNotAiControllable()
     {
         var state = FacilitySeeder.CreateDefault();

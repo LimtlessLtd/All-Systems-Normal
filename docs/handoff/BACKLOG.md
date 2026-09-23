@@ -45,7 +45,11 @@ One batch, 20 entries, from the owner's 2026-09-22 22:17 BST message in `#new-id
 - Idea: "Doing something improves skill slowly. Watching/helping a skilled crewmate improves it faster."
 - Outcome: completing a task nudges the relevant skill upward slowly; proximity to a more-skilled crewmate doing the same task applies an existing-style multiplier; skill stays deterministic C# state.
 - Size: large (slices: skill-gain-on-completion; proximity mentorship multiplier; regression coverage for both)
-- Status: ready
+- Status: **in progress** — slice 1 (skill-gain-on-completion for repair-type work) shipped: `CrewCounterplaySystem.GainTechnicalSkillFromRepairWork` nudges the actor's strongest technical skill (Engineering/Electrical/Operations/Reactor, the same set `BestTechnicalSkill` reads) up by 1, clamped 0-100, on successfully completing `RepairDoor` or `RestoreSystem` work — no new stat, reuses the existing `Npc.Skills` dictionary and the completion points `CrewCounterplaySystem` already owns.
+
+  Remaining slices:
+  1. Extend skill-gain to weld/barricade work (Technical/Force skill domains) and other skilled task types (medical, cooking, etc.) as they come up.
+  2. Proximity mentorship multiplier: when a co-located, more-skilled crewmate is present during the same task, apply an existing-style multiplier to the gain — needs a design decision on what "more-skilled" and "co-located during the task" mean operationally (e.g. same room for the task's duration vs. merely present at completion).
 
 ### 8. Work quality instead of binary success
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790111822683539 (2026-09-22)
