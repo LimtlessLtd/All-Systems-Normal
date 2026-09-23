@@ -7474,3 +7474,29 @@ button.turret-token {
     box-shadow: none !important;
     opacity: .45;
 }
+
+/* Owner idea #87: the selected unit's real field of view, clipped by walls
+   and closed doors exactly like PerceptionSystem's sightlines. */
+.vision-arc-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 8;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.vision-arc-layer .selected-vision-arc {
+    fill: rgba(255, 214, 102, .16);
+    stroke: rgba(214, 160, 36, .75);
+    stroke-width: 1.2px;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.vision-arc-layer .robot-sensor-arc {
+    fill: rgba(80, 180, 255, .12);
+    stroke: rgba(40, 130, 220, .7);
+    stroke-dasharray: 4px 3px;
+}

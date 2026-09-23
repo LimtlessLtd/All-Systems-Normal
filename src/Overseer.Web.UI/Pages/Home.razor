@@ -469,6 +469,15 @@
                     </button>
                 }
 
+                @if (SelectedVisionOutline() is { Count: > 2 } visionOutline)
+                {
+                    @* Owner idea #87: presentation of the authoritative perception contract. *@
+                    <svg class="vision-arc-layer" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                        <polygon class="@VisionArcClass"
+                                 points="@VisionPointString(visionOutline)"></polygon>
+                    </svg>
+                }
+
                 @{
                     var selectedRoute = SelectedRoutePoints();
                     var selectedDestination = SelectedRouteDestination();
@@ -2851,6 +2860,24 @@
         points.Add(new(destinationRoom.MapX, destinationRoom.MapY));
         return points;
     }
+
+    private IReadOnlyList<(double X, double Y)> SelectedVisionOutline()
+    {
+        if (SelectedCrew is { } crew && CanSee(crew))
+            return PerceptionSystem.VisionOutline(Session.State, crew);
+
+        if (SelectedRobot is { } robot)
+            return PerceptionSystem.VisionOutline(Session.State, robot);
+
+        return [];
+    }
+
+    private string VisionArcClass =>
+        SelectedRobot == null ? "selected-vision-arc" : "selected-vision-arc robot-sensor-arc";
+
+    private static string VisionPointString(IReadOnlyList<(double X, double Y)> points) =>
+        string.Join(" ", points.Select(point =>
+            FormattableString.Invariant($"{point.X:0.###},{point.Y:0.###}")));
 
     private string? SelectedRouteDestination()
     {
