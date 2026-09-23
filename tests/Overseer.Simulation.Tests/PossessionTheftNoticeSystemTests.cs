@@ -18,7 +18,7 @@ public sealed class PossessionTheftNoticeSystemTests
         var thief = state.Crew[1];
         var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
         possession.CurrentHolderId = thief.Id;
-        possession.OwnerNoticedCurrentHolder = false;
+        possession.OwnerAwareOfCurrentState = false;
 
         new PossessionTheftNoticeSystem().Tick(state);
 
@@ -26,7 +26,7 @@ public sealed class PossessionTheftNoticeSystemTests
             owner.Memories,
             memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal)
                 && memory.Description.Contains(thief.Name, StringComparison.Ordinal));
-        Assert.True(possession.OwnerNoticedCurrentHolder);
+        Assert.True(possession.OwnerAwareOfCurrentState);
         Assert.True(owner.NeedsMindReconsideration);
     }
 
@@ -38,7 +38,7 @@ public sealed class PossessionTheftNoticeSystemTests
         var thief = state.Crew[1];
         var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
         possession.CurrentHolderId = thief.Id;
-        possession.OwnerNoticedCurrentHolder = false;
+        possession.OwnerAwareOfCurrentState = false;
 
         var system = new PossessionTheftNoticeSystem();
         system.Tick(state);
@@ -58,7 +58,7 @@ public sealed class PossessionTheftNoticeSystemTests
     {
         // TryStealPossession/TryBorrowPossession already grant a direct
         // memory in this case (see PersonalPossessionInteractionTests), so
-        // OwnerNoticedCurrentHolder stays true and this system must not
+        // OwnerAwareOfCurrentState stays true and this system must not
         // double up on it.
         var state = FacilitySeeder.CreateDefault();
         var owner = state.Crew[0];
@@ -75,7 +75,7 @@ public sealed class PossessionTheftNoticeSystemTests
             out _);
 
         Assert.True(stolen);
-        Assert.True(possession.OwnerNoticedCurrentHolder);
+        Assert.True(possession.OwnerAwareOfCurrentState);
 
         var memoryCountBefore = owner.Memories.Count;
         new PossessionTheftNoticeSystem().Tick(state);
@@ -104,14 +104,14 @@ public sealed class PossessionTheftNoticeSystemTests
             out _);
 
         Assert.True(stolen);
-        Assert.False(possession.OwnerNoticedCurrentHolder);
+        Assert.False(possession.OwnerAwareOfCurrentState);
 
         new PossessionTheftNoticeSystem().Tick(state);
 
         Assert.Contains(
             owner.Memories,
             memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal));
-        Assert.True(possession.OwnerNoticedCurrentHolder);
+        Assert.True(possession.OwnerAwareOfCurrentState);
     }
 
     [Fact]

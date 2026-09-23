@@ -408,6 +408,15 @@ public enum ActionKind
     StealItem,
 
     /// <summary>
+    /// Owner idea #3, slice 5: destroy a possession — your own, one you
+    /// currently hold after borrowing/stealing it, one a co-located crew
+    /// member currently holds, or one hidden in your current room you
+    /// yourself believe is there. Same knowledge/belief rules as
+    /// <see cref="StealItem"/>; never omniscient.
+    /// </summary>
+    DestroyItem,
+
+    /// <summary>
     /// Physically restrain an escaped prisoner and return them to containment.
     /// Always resolved deterministically by simulation, never by the mind.
     /// </summary>
@@ -810,16 +819,16 @@ public sealed class PersonalPossession
     public bool IsDestroyed { get; set; }
 
     /// <summary>
-    /// Owner idea #3, slice 4: whether the owner has already been given a
-    /// "surprised realization" memory for the current holder. Starts true
-    /// (nothing to notice; they hold it themself). Every path that already
-    /// grants the owner a direct memory of losing it (they were physically
-    /// present as the holder taken from) leaves this true. Only a
-    /// hidden-stash steal while the owner is absent — the one case nobody
-    /// tells them anything — sets it false, for the simulation layer to
-    /// notice once.
+    /// Owner idea #3, slices 4-5: whether the owner has already been given a
+    /// "surprised realization" memory for what is currently true of this
+    /// possession (who holds it, or that it's gone). Starts true (nothing to
+    /// notice; they hold it themself). Every path that already grants the
+    /// owner a direct memory (they were physically present, as the holder
+    /// taken from or destroyed from) leaves this true. Only a theft or
+    /// destruction the owner is absent for — the one case nobody tells them
+    /// anything — sets it false, for the simulation layer to notice once.
     /// </summary>
-    public bool OwnerNoticedCurrentHolder { get; set; } = true;
+    public bool OwnerAwareOfCurrentState { get; set; } = true;
 }
 
 /// <summary>

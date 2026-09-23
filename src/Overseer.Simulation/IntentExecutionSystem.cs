@@ -150,6 +150,7 @@ public sealed class IntentExecutionSystem
                 case ActionKind.ReturnItem:
                 case ActionKind.BorrowItem:
                 case ActionKind.StealItem:
+                case ActionKind.DestroyItem:
                     ExecutePossessionIntent(state, npc, intent);
                     break;
 

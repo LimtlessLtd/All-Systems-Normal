@@ -104,6 +104,7 @@ public sealed class ActionResolver
             ActionKind.ReturnItem => TryReturnPossession(state, npc, action, out message),
             ActionKind.BorrowItem => TryBorrowPossession(state, npc, action, out message),
             ActionKind.StealItem => TryStealPossession(state, npc, action, out message),
+            ActionKind.DestroyItem => TryDestroyPossession(state, npc, action, out message),
             ActionKind.Idle => SetAction(state, npc, action, "waits", out message),
             _ => Fail("Unsupported action.", out message)
         };
@@ -1044,7 +1045,7 @@ public sealed class ActionResolver
             // Taken from a hiding spot with the owner absent: nobody was
             // there to notice directly, so PossessionTheftNoticeSystem gives
             // the owner their own "surprised realization" memory later.
-            possession.OwnerNoticedCurrentHolder = false;
+            possession.OwnerAwareOfCurrentState = false;
         }
 
         var stolenSighting = CurrentSighting(state, possession);
@@ -1055,6 +1056,91 @@ public sealed class ActionResolver
         message = holder is null
             ? $"{npc.Name} takes {possession.Name} from its hiding place."
             : $"{npc.Name} takes {possession.Name} from {holder.Name}.";
+        Log(state, message);
+        return true;
+    }
+
+    private static bool TryDestroyPossession(GameState state, Npc npc, NpcAction action, out string message)
+    {
+        var possession = FindKnownPossession(state, npc, action.TargetId);
+        if (possession is null)
+        {
+            message = $"{npc.Name} has nothing to destroy here.";
+            return false;
+        }
+
+        var believedHiddenHere = npc.KnownPossessions.TryGetValue(possession.Id, out var belief)
+            && belief.HiddenAtRoomId is not null
+            && belief.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase);
+
+        // Unlike Steal, destroying something you already hold (your own, or
+        // one you previously borrowed/stole) is the ordinary case.
+        var isSelfHeld = possession.CurrentHolderId == npc.Id;
+
+        var holder = !isSelfHeld && possession.CurrentHolderId is { } holderId
+            ? state.Crew.FirstOrDefault(other =>
+                other.Id == holderId
+                && other.IsAlive
+                && other.IsPresent
+                && other.CurrentRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
+            : null;
+
+        // Same belief requirement as StealItem: only a hiding spot this
+        // actor themself believes is here, never a live coincidence.
+        var fromHiddenStash = !isSelfHeld
+            && possession.CurrentHolderId is null
+            && believedHiddenHere
+            && possession.HiddenAtRoomId is not null
+            && possession.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase);
+
+        if (!isSelfHeld && holder is null && !fromHiddenStash)
+        {
+            message = $"{npc.Name} has nothing to destroy here.";
+            return false;
+        }
+
+        var owner = state.Crew.FirstOrDefault(other => other.Id == possession.OwnerId);
+        var isOwnerActing = npc.Id == possession.OwnerId;
+
+        possession.IsDestroyed = true;
+        possession.CurrentHolderId = npc.Id;
+        possession.HiddenAtRoomId = null;
+        possession.HiddenAtFixtureLabel = null;
+        npc.CurrentAction = action;
+
+        npc.Memories.Add(new Memory(
+            isOwnerActing
+                ? $"I destroyed {possession.Name}."
+                : $"I destroyed {possession.Name}, which belonged to {(owner?.Name ?? "someone else")}.",
+            state.Elapsed,
+            isOwnerActing ? 0.3 : 0.45));
+
+        // Mirrors StealItem: destroying it right out of someone's hands
+        // costs trust/resentment with that person and leaves them a memory,
+        // whoever they are — the owner included, if they were the holder.
+        if (holder is not null)
+        {
+            var holderToNpc = holder.Relationships[npc.Name];
+            holderToNpc.Trust = Math.Clamp(holderToNpc.Trust - 8, 0, 100);
+            holderToNpc.Resentment = Math.Clamp(holderToNpc.Resentment + 10, 0, 100);
+            holder.Memories.Add(new Memory(
+                $"{npc.Name} destroyed {possession.Name} right in front of me.",
+                state.Elapsed,
+                0.6));
+            holder.NeedsMindReconsideration = true;
+        }
+
+        // If the owner wasn't the one directly confronted above, nobody told
+        // them anything — the same "surprised realization" gap slice 4
+        // closed for theft, now also covering destruction.
+        if (!isOwnerActing && owner is not null && holder?.Id != owner.Id)
+        {
+            possession.OwnerAwareOfCurrentState = false;
+        }
+
+        NotifyPossessionWitnesses(state, npc, holder, possession, "destroys", "someone destroy something");
+
+        message = $"{npc.Name} destroys {possession.Name}.";
         Log(state, message);
         return true;
     }

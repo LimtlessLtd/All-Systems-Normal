@@ -223,7 +223,8 @@ public sealed class OllamaAiDecisionService(
             || action is ActionKind.HideItem
                 or ActionKind.ReturnItem
                 or ActionKind.BorrowItem
-                or ActionKind.StealItem)
+                or ActionKind.StealItem
+                or ActionKind.DestroyItem)
         {
             if (!CrewAffordanceSystem.TryNormalizeTarget(
                     state,

@@ -59,6 +59,7 @@ public static class CrewAffordanceSystem
         new(ActionKind.ReturnItem, "possession", "Retrieve one of your own possessions from where you hid it (you must be in that room)."),
         new(ActionKind.BorrowItem, "possession", "Ask a co-located crew member to lend you a possession you know about that they are currently holding; they may refuse."),
         new(ActionKind.StealItem, "possession", "Take a possession you know about without asking — from a co-located crew member currently holding it, or from a hiding spot you know about in your current room."),
+        new(ActionKind.DestroyItem, "possession", "Destroy a possession — one you currently hold (your own, or one you previously borrowed/stole), one a co-located crew member currently holds, or one hidden in your current room you know about."),
         new(ActionKind.ForceDoor, "adjacent-door", "Defeat a blocked hatch by force or technical bypass."),
         new(ActionKind.RestoreSystem, "system", "Restore a disabled station system."),
         new(ActionKind.SecureAirlock, "airlock", "Secure an unsafe exterior airlock."),
@@ -228,7 +229,7 @@ public static class CrewAffordanceSystem
             };
         }
 
-        if (action is ActionKind.BorrowItem or ActionKind.StealItem)
+        if (action is ActionKind.BorrowItem or ActionKind.StealItem or ActionKind.DestroyItem)
         {
             // Unlike HideItem/ReturnItem, the possession need not be yours —
             // it just has to be one you actually know about (ambient
@@ -246,6 +247,12 @@ public static class CrewAffordanceSystem
 
             normalizedTarget = possession.Id;
 
+            // Unlike Borrow/Steal, DestroyItem may target something you
+            // already hold yourself (your own, or one you previously
+            // borrowed/stole).
+            if (action == ActionKind.DestroyItem && possession.CurrentHolderId == npc.Id)
+                return true;
+
             if (possession.CurrentHolderId is { } holderId && holderId != npc.Id)
             {
                 return state.Crew.Any(other =>
@@ -255,11 +262,11 @@ public static class CrewAffordanceSystem
                     && other.CurrentRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
             }
 
-            // A hiding spot has no one to ask, so only StealItem can target
-            // one — and only a spot this actor themself believes is here
-            // (witnessed the hide), never a live coincidence they never
-            // actually learned about.
-            return action == ActionKind.StealItem
+            // A hiding spot has no one to ask, so only StealItem/DestroyItem
+            // can target one — and only a spot this actor themself believes
+            // is here (witnessed the hide), never a live coincidence they
+            // never actually learned about.
+            return action is ActionKind.StealItem or ActionKind.DestroyItem
                 && belief.HiddenAtRoomId is not null
                 && belief.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
                 && possession.HiddenAtRoomId is not null
