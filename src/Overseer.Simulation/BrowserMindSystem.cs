@@ -316,6 +316,30 @@ public sealed class BrowserMindSystem
         // Overseer would investigate indefinitely while starving — and, because
         // the deterministic routine was meanwhile steering them to the kitchen,
         // they oscillated across a doorway and never arrived anywhere at all.
+        // Off shift and nothing serious is wrong: stay in bed rather than
+        // getting up for a snack, a chore or an idle thought.
+        if (ScheduledSleepRules.ShouldKeepScheduledSleep(npc, state.Elapsed))
+        {
+            if (ScheduledSleepRules.NeedsToiletBreak(npc))
+            {
+                return Create(
+                    state,
+                    ActionKind.UseToilet,
+                    null,
+                    "Use the washroom.",
+                    "I really need the toilet.",
+                    82);
+            }
+
+            return Create(
+                state,
+                ActionKind.Sleep,
+                null,
+                "Sleep through my rest period.",
+                "It is my sleep period and nothing needs me badly enough to get up.",
+                60);
+        }
+
         if (npc.Hunger >= CrewNeedThresholds.HungerElevated)
         {
             return Create(

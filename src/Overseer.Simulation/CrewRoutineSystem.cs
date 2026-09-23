@@ -239,6 +239,16 @@ public sealed class CrewRoutineSystem
             && secondToFirst.Resentment < 25;
     }
 
+    private static RoutinePlan ToiletPlan() =>
+        new(
+            "washroom",
+            ActionKind.UseToilet,
+            null,
+            "Going to the washroom.",
+            "I need the toilet.",
+            "That's better.",
+            8);
+
     private static RoutinePlan ChoosePlan(
         GameState state,
         Npc npc,
@@ -257,7 +267,13 @@ public sealed class CrewRoutineSystem
                 5);
         }
 
-        if (npc.Hunger >= 55)
+        // Mild hunger is a snack-between-duties cue, not a reason to get out
+        // of bed: inside the sleep window only genuinely serious hunger
+        // interrupts rest. Previously a sleeper rose at 55 every ~90 minutes,
+        // ate a mouthful, walked back and repeated, so crew spent their whole
+        // night commuting instead of visibly sleeping.
+        var sleepWindow = CrewDutySchedule.IsSleepWindow(npc, state.Elapsed);
+        if (npc.Hunger >= (ScheduledSleepRules.IsOffShift(npc, state.Elapsed) ? CrewNeedThresholds.HungerCritical : 55))
         {
             return new(
                 "kitchen",
@@ -269,7 +285,15 @@ public sealed class CrewRoutineSystem
                 18);
         }
 
-        if (CrewDutySchedule.IsSleepWindow(npc, state.Elapsed))
+        // A night-time toilet trip is the one ordinary need that gets a
+        // sleeper up; handle it before the sleep plan so they actually finish
+        // before heading back to bed.
+        if (sleepWindow && npc.BladderNeed >= 70)
+        {
+            return ToiletPlan();
+        }
+
+        if (sleepWindow)
         {
             var sleepRoom = npc.IsPrisoner
                 && state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var current)
@@ -302,14 +326,7 @@ public sealed class CrewRoutineSystem
 
         if (npc.BladderNeed >= 70)
         {
-            return new(
-                "washroom",
-                ActionKind.UseToilet,
-                null,
-                "Going to the washroom.",
-                "I need the toilet.",
-                "That's better.",
-                8);
+            return ToiletPlan();
         }
 
         if (npc.HygieneNeed >= 65)

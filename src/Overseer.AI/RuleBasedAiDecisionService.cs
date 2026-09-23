@@ -140,6 +140,18 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
         // Basic survival comes before curiosity, matching BrowserMindSystem.
         // With investigation first, a suspicious crew member would investigate
         // while starving and oscillate against the routine steering them to food.
+        else if (ScheduledSleepRules.ShouldKeepScheduledSleep(npc, state.Elapsed))
+        {
+            intent = ScheduledSleepRules.NeedsToiletBreak(npc)
+                ? Create(npc, state, ActionKind.UseToilet, null,
+                    "Use the washroom.",
+                    "I need the toilet.",
+                    82)
+                : Create(npc, state, ActionKind.Sleep, null,
+                "Sleep through my rest period.",
+                "It is my sleep period and nothing needs me badly enough to get up.",
+                60);
+        }
         else if (npc.Hunger >= CrewNeedThresholds.HungerElevated)
         {
             intent = Create(npc, state, ActionKind.Eat, null,
