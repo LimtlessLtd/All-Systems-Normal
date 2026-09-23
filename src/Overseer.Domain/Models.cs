@@ -368,6 +368,7 @@ public enum ActionKind
     InspectEquipment,
     CheckOnCrew,
     AssistCrew,
+    AskAboutLocation,
     MedicalCheckup,
     TreatInjury,
     AdministerMedication,

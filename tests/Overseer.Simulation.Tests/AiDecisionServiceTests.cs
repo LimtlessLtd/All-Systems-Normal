@@ -212,6 +212,106 @@ public sealed class AiDecisionServiceTests
     }
 
     [Fact]
+    public async Task OllamaDecision_AskAboutLocationIsValidWithAnActiveMissingPersonConcern()
+    {
+        using var client = new StubChatClient(
+            """
+            {
+              "Action": "AskAboutLocation",
+              "TargetId": "Sarah Chen",
+              "Goal": "Find out if Sarah has seen Marcus.",
+              "Reason": "I have not seen Marcus in hours and I'm worried.",
+              "Urgency": 30
+            }
+            """);
+
+        var service = new OllamaAiDecisionService(
+            client,
+            new RuleBasedAiDecisionService());
+
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        david.MissingPersonConcerns[marcus.Id] = new MissingPersonConcern
+        {
+            PersonId = marcus.Id,
+            PersonName = marcus.Name,
+            ExpectedRoomId = "reactor",
+            FirstConcernAt = state.Elapsed,
+            LastUpdatedAt = state.Elapsed
+        };
+
+        var intent = await service.DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.AskAboutLocation, intent.Action);
+        Assert.Equal("Sarah Chen", intent.TargetId);
+    }
+
+    [Fact]
+    public async Task OllamaDecision_AskAboutLocationIsReducedToIdleWithoutAnActiveConcern()
+    {
+        using var client = new StubChatClient(
+            """
+            {
+              "Action": "AskAboutLocation",
+              "TargetId": "Sarah Chen",
+              "Goal": "Find out if Sarah has seen Marcus.",
+              "Reason": "I have not seen Marcus in hours and I'm worried.",
+              "Urgency": 30
+            }
+            """);
+
+        var service = new OllamaAiDecisionService(
+            client,
+            new RuleBasedAiDecisionService());
+
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        Assert.Empty(david.MissingPersonConcerns);
+
+        var intent = await service.DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.Idle, intent.Action);
+        Assert.Null(intent.TargetId);
+    }
+
+    [Fact]
+    public async Task OllamaDecision_AskAboutLocationCannotTargetTheMissingPersonThemself()
+    {
+        using var client = new StubChatClient(
+            """
+            {
+              "Action": "AskAboutLocation",
+              "TargetId": "Marcus Reed",
+              "Goal": "Ask Marcus where Marcus is.",
+              "Reason": "This should not be a valid target for the ask.",
+              "Urgency": 30
+            }
+            """);
+
+        var service = new OllamaAiDecisionService(
+            client,
+            new RuleBasedAiDecisionService());
+
+        var state = FacilitySeeder.CreateDefault();
+        var david = state.Crew.Single(npc => npc.Name == "David Hale");
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        david.MissingPersonConcerns[marcus.Id] = new MissingPersonConcern
+        {
+            PersonId = marcus.Id,
+            PersonName = marcus.Name,
+            ExpectedRoomId = "reactor",
+            FirstConcernAt = state.Elapsed,
+            LastUpdatedAt = state.Elapsed
+        };
+
+        var intent = await service.DecideAsync(david, state);
+
+        Assert.Equal(ActionKind.Idle, intent.Action);
+        Assert.Null(intent.TargetId);
+    }
+
+    [Fact]
     public async Task OllamaDecision_AcceptPactIsReducedToIdleWithoutAMatchingPendingProposal()
     {
         using var client = new StubChatClient(

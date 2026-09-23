@@ -46,6 +46,45 @@ public sealed class SocialSimulationSystemTests
     }
 
     [Fact]
+    public void AskAboutLocation_WhenCoLocatedAndSettled_SharesANewerSightingAndUpdatesTheAskersBelief()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var marcus = state.Crew.Single(npc => npc.Name == "Marcus Reed");
+        var emma = state.Crew.Single(npc => npc.Name == "Emma Voss");
+        var nadia = state.Crew.Single(npc => npc.Name == "Nadia Okafor");
+
+        state.Elapsed = TimeSpan.FromHours(3);
+        marcus.CurrentRoomId = "reactor";
+        emma.CurrentRoomId = "reactor";
+        marcus.MissingPersonConcerns[nadia.Id] = new MissingPersonConcern
+        {
+            PersonId = nadia.Id,
+            PersonName = nadia.Name,
+            ExpectedRoomId = "medical",
+            FirstConcernAt = state.Elapsed - TimeSpan.FromMinutes(30),
+            LastUpdatedAt = state.Elapsed - TimeSpan.FromMinutes(30)
+        };
+        emma.LastSeenCrew[nadia.Id] = new CrewSighting(
+            nadia.Id,
+            nadia.Name,
+            "medical",
+            state.Elapsed - TimeSpan.FromMinutes(5));
+        marcus.CurrentAction = new NpcAction(
+            ActionKind.AskAboutLocation,
+            emma.Name,
+            "I haven't seen Nadia in a while.");
+
+        new SocialSimulationSystem().Tick(state);
+
+        var concern = marcus.MissingPersonConcerns[nadia.Id];
+        Assert.Equal("medical", concern.LastKnownRoomId);
+        Assert.Equal(state.Elapsed - TimeSpan.FromMinutes(5), concern.LastSeenAt);
+        Assert.Contains(
+            marcus.Beliefs,
+            belief => belief.Statement.Contains("Emma Voss told me", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void DeceasedCrewDoNotParticipateInSocialInteractions()
     {
         var state = FacilitySeeder.CreateDefault();

@@ -41,6 +41,7 @@ public static class CrewAffordanceSystem
         new(ActionKind.Argue, "crew", "Confront another crew member verbally."),
         new(ActionKind.CheckOnCrew, "crew", "Find someone and check on their wellbeing."),
         new(ActionKind.AssistCrew, "crew", "Go to someone and help with what they are doing."),
+        new(ActionKind.AskAboutLocation, "crew", "Ask a specific person whether they have seen the subject of one of your MISSING-PERSON CONCERNS."),
         new(ActionKind.CoordinateWork, "crew", "Coordinate a task or plan with another person."),
         new(ActionKind.ReassureCrew, "crew", "Try to calm or reassure another person."),
         new(ActionKind.MisleadCrew, "crew", "Attempt to misdirect another person; no belief changes without deterministic evidence rules."),
@@ -107,7 +108,8 @@ public static class CrewAffordanceSystem
             or ActionKind.ReportConcern
             or ActionKind.RequestHelp
             or ActionKind.ProposePact
-            or ActionKind.RecruitShutdownAlly;
+            or ActionKind.RecruitShutdownAlly
+            or ActionKind.AskAboutLocation;
 
     public static bool IsDoorOperation(ActionKind action) =>
         action is ActionKind.OpenDoor
@@ -170,6 +172,15 @@ public static class CrewAffordanceSystem
             if (action == ActionKind.RecruitShutdownAlly
                 && (npc.OverseerSuspicion < 65
                     || npc.KnownShutdownMechanismIds.Count == 0))
+                return false;
+
+            // Asking requires an actual concern to ask about, and asking the
+            // very person you are worried about makes no sense while they are
+            // not the one physically in front of you (co-location resolves
+            // the concern outright elsewhere).
+            if (action == ActionKind.AskAboutLocation
+                && (npc.MissingPersonConcerns.Count == 0
+                    || npc.MissingPersonConcerns.ContainsKey(person.Id)))
                 return false;
 
             normalizedTarget = person.Name;

@@ -127,6 +127,7 @@ public sealed class IntentExecutionSystem
                 case ActionKind.RequestHelp:
                 case ActionKind.CheckOnCrew:
                 case ActionKind.AssistCrew:
+                case ActionKind.AskAboutLocation:
                 case ActionKind.CoordinateWork:
                 case ActionKind.ReassureCrew:
                 case ActionKind.MisleadCrew:

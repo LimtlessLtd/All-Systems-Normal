@@ -175,7 +175,8 @@ public sealed class SocialSimulationSystem
             or ActionKind.CoordinateWork
             or ActionKind.ReassureCrew
             or ActionKind.MisleadCrew
-            or ActionKind.ReportConcern))
+            or ActionKind.ReportConcern
+            or ActionKind.AskAboutLocation))
         {
             return false;
         }
@@ -246,6 +247,14 @@ public sealed class SocialSimulationSystem
                 {
                     QueueSpeech(actor, "Honestly, it's probably nothing. Focus somewhere else.", state.Elapsed, 2);
                 }
+                break;
+
+            case ActionKind.AskAboutLocation:
+                // Asking is always worth a small amount of goodwill, whether
+                // or not the answer turns out to be useful; the substance of
+                // the answer (and any belief update) is resolved deterministically.
+                targetToActor.Trust = Clamp(targetToActor.Trust + 0.2);
+                MissingPersonSystem.ResolveAsk(state, actor, target);
                 break;
         }
 
