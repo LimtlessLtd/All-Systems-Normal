@@ -438,7 +438,11 @@ public sealed class CrewProvisioningSystem
             return;
         }
 
-        if (state.Elapsed < npc.ProvisioningCompletesAt.Value)
+        // CrewTaskState is the authoritative timer shown in the Inspector.
+        // Do not gate completion on the legacy provisioning timer as well: if
+        // those values ever drift, the task can visibly reach 100% while the
+        // provisioning state machine waits forever.
+        if (!CrewTaskSystem.IsComplete(state, npc))
             return;
 
         switch (job)
