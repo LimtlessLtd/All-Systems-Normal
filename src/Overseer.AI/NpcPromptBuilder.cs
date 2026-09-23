@@ -135,6 +135,15 @@ public static class NpcPromptBuilder
                 + (entry.RoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase) ? " | you are here now" : string.Empty))
             .ToArray();
 
+        // Owner idea #16: others' witnessed decisions, surfaced for judgment.
+        // C# never labels them right or wrong.
+        var witnessedDecisions = npc.Memories
+            .Where(m => m.MoralActorName is not null)
+            .OrderByDescending(m => m.OccurredAt)
+            .Take(5)
+            .Select(m => $"- {m.Description}")
+            .ToArray();
+
         var beliefs = npc.Beliefs
             .Take(5)
             .Select(b => $"- {b.Subject}: {b.Statement} (confidence {b.Confidence:0.00})");
@@ -444,6 +453,10 @@ public static class NpcPromptBuilder
         var sensitiveMemoriesList = sensitiveMemories.ToArray();
         if (sensitiveMemoriesList.Length == 0) builder.AppendLine("- none");
         else foreach (var secret in sensitiveMemoriesList) builder.AppendLine(secret);
+        builder.AppendLine();
+        builder.AppendLine("OTHER PEOPLE'S DECISIONS YOU WITNESSED: whether each was justified, cowardly, cruel or sensible is your own judgment, shaped by your values and what you know; it can colour how far you trust or cooperate with that person.");
+        if (witnessedDecisions.Length == 0) builder.AppendLine("- none");
+        else foreach (var decision in witnessedDecisions) builder.AppendLine(decision);
         builder.AppendLine();
         builder.AppendLine("PLACES WHERE YOU NEARLY DIED: how you feel about going back is your own call. You might avoid the room, ask someone to come with you, or go in anyway because the situation demands it; nothing here stops you entering.");
         if (traumaRooms.Length == 0) builder.AppendLine("- none");

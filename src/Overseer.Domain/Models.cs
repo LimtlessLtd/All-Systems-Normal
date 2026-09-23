@@ -514,6 +514,12 @@ public sealed record StationSelection(
 /// location-specific dread attached. <c>NpcPromptBuilder</c> surfaces it so
 /// cognition can weigh the dread; C# never blocks or biases room entry.
 /// </param>
+/// <param name="MoralActorName">
+/// Owner idea #16 (moral disagreements): the crew member whose witnessed
+/// decision this memory records (an attack, a theft, a broken promise,
+/// venting a compartment with people inside). C# only tags who did what;
+/// whether it was justified is cognition's judgment.
+/// </param>
 public sealed record Memory(
     string Description,
     TimeSpan OccurredAt,
@@ -522,7 +528,8 @@ public sealed record Memory(
     string? RumourCoreDescription = null,
     bool IsFailedAttempt = false,
     bool IsSensitive = false,
-    string? TraumaRoomId = null);
+    string? TraumaRoomId = null,
+    string? MoralActorName = null);
 
 public sealed record Belief(
     string Subject,

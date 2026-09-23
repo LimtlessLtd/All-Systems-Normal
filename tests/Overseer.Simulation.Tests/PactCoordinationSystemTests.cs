@@ -216,7 +216,8 @@ public sealed class PactCoordinationSystemTests
         new PactCoordinationSystem().Tick(state);
 
         Assert.Contains(witness.Memories, memory =>
-            memory.Description == $"Witnessed {promisor.Name} break their promise to {promisee.Name}: {pact.PromiseText}");
+            memory.Description == $"Witnessed {promisor.Name} break their promise to {promisee.Name}: {pact.PromiseText}"
+            && memory.MoralActorName == promisor.Name);
     }
 
     [Fact]
