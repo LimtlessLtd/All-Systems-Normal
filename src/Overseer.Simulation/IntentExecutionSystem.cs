@@ -1022,6 +1022,8 @@ public sealed class IntentExecutionSystem
             return;
         }
 
+        // Physically sharing a room is direct perception, not omniscience, so
+        // the co-located fast path stays ground-truth.
         if (npc.CurrentRoomId.Equals(target.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
         {
             _actions.TryApply(
@@ -1034,12 +1036,34 @@ public sealed class IntentExecutionSystem
             return;
         }
 
-        npc.PlannedDestinationRoomId = target.CurrentRoomId;
+        // Not co-located: the actor has no ground truth on the target's live
+        // position, only what they last saw or expect from the duty
+        // schedule. Route toward that belief instead.
+        var believedRoomId = BelievedRoomId(npc, target, state.Elapsed);
+
+        if (npc.CurrentRoomId.Equals(believedRoomId, StringComparison.OrdinalIgnoreCase))
+        {
+            // Arrived at the last-known/expected room and the target
+            // genuinely is not here: the belief was stale, not a pathing
+            // problem. Report the miss but keep the intent alive rather than
+            // giving up outright — there is no search affordance yet to act
+            // on a hard failure, so the actor just keeps their goal and
+            // re-routes automatically the moment a fresher sighting updates
+            // their belief, mirroring how a sealed route is reported.
+            npc.PlannedDestinationRoomId = null;
+            npc.CurrentAction = new NpcAction(
+                ActionKind.Idle,
+                target.Name,
+                $"{target.Name} is not here. I last knew them to be around {RoomLabel(state, believedRoomId)}.");
+            return;
+        }
+
+        npc.PlannedDestinationRoomId = believedRoomId;
         var path = _navigation.FindPathForCrew(
             state,
             npc,
             npc.CurrentRoomId,
-            target.CurrentRoomId);
+            believedRoomId);
 
         if (path.Count < 2)
         {
@@ -1060,6 +1084,21 @@ public sealed class IntentExecutionSystem
                 $"Trying to reach {target.Name}: {intent.Goal}"),
             out _);
     }
+
+    /// <summary>
+    /// Where <paramref name="npc"/> believes <paramref name="target"/> to be:
+    /// their own last direct sighting, or the target's public duty-schedule
+    /// room when they have never crossed paths. Every <see cref="CrewRole"/>,
+    /// including <see cref="CrewRole.Prisoner"/>, has a duty route, so this
+    /// always resolves to a concrete room.
+    /// </summary>
+    private static string BelievedRoomId(Npc npc, Npc target, TimeSpan elapsed) =>
+        npc.LastSeenCrew.TryGetValue(target.Id, out var sighting)
+            ? sighting.RoomId
+            : CrewDutySchedule.ExpectedDutyRoomId(target.Role, elapsed);
+
+    private static string RoomLabel(GameState state, string roomId) =>
+        state.Facility.Rooms.TryGetValue(roomId, out var room) ? room.Name : roomId;
 
     private static Room? ResolveRoom(GameState state, string? targetId)
     {
