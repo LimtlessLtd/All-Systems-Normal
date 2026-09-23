@@ -70,12 +70,17 @@ public sealed class CrewMaintenanceSystem
         {
             // Properly qualified first; if nothing here is their speciality they
             // will still have a go at something rather than let it rot.
+            // Off-shift crew are only called out of bed for a genuinely
+            // urgent fault, not routine upkeep the on-shift cohort can cover.
+            var offShift = ScheduledSleepRules.IsOffShift(npc, state.Elapsed);
             var job = outstanding.FirstOrDefault(device =>
                     !claimed.Contains(device.Id)
+                    && (!offShift || device.ServiceUrgency >= ScheduledSleepRules.OffShiftCallOutUrgency)
                     && StationUpkeepRules.CanService(npc, device)
                     && CanReach(state, npc, device))
                 ?? outstanding.FirstOrDefault(device =>
                     !claimed.Contains(device.Id)
+                    && (!offShift || device.ServiceUrgency >= ScheduledSleepRules.OffShiftCallOutUrgency)
                     && StationUpkeepRules.CanAttempt(npc, device)
                     && CanReach(state, npc, device));
 

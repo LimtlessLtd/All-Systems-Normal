@@ -4,6 +4,11 @@ namespace Overseer.Simulation;
 
 public sealed class SimulationEngine
 {
+    public const double AwakeHungerPerMinute = 0.11;
+    public const double SleepingHungerPerMinute = 0.04;
+    public const double AwakeBladderPerMinute = 0.085;
+    public const double SleepingBladderPerMinute = 0.035;
+
     public void Tick(GameState state, TimeSpan delta)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -21,6 +26,10 @@ public sealed class SimulationEngine
         foreach (var npc in state.Crew.Where(npc => npc.IsAlive))
         {
             var room = state.Facility.Rooms[npc.CurrentRoomId];
+
+            // Sampled before any of this tick's consequences so hunger and
+            // bladder use the same "was physically asleep" answer.
+            var asleep = IsPhysicallyAsleep(state, npc);
             var stressResistance = Math.Clamp(
                 CrewTraitMath.Modifier(npc, TraitEffectKind.StressResistance),
                 -25,
@@ -95,11 +104,17 @@ public sealed class SimulationEngine
                     + ((StationProvisionRules.RawFoodStressPerMinute + preferenceStress) * minutes));
             }
 
+            // A person physically asleep in a bed burns far less than one on
+            // shift (and the bladder fills more slowly), so a full night's
+            // sleep no longer guarantees waking up starving or bursting, which
+            // used to pull every sleeper out of bed mid-night.
             var hungerDelta = eatingPrepared
                 ? -1.9
                 : rawCrop is { } activeCrop
                     ? -CropRules.RawHungerReliefPerMinute(activeCrop)
-                    : 0.11;
+                    : asleep
+                        ? SleepingHungerPerMinute
+                        : AwakeHungerPerMinute;
             npc.Hunger = Clamp(npc.Hunger + (hungerDelta * minutes));
 
             // Crossing into a serious physiological need requests fresh
@@ -164,7 +179,9 @@ public sealed class SimulationEngine
                 ActionKind.UseToilet);
             npc.BladderNeed = Clamp(
                 npc.BladderNeed
-                + ((usingToilet ? -3.0 : 0.085) * minutes));
+                + ((usingToilet ? -3.0
+                    : asleep ? SleepingBladderPerMinute
+                    : AwakeBladderPerMinute) * minutes));
 
             npc.RecreationNeed = Clamp(
                 npc.RecreationNeed
@@ -338,6 +355,14 @@ public sealed class SimulationEngine
 
         return occupant?.Id == npc.Id;
     }
+
+    /// <summary>
+    /// Actually asleep: carrying a Sleep action while physically at a bed.
+    /// A remote Sleep flag, or resting on a sofa, does not count.
+    /// </summary>
+    public static bool IsPhysicallyAsleep(GameState state, Npc npc) =>
+        npc.CurrentAction.Kind == ActionKind.Sleep
+        && FindPhysicalRestFixture(state, npc) is not null;
 
     private static RoomFixture? FindPhysicalRestFixture(GameState state, Npc npc)
     {
