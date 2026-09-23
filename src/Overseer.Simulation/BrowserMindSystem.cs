@@ -114,7 +114,7 @@ public sealed class BrowserMindSystem
                 continue;
             }
 
-            var fightFire = currentRoom.FireIntensity > 0 && ShouldFightFire(npc, currentRoom);
+            var fightFire = currentRoom.FireIntensity > 0 && StationHazardSystem.ShouldFightFire(npc, currentRoom);
             var saferRoom = fightFire ? null : FindSaferRoom(state, npc, currentRoom);
             var blockingDoor = !fightFire && saferRoom is null
                 ? FindBlockingDoorTowardSaferRoom(state, npc, currentRoom)
@@ -178,7 +178,7 @@ public sealed class BrowserMindSystem
 
         if (CrewEnvironmentSafety.IsDangerous(currentRoom))
         {
-            if (currentRoom.FireIntensity > 0 && ShouldFightFire(npc, currentRoom))
+            if (currentRoom.FireIntensity > 0 && StationHazardSystem.ShouldFightFire(npc, currentRoom))
             {
                 return Create(
                     state,
@@ -744,21 +744,6 @@ public sealed class BrowserMindSystem
         GameState state,
         MissingPersonConcern concern) =>
         MissingPersonSystem.ReasonFor(state, concern);
-
-    private static bool ShouldFightFire(Npc npc, Room room)
-    {
-        var courage = Math.Clamp(
-            npc.Personality.Courage + CrewTraitMath.Modifier(npc, TraitEffectKind.Courage),
-            0,
-            100);
-        var practical = Math.Max(
-            npc.Skills.GetValueOrDefault("Engineering"),
-            npc.Skills.GetValueOrDefault("Security"));
-        return room.FireIntensity <= 58
-            && npc.Stress < 88
-            && npc.Fatigue < 88
-            && (practical >= 45 || courage >= 72);
-    }
 
     private bool IsAlreadyEscapingToSaferRoom(
         GameState state,
