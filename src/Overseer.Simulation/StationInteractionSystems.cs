@@ -234,9 +234,11 @@ public static class CrewAffordanceSystem
             // it just has to be one you actually know about (ambient
             // co-located noticing, or having witnessed someone else's
             // hide/borrow/steal act). Never a blind, omniscient lookup.
+            if (string.IsNullOrWhiteSpace(requested) || !npc.KnownPossessions.TryGetValue(requested, out var belief))
+                return false;
+
             var possession = state.Possessions.FirstOrDefault(candidate =>
                 !candidate.IsDestroyed
-                && npc.KnownPossessionIds.Contains(candidate.Id)
                 && candidate.Id.Equals(requested, StringComparison.OrdinalIgnoreCase));
 
             if (possession is null)
@@ -253,8 +255,13 @@ public static class CrewAffordanceSystem
                     && other.CurrentRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase));
             }
 
-            // A hiding spot has no one to ask, so only StealItem can target one.
+            // A hiding spot has no one to ask, so only StealItem can target
+            // one — and only a spot this actor themself believes is here
+            // (witnessed the hide), never a live coincidence they never
+            // actually learned about.
             return action == ActionKind.StealItem
+                && belief.HiddenAtRoomId is not null
+                && belief.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
                 && possession.HiddenAtRoomId is not null
                 && possession.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase);
         }

@@ -209,7 +209,8 @@ public sealed class PersonalPossessionInteractionTests
         Assert.False(CrewAffordanceSystem.TryNormalizeTarget(
             state, actor, ActionKind.StealItem, possession.Id, out _));
 
-        actor.KnownPossessionIds.Add(possession.Id);
+        actor.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, owner.Id, owner.Name, null, null, state.Elapsed);
 
         Assert.True(CrewAffordanceSystem.TryNormalizeTarget(
             state, actor, ActionKind.BorrowItem, possession.Id, out _));
@@ -236,12 +237,48 @@ public sealed class PersonalPossessionInteractionTests
         possession.CurrentHolderId = null;
         possession.HiddenAtRoomId = "storage";
         actor.CurrentRoomId = "storage";
-        actor.KnownPossessionIds.Add(possession.Id);
+        actor.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, null, null, "storage", null, state.Elapsed);
 
         Assert.True(CrewAffordanceSystem.TryNormalizeTarget(
             state, actor, ActionKind.StealItem, possession.Id, out _));
         Assert.False(CrewAffordanceSystem.TryNormalizeTarget(
             state, actor, ActionKind.BorrowItem, possession.Id, out _));
+    }
+
+    [Fact]
+    public void TryNormalizeTarget_StealItemFromAHiddenSpotRequiresTheActorsOwnBeliefNotJustLiveCoincidence()
+    {
+        // Regression: KnownPossessionIds used to be a flat permanent set, so
+        // once an actor had ever perceived an item existed (e.g. seeing it
+        // held, long before it was ever hidden), a later unwitnessed hide
+        // that happened to land in the actor's current room was stealable —
+        // knowledge the actor never actually had. The actor's own belief
+        // must say it is hidden here, not just live global state.
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var actor = state.Crew[1];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        actor.CurrentRoomId = owner.CurrentRoomId;
+        actor.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, owner.Id, owner.Name, null, null, state.Elapsed);
+
+        // Unwitnessed by the actor: hidden in the actor's current room without
+        // ever updating the actor's belief.
+        possession.CurrentHolderId = null;
+        possession.HiddenAtRoomId = actor.CurrentRoomId;
+
+        Assert.False(CrewAffordanceSystem.TryNormalizeTarget(
+            state, actor, ActionKind.StealItem, possession.Id, out _));
+
+        var stolen = new ActionResolver().TryApply(
+            state,
+            actor.Id,
+            new NpcAction(ActionKind.StealItem, possession.Id, "No one will know."),
+            out _);
+
+        Assert.False(stolen);
+        Assert.Equal(actor.CurrentRoomId, possession.HiddenAtRoomId);
     }
 
     [Fact]
@@ -252,7 +289,8 @@ public sealed class PersonalPossessionInteractionTests
         var actor = state.Crew[1];
         var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
         actor.CurrentRoomId = owner.CurrentRoomId;
-        actor.KnownPossessionIds.Add(possession.Id);
+        actor.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, owner.Id, owner.Name, null, null, state.Elapsed);
 
         var success = new ActionResolver().TryApply(
             state,
@@ -274,7 +312,8 @@ public sealed class PersonalPossessionInteractionTests
         var actor = state.Crew[1];
         var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
         actor.CurrentRoomId = owner.CurrentRoomId;
-        actor.KnownPossessionIds.Add(possession.Id);
+        actor.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, owner.Id, owner.Name, null, null, state.Elapsed);
         owner.Relationships[actor.Name].Trust = 10;
 
         var success = new ActionResolver().TryApply(
@@ -296,7 +335,8 @@ public sealed class PersonalPossessionInteractionTests
         var actor = state.Crew[1];
         var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
         actor.CurrentRoomId = owner.CurrentRoomId;
-        actor.KnownPossessionIds.Add(possession.Id);
+        actor.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, owner.Id, owner.Name, null, null, state.Elapsed);
         var trustBefore = owner.Relationships[actor.Name].Trust;
 
         var success = new ActionResolver().TryApply(
@@ -325,7 +365,8 @@ public sealed class PersonalPossessionInteractionTests
         possession.HiddenAtRoomId = "storage";
         actor.CurrentRoomId = "storage";
         owner.CurrentRoomId = "control";
-        actor.KnownPossessionIds.Add(possession.Id);
+        actor.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, null, null, "storage", null, state.Elapsed);
 
         var success = new ActionResolver().TryApply(
             state,
@@ -349,7 +390,8 @@ public sealed class PersonalPossessionInteractionTests
         var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
         actor.CurrentRoomId = owner.CurrentRoomId;
         witness.CurrentRoomId = owner.CurrentRoomId;
-        actor.KnownPossessionIds.Add(possession.Id);
+        actor.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, owner.Id, owner.Name, null, null, state.Elapsed);
 
         new ActionResolver().TryApply(
             state,
@@ -357,7 +399,7 @@ public sealed class PersonalPossessionInteractionTests
             new NpcAction(ActionKind.StealItem, possession.Id, "Taking it."),
             out _);
 
-        Assert.Contains(possession.Id, witness.KnownPossessionIds);
+        Assert.Contains(possession.Id, witness.KnownPossessions);
         Assert.Contains(
             witness.Memories,
             memory => memory.Description == $"Witnessed {actor.Name} takes {possession.Name} from {owner.Name}.");
@@ -371,7 +413,8 @@ public sealed class PersonalPossessionInteractionTests
         var actor = state.Crew[1];
         var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
         actor.CurrentRoomId = owner.CurrentRoomId;
-        actor.KnownPossessionIds.Add(possession.Id);
+        actor.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, owner.Id, owner.Name, null, null, state.Elapsed);
         owner.Relationships[actor.Name].Trust = 10;
 
         actor.Intent = new NpcIntent(
@@ -413,5 +456,31 @@ public sealed class PersonalPossessionInteractionTests
         Assert.Contains(
             $"{possession.Id}: {possession.Name} ({possession.Kind}) — with {other.Name}",
             prompt);
+    }
+
+    [Fact]
+    public void Prompt_OtherPeoplesPossessionsBlockShowsTheObserversStaleBeliefNotLiveState()
+    {
+        // Regression: this block used to render the possession's live global
+        // holder/hiding-room for anything ever in KnownPossessionIds, so a
+        // single old sighting kept showing every later unwitnessed move
+        // forever. It must show what this observer last actually perceived,
+        // even once that has gone stale.
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var observer = state.Crew[1];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        observer.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, owner.Id, owner.Name, null, null, state.Elapsed);
+
+        // Unwitnessed by the observer: moved to a hiding spot after the sighting.
+        possession.CurrentHolderId = null;
+        possession.HiddenAtRoomId = "storage";
+        possession.HiddenAtFixtureLabel = "Storage Crate";
+
+        var prompt = NpcPromptBuilder.Build(observer, state);
+
+        Assert.Contains($"{possession.Id}: {possession.Name} ({possession.Kind}), belongs to {owner.Name} — held by {owner.Name}", prompt);
+        Assert.DoesNotContain("hidden in storage", prompt, StringComparison.OrdinalIgnoreCase);
     }
 }

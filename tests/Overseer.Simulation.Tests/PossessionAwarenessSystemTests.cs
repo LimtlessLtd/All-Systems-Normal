@@ -19,11 +19,11 @@ public sealed class PossessionAwarenessSystemTests
         var possession = state.Possessions.First(p => p.OwnerId == holder.Id);
         observer.CurrentRoomId = holder.CurrentRoomId;
 
-        Assert.DoesNotContain(possession.Id, observer.KnownPossessionIds);
+        Assert.DoesNotContain(possession.Id, observer.KnownPossessions);
 
         new PossessionAwarenessSystem().Tick(state);
 
-        Assert.Contains(possession.Id, observer.KnownPossessionIds);
+        Assert.Contains(possession.Id, observer.KnownPossessions);
     }
 
     [Fact]
@@ -38,7 +38,7 @@ public sealed class PossessionAwarenessSystemTests
 
         new PossessionAwarenessSystem().Tick(state);
 
-        Assert.DoesNotContain(possession.Id, observer.KnownPossessionIds);
+        Assert.DoesNotContain(possession.Id, observer.KnownPossessions);
     }
 
     [Fact]
@@ -54,6 +54,30 @@ public sealed class PossessionAwarenessSystemTests
 
         new PossessionAwarenessSystem().Tick(state);
 
-        Assert.DoesNotContain(possession.Id, observer.KnownPossessionIds);
+        Assert.DoesNotContain(possession.Id, observer.KnownPossessions);
+    }
+
+    [Fact]
+    public void ASightingRefreshesEveryTickWhileStillPerceivable_RatherThanFreezingAtTheFirstObservation()
+    {
+        // Regression: the awareness grant used to skip anyone already in
+        // KnownPossessionIds, so a co-located observer's belief silently
+        // froze at whatever they first saw and never updated again even
+        // while still standing right there watching it change hands.
+        var state = FacilitySeeder.CreateDefault();
+        var firstHolder = state.Crew[0];
+        var secondHolder = state.Crew[1];
+        var observer = state.Crew[2];
+        var possession = state.Possessions.First(p => p.OwnerId == firstHolder.Id);
+        observer.CurrentRoomId = firstHolder.CurrentRoomId;
+        secondHolder.CurrentRoomId = firstHolder.CurrentRoomId;
+
+        new PossessionAwarenessSystem().Tick(state);
+        Assert.Equal(firstHolder.Id, observer.KnownPossessions[possession.Id].HolderId);
+
+        possession.CurrentHolderId = secondHolder.Id;
+        new PossessionAwarenessSystem().Tick(state);
+
+        Assert.Equal(secondHolder.Id, observer.KnownPossessions[possession.Id].HolderId);
     }
 }

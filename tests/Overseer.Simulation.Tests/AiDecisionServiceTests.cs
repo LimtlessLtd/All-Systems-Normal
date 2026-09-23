@@ -949,7 +949,8 @@ public sealed class AiDecisionServiceTests
         var actor = state.Crew.Single(npc => npc.Name == "Sarah Chen");
         var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
         actor.CurrentRoomId = owner.CurrentRoomId;
-        actor.KnownPossessionIds.Add(possession.Id);
+        actor.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, owner.Id, owner.Name, null, null, state.Elapsed);
 
         using var client = new StubChatClient($$"""
             {
@@ -977,7 +978,7 @@ public sealed class AiDecisionServiceTests
         var actor = state.Crew.Single(npc => npc.Name == "Sarah Chen");
         var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
         actor.CurrentRoomId = owner.CurrentRoomId;
-        Assert.DoesNotContain(possession.Id, actor.KnownPossessionIds);
+        Assert.DoesNotContain(possession.Id, actor.KnownPossessions);
 
         using var client = new StubChatClient($$"""
             {

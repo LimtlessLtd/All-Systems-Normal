@@ -37,7 +37,7 @@ public sealed class PersonalPossessionSeedingTests
         {
             var owned = state.Possessions.Where(p => p.OwnerId == npc.Id);
 
-            Assert.All(owned, possession => Assert.Contains(possession.Id, npc.KnownPossessionIds));
+            Assert.All(owned, possession => Assert.Contains(possession.Id, npc.KnownPossessions));
         }
     }
 
@@ -51,7 +51,7 @@ public sealed class PersonalPossessionSeedingTests
         {
             var othersPossessions = state.Possessions.Where(p => p.OwnerId != npc.Id);
 
-            Assert.All(othersPossessions, possession => Assert.DoesNotContain(possession.Id, npc.KnownPossessionIds));
+            Assert.All(othersPossessions, possession => Assert.DoesNotContain(possession.Id, npc.KnownPossessions));
         }
     }
 

@@ -281,22 +281,22 @@ public static class NpcPromptBuilder
 
         // Other people's possessions you happen to know about — witnessed
         // someone holding, hiding, borrowing or stealing them. Never every
-        // possession in the station; only what this person has perceived.
+        // possession in the station; only what this person last actually
+        // perceived, which may since be stale (they don't know that).
         var otherKnownPossessions = state.Possessions
-            .Where(possession =>
-                possession.OwnerId != npc.Id
-                && !possession.IsDestroyed
-                && npc.KnownPossessionIds.Contains(possession.Id))
-            .Select(possession =>
+            .Where(possession => possession.OwnerId != npc.Id && !possession.IsDestroyed)
+            .Select(possession => npc.KnownPossessions.TryGetValue(possession.Id, out var sighting)
+                ? (possession, sighting)
+                : ((PersonalPossession, PossessionSighting)?)null)
+            .Where(pair => pair is not null)
+            .Select(pair =>
             {
-                var holderName = possession.CurrentHolderId is { } holderId
-                    ? state.Crew.FirstOrDefault(other => other.Id == holderId)?.Name
-                    : null;
-                var status = holderName is not null
-                    ? holderName == npc.Name ? "with you" : $"held by {holderName}"
-                    : possession.HiddenAtFixtureLabel is not null
-                        ? $"hidden in {possession.HiddenAtRoomId} ({possession.HiddenAtFixtureLabel})"
-                        : $"hidden in {possession.HiddenAtRoomId}";
+                var (possession, sighting) = pair!.Value;
+                var status = sighting.HolderName is not null
+                    ? sighting.HolderName == npc.Name ? "with you" : $"held by {sighting.HolderName}"
+                    : sighting.HiddenAtFixtureLabel is not null
+                        ? $"hidden in {sighting.HiddenAtRoomId} ({sighting.HiddenAtFixtureLabel})"
+                        : $"hidden in {sighting.HiddenAtRoomId}";
                 return $"- {possession.Id}: {possession.Name} ({possession.Kind}), belongs to {(state.Crew.FirstOrDefault(other => other.Id == possession.OwnerId)?.Name ?? "someone else")} — {status}";
             })
             .ToArray();

@@ -868,6 +868,8 @@ public sealed class ActionResolver
             state.Elapsed,
             0.45));
 
+        NotifyPossessionWitnesses(state, npc, null, possession, "hides", "someone hide something");
+
         message = $"{npc.Name} tucks {possession.Name} away.";
         Log(state, message);
         return true;
@@ -894,6 +896,8 @@ public sealed class ActionResolver
             state.Elapsed,
             0.35));
 
+        NotifyPossessionWitnesses(state, npc, null, possession, "retrieves", "someone retrieve something");
+
         message = $"{npc.Name} retrieves {possession.Name}.";
         Log(state, message);
         return true;
@@ -913,7 +917,24 @@ public sealed class ActionResolver
             : state.Possessions.FirstOrDefault(candidate =>
                 candidate.Id.Equals(possessionId, StringComparison.OrdinalIgnoreCase)
                 && !candidate.IsDestroyed
-                && npc.KnownPossessionIds.Contains(candidate.Id));
+                && npc.KnownPossessions.ContainsKey(candidate.Id));
+
+    /// <summary>
+    /// This observer's own last-actually-perceived state of a possession
+    /// they know about, exactly as ground truth stands right now — used only
+    /// once the possession's live current fields have already been updated
+    /// to reflect an act this observer directly took part in or witnessed.
+    /// </summary>
+    private static PossessionSighting CurrentSighting(GameState state, PersonalPossession possession) =>
+        new(
+            possession.Id,
+            possession.CurrentHolderId,
+            possession.CurrentHolderId is { } holderId
+                ? state.Crew.FirstOrDefault(other => other.Id == holderId)?.Name
+                : null,
+            possession.HiddenAtRoomId,
+            possession.HiddenAtFixtureLabel,
+            state.Elapsed);
 
     private static bool TryBorrowPossession(GameState state, Npc npc, NpcAction action, out string message)
     {
@@ -948,6 +969,10 @@ public sealed class ActionResolver
 
         npc.Memories.Add(new Memory($"{holder.Name} lent me {possession.Name}.", state.Elapsed, 0.3));
         holder.Memories.Add(new Memory($"I lent {possession.Name} to {npc.Name}.", state.Elapsed, 0.3));
+
+        var sighting = CurrentSighting(state, possession);
+        npc.KnownPossessions[possession.Id] = sighting;
+        holder.KnownPossessions[possession.Id] = sighting;
         NotifyPossessionWitnesses(state, npc, holder, possession, "borrows", "someone lend something");
 
         message = $"{holder.Name} lends {possession.Name} to {npc.Name}.";
@@ -964,6 +989,10 @@ public sealed class ActionResolver
             return false;
         }
 
+        var believedHiddenHere = npc.KnownPossessions.TryGetValue(possession.Id, out var belief)
+            && belief.HiddenAtRoomId is not null
+            && belief.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase);
+
         var holder = possession.CurrentHolderId is { } holderId && holderId != npc.Id
             ? state.Crew.FirstOrDefault(other =>
                 other.Id == holderId
@@ -972,7 +1001,12 @@ public sealed class ActionResolver
                 && other.CurrentRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
             : null;
 
+        // A hiding spot can only be stolen from by someone who themself
+        // actually believes it is here (witnessed the hide, never a live
+        // coincidence they never learned about) — and it must still
+        // genuinely be there.
         var fromHiddenStash = holder is null
+            && believedHiddenHere
             && possession.HiddenAtRoomId is not null
             && possession.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase);
 
@@ -1006,6 +1040,9 @@ public sealed class ActionResolver
             holder.NeedsMindReconsideration = true;
         }
 
+        var stolenSighting = CurrentSighting(state, possession);
+        npc.KnownPossessions[possession.Id] = stolenSighting;
+        if (holder is not null) holder.KnownPossessions[possession.Id] = stolenSighting;
         NotifyPossessionWitnesses(state, npc, holder, possession, "takes", "someone take something");
 
         message = holder is null
@@ -1036,7 +1073,7 @@ public sealed class ActionResolver
                      && (directlyInvolved is null || candidate.Id != directlyInvolved.Id)
                      && candidate.CurrentRoomId.Equals(actor.CurrentRoomId, StringComparison.OrdinalIgnoreCase)))
         {
-            witness.KnownPossessionIds.Add(possession.Id);
+            witness.KnownPossessions[possession.Id] = CurrentSighting(state, possession);
 
             if (!PerceptionSystem.CanMakeOut(state, witness, actor))
             {
