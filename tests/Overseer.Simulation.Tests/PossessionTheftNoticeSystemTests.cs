@@ -11,8 +11,12 @@ namespace Overseer.Simulation.Tests;
 public sealed class PossessionTheftNoticeSystemTests
 {
     [Fact]
-    public void OwnerGetsAOneTimeMemoryWhenAHiddenPossessionIsStolenWhileTheyAreAbsent()
+    public void OwnerGetsAOneTimeMemoryWhenAHiddenPossessionIsStolenWhileTheyAreAbsentWithNoCulpritNamed()
     {
+        // The owner was genuinely absent and has no sighting of their own
+        // establishing who did it, so the realization memory must not name
+        // the thief — naming them from live global state would be
+        // omniscient knowledge nobody actually gave the owner.
         var state = FacilitySeeder.CreateDefault();
         var owner = state.Crew[0];
         var thief = state.Crew[1];
@@ -24,10 +28,36 @@ public sealed class PossessionTheftNoticeSystemTests
 
         Assert.Contains(
             owner.Memories,
-            memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal)
-                && memory.Description.Contains(thief.Name, StringComparison.Ordinal));
+            memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            owner.Memories,
+            memory => memory.Description.Contains(thief.Name, StringComparison.Ordinal));
         Assert.True(possession.OwnerAwareOfCurrentState);
         Assert.True(owner.NeedsMindReconsideration);
+    }
+
+    [Fact]
+    public void OwnerNamesTheCulpritOnlyWhenTheirOwnSightingIndependentlyIdentifiesTheCurrentHolder()
+    {
+        // If the owner's own belief (from ambient perception or witnessing a
+        // later act) already places this exact person as the current
+        // holder, that is genuine observer-specific evidence, so the
+        // realization memory may name them.
+        var state = FacilitySeeder.CreateDefault();
+        var owner = state.Crew[0];
+        var thief = state.Crew[1];
+        var possession = state.Possessions.First(p => p.OwnerId == owner.Id);
+        possession.CurrentHolderId = thief.Id;
+        possession.OwnerAwareOfCurrentState = false;
+        owner.KnownPossessions[possession.Id] = new PossessionSighting(
+            possession.Id, thief.Id, thief.Name, null, null, state.Elapsed);
+
+        new PossessionTheftNoticeSystem().Tick(state);
+
+        Assert.Contains(
+            owner.Memories,
+            memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal)
+                && memory.Description.Contains(thief.Name, StringComparison.Ordinal));
     }
 
     [Fact]

@@ -26,14 +26,27 @@ public sealed class PossessionTheftNoticeSystem
             if (owner is null)
                 continue;
 
-            var other = state.Crew.FirstOrDefault(npc => npc.Id == possession.CurrentHolderId);
+            // The owner never omnisciently learns who did this from live
+            // global state — only their own prior sighting counts as
+            // evidence. If they independently witnessed (or were told of) a
+            // sighting that still matches who currently holds it, name that
+            // person; otherwise this is exactly the "nobody told them
+            // anything" case, so the memory states only that the item is
+            // missing/gone.
+            var identifiedCulprit =
+                owner.KnownPossessions.TryGetValue(possession.Id, out var belief)
+                && belief.HolderId is not null
+                && belief.HolderId == possession.CurrentHolderId
+                    ? state.Crew.FirstOrDefault(npc => npc.Id == belief.HolderId)
+                    : null;
+
             owner.Memories.Add(new Memory(
                 possession.IsDestroyed
-                    ? other is not null
-                        ? $"I noticed {possession.Name} is gone — {other.Name} must have destroyed it."
+                    ? identifiedCulprit is not null
+                        ? $"I noticed {possession.Name} is gone — {identifiedCulprit.Name} must have destroyed it."
                         : $"I noticed {possession.Name} is gone."
-                    : other is not null
-                        ? $"I noticed {possession.Name} is missing from where I hid it — {other.Name} must have taken it."
+                    : identifiedCulprit is not null
+                        ? $"I noticed {possession.Name} is missing from where I hid it — {identifiedCulprit.Name} must have taken it."
                         : $"I noticed {possession.Name} is missing from where I hid it.",
                 state.Elapsed,
                 0.5));

@@ -116,10 +116,15 @@ public sealed class PersonalPossessionDestructionTests
 
         new PossessionTheftNoticeSystem().Tick(state);
 
+        // The owner was genuinely absent (in "control" while this happened
+        // in "storage") and has no sighting of their own identifying who
+        // did it, so the realization memory must not name the actor.
         Assert.Contains(
             owner.Memories,
-            memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal)
-                && memory.Description.Contains(actor.Name, StringComparison.Ordinal));
+            memory => memory.Description.Contains(possession.Name, StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            owner.Memories,
+            memory => memory.Description.Contains(actor.Name, StringComparison.Ordinal));
         Assert.True(possession.OwnerAwareOfCurrentState);
     }
 
