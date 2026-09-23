@@ -172,6 +172,114 @@ public sealed class PactCoordinationSystemTests
     }
 
     [Fact]
+    public void Fulfill_GivesACoLocatedWitnessAGossipableMemory()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var promisor = state.Crew[0];
+        var promisee = state.Crew[1];
+        var witness = state.Crew[2];
+        witness.CurrentRoomId = promisor.CurrentRoomId;
+        Assert.True(CrewPactSystem.TryCreate(
+            state, promisor.Id, promisee.Id, CrewPactKind.Other,
+            "I'll cover your next shift.", null, null, out var pact, out _));
+
+        promisor.CurrentAction = new NpcAction(
+            ActionKind.FulfillPact,
+            pact!.Id,
+            "I said I would, so I will.");
+
+        new PactCoordinationSystem().Tick(state);
+
+        Assert.Contains(witness.Memories, memory =>
+            memory.Description == $"Witnessed {promisor.Name} keep their promise to {promisee.Name}: {pact.PromiseText}");
+        // The promisee themselves already gets a direct memory; they are not a "witness".
+        Assert.DoesNotContain(promisee.Memories, memory => memory.Description.StartsWith("Witnessed", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Break_GivesACoLocatedWitnessAGossipableMemory()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var promisor = state.Crew[0];
+        var promisee = state.Crew[1];
+        var witness = state.Crew[2];
+        witness.CurrentRoomId = promisor.CurrentRoomId;
+        Assert.True(CrewPactSystem.TryCreate(
+            state, promisor.Id, promisee.Id, CrewPactKind.Other,
+            "I'll cover your next shift.", null, null, out var pact, out _));
+
+        promisor.CurrentAction = new NpcAction(
+            ActionKind.BreakPact,
+            pact!.Id,
+            "Something more important came up.");
+
+        new PactCoordinationSystem().Tick(state);
+
+        Assert.Contains(witness.Memories, memory =>
+            memory.Description == $"Witnessed {promisor.Name} break their promise to {promisee.Name}: {pact.PromiseText}");
+    }
+
+    [Fact]
+    public void Fulfill_WitnessInTheDarkCannotIdentifyThePromisor()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var promisor = state.Crew[0];
+        var promisee = state.Crew[1];
+        var witness = state.Crew[2];
+
+        // Sight is measured in station map units; use the widest compartment so
+        // a mid-range (beyond dark sight, inside lit sight) separation fits.
+        var room = state.Facility.Rooms.Values
+            .OrderByDescending(candidate => candidate.MapWidth)
+            .ThenBy(candidate => candidate.Id, StringComparer.Ordinal)
+            .First();
+        promisor.CurrentRoomId = room.Id;
+        promisor.PositionX = 10;
+        promisor.PositionY = 50;
+        witness.CurrentRoomId = room.Id;
+        witness.PositionY = 50;
+        witness.PositionX = promisor.PositionX + (12 / room.MapWidth * 100);
+        Assert.True(witness.PositionX < 95, $"{room.Id} is too narrow for this separation.");
+        room.LightsOn = false;
+        Assert.True(CrewPactSystem.TryCreate(
+            state, promisor.Id, promisee.Id, CrewPactKind.Other,
+            "I'll cover your next shift.", null, null, out var pact, out _));
+
+        promisor.CurrentAction = new NpcAction(
+            ActionKind.FulfillPact,
+            pact!.Id,
+            "I said I would, so I will.");
+
+        new PactCoordinationSystem().Tick(state);
+
+        Assert.Contains(witness.Memories, memory =>
+            memory.Description == $"Overheard someone keep a promise to {promisee.Name}: {pact.PromiseText}");
+        Assert.DoesNotContain(witness.Memories, memory => memory.Description.Contains(promisor.Name, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Fulfill_DoesNotGiveAMemoryToCrewInAnotherRoom()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var promisor = state.Crew[0];
+        var promisee = state.Crew[1];
+        var elsewhere = state.Crew[2];
+        elsewhere.CurrentRoomId = state.Facility.Rooms.Keys.First(id => id != promisor.CurrentRoomId);
+        Assert.True(CrewPactSystem.TryCreate(
+            state, promisor.Id, promisee.Id, CrewPactKind.Other,
+            "I'll cover your next shift.", null, null, out var pact, out _));
+
+        promisor.CurrentAction = new NpcAction(
+            ActionKind.FulfillPact,
+            pact!.Id,
+            "I said I would, so I will.");
+
+        new PactCoordinationSystem().Tick(state);
+
+        Assert.Empty(elsewhere.Memories);
+    }
+
+    [Fact]
     public void PendingProposal_ExpiresAfterFifteenMinutesUnanswered()
     {
         var state = FacilitySeeder.CreateDefault();
