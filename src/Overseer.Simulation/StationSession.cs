@@ -56,6 +56,7 @@ public abstract class StationSession
     private readonly ConversationPacingSystem _conversationPacing = new();
     private readonly MemoryRetentionSystem _memoryRetention = new();
     private readonly FearConditioningSystem _fearConditioning = new();
+    private readonly PanicAlertSystem _panicAlert = new();
     private readonly SimulationClock _clock = new();
     private readonly List<StationAlert> _recentAlerts = [];
     private readonly HashSet<string> _activeAlertKeys = new(StringComparer.Ordinal);
@@ -828,6 +829,11 @@ public abstract class StationSession
         _planExecution.Tick(State);
 
         await ThinkAsync(cancellationToken);
+
+        // Reads the intent whichever mind just decided, before movement
+        // resolves it, so a fresh flee-the-danger decision is what gets
+        // heard — not an NPC already partway out the door.
+        _panicAlert.Tick(State);
 
         _intentExecution.Tick(State);
         _investigations.Tick(State);
