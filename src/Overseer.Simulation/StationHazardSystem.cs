@@ -346,12 +346,47 @@ public sealed class StationHazardSystem
                 room.OxygenPercent = Math.Max(12, room.OxygenPercent - 1.8);
                 message = $"{npc.Name} vents atmosphere from {room.Name}; smoke and fire fall, but pressure drops.";
                 Log(state, message);
+                RecordVentWitnesses(state, npc, room);
                 return true;
             }
 
             default:
                 message = "That is not a deterministic hazard response affordance.";
                 return false;
+        }
+    }
+
+    // Owner idea #16: venting with other people still inside is a decision
+    // others can later hold against (or credit to) the actor. Only the people
+    // in the compartment perceive it.
+    private static void RecordVentWitnesses(GameState state, Npc actor, Room room)
+    {
+        var others = state.Crew
+            .Where(other => other.IsAlive
+                && other.IsPresent
+                && other.Id != actor.Id
+                && other.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (others.Count == 0)
+            return;
+
+        foreach (var witness in others)
+        {
+            if (!PerceptionSystem.CanMakeOut(state, witness, actor))
+                continue;
+
+            var alsoInside = others
+                .Where(other => other.Id != witness.Id)
+                .Select(other => other.Name)
+                .ToArray();
+            var whoWasInside = alsoInside.Length == 0
+                ? "I was"
+                : $"I and {string.Join(" and ", alsoInside)} were";
+            witness.Memories.Add(new Memory(
+                $"Witnessed {actor.Name} vent {room.Name} while {whoWasInside} still inside.",
+                state.Elapsed,
+                0.7,
+                MoralActorName: actor.Name));
         }
     }
 

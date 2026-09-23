@@ -196,7 +196,8 @@ public sealed class PactCoordinationSystem
                     ? $"Witnessed {promisor.Name} keep their promise to {promiseeName}: {pact.PromiseText}"
                     : $"Witnessed {promisor.Name} break their promise to {promiseeName}: {pact.PromiseText}",
                 state.Elapsed,
-                0.6));
+                0.6,
+                MoralActorName: promisor.Name));
         }
     }
 

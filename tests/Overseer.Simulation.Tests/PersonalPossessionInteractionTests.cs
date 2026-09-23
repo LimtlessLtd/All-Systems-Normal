@@ -555,7 +555,8 @@ public sealed class PersonalPossessionInteractionTests
         Assert.Contains(possession.Id, witness.KnownPossessions);
         Assert.Contains(
             witness.Memories,
-            memory => memory.Description == $"Witnessed {actor.Name} takes {possession.Name} from {owner.Name}.");
+            memory => memory.Description == $"Witnessed {actor.Name} takes {possession.Name} from {owner.Name}."
+                && memory.MoralActorName == actor.Name);
     }
 
     [Fact]

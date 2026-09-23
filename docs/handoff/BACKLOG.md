@@ -131,7 +131,11 @@ One batch, 20 entries, from the owner's 2026-09-22 22:17 BST message in `#new-id
 - Idea: "'You vented that compartment while Priya was still inside.' Witnessed decisions become persistent moral memories affecting relationships and future cooperation."
 - Outcome: a witnessed harmful decision by one crew member toward another becomes a persistent moral memory affecting the witness's relationship/trust toward the actor, using the existing witnessed-evidence pipeline.
 - Size: large (slices: tag certain existing witnessed events as morally salient; relationship-delta wiring on witnessing)
-- Status: ready
+- Status: **in progress** — slice 1 shipped: `Memory.MoralActorName` tags whose decision a witnessed memory records (witnessed attack, theft/destruction of a possession, a broken or kept promise, and a new witness memory for venting a compartment while other crew are still inside). `NpcPromptBuilder`'s "OTHER PEOPLE'S DECISIONS YOU WITNESSED" block lists the latest five for cognition to judge; C# never labels them right or wrong.
+
+  Remaining slices:
+  1. Tag further harmful decisions as they become witnessable, e.g. `SealHazardRoom`/`LockDoor` closing a hatch on someone still inside a hazardous compartment (today sealing is resolved from inside the room, so there is no clean "trapped someone else" case to tag yet).
+  2. Relationship consequence: only the witnessed attack applies a deterministic trust/resentment delta today. Decide whether other tagged decisions should too, or whether cognition's own responses (`ReportConcern`, refusing to cooperate, arguing) are the intended consequence. A fixed delta would be C# deciding the moral conclusion, so it probably belongs only where nearly everyone would react the same way.
 
 ### 17. Bystander behaviour during fights
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790111822683539 (2026-09-22)

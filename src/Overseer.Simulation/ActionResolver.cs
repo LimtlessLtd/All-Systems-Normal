@@ -1137,7 +1137,7 @@ public sealed class ActionResolver
         var stolenSighting = CurrentSighting(state, possession);
         npc.KnownPossessions[possession.Id] = stolenSighting;
         if (holder is not null) holder.KnownPossessions[possession.Id] = stolenSighting;
-        NotifyPossessionWitnesses(state, npc, holder, possession, "takes", "someone take something");
+        NotifyPossessionWitnesses(state, npc, holder, possession, "takes", "someone take something", isMorallyCharged: true);
 
         message = holder is null
             ? $"{npc.Name} takes {possession.Name} from its hiding place."
@@ -1224,7 +1224,7 @@ public sealed class ActionResolver
             possession.OwnerAwareOfCurrentState = false;
         }
 
-        NotifyPossessionWitnesses(state, npc, holder, possession, "destroys", "someone destroy something");
+        NotifyPossessionWitnesses(state, npc, holder, possession, "destroys", "someone destroy something", isMorallyCharged: true);
 
         message = $"{npc.Name} destroys {possession.Name}.";
         Log(state, message);
@@ -1244,7 +1244,8 @@ public sealed class ActionResolver
         PersonalPossession possession,
         string verb,
         string unattributedGerundPhrase,
-        bool isSensitive = false)
+        bool isSensitive = false,
+        bool isMorallyCharged = false)
     {
         foreach (var witness in state.Crew.Where(candidate =>
                      candidate.IsAlive
@@ -1271,7 +1272,8 @@ public sealed class ActionResolver
                     : $"Witnessed {actor.Name} {verb} {possession.Name} from {directlyInvolved.Name}.",
                 state.Elapsed,
                 0.35,
-                IsSensitive: isSensitive));
+                IsSensitive: isSensitive,
+                MoralActorName: isMorallyCharged ? actor.Name : null));
         }
     }
 

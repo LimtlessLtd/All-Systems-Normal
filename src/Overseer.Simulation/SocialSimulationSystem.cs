@@ -593,7 +593,8 @@ public sealed class SocialSimulationSystem
             witness.Memories.Add(new Memory(
                 $"Witnessed {aggressor.Name} attack {target.Name}.",
                 state.Elapsed,
-                0.92));
+                0.92,
+                MoralActorName: aggressor.Name));
 
             SetImmediateBubble(state, witness, "What the hell?!", NpcBubbleKind.Alert, 3);
 
