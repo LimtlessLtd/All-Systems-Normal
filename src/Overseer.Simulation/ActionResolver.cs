@@ -730,9 +730,46 @@ public sealed class ActionResolver
 
         npc.RoutineUntil = TimeSpan.Zero;
         npc.CurrentAction = action with { TargetId = device.Id };
+
+        // Owner idea #12: the physical act is observable evidence, never an
+        // inferred motive. The actor remembers what they did; only people who
+        // can actually make them out in the compartment remember who did it.
+        npc.Memories.Add(new Memory(
+            $"I physically disconnected {device.Label}.",
+            state.Elapsed,
+            0.35));
+        NotifyPhysicalInteractionWitnesses(
+            state,
+            npc,
+            device,
+            $"physically disconnect {device.Label}");
+
         message = $"{npc.Name} physically disconnects {device.Label}.";
         Log(state, message);
         return true;
+    }
+
+    private static void NotifyPhysicalInteractionWitnesses(
+        GameState state,
+        Npc actor,
+        StationDevice device,
+        string observedAct)
+    {
+        foreach (var witness in state.Crew.Where(candidate =>
+                     candidate.IsAlive
+                     && candidate.IsPresent
+                     && candidate.Id != actor.Id
+                     && candidate.CurrentRoomId.Equals(
+                         actor.CurrentRoomId,
+                         StringComparison.OrdinalIgnoreCase)
+                     && PerceptionSystem.CanMakeOut(state, candidate, actor)))
+        {
+            witness.Memories.Add(new Memory(
+                $"Witnessed {actor.Name} {observedAct}.",
+                state.Elapsed,
+                0.4));
+            witness.NeedsMindReconsideration = true;
+        }
     }
 
     private static bool TryRestoreSystem(
