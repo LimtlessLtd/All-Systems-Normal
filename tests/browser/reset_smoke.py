@@ -37,7 +37,7 @@ class FakeOllama(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
 
-def request(method: str, url: str, payload=None):
+def request(method: str, url: str, payload=None, timeout=10):
     data = None if payload is None else json.dumps(payload).encode()
     req = urllib.request.Request(
         url,
@@ -45,7 +45,7 @@ def request(method: str, url: str, payload=None):
         method=method,
         headers={"Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=10) as response:
+    with urllib.request.urlopen(req, timeout=timeout) as response:
         raw = response.read()
         return json.loads(raw) if raw else {}
 
@@ -118,7 +118,7 @@ def main():
                     },
                 }
             }
-        })
+        }, timeout=30)
         session_id = created["value"]["sessionId"]
         base = f"{WEBDRIVER}/session/{session_id}"
         request("POST", base + "/url", {"url": APP_URL})
