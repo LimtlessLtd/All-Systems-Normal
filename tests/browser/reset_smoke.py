@@ -125,6 +125,14 @@ def main():
 
         # Owner #99: validate the actual browser cascade, not just source text.
         # Reuse a real rendered room so Blazor's CSS-isolation attribute remains present.
+        wait_until(
+            lambda: request("POST", base + "/execute/sync", {
+                "script": "return !!document.querySelector('.station-authority-layer .room-node[data-room-id]');",
+                "args": [],
+            }).get("value"),
+            timeout=15,
+            message="rendered station room",
+        )
         fire_style = request("POST", base + "/execute/sync", {
             "script": """
                 const room = document.querySelector('.station-authority-layer .room-node[data-room-id]');
