@@ -83,7 +83,7 @@ public sealed class OverseerCommsSystem
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (state.ScenarioStatus != ScenarioStatus.Running
+        if (!state.IsSimulationLive
             || string.IsNullOrWhiteSpace(roomId)
             || !state.Facility.Rooms.TryGetValue(roomId, out var room))
         {
@@ -116,7 +116,7 @@ public sealed class OverseerCommsSystem
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (state.ScenarioStatus != ScenarioStatus.Running)
+        if (!state.IsSimulationLive)
         {
             return;
         }

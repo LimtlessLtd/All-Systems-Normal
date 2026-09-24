@@ -28,7 +28,7 @@ public sealed class FearConditioningSystem
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (state.ScenarioStatus != ScenarioStatus.Running)
+        if (!state.IsSimulationLive)
             return;
 
         foreach (var npc in state.Crew.Where(npc => npc.IsAlive && npc.IsPresent))

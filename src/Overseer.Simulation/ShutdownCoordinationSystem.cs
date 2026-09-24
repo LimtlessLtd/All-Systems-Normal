@@ -13,6 +13,8 @@ public sealed class ShutdownCoordinationSystem
 
     public void Tick(GameState state)
     {
+        // Teams only form while ShutdownSystem can still resolve an isolation;
+        // after a win (#103) it cannot, so recruiting would strand them.
         if (state.ScenarioStatus != ScenarioStatus.Running)
             return;
 

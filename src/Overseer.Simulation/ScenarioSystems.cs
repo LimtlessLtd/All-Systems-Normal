@@ -692,7 +692,7 @@ public sealed class SuspicionSystem
         Door door,
         bool becameRestrictive)
     {
-        if (!becameRestrictive || state.ScenarioStatus != ScenarioStatus.Running)
+        if (!becameRestrictive || !state.IsSimulationLive)
             return;
 
         var observers = state.Crew.Where(n =>
@@ -736,7 +736,7 @@ public sealed class SuspicionSystem
         bool becameDisruptive,
         double weight)
     {
-        if (!becameDisruptive || state.ScenarioStatus != ScenarioStatus.Running)
+        if (!becameDisruptive || !state.IsSimulationLive)
             return;
 
         foreach (var npc in state.Crew.Where(candidate =>
@@ -762,7 +762,7 @@ public sealed class SuspicionSystem
         Room airlock,
         bool opened)
     {
-        if (!opened || state.ScenarioStatus != ScenarioStatus.Running)
+        if (!opened || !state.IsSimulationLive)
             return;
 
         foreach (var npc in state.Crew.Where(npc =>
@@ -785,7 +785,7 @@ public sealed class SuspicionSystem
 
     public void Tick(GameState state)
     {
-        if (state.ScenarioStatus != ScenarioStatus.Running)
+        if (!state.IsSimulationLive)
             return;
 
         DiscoverBodies(state);
@@ -1209,6 +1209,9 @@ public sealed class ShutdownSystem
 {
     public void Tick(GameState state)
     {
+        // Isolating Overseer resolves the run as Failed, so it can only happen
+        // while the outcome is still open: a won run keeps simulating (#103)
+        // but its recorded result is never rewritten.
         if (state.ScenarioStatus != ScenarioStatus.Running)
             return;
 

@@ -43,7 +43,7 @@ public sealed class SuspicionDynamicsSystem
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (state.ScenarioStatus != ScenarioStatus.Running)
+        if (!state.IsSimulationLive)
         {
             return;
         }
@@ -208,7 +208,7 @@ public sealed class SuspicionDynamicsSystem
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (state.ScenarioStatus != ScenarioStatus.Running
+        if (!state.IsSimulationLive
             || !state.Facility.Rooms.ContainsKey(roomId))
         {
             return;

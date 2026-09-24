@@ -1549,6 +1549,17 @@ public sealed class GameState
     public long NextCognitionTelemetrySequence { get; set; } = 1;
     public ScenarioDefinition? Scenario { get; set; }
     public ScenarioStatus ScenarioStatus { get; set; } = ScenarioStatus.Running;
+
+    /// <summary>
+    /// Whether the station itself keeps simulating. A won scenario keeps running
+    /// (owner idea #103): its recorded result, objectives, score and directive
+    /// grading are frozen because the systems that own them still gate on
+    /// <see cref="ScenarioStatus.Running"/>, but crew, physics and Overseer
+    /// controls carry on. Only a failed run (a mandatory directive failed, or
+    /// Overseer was isolated) halts the station.
+    /// </summary>
+    public bool IsSimulationLive => ScenarioStatus != ScenarioStatus.Failed;
+
     public string? ScenarioOutcome { get; set; }
     public LifeSupportState LifeSupport { get; } = new();
     public List<ShutdownMechanism> ShutdownMechanisms { get; } = [];

@@ -19,7 +19,7 @@ public sealed class SuggestionCoordinationSystem
 
     public void Tick(GameState state)
     {
-        if (state.ScenarioStatus != ScenarioStatus.Running)
+        if (!state.IsSimulationLive)
             return;
 
         ExpireOldSuggestions(state);
