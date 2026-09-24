@@ -84,14 +84,8 @@ public static class NpcPromptBuilder
             disabledSystems.Add("life-support");
         }
 
-        var disconnectableLocalDevices = state.Devices.Values
-            .Where(device =>
-                device.Kind != StationSystemKind.Door
-                && device.IsEnabled
-                && !device.IsFailed
-                && device.RoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)
-                && LocalMovementSystem.FixtureForDevice(room, device.Kind) is not null)
-            .OrderBy(device => device.Id, StringComparer.OrdinalIgnoreCase)
+        var disconnectableLocalDevices = PhysicalInteractionRules
+            .AvailableTargets(state, npc, ActionKind.DisconnectDevice)
             .Select(device =>
                 $"- {device.Id} = {device.Label} | {device.Kind} | enabled")
             .ToArray();
