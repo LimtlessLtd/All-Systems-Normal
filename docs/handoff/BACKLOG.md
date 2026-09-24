@@ -685,13 +685,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 
 
 
-### 107. Crew movement can drift opposite the selected route
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790263807139299 (2026-09-24)
-- Idea/bug: a human moved away from the green dotted planned route for roughly three turns before turning around and following it.
-- Outcome: route visualization and authoritative local movement agree at every stage of a committed inter-room move. Diagnose whether the dotted route is stale/predicted incorrectly or whether local collision/fixture steering can increase distance from the next portal for multiple turns; preserve deterministic obstacle avoidance while preventing sustained backwards drift unless the displayed route is recomputed to explain it.
-- Size: medium (reproduction/instrumentation + movement/route-display fix + regression)
-- Status: **ready; health bug**.
-
 ## Deliberate decisions (do not "fix")
 
 - The server tick awaits the Ollama decision, so the station pauses while a mind thinks. The owner wants the model to have time to take in the situation. Do not make cognition non-blocking unless asked.
