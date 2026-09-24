@@ -101,6 +101,8 @@ public sealed class BrowserMindSystem
 
     private void HandleEmergencyReconsiderations(GameState state)
     {
+        HandleDecompressionContainment(state);
+
         foreach (var npc in state.Crew
                      .Where(npc =>
                          npc.IsAlive
@@ -113,7 +115,8 @@ public sealed class BrowserMindSystem
             var currentRoom = state.Facility.Rooms[npc.CurrentRoomId];
 
             if (!CrewEnvironmentSafety.IsDangerous(currentRoom)
-                || IsAlreadyEscapingToSaferRoom(state, npc, currentRoom))
+                || IsAlreadyEscapingToSaferRoom(state, npc, currentRoom)
+                || IsSealingAgainstBreach(state, npc))
             {
                 continue;
             }
@@ -176,9 +179,75 @@ public sealed class BrowserMindSystem
         }
     }
 
+    /// <summary>
+    /// A compartment draining to space is an emergency even before its
+    /// pressure crosses the danger line. Anyone beside an open hatch toward
+    /// the breach shuts it; this runs ahead of the flight logic because every
+    /// room behind an open hatch is draining too, so running further in does
+    /// not help, and sealing does.
+    /// </summary>
+    private static void HandleDecompressionContainment(GameState state)
+    {
+        var vacuumDepths = EnvironmentSystem.FindVacuumDepths(state);
+
+        if (vacuumDepths.Count == 0)
+            return;
+
+        foreach (var npc in state.Crew
+                     .Where(npc =>
+                         npc.IsAlive
+                         && npc.IsPresent
+                         && !npc.IsContainmentBreachInProgress
+                         && vacuumDepths.ContainsKey(npc.CurrentRoomId))
+                     .OrderBy(npc => npc.Name))
+        {
+            if (DecompressionContainmentRules.FindHatchTowardBreach(
+                    state,
+                    npc,
+                    vacuumDepths) is not { } hatch
+                || DecompressionContainmentRules.IsAlreadyClosing(npc, hatch))
+            {
+                continue;
+            }
+
+            npc.Intent = null;
+            npc.Movement = null;
+            npc.RoutineUntil = TimeSpan.Zero;
+
+            SetIntent(
+                state,
+                npc,
+                CloseHatchTowardBreach(state, npc, hatch, 100),
+                NpcBubbleKind.Alert);
+        }
+    }
+
+    private static NpcIntent CloseHatchTowardBreach(
+        GameState state,
+        Npc npc,
+        Door hatch,
+        int urgency) =>
+        Create(
+            state,
+            ActionKind.CloseDoor,
+            hatch.Id,
+            DecompressionContainmentRules.Goal(hatch),
+            DecompressionContainmentRules.Reason(state, npc, hatch),
+            urgency);
+
+    private static bool IsSealingAgainstBreach(GameState state, Npc npc) =>
+        npc.Intent is { Action: ActionKind.CloseDoor }
+        && DecompressionContainmentRules.FindHatchTowardBreach(state, npc) is { } hatch
+        && DecompressionContainmentRules.IsAlreadyClosing(npc, hatch);
+
     private NpcIntent Decide(Npc npc, GameState state)
     {
         var currentRoom = state.Facility.Rooms[npc.CurrentRoomId];
+
+        if (DecompressionContainmentRules.FindHatchTowardBreach(state, npc) is { } hatch)
+        {
+            return CloseHatchTowardBreach(state, npc, hatch, 99);
+        }
 
         if (CrewEnvironmentSafety.IsDangerous(currentRoom))
         {
