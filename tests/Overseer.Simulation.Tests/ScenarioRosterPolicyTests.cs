@@ -215,7 +215,7 @@ public sealed class ScenarioRosterPolicyTests
         Assert.Contains(
             "CampaignProgressionSystem.CreateCrewForScenario(campaign, scenario)",
             client);
-        Assert.Contains("SeededCrewRosterGenerator.Generate(rosterSeed)", client);
+        Assert.Contains("SeededCrewRosterGenerator.Generate(rosterSeed, composition.CrewCount)", client);
         Assert.DoesNotContain(
             "CreateContinuingCrew(Campaign)",
             client);

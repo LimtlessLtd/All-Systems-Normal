@@ -38,6 +38,21 @@ public static class CrewRosterScalingSystem
         return result;
     }
 
+    /// <summary>
+    /// Returns exactly <paramref name="size"/> crew: supplements a short
+    /// generated roster like <see cref="EnsureTargetSize"/>, and keeps only the
+    /// first <paramref name="size"/> members of a longer one so a sampled
+    /// <see cref="RosterComposition"/> is honoured.
+    /// </summary>
+    public static IReadOnlyList<Npc> FitToSize(
+        IReadOnlyList<Npc> supplied,
+        string seedMaterial,
+        int size)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(size);
+        return EnsureTargetSize(supplied, seedMaterial, size).Take(size).ToList();
+    }
+
     public static int StableSeed(string value)
     {
         unchecked

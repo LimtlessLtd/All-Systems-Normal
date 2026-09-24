@@ -30,17 +30,22 @@ public sealed class GameSession(
         }
 
         var scenario = ScenarioCatalog.SecureContinuity;
-        var crew = await CreateCrewForScenarioAsync(scenario, cancellationToken);
+        var (crew, robots) = await CreateCrewForScenarioAsync(scenario, cancellationToken);
         State = FacilitySeeder.CreateDefault(
             crew,
-            stationConstraints: scenario.StationConstraints);
+            stationConstraints: scenario.StationConstraints,
+            robotCount: robots);
         _initialized = true;
     }
 
-    private async Task<IReadOnlyList<Npc>> CreateCrewForScenarioAsync(
+    private async Task<(IReadOnlyList<Npc> Crew, int RobotCount)> CreateCrewForScenarioAsync(
         ScenarioDefinition scenario,
         CancellationToken cancellationToken)
     {
+        // A fresh roster's crew and robot counts come from the uniform roster
+        // contract. A continuing campaign keeps its surviving crew, but every
+        // new station still gets its own robot count.
+        var composition = RosterCompositionRules.Sample(Random.Shared.Next());
         var continuingCrew = CampaignProgressionSystem.CreateCrewForScenario(Campaign, scenario);
 
         IReadOnlyList<Npc> baseCrew;
@@ -51,10 +56,13 @@ public sealed class GameSession(
         else
         {
             var generated = await _crewGenerator.GenerateAsync(cancellationToken);
-            baseCrew = CrewRosterScalingSystem.EnsureTargetSize(generated, scenario.Id);
+            baseCrew = CrewRosterScalingSystem.FitToSize(
+                generated,
+                scenario.Id,
+                composition.CrewCount);
         }
 
-        return PrisonerRosterSystem.Compose(baseCrew, scenario);
+        return (PrisonerRosterSystem.Compose(baseCrew, scenario), composition.RobotCount);
     }
 
     public override async Task ResetAsync(
@@ -64,10 +72,11 @@ public sealed class GameSession(
         _mindCursor = 0;
         Campaign = new CampaignState();
         var scenario = ScenarioCatalog.SecureContinuity;
-        var crew = await CreateCrewForScenarioAsync(scenario, cancellationToken);
+        var (crew, robots) = await CreateCrewForScenarioAsync(scenario, cancellationToken);
         State = FacilitySeeder.CreateDefault(
             crew,
-            stationConstraints: scenario.StationConstraints);
+            stationConstraints: scenario.StationConstraints,
+            robotCount: robots);
         _initialized = true;
     }
 
@@ -79,11 +88,12 @@ public sealed class GameSession(
         _mindCursor = 0;
 
         var scenario = State.Scenario ?? ScenarioCatalog.SecureContinuity;
-        var crew = await CreateCrewForScenarioAsync(scenario, cancellationToken);
+        var (crew, robots) = await CreateCrewForScenarioAsync(scenario, cancellationToken);
         State = FacilitySeeder.CreateDefault(
             crew,
             stationSeed: seed,
-            stationConstraints: scenario.StationConstraints);
+            stationConstraints: scenario.StationConstraints,
+            robotCount: robots);
         ScenarioCatalog.Apply(State, scenario);
         CampaignProgressionSystem.ApplyCarryOver(Campaign, State);
         Campaign.CurrentScenarioId = scenario.Id;
@@ -103,10 +113,11 @@ public sealed class GameSession(
         {
             Campaign = new CampaignState();
             var freshScenario = ScenarioCatalog.SecureContinuity;
-            var freshCrew = await CreateCrewForScenarioAsync(freshScenario, cancellationToken);
+            var (freshCrew, freshRobots) = await CreateCrewForScenarioAsync(freshScenario, cancellationToken);
             State = FacilitySeeder.CreateDefault(
                 freshCrew,
-                stationConstraints: freshScenario.StationConstraints);
+                stationConstraints: freshScenario.StationConstraints,
+                robotCount: freshRobots);
             State.EventLog.Insert(
                 0,
                 "T+00:00: Previous campaign could not continue because no living crew remained; a fresh assignment was started.");
@@ -123,10 +134,11 @@ public sealed class GameSession(
             ?? throw new InvalidOperationException(
                 "Campaign state does not identify a valid scenario roster policy.");
 
-        var crew = await CreateCrewForScenarioAsync(scenario, cancellationToken);
+        var (crew, robots) = await CreateCrewForScenarioAsync(scenario, cancellationToken);
         State = FacilitySeeder.CreateDefault(
             crew,
-            stationConstraints: scenario.StationConstraints);
+            stationConstraints: scenario.StationConstraints,
+            robotCount: robots);
         ScenarioCatalog.Apply(State, scenario);
 
         if (next is null)
@@ -166,10 +178,11 @@ public sealed class GameSession(
             return;
         }
 
-        var crew = await CreateCrewForScenarioAsync(scenario, cancellationToken);
+        var (crew, robots) = await CreateCrewForScenarioAsync(scenario, cancellationToken);
         State = FacilitySeeder.CreateDefault(
             crew,
-            stationConstraints: scenario.StationConstraints);
+            stationConstraints: scenario.StationConstraints,
+            robotCount: robots);
         ScenarioCatalog.Apply(State, scenario);
         CampaignProgressionSystem.ApplyCarryOver(Campaign, State);
         Campaign.CurrentScenarioId = scenario.Id;
@@ -195,10 +208,11 @@ public sealed class GameSession(
             return;
         }
 
-        var crew = await CreateCrewForScenarioAsync(scenario, cancellationToken);
+        var (crew, robots) = await CreateCrewForScenarioAsync(scenario, cancellationToken);
         State = FacilitySeeder.CreateDefault(
             crew,
-            stationConstraints: scenario.StationConstraints);
+            stationConstraints: scenario.StationConstraints,
+            robotCount: robots);
         ScenarioCatalog.Apply(State, scenario);
         _initialized = true;
 
