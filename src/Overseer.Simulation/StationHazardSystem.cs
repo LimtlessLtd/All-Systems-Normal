@@ -546,6 +546,7 @@ public sealed class StationHazardSystem
                          candidate.IsAlive
                          && candidate.IsPresent
                          && !candidate.IsContainmentBreachInProgress
+                         && candidate.Intent?.Action != ActionKind.FightFire
                          && !CrewEnvironmentSafety.IsDangerous(
                              state.Facility.Rooms[candidate.CurrentRoomId]))
                      // Do not filter on the current intent's urgency here.
