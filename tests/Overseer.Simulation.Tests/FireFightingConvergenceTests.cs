@@ -142,4 +142,42 @@ public sealed class FireFightingConvergenceTests
         Assert.NotNull(browserDavid.Intent);
         Assert.Equal(ActionKind.FightFire, browserDavid.Intent!.Action);
     }
+    // Owner report 2026-09-24: a crew member walked into a room, saw a small
+    // fire and walked out. Below the "dangerous" threshold neither ladder had
+    // a branch for a fire in the person's own room (the remote-fire search
+    // skips it), so both minds ignored it.
+    [Fact]
+    public async Task BothLaddersPutOutASmallFireInTheirOwnRoom()
+    {
+        var browserState = FacilitySeeder.CreateDefault();
+        var browserDavid = browserState.Crew.Single(npc => npc.Name == "David Hale");
+        var browserRoom = browserState.Facility.Rooms[browserDavid.CurrentRoomId];
+        FireFrontRules.Ignite(browserRoom, 50, 50, intensity: 5);
+        Assert.False(CrewEnvironmentSafety.IsDangerous(browserRoom));
+        browserDavid.Skills["Engineering"] = 80;
+        browserDavid.Traits.Clear();
+        browserDavid.Intent = null;
+        browserDavid.RoutineUntil = TimeSpan.Zero;
+        foreach (var npc in browserState.Crew)
+        {
+            npc.NeedsMindReconsideration = npc.Id == browserDavid.Id;
+        }
+
+        new BrowserMindSystem().Tick(browserState);
+
+        var fallbackState = FacilitySeeder.CreateDefault();
+        var fallbackDavid = fallbackState.Crew.Single(npc => npc.Name == "David Hale");
+        var fallbackRoom = fallbackState.Facility.Rooms[fallbackDavid.CurrentRoomId];
+        FireFrontRules.Ignite(fallbackRoom, 50, 50, intensity: 5);
+        fallbackDavid.Skills["Engineering"] = 80;
+        fallbackDavid.Traits.Clear();
+
+        var fallbackIntent = await new RuleBasedAiDecisionService().DecideAsync(fallbackDavid, fallbackState);
+
+        Assert.Equal(ActionKind.FightFire, fallbackIntent.Action);
+        Assert.Equal(fallbackRoom.Id, fallbackIntent.TargetId);
+        Assert.NotNull(browserDavid.Intent);
+        Assert.Equal(ActionKind.FightFire, browserDavid.Intent!.Action);
+        Assert.Equal(browserRoom.Id, browserDavid.Intent.TargetId);
+    }
 }

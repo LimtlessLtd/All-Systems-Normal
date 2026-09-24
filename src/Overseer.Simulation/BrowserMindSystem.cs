@@ -345,6 +345,22 @@ public sealed class BrowserMindSystem
                 98);
         }
 
+        // A small fire in this person's own compartment is not yet dangerous,
+        // so neither the branch above nor the remote-fire search (which skips
+        // the current room) covers it. Putting it out while it is small is the
+        // model-citizen response (owner, 2026-09-24).
+        if (currentRoom.FireIntensity > 0
+            && StationHazardSystem.ShouldFightFire(npc, currentRoom))
+        {
+            return Create(
+                state,
+                ActionKind.FightFire,
+                currentRoom.Id,
+                $"Put out the fire in {currentRoom.Name}.",
+                "There is a fire right here and it is still small enough to put out.",
+                95);
+        }
+
         // A viable station fire is an immediate survival emergency. The
         // fallback mind still chooses FightFire; C# only exposes the grounded
         // opportunity and later validates whether committed work may be broken.
