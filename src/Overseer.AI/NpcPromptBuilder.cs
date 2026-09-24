@@ -453,6 +453,16 @@ public static class NpcPromptBuilder
             builder.AppendLine($"CONTAINMENT STATUS: prisoner; danger {npc.PrisonerDangerLevel}; violence bias {npc.PrisonerViolenceBias:0}. This is context, not permission to ignore physical constraints.");
         builder.AppendLine($"CURRENT ROOM: {room.Id} ({room.Name})");
         builder.AppendLine($"ROOM STATE: power {(room.IsPowered ? "on" : "off")}, lights {(room.LightsOn ? "on" : "off")}, oxygen {room.OxygenPercent:0.00}%, CO2 {room.CarbonDioxidePercent:0.00}%, pressure {room.PressureKpa:0.0} kPa, temperature {room.TemperatureC:0.0}C, ventilation {(room.VentilationEnabled ? "open" : "isolated")}, fire {room.FireIntensity:0}%, smoke {room.SmokePercent:0}%");
+        var noiseSources = StationNoiseSystem.Sources(state, room.Id);
+        var noiseLevel = noiseSources.Sum(source => source.Level);
+        if (StationNoiseSystem.IsDisturbing(noiseLevel))
+        {
+            var loudest = noiseSources.Take(3).Select(source =>
+                $"{source.Device.Label} [{source.Device.Id}]"
+                + (source.RoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase) ? string.Empty : $" through the open hatch to {source.RoomId}")
+                + (source.Device.IsDegraded ? $", worn and rattling at {source.Device.Condition:0}% condition" : string.Empty));
+            builder.AppendLine($"NOISE: loud here ({noiseLevel:0}; restful below {StationNoiseSystem.DisturbingAt:0}). Loudest: {string.Join("; ", loudest)}. Sleep or rest in this noise is much less restorative. What, if anything, to do about it is up to you.");
+        }
         builder.AppendLine($"STATION LIFE SUPPORT: {(state.LifeSupport.IsOnline ? "online" : "offline")}, oxygen reserve {state.LifeSupport.OxygenReservePercent:0.0}%, scrubbers {state.LifeSupport.ScrubberEfficiencyPercent:0}%");
         if (SecurityMalwareSystem.HasControllerDiagnostic(npc))
         {

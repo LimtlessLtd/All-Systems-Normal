@@ -488,13 +488,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Size: large (slices: additional gas types + per-room tracking; source events per gas type; filter-type-specific clearing; symptom wiring)
 - Status: ready
 
-### 65. Noise and vibration
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
-- Idea: "Running a damaged pump beside crew quarters could prevent sleep. People might shut it down despite it technically being needed elsewhere."
-- Outcome: a small set of machinery types gets a deterministic noise-level property, raised when damaged/running hard; a room's noise level above threshold degrades existing sleep-quality mechanics for occupants; shutting the machine down is an ordinary existing operator affordance, chosen by the LLM.
-- Size: small (one PR: noise-level property on relevant machinery + sleep-quality penalty in noisy rooms)
-- Status: ready
-
 ### 66. Power quality
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
 - Idea: "Brownouts, surges, overloaded buses and fuse trips. A reactor can produce enough total energy yet still have unstable distribution that makes machinery behave unpredictably."
