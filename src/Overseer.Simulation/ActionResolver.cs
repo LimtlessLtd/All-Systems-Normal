@@ -424,7 +424,7 @@ public sealed class ActionResolver
         return true;
     }
 
-    // Owner idea #90: the galley, or a recreation room/quarters with a meal
+    // Owner idea #90: the galley, or a recreation room/quarters/medical bay with a meal
     // the person carried there from the galley.
     private static bool TryEat(GameState state, Npc npc, NpcAction action, out string message)
     {
@@ -671,37 +671,52 @@ public sealed class ActionResolver
         NpcAction action,
         out string message)
     {
-        if (string.IsNullOrWhiteSpace(action.TargetId)
-            || !state.Devices.TryGetValue(action.TargetId, out var device)
-            || device.Kind == StationSystemKind.Door)
+        var resolution = PhysicalInteractionRules.ResolveTarget(
+            state,
+            npc,
+            action.Kind,
+            action.TargetId);
+
+        if (resolution.Status is PhysicalInteractionTargetStatus.UnsupportedAction
+            or PhysicalInteractionTargetStatus.MissingTarget
+            or PhysicalInteractionTargetStatus.DoorNotAllowed)
         {
             message = "Disconnect target is not a valid station device.";
             return false;
         }
 
-        if (!device.RoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
-            || !state.Facility.Rooms.TryGetValue(device.RoomId, out var room))
+        var device = resolution.Device!;
+
+        if (resolution.Status is PhysicalInteractionTargetStatus.WrongRoom
+            or PhysicalInteractionTargetStatus.MissingRoom)
         {
             message = $"{npc.Name} must physically reach {device.Label} before disconnecting it.";
             return false;
         }
 
-        var fixture = LocalMovementSystem.FixtureForDevice(room, device.Kind);
-        if (fixture is null || !LocalMovementSystem.IsAtInteractionPoint(room, npc, fixture))
+        if (resolution.Status == PhysicalInteractionTargetStatus.MissingHardware)
         {
             message = $"{npc.Name} must physically reach {device.Label}'s local hardware.";
             return false;
         }
 
-        if (device.IsFailed)
+        if (resolution.Status == PhysicalInteractionTargetStatus.Failed)
         {
             message = $"{device.Label} has already failed.";
             return false;
         }
 
-        if (!device.IsEnabled)
+        if (resolution.Status == PhysicalInteractionTargetStatus.Disabled)
         {
             message = $"{device.Label} is already disconnected.";
+            return false;
+        }
+
+        var room = resolution.Room!;
+        var fixture = resolution.Fixture!;
+        if (!LocalMovementSystem.IsAtInteractionPoint(room, npc, fixture))
+        {
+            message = $"{npc.Name} must physically reach {device.Label}'s local hardware.";
             return false;
         }
 
@@ -715,9 +730,46 @@ public sealed class ActionResolver
 
         npc.RoutineUntil = TimeSpan.Zero;
         npc.CurrentAction = action with { TargetId = device.Id };
+
+        // Owner idea #12: the physical act is observable evidence, never an
+        // inferred motive. The actor remembers what they did; only people who
+        // can actually make them out in the compartment remember who did it.
+        npc.Memories.Add(new Memory(
+            $"I physically disconnected {device.Label}.",
+            state.Elapsed,
+            0.35));
+        NotifyPhysicalInteractionWitnesses(
+            state,
+            npc,
+            device,
+            $"physically disconnect {device.Label}");
+
         message = $"{npc.Name} physically disconnects {device.Label}.";
         Log(state, message);
         return true;
+    }
+
+    private static void NotifyPhysicalInteractionWitnesses(
+        GameState state,
+        Npc actor,
+        StationDevice device,
+        string observedAct)
+    {
+        foreach (var witness in state.Crew.Where(candidate =>
+                     candidate.IsAlive
+                     && candidate.IsPresent
+                     && candidate.Id != actor.Id
+                     && candidate.CurrentRoomId.Equals(
+                         actor.CurrentRoomId,
+                         StringComparison.OrdinalIgnoreCase)
+                     && PerceptionSystem.CanMakeOut(state, candidate, actor)))
+        {
+            witness.Memories.Add(new Memory(
+                $"Witnessed {actor.Name} {observedAct}.",
+                state.Elapsed,
+                0.4));
+            witness.NeedsMindReconsideration = true;
+        }
     }
 
     private static bool TryRestoreSystem(

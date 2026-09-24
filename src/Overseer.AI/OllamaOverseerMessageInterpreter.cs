@@ -17,10 +17,12 @@ namespace Overseer.AI;
 /// </summary>
 public sealed class OllamaOverseerMessageInterpreter(
     IChatClient chatClient,
-    RuleBasedOverseerMessageInterpreter fallback) : IOverseerMessageInterpreter
+    RuleBasedOverseerMessageInterpreter fallback,
+    OllamaRuntimeDiagnostics? runtimeDiagnostics = null) : IOverseerMessageInterpreter
 {
     private readonly IChatClient _chatClient = chatClient;
     private readonly RuleBasedOverseerMessageInterpreter _fallback = fallback;
+    private readonly OllamaRuntimeDiagnostics? _runtimeDiagnostics = runtimeDiagnostics;
 
     public async Task<OverseerMessageIntent> InterpretAsync(
         string text,
@@ -40,10 +42,15 @@ public sealed class OllamaOverseerMessageInterpreter(
                 "Empty");
         }
 
+        var prompt = BuildPrompt(text, scope, targetNpcName, state);
+        var sequence = _runtimeDiagnostics?.RecordStarted(
+            "Overseer message interpretation",
+            prompt: prompt);
+
         try
         {
             var response = await _chatClient.GetResponseAsync<OverseerMessageReading>(
-                BuildPrompt(text, scope, targetNpcName, state),
+                prompt,
                 options: new ChatOptions
                 {
                     Temperature = 0.1f,
@@ -51,6 +58,14 @@ public sealed class OllamaOverseerMessageInterpreter(
                 },
                 useJsonSchemaResponseFormat: true,
                 cancellationToken: cancellationToken);
+
+            if (sequence is { } requestSequence)
+            {
+                _runtimeDiagnostics?.RecordResponse(
+                    requestSequence,
+                    "Overseer message interpretation",
+                    response.Text);
+            }
 
             if (!response.TryGetResult(out var reading) || reading is null)
             {
@@ -65,12 +80,16 @@ public sealed class OllamaOverseerMessageInterpreter(
 
             return OverseerMessageValidator.Validate(reading, state, "Ollama");
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException exception)
         {
+            if (sequence is { } requestSequence)
+                _runtimeDiagnostics?.RecordFailure(requestSequence, "Overseer message interpretation", exception);
             throw;
         }
-        catch
+        catch (Exception exception)
         {
+            if (sequence is { } requestSequence)
+                _runtimeDiagnostics?.RecordFailure(requestSequence, "Overseer message interpretation", exception);
             return await _fallback.InterpretAsync(
                 text,
                 scope,

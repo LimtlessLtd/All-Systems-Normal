@@ -29,7 +29,7 @@ public static class CrewAffordanceSystem
         new(ActionKind.Work, "room", "Perform ordinary role work in a suitable room."),
         new(ActionKind.Repair, "room", "Attempt ordinary repair work."),
         new(ActionKind.StandGuard, "room", "Hold position and watch a room or access point."),
-        new(ActionKind.Eat, "optional-dining-room", "Eat when food is available: in the galley, or carry a meal from the galley to a recreation room or crew quarters."),
+        new(ActionKind.Eat, "optional-dining-room", "Eat when food is available: in the galley, or carry a meal from the galley to a recreation room, crew quarters or a free medical bedside."),
         new(ActionKind.Rest, "none", "Rest in crew quarters."),
         new(ActionKind.Sleep, "none", "Sleep in crew quarters."),
         new(ActionKind.Recreate, "optional-activity", "Use recreation facilities: watch TV, play games on the console, read, or just unwind."),
@@ -62,7 +62,10 @@ public static class CrewAffordanceSystem
         new(ActionKind.StealItem, "possession", "Take a possession you know about without asking — from a co-located crew member currently holding it, or from a hiding spot you know about in your current room."),
         new(ActionKind.DestroyItem, "possession", "Destroy a possession — one you currently hold (your own, or one you previously borrowed/stole), one a co-located crew member currently holds, or one hidden in your current room you know about."),
         new(ActionKind.ForceDoor, "adjacent-door", "Defeat a blocked hatch by force or technical bypass."),
-        new(ActionKind.DisconnectDevice, "local-device", "Physically disconnect a non-door station device in your current room. This only changes the machine; why you want to do it is your decision."),
+        new(
+            PhysicalInteractionRules.DisconnectDevice.Action,
+            PhysicalInteractionRules.DisconnectDevice.TargetType,
+            PhysicalInteractionRules.DisconnectDevice.Description),
         new(ActionKind.RestoreSystem, "system", "Restore a disabled station system."),
         new(ActionKind.SecureAirlock, "airlock", "Secure an unsafe exterior airlock."),
         new(ActionKind.RepairDoor, "adjacent-door", "Repair a damaged or bypassed hatch."),
@@ -295,21 +298,17 @@ public static class CrewAffordanceSystem
             return true;
         }
 
-        if (action == ActionKind.DisconnectDevice)
+        if (PhysicalInteractionRules.IsPhysicalInteraction(action))
         {
-            if (string.IsNullOrWhiteSpace(requested)
-                || !state.Devices.TryGetValue(requested, out var device)
-                || device.Kind == StationSystemKind.Door
-                || !device.RoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
-                || !device.IsEnabled
-                || device.IsFailed
-                || !state.Facility.Rooms.TryGetValue(device.RoomId, out var deviceRoom)
-                || LocalMovementSystem.FixtureForDevice(deviceRoom, device.Kind) is null)
-            {
+            var resolution = PhysicalInteractionRules.ResolveTarget(
+                state,
+                npc,
+                action,
+                requested);
+            if (!resolution.IsAvailable)
                 return false;
-            }
 
-            normalizedTarget = device.Id;
+            normalizedTarget = resolution.Device!.Id;
             return true;
         }
 

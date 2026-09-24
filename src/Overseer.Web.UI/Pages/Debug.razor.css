@@ -38,11 +38,14 @@
 .debug-return {
     padding: .55rem .75rem;
     border: 1px solid #62e5d5;
+    background: transparent;
     color: #62e5d5;
     text-decoration: none;
+    font: inherit;
     font-size: .65rem;
     font-weight: 800;
     white-space: nowrap;
+    cursor: pointer;
 }
 
 .debug-summary {

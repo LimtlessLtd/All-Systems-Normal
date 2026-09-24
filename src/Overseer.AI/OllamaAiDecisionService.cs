@@ -9,7 +9,8 @@ namespace Overseer.AI;
 
 public sealed class OllamaAiDecisionService(
     IChatClient chatClient,
-    RuleBasedAiDecisionService fallback) : IAiDecisionService
+    RuleBasedAiDecisionService fallback,
+    OllamaRuntimeDiagnostics? runtimeDiagnostics = null) : IAiDecisionService
 {
     // NpcPromptBuilder emits every action plus every room's atmosphere, which
     // runs close to Ollama's 2048-token default context window; a model would
@@ -24,6 +25,7 @@ public sealed class OllamaAiDecisionService(
 
     private readonly IChatClient _chatClient = chatClient;
     private readonly RuleBasedAiDecisionService _fallback = fallback;
+    private readonly OllamaRuntimeDiagnostics? _runtimeDiagnostics = runtimeDiagnostics;
 
     public async Task<NpcIntent> DecideAsync(
         Npc npc,
@@ -45,6 +47,7 @@ public sealed class OllamaAiDecisionService(
             var attempt = await RequestDecisionAsync(
                 modelPrompt,
                 options,
+                "NPC decision",
                 cancellationToken);
             prompt = attempt.PromptTrace;
             rawResponse = attempt.RawResponse;
@@ -58,6 +61,7 @@ public sealed class OllamaAiDecisionService(
                 var retry = await RequestDecisionAsync(
                     modelPrompt + RetryInstruction,
                     options,
+                    "NPC decision retry",
                     cancellationToken);
                 prompt = retry.PromptTrace;
                 rawResponse = retry.RawResponse;
@@ -103,6 +107,7 @@ public sealed class OllamaAiDecisionService(
     private async Task<(NpcMindDecision? Decision, string PromptTrace, string? RawResponse)> RequestDecisionAsync(
         string modelPrompt,
         ChatOptions options,
+        string operation,
         CancellationToken cancellationToken)
     {
         // Keep the exact prompt that crosses the IChatClient boundary,
@@ -110,23 +115,55 @@ public sealed class OllamaAiDecisionService(
         // can be debugged from /debug without guessing what the model saw.
         var promptTrace = BuildRequestTrace(modelPrompt, options);
 
-        var response = await _chatClient.GetResponseAsync<NpcMindDecision>(
-            modelPrompt,
-            options: options,
-            useJsonSchemaResponseFormat: true,
-            cancellationToken: cancellationToken);
+        // Record before awaiting the provider. Previously a hung/cancelled call
+        // could leave /debug saying "0 Ollama calls" even though cognition had
+        // reached the model boundary. In Development the process-wide trace also
+        // keeps the exact bounded request so a fresh /debug circuit can inspect it.
+        var sequence = _runtimeDiagnostics?.RecordStarted(
+            operation,
+            npcDecision: true,
+            prompt: promptTrace);
 
-        var responseText = response.Text;
-        var rawResponse = BuildRawResponseTrace(
-            response.RawRepresentation,
-            responseText);
-
-        if (!response.TryGetResult(out var decision) || decision is null)
+        try
         {
-            decision = TryParse(responseText);
-        }
+            var response = await _chatClient.GetResponseAsync<NpcMindDecision>(
+                modelPrompt,
+                options: options,
+                useJsonSchemaResponseFormat: true,
+                cancellationToken: cancellationToken);
 
-        return (decision, promptTrace, rawResponse);
+            var responseText = response.Text;
+            var rawResponse = BuildRawResponseTrace(
+                response.RawRepresentation,
+                responseText);
+
+            if (sequence is { } requestSequence)
+            {
+                _runtimeDiagnostics?.RecordResponse(
+                    requestSequence,
+                    operation,
+                    rawResponse);
+            }
+
+            if (!response.TryGetResult(out var decision) || decision is null)
+            {
+                decision = TryParse(responseText);
+            }
+
+            return (decision, promptTrace, rawResponse);
+        }
+        catch (Exception exception)
+        {
+            if (sequence is { } requestSequence)
+            {
+                _runtimeDiagnostics?.RecordFailure(
+                    requestSequence,
+                    operation,
+                    exception);
+            }
+
+            throw;
+        }
     }
 
     private static string BuildRequestTrace(
@@ -241,7 +278,7 @@ public sealed class OllamaAiDecisionService(
         }
         else if (action == ActionKind.Eat)
         {
-            // Owner idea #90: a named recreation room or crew quarters means
+            // Owner idea #90: a named recreation room, crew quarters or medical bay means
             // "carry a meal there"; anything else eats in the galley.
             target = target is not null
                 && state.Facility.Rooms.TryGetValue(target, out var diningRoom)
