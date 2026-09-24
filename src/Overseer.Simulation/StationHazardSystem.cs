@@ -363,7 +363,7 @@ public sealed class StationHazardSystem
                 room.VentilationEnabled = true;
                 message = $"{npc.Name} seals the hull breach in {room.Name}; the air loop can repressurise the compartment.";
                 Log(state, message);
-                AudioCueSystem.Emit(state, AudioCueKind.Positive, roomId: room.Id);
+                AudioCueSystem.Emit(state, AudioCueKind.Important, roomId: room.Id);
                 return true;
             }
 
