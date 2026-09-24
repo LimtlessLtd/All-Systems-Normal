@@ -547,8 +547,14 @@ public sealed class StationHazardSystem
                          && candidate.IsPresent
                          && !candidate.IsContainmentBreachInProgress
                          && !CrewEnvironmentSafety.IsDangerous(
-                             state.Facility.Rooms[candidate.CurrentRoomId])
-                         && (candidate.Intent is null || candidate.Intent.Urgency < 85))
+                             state.Facility.Rooms[candidate.CurrentRoomId]))
+                     // Do not filter on the current intent's urgency here.
+                     // Urgency is a mind hint, not proof that cognition should
+                     // never reconsider. In particular, critical Eat/Sleep
+                     // intents are urgency 90+, while both fallback minds
+                     // deliberately rank a viable remote fire above those
+                     // needs. Nomination only asks the mind to reconsider; it
+                     // still decides the response.
                      // Preserve useful work when an equally viable idle responder exists.
                      // This is only responder nomination for a station event; cognition still
                      // decides whether the nominated person actually wants to fight the fire.
