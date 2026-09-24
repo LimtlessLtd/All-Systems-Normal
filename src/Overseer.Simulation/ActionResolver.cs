@@ -423,7 +423,7 @@ public sealed class ActionResolver
         return true;
     }
 
-    // Owner idea #90: the galley, or a recreation room/quarters with a meal
+    // Owner idea #90: the galley, or a recreation room/quarters/medical bay with a meal
     // the person carried there from the galley.
     private static bool TryEat(GameState state, Npc npc, NpcAction action, out string message)
     {
