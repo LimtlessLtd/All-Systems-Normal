@@ -687,30 +687,52 @@ public static class NpcPromptBuilder
         builder.AppendLine("KNOWN CREW ROSTER / VALID PERSON TARGETS:");
         builder.AppendLine(string.Join(", ", knownPersonTargets));
         builder.AppendLine();
+        // Owner idea #97: an action whose target list is empty for this person
+        // right now is left out, with its target contract, to keep the prompt
+        // inside the model's context. Validation of any action is unchanged.
+        var emptyTargetTypes = new HashSet<string>(StringComparer.Ordinal);
+        if (disconnectableLocalDevices.Length == 0) emptyTargetTypes.Add("local-device");
+        if (disabledSystems.Count == 0) emptyTargetTypes.Add("system");
+        if (!state.Facility.Rooms.Values.Any(candidate =>
+                candidate.Type == RoomType.Airlock
+                && candidate.HasExteriorHatch
+                && AirlockSafetyRules.NeedsCrewSecuring(state, candidate)
+                && AirlockSafetyRules.CanPerceiveSafetyState(state, npc, candidate)))
+            emptyTargetTypes.Add("airlock");
+        if (npc.PendingPactProposal is null) emptyTargetTypes.Add("pact-proposal");
+        if (!CrewPactSystem.ActiveFor(state, npc.Id).Any(pact => pact.PromisorId == npc.Id)) emptyTargetTypes.Add("pact");
+        if (npc.PendingShutdownTeamInvitation is null) emptyTargetTypes.Add("team");
+        if (knownShutdownControls.Length == 0) emptyTargetTypes.Add("shutdown-control");
+        if (visibleRobots.Length == 0 && robotThreats.Length == 0) emptyTargetTypes.Add("robot");
+        if (visibleTurrets.Length == 0 && turretThreats.Length == 0) emptyTargetTypes.Add("turret");
+        if (!SecurityMalwareSystem.HasControllerDiagnostic(npc)) emptyTargetTypes.Add("security-controller");
+        if (openPosts.Count == 0) emptyTargetTypes.Add("vacant-post");
+        bool Offered(string targetType) => !emptyTargetTypes.Contains(targetType);
+
         builder.AppendLine("AVAILABLE CAPABILITIES / TARGET CONTRACTS:");
-        builder.AppendLine(CrewAffordanceSystem.PromptCatalog());
+        builder.AppendLine(CrewAffordanceSystem.PromptCatalog(entry => Offered(entry.TargetType)));
         builder.AppendLine("For room-target actions (including Move, SeekSafety, FightFire, EvacuateHazard, SealHazardRoom, VentHazardRoom, Investigate, VerifyClaim, InspectEquipment, Work, Repair and StandGuard), TargetId must be a valid room ID.");
         builder.AppendLine("Hazards are not scripted for you: decide what you WANT to do from the available affordances. The simulation will validate reachability, door state, pressure, equipment and consequences.");
         builder.AppendLine("For ForceDoor, TargetId must be the exact ID of a currently connected blocked hatch listed above.");
-        builder.AppendLine("For DisconnectDevice, TargetId must be an exact device ID from LOCAL MACHINES YOU CAN PHYSICALLY DISCONNECT. You will walk to its hardware before the physical disconnect happens.");
-        builder.AppendLine("For RestoreSystem, TargetId must be one of the DISABLED SYSTEM TARGET IDS (room ID or life-support).");
-        builder.AppendLine("For SecureAirlock, TargetId must be the exact airlock room ID shown as NEEDS SECURING in NEARBY AIRLOCK SAFETY PANELS.");
+        if (Offered("local-device")) builder.AppendLine("For DisconnectDevice, TargetId must be an exact device ID from LOCAL MACHINES YOU CAN PHYSICALLY DISCONNECT. You will walk to its hardware before the physical disconnect happens.");
+        if (Offered("system")) builder.AppendLine("For RestoreSystem, TargetId must be one of the DISABLED SYSTEM TARGET IDS (room ID or life-support).");
+        if (Offered("airlock")) builder.AppendLine("For SecureAirlock, TargetId must be the exact airlock room ID shown as NEEDS SECURING in NEARBY AIRLOCK SAFETY PANELS.");
         builder.AppendLine("For crew-target social/cooperative/deceptive actions, TargetId must be an exact name from the known crew roster. Physical interaction can still fail later if that person cannot actually be reached.");
         builder.AppendLine("For OpenDoor/CloseDoor/LockDoor/UnlockDoor, TargetId must be an exact adjacent hatch ID. Lock/unlock is only valid when your role/skills grant authority.");
         builder.AppendLine("For ProposePact, TargetId must be an exact name from the known crew roster, and Reason must state the concrete promise.");
         builder.AppendLine("For Suggest, TargetId must be an exact name from the known crew roster, and Reason must state the concrete suggestion.");
-        builder.AppendLine("For AcceptPact, TargetId must be the exact proposer name from PENDING PACT PROPOSAL ADDRESSED TO YOU.");
-        builder.AppendLine("For FulfillPact/BreakPact, TargetId must be the exact pact Id (e.g. pact-0001) from YOUR ACTIVE PACTS for a promise you made (\"I promised\"), not one made to you.");
+        if (Offered("pact-proposal")) builder.AppendLine("For AcceptPact, TargetId must be the exact proposer name from PENDING PACT PROPOSAL ADDRESSED TO YOU.");
+        if (Offered("pact")) builder.AppendLine("For FulfillPact/BreakPact, TargetId must be the exact pact Id (e.g. pact-0001) from YOUR ACTIVE PACTS for a promise you made (\"I promised\"), not one made to you.");
         builder.AppendLine("For HideItem, TargetId must be the exact possession Id currently listed as \"with you\", from either YOUR PERSONAL POSSESSIONS or OTHER PEOPLE'S POSSESSIONS YOU KNOW ABOUT.");
         builder.AppendLine("For ReturnItem, TargetId must be the exact possession Id currently listed as hidden in your CURRENT room, from either YOUR PERSONAL POSSESSIONS or OTHER PEOPLE'S POSSESSIONS YOU KNOW ABOUT.");
         builder.AppendLine("For BorrowItem/StealItem/DestroyItem, TargetId must be the exact possession Id from YOUR PERSONAL POSSESSIONS or OTHER PEOPLE'S POSSESSIONS YOU KNOW ABOUT; DestroyItem may additionally target one listed as \"with you\" there too.");
-        builder.AppendLine("For JoinShutdownTeam, TargetId must be the exact team ID from PENDING TEAM INVITATION.");
-        builder.AppendLine("For ShutdownOverseer, TargetId must be the exact mechanism ID from VERIFIED SHUTDOWN CONTROLS.");
-        builder.AppendLine("For ShutdownRobot/DamageRobot/ReprogramRobot, TargetId must be the exact robot ID from ROBOTS PHYSICALLY IN YOUR CURRENT ROOM.");
-        builder.AppendLine("For IsolateRobotNetwork/DisableRobotCharging, TargetId must be the exact robot ID from ROBOTS YOU PERSONALLY HAVE HOSTILE/ATTACK EVIDENCE ABOUT; you will physically travel to Engineering before the action can occur.");
-        builder.AppendLine("For DisarmTurret/DamageTurret/ReprogramTurret, TargetId must be the exact turret ID from FIXED SECURITY TURRETS PHYSICALLY IN YOUR CURRENT ROOM.");
-        builder.AppendLine("For IsolateTurretNetwork/DisableTurretPower, TargetId must be the exact turret ID from TURRETS YOU PERSONALLY HAVE HOSTILE WEAPON EVIDENCE ABOUT; you will physically travel to Engineering before the action can occur.");
-        builder.AppendLine("For AssumeRole, TargetId must be an exact post name from VACANT POSTS YOU COULD STEP INTO.");
+        if (Offered("team")) builder.AppendLine("For JoinShutdownTeam, TargetId must be the exact team ID from PENDING TEAM INVITATION.");
+        if (Offered("shutdown-control")) builder.AppendLine("For ShutdownOverseer, TargetId must be the exact mechanism ID from VERIFIED SHUTDOWN CONTROLS.");
+        if (Offered("robot")) builder.AppendLine("For ShutdownRobot/DamageRobot/ReprogramRobot, TargetId must be the exact robot ID from ROBOTS PHYSICALLY IN YOUR CURRENT ROOM.");
+        if (Offered("robot")) builder.AppendLine("For IsolateRobotNetwork/DisableRobotCharging, TargetId must be the exact robot ID from ROBOTS YOU PERSONALLY HAVE HOSTILE/ATTACK EVIDENCE ABOUT; you will physically travel to Engineering before the action can occur.");
+        if (Offered("turret")) builder.AppendLine("For DisarmTurret/DamageTurret/ReprogramTurret, TargetId must be the exact turret ID from FIXED SECURITY TURRETS PHYSICALLY IN YOUR CURRENT ROOM.");
+        if (Offered("turret")) builder.AppendLine("For IsolateTurretNetwork/DisableTurretPower, TargetId must be the exact turret ID from TURRETS YOU PERSONALLY HAVE HOSTILE WEAPON EVIDENCE ABOUT; you will physically travel to Engineering before the action can occur.");
+        if (Offered("vacant-post")) builder.AppendLine("For AssumeRole, TargetId must be an exact post name from VACANT POSTS YOU COULD STEP INTO.");
         builder.AppendLine("For Eat, TargetId is null to eat in the galley, or a room ID from DINING to collect a meal in the galley and carry it there to eat.");
         builder.AppendLine("For Recreate, TargetId is null for a plain break, or an activity ID from RECREATION.");
         builder.AppendLine("For Rest/Sleep/Groom/Shower/UseToilet/Idle, TargetId should be null.");

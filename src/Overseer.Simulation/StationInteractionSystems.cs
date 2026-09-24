@@ -129,10 +129,17 @@ public static class CrewAffordanceSystem
             or ActionKind.LockDoor
             or ActionKind.UnlockDoor;
 
-    public static string PromptCatalog() =>
+    public static string PromptCatalog() => PromptCatalog(_ => true);
+
+    /// <summary>
+    /// The catalogue lines for the entries <paramref name="include"/> keeps.
+    /// The prompt builder uses it to leave out actions that have no valid
+    /// target for this person right now (owner idea #97).
+    /// </summary>
+    public static string PromptCatalog(Func<CrewAffordanceDefinition, bool> include) =>
         string.Join(
             Environment.NewLine,
-            Catalog.Select(entry =>
+            Catalog.Where(include).Select(entry =>
                 $"- {entry.Action} [{entry.TargetType}]: {entry.Description}"));
 
     public static bool TryNormalizeTarget(
