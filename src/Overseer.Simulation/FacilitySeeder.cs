@@ -19,7 +19,8 @@ public static class FacilitySeeder
         IReadOnlyList<Npc> crew,
         int? upkeepSeed = null,
         int? stationSeed = null,
-        StationGenerationConstraints? stationConstraints = null)
+        StationGenerationConstraints? stationConstraints = null,
+        int? robotCount = null)
     {
         ArgumentNullException.ThrowIfNull(crew);
 
@@ -28,14 +29,20 @@ public static class FacilitySeeder
             throw new ArgumentException("A station needs at least one crew member.", nameof(crew));
         }
 
-        return CreateDefaultInternal(crew, upkeepSeed, stationSeed, stationConstraints);
+        if (robotCount is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(robotCount), "A station needs at least one robot.");
+        }
+
+        return CreateDefaultInternal(crew, upkeepSeed, stationSeed, stationConstraints, robotCount);
     }
 
     private static GameState CreateDefaultInternal(
         IReadOnlyList<Npc>? suppliedCrew,
         int? upkeepSeed,
         int? stationSeed,
-        StationGenerationConstraints? stationConstraints)
+        StationGenerationConstraints? stationConstraints,
+        int? robotCount = null)
     {
         stationConstraints ??= ScenarioCatalog.SecureContinuity.StationConstraints
             ?? throw new InvalidOperationException(
@@ -94,7 +101,7 @@ public static class FacilitySeeder
             StationGeneration = generation.Metadata
         };
 
-        SeedRobotsAndTurrets(state, stationConstraints);
+        SeedRobotsAndTurrets(state, stationConstraints, robotCount);
 
         foreach (var npc in state.Crew)
         {
@@ -1108,7 +1115,8 @@ public static class FacilitySeeder
 
     private static void SeedRobotsAndTurrets(
         GameState state,
-        StationGenerationConstraints constraints)
+        StationGenerationConstraints constraints,
+        int? rosterRobotCount)
     {
         var fallbackRobotRoom = state.Facility.Rooms.ContainsKey("engineering")
             ? "engineering"
@@ -1119,8 +1127,11 @@ public static class FacilitySeeder
         IReadOnlyList<string> requestedRobotRooms = constraints.RequiredRobotRoomIds.Count > 0
             ? constraints.RequiredRobotRoomIds
             : new[] { fallbackRobotRoom };
+        // A sampled roster composition (RosterCompositionRules) sets how many
+        // robots this run has; a scenario's RequiredRobotCount and its pinned
+        // robot rooms stay hard minimums.
         var robotCount = Math.Max(
-            constraints.RequiredRobotCount ?? 1,
+            Math.Max(rosterRobotCount ?? 1, constraints.RequiredRobotCount ?? 1),
             constraints.RequiredRobotRoomIds.Count);
 
         for (var index = 0; index < robotCount; index++)

@@ -28,13 +28,19 @@ public sealed class GameSession : StationSession
         int rosterSeed,
         int? stationSeed = null)
     {
+        // A fresh roster's crew and robot counts come from the uniform roster
+        // contract. A continuing campaign keeps its surviving crew, but every
+        // new station still gets its own robot count.
+        var composition = RosterCompositionRules.Sample(rosterSeed);
         var continuingCrew = CampaignProgressionSystem.CreateCrewForScenario(campaign, scenario);
-        var baseCrew = continuingCrew ?? SeededCrewRosterGenerator.Generate(rosterSeed);
+        var baseCrew = continuingCrew
+            ?? SeededCrewRosterGenerator.Generate(rosterSeed, composition.CrewCount);
         var crew = PrisonerRosterSystem.Compose(baseCrew, scenario);
         var state = FacilitySeeder.CreateDefault(
             crew,
             stationSeed: stationSeed,
-            stationConstraints: scenario.StationConstraints);
+            stationConstraints: scenario.StationConstraints,
+            robotCount: composition.RobotCount);
 
         ScenarioCatalog.Apply(state, scenario);
         CampaignProgressionSystem.ApplyCarryOver(campaign, state);
