@@ -11,6 +11,7 @@ namespace Overseer.AI;
 public sealed class OllamaRuntimeDiagnostics
 {
     private readonly object _gate = new();
+    private readonly string[] _sensitiveEndpointFragments;
     private long _requestsStarted;
     private long _responsesReceived;
     private long _failures;
@@ -26,6 +27,13 @@ public sealed class OllamaRuntimeDiagnostics
             ? $"{endpoint.Scheme}://{endpoint.Host}"
             : $"{endpoint.Scheme}://{endpoint.Host}:{endpoint.Port}";
         Model = model;
+        _sensitiveEndpointFragments =
+        [
+            endpoint.ToString(),
+            endpoint.UserInfo,
+            endpoint.Query.TrimStart('?'),
+            endpoint.AbsolutePath.Trim('/')
+        ];
     }
 
     public string Endpoint { get; }
@@ -67,7 +75,7 @@ public sealed class OllamaRuntimeDiagnostics
         {
             _failures++;
             _lastOperation = operation;
-            _lastError = Limit(error, 600);
+            _lastError = Limit(SanitizeError(error), 600);
         }
     }
 
@@ -87,6 +95,21 @@ public sealed class OllamaRuntimeDiagnostics
                 _lastError,
                 _lastAttemptUtc);
         }
+    }
+
+    private string SanitizeError(string value)
+    {
+        var sanitized = value;
+        foreach (var fragment in _sensitiveEndpointFragments.Where(fragment =>
+                     !string.IsNullOrWhiteSpace(fragment)))
+        {
+            sanitized = sanitized.Replace(
+                fragment,
+                "[redacted]",
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        return sanitized;
     }
 
     private static string Limit(string value, int maxCharacters) =>
