@@ -28,6 +28,10 @@
             .Where(trace => trace.Source.Equals("Ollama", StringComparison.OrdinalIgnoreCase))
             .Take(50)
             .ToList();
+        var processNpcTraces = runtime.RecentProviderTraces
+            .Where(trace => trace.IsNpcDecision)
+            .Take(50)
+            .ToList();
 
         <section class="debug-summary">
             <div><span>AI RUNTIME</span><strong>@runtime.Mode</strong></div>
@@ -92,13 +96,42 @@
                 </article>
             }
 
-            @if (ollamaTraces.Count == 0)
+            @if (ollamaTraces.Count == 0 && processNpcTraces.Count == 0)
             {
                 <p class="debug-empty ollama-empty">
-                    No Ollama calls are recorded in this session. The static Pages build uses the
-                    deterministic browser mind and therefore has no Ollama traffic; run the server
-                    with Ollama configured and open DEBUG from that same station session.
+                    No Ollama NPC-decision request has been captured yet. On the local server,
+                    provider status above shows whether Ollama is reachable and whether cognition
+                    has entered the provider boundary. The static Pages build has no Ollama traffic.
                 </p>
+            }
+            else if (ollamaTraces.Count == 0)
+            {
+                <p class="debug-note">
+                    <strong>PROCESS-WIDE DEVELOPMENT TRACE:</strong> this debug page is a different
+                    Blazor circuit from the station that made these calls. Showing the bounded exact
+                    Ollama I/O retained by the local Development process so reloading/opening DEBUG
+                    in a new tab no longer erases the evidence.
+                </p>
+
+                @foreach (var trace in processNpcTraces)
+                {
+                    <article class="debug-entry ollama-io-entry" data-provider-sequence="@trace.Sequence">
+                        <header>
+                            <strong>#@trace.Sequence · @trace.StartedAtUtc.ToLocalTime().ToString("HH:mm:ss") · @trace.Operation</strong>
+                            <span>@(trace.Error is null ? "PROVIDER RESPONSE" : "FAILED/FALLBACK")</span>
+                        </header>
+                        <div class="ollama-io-grid">
+                            <section>
+                                <h3>INPUT // EXACT REQUEST SENT TO OLLAMA</h3>
+                                <pre>@(trace.Prompt ?? "No request payload retained.")</pre>
+                            </section>
+                            <section>
+                                <h3>OUTPUT // RAW OLLAMA RESPONSE</h3>
+                                <pre>@(trace.RawResponse ?? trace.Error ?? "Request started; no response has completed yet.")</pre>
+                            </section>
+                        </div>
+                    </article>
+                }
             }
             else
             {
