@@ -21,8 +21,12 @@ var ollamaModel =
     ?? builder.Configuration["AI:Ollama:Model"]
     ?? "qwen3:4b";
 
+var ollamaUri = new Uri(ollamaEndpoint);
+builder.Services.AddSingleton(new OllamaRuntimeDiagnostics(ollamaUri, ollamaModel));
+builder.Services.AddSingleton<OllamaApiClient>(
+    _ => new OllamaApiClient(ollamaUri, ollamaModel));
 builder.Services.AddSingleton<IChatClient>(
-    _ => new OllamaApiClient(new Uri(ollamaEndpoint), ollamaModel));
+    services => services.GetRequiredService<OllamaApiClient>());
 
 builder.Services.AddSingleton<RuleBasedAiDecisionService>();
 builder.Services.AddSingleton<RuleBasedCrewGenerator>();
@@ -36,6 +40,35 @@ builder.Services.AddSingleton<IOverseerMessageInterpreter, OllamaOverseerMessage
 builder.Services.AddScoped<StationSession, GameSession>();
 
 var app = builder.Build();
+
+// Local development must never fail silently into the deterministic fallback.
+// Probe the exact configured Ollama endpoint once at startup and retain only
+// payload-free operational status for /debug. Crew generation and every later
+// model call are tracked by the same diagnostics store.
+if (app.Environment.IsDevelopment())
+{
+    var diagnostics = app.Services.GetRequiredService<OllamaRuntimeDiagnostics>();
+    var ollama = app.Services.GetRequiredService<OllamaApiClient>();
+    diagnostics.RecordStarted("startup health probe");
+
+    try
+    {
+        if (await ollama.IsRunningAsync())
+        {
+            diagnostics.RecordResponse("startup health probe");
+        }
+        else
+        {
+            diagnostics.RecordFailure(
+                "startup health probe",
+                "The configured Ollama endpoint did not report a running server.");
+        }
+    }
+    catch (Exception exception)
+    {
+        diagnostics.RecordFailure("startup health probe", exception);
+    }
+}
 
 if (!app.Environment.IsDevelopment())
 {
