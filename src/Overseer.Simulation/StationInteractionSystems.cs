@@ -29,7 +29,7 @@ public static class CrewAffordanceSystem
         new(ActionKind.Work, "room", "Perform ordinary role work in a suitable room."),
         new(ActionKind.Repair, "room", "Attempt ordinary repair work."),
         new(ActionKind.StandGuard, "room", "Hold position and watch a room or access point."),
-        new(ActionKind.Eat, "optional-dining-room", "Eat when food is available: in the galley, or carry a meal from the galley to a recreation room or crew quarters."),
+        new(ActionKind.Eat, "optional-dining-room", "Eat when food is available: in the galley, or carry a meal from the galley to a recreation room, crew quarters or a free medical bedside."),
         new(ActionKind.Rest, "none", "Rest in crew quarters."),
         new(ActionKind.Sleep, "none", "Sleep in crew quarters."),
         new(ActionKind.Recreate, "optional-activity", "Use recreation facilities: watch TV, play games on the console, read, or just unwind."),
