@@ -191,7 +191,7 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Idea: "Give humans physical ways to make sensors lie: bridge an O₂ sensor, loop a camera feed, heat a temperature probe, place something in front of a motion detector. C# determines what the sensor reports; the LLM decides why somebody wants to fool you."
 - Outcome: a small set of physical tamper interactions (bridge/loop/heat/obstruct) against deterministic sensor fixtures makes that sensor's reported value diverge from ground truth until fixed or discovered; C# owns the reported-vs-real split, the LLM decides whether/why to use it.
 - Size: large (slices: sensor "reported value" vs "true value" split per sensor type; tamper interactions per sensor type; discovery via inspection/repair)
-- Status: ready — composes on #12's generic tamper-interaction engine.
+- Status: **in progress** — slice 1 establishes the reported-vs-physical split for room O₂ and temperature without changing environmental truth: `Room.OxygenPercent` / `TemperatureC` remain authoritative physics, nullable sensor-channel overrides feed `ReportedOxygenPercent` / `ReportedTemperatureC`, and the station console (values plus O₂/temperature health colouring) reads the reported channels so a later deterministic physical tamper can genuinely fool Overseer without changing the atmosphere. Remaining: physical bridge/heat interactions tied to real sensor fixtures; camera looping / motion obstruction; inspection/repair that discovers and clears a manipulated channel; extend reported-vs-real semantics to any additional sensor type as each interaction ships.
 
 ### 23. Imperfect player knowledge
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)

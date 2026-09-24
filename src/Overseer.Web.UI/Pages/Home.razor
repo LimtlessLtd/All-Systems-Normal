@@ -362,8 +362,8 @@
                         <span class="callout-name">@calloutRoom.Name</span>
                         <span class="callout-statuses">
                             <b class="@PowerStatusClass(calloutRoom)">@(calloutRoom.IsPowered ? "PWR" : "PWR OFF")</b>
-                            <b class="@TemperatureStatusClass(calloutRoom)">@calloutRoom.TemperatureC.ToString("0")°C</b>
-                            <b class="@OxygenStatusClass(calloutRoom)">O₂ @calloutRoom.OxygenPercent.ToString("0.0")%</b>
+                            <b class="@TemperatureStatusClass(calloutRoom)">@calloutRoom.ReportedTemperatureC.ToString("0")°C</b>
+                            <b class="@OxygenStatusClass(calloutRoom)">O₂ @calloutRoom.ReportedOxygenPercent.ToString("0.0")%</b>
                             @if (calloutRoom.HasHullBreach)
                             {
                                 <b class="bad">HULL BREACH</b>
@@ -1271,8 +1271,8 @@
                     <div><span>POWER</span><strong>@(selectedRoom.IsPowered ? "ONLINE" : "OFFLINE")</strong></div>
                     <div><span>CAMERA</span><strong>@(selectedRoom.CameraOnline ? "ONLINE" : "OFFLINE")</strong></div>
                     <div><span>LIGHTS</span><strong>@(selectedRoom.LightsOn ? "ON" : "OFF")</strong></div>
-                    <div><span>TEMP</span><strong>@selectedRoom.TemperatureC.ToString("0.0")°C</strong></div>
-                    <div><span>OXYGEN</span><strong>@selectedRoom.OxygenPercent.ToString("0.00")%</strong></div>
+                    <div><span>TEMP</span><strong>@selectedRoom.ReportedTemperatureC.ToString("0.0")°C</strong></div>
+                    <div><span>OXYGEN</span><strong>@selectedRoom.ReportedOxygenPercent.ToString("0.00")%</strong></div>
                     <div><span>CO₂</span><strong>@selectedRoom.CarbonDioxidePercent.ToString("0.00")%</strong></div>
                     <div><span>PRESSURE</span><strong>@selectedRoom.PressureKpa.ToString("0.0") kPa</strong></div>
                     <div><span>HULL</span><strong>@(selectedRoom.HasHullBreach ? "BREACHED" : $"{selectedRoom.HullIntegrityPercent:0}%")</strong></div>
@@ -2730,17 +2730,17 @@
         !room.IsPowered
         || room.HasHullBreach
         || room.HullIntegrityPercent < 25
-        || room.OxygenPercent < 17
+        || room.ReportedOxygenPercent < 17
         || room.CarbonDioxidePercent > 3
         || room.PressureKpa < 80
-        || room.TemperatureC is < 5 or > 38
+        || room.ReportedTemperatureC is < 5 or > 38
             ? "critical"
         : !room.CameraOnline
           || room.HullIntegrityPercent < 70
-          || room.OxygenPercent < 19.5
+          || room.ReportedOxygenPercent < 19.5
           || room.CarbonDioxidePercent > 1
           || room.PressureKpa < 90
-          || room.TemperatureC is < 16 or > 28
+          || room.ReportedTemperatureC is < 16 or > 28
             ? "warning"
         : "healthy";
 
@@ -2748,16 +2748,16 @@
         room.IsPowered ? "good" : "bad";
 
     private static string TemperatureStatusClass(Room room) =>
-        room.TemperatureC is < 8 or > 35
+        room.ReportedTemperatureC is < 8 or > 35
             ? "bad"
-            : room.TemperatureC is < 16 or > 28
+            : room.ReportedTemperatureC is < 16 or > 28
                 ? "warn"
                 : "good";
 
     private static string OxygenStatusClass(Room room) =>
-        room.OxygenPercent < 17
+        room.ReportedOxygenPercent < 17
             ? "bad"
-            : room.OxygenPercent < 19.5
+            : room.ReportedOxygenPercent < 19.5
                 ? "warn"
                 : "good";
 
