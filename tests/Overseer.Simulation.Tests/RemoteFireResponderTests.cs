@@ -180,6 +180,42 @@ public sealed class RemoteFireResponderTests
     }
 
     [Fact]
+    public void RemoteFire_DoesNotRewakeCriticalNeedResponderAlreadyTravellingToFightIt()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 480043);
+        state.Elapsed = TimeSpan.FromMinutes(1);
+        var responder = state.Crew.First(npc => npc.Role == CrewRole.Engineer);
+        PrepareSafeRemoteFireScenario(state, responder);
+        responder.Hunger = CrewNeedThresholds.HungerCritical;
+        responder.Intent = new NpcIntent(
+            ActionKind.Eat,
+            null,
+            "Find food now.",
+            "I am critically hungry.",
+            92,
+            "Test",
+            state.Elapsed);
+
+        foreach (var other in state.Crew.Where(npc => npc.Id != responder.Id))
+        {
+            other.Health = 30;
+        }
+
+        new StationHazardSystem().Tick(state, TimeSpan.FromMinutes(1));
+        new BrowserMindSystem().Tick(state);
+        var chosenFireIntent = responder.Intent;
+
+        Assert.Equal(ActionKind.FightFire, chosenFireIntent?.Action);
+        Assert.False(responder.NeedsMindReconsideration);
+
+        state.Elapsed += TimeSpan.FromMinutes(1);
+        new StationHazardSystem().Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.False(responder.NeedsMindReconsideration);
+        Assert.Same(chosenFireIntent, responder.Intent);
+    }
+
+    [Fact]
     public void RemoteFire_PrefersIdleCapableResponderOverMoreSkilledCommittedWorker()
     {
         var state = FacilitySeeder.CreateDefault(stationSeed: 480043);
