@@ -78,16 +78,23 @@ def main():
     })
     app = subprocess.Popen(
         ["dotnet", "run", "--project", "src/Overseer.Web/Overseer.Web.csproj",
-         "-c", "Release", "--no-build"],
+         "-c", "Release", "--no-build", "--no-launch-profile"],
         env=env,
-        stdout=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
+        text=True,
     )
     driver = None
     session_id = None
     try:
+        def server_ready():
+            if app.poll() is not None:
+                output = app.stdout.read() if app.stdout is not None else ""
+                raise RuntimeError(f"Local server exited with {app.returncode}:\n{output}")
+            return urllib.request.urlopen(APP_URL, timeout=3).status == 200
+
         wait_until(
-            lambda: urllib.request.urlopen(APP_URL, timeout=3).status == 200,
+            server_ready,
             timeout=30,
             message="local server",
         )
