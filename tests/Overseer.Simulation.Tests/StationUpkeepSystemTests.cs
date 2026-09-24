@@ -220,4 +220,115 @@ public sealed class StationUpkeepSystemTests
         Assert.DoesNotContain("corridor", state.Power.SheddedRoomIds);
         Assert.DoesNotContain("reactor", state.Power.SheddedRoomIds);
     }
+
+    [Fact]
+    public void EngineeringIsTheLastCompartmentTheGridLetsGo()
+    {
+        // Engineering houses the O2 generator, scrubbers and life-support core.
+        // It used to be shed before Medical, the Control Room, the Airlock and
+        // Containment, so a worn reactor suffocated crew in lit rooms.
+        for (var reactorCondition = 0; reactorCondition <= 60; reactorCondition += 2)
+        {
+            var state = BrownedOutStation(reactorCondition);
+            var system = new StationUpkeepSystem();
+
+            for (var minute = 0; minute < 30; minute++)
+            {
+                system.Tick(state, Minute);
+
+                if (!state.Power.SheddedRoomIds.Contains("engineering"))
+                {
+                    continue;
+                }
+
+                var stillLit = state.Facility.Rooms.Values
+                    .Where(room => room.Id != "engineering"
+                        && room.Type is not (RoomType.Reactor or RoomType.Generator or RoomType.Corridor)
+                        && room.IsPowered)
+                    .Select(room => room.Id)
+                    .ToList();
+                Assert.True(
+                    stillLit.Count == 0,
+                    $"reactor {reactorCondition}%, minute {minute}: Engineering shed while {string.Join(", ", stillLit)} stayed lit.");
+            }
+        }
+    }
+
+    [Fact]
+    public void SheddingAndRestoringCountTheMachinesInTheRoom()
+    {
+        // The grid used to count only a room's own load when it shed or
+        // restored it, not the machines that go dark or come back with it. So
+        // it shed more rooms than the deficit needed, and a restored room could
+        // overload the grid on the next tick and be shed again. In a soak,
+        // Engineering blinked on and off every three minutes. The demand the
+        // grid books when it switches rooms must match what it measures next.
+        for (var reactorCondition = 0.0; reactorCondition <= 60; reactorCondition += 0.5)
+        {
+            var state = BrownedOutStation(reactorCondition);
+            var system = new StationUpkeepSystem();
+            var reactor = state.Devices.Values.Single(d => d.Kind == StationSystemKind.Reactor);
+
+            for (var minute = 0; minute < 20; minute++)
+            {
+                reactor.Condition = reactorCondition;
+                var shedBefore = state.Power.SheddedRoomIds.ToHashSet();
+                system.Tick(state, Minute);
+                if (state.Power.SheddedRoomIds.SetEquals(shedBefore))
+                {
+                    continue;
+                }
+
+                var booked = state.Power.DemandKilowatts;
+                var shedAfter = state.Power.SheddedRoomIds.ToHashSet();
+                reactor.Condition = reactorCondition;
+                system.Tick(state, Minute);
+                if (!state.Power.SheddedRoomIds.SetEquals(shedAfter))
+                {
+                    continue;
+                }
+
+                Assert.True(
+                    Math.Abs(booked - state.Power.DemandKilowatts) < 0.01,
+                    $"reactor {reactorCondition}%, minute {minute}: booked {booked:F1} kW but measured {state.Power.DemandKilowatts:F1} kW.");
+            }
+        }
+    }
+
+    [Fact]
+    public void TheMostImportantCompartmentGetsPowerBackFirst()
+    {
+        var state = BrownedOutStation(0);
+        var system = new StationUpkeepSystem();
+        system.Tick(state, Minute);
+        Assert.Contains("engineering", state.Power.SheddedRoomIds);
+        Assert.Contains("lounge", state.Power.SheddedRoomIds);
+
+        // Just enough generation back for one more compartment: it must be
+        // Engineering, whatever order the shed set happens to enumerate in.
+        var reactor = state.Devices.Values.Single(d => d.Kind == StationSystemKind.Reactor);
+        state.Power.StoredKilowattHours = 0;
+        for (var condition = 0; condition <= 100 && state.Power.SheddedRoomIds.Contains("engineering"); condition++)
+        {
+            reactor.Condition = condition;
+            var shedBefore = state.Power.SheddedRoomIds.ToHashSet();
+            system.Tick(state, Minute);
+
+            var restored = shedBefore.Except(state.Power.SheddedRoomIds).ToList();
+            if (restored.Count > 0)
+            {
+                Assert.Contains("engineering", restored);
+            }
+        }
+
+        Assert.DoesNotContain("engineering", state.Power.SheddedRoomIds);
+    }
+
+    private static GameState BrownedOutStation(double reactorCondition)
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        state.Devices.Values.Single(d => d.Kind == StationSystemKind.PowerGenerator).Condition = 0;
+        state.Devices.Values.Single(d => d.Kind == StationSystemKind.Reactor).Condition = reactorCondition;
+        return state;
+    }
 }

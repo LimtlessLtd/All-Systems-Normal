@@ -614,6 +614,26 @@ public sealed class StationUpkeepSystem
                 ? HeavyRoomDemandKilowatts
                 : 0);
 
+    /// <summary>
+    /// Everything a compartment draws while it is powered: the room itself plus
+    /// the machines that go dark with it. Shedding and restoring must both count
+    /// the machines, or a restored room overloads the grid on the next tick and
+    /// is shed again, and shedding drops more rooms than the deficit needs.
+    /// </summary>
+    private static double SheddableLoad(GameState state, Room room) =>
+        Demand(room)
+        + state.Devices.Values
+            .Where(device => device.RoomId == room.Id
+                && device.IsOperational
+                && device.RatedDrawKilowatts > 0
+                && !DrawsWhileRoomUnpowered(device))
+            .Sum(device => device.RatedDrawKilowatts);
+
+    private static bool DrawsWhileRoomUnpowered(StationDevice device) =>
+        device.Kind is StationSystemKind.LifeSupport
+            or StationSystemKind.PowerDistributionBus
+            or StationSystemKind.CapacitorBank;
+
     private static double Output(GameState state, StationDevice device)
     {
         if (!device.IsOperational)
@@ -658,9 +678,7 @@ public sealed class StationUpkeepSystem
 
         if (state.Facility.Rooms.TryGetValue(device.RoomId, out var room)
             && !room.IsPowered
-            && device.Kind is not StationSystemKind.LifeSupport
-                and not StationSystemKind.PowerDistributionBus
-                and not StationSystemKind.CapacitorBank)
+            && !DrawsWhileRoomUnpowered(device))
         {
             return 0;
         }
@@ -679,7 +697,14 @@ public sealed class StationUpkeepSystem
 
         // Give power back first, so recovery is automatic once a generator is
         // serviced. The grid is machinery, not an Overseer decision.
-        foreach (var roomId in state.Power.SheddedRoomIds.ToList())
+        // Most important compartment first. SheddedRoomIds is a set, so its own
+        // enumeration order says nothing about which room should come back first.
+        foreach (var roomId in state.Power.SheddedRoomIds
+                     .OrderByDescending(id => state.Facility.Rooms.TryGetValue(id, out var shedRoom)
+                         ? Priority(shedRoom)
+                         : int.MaxValue)
+                     .ThenBy(id => id, StringComparer.Ordinal)
+                     .ToList())
         {
             if (!state.Facility.Rooms.TryGetValue(roomId, out var room))
             {
@@ -687,14 +712,15 @@ public sealed class StationUpkeepSystem
                 continue;
             }
 
+            var load = SheddableLoad(state, room);
             if ((state.Power.SupplyKilowatts + state.Power.BufferDischargeKilowatts)
-                - state.Power.DemandKilowatts < Demand(room))
+                - state.Power.DemandKilowatts < load)
             {
                 break;
             }
 
             room.IsPowered = true;
-            state.Power.DemandKilowatts += Demand(room);
+            state.Power.DemandKilowatts += load;
             state.Power.SheddedRoomIds.Remove(roomId);
             restored.Add(room.Name);
         }
@@ -723,7 +749,7 @@ public sealed class StationUpkeepSystem
             candidate.LightsOn = false;
             candidate.CameraOnline = false;
             state.Power.SheddedRoomIds.Add(candidate.Id);
-            state.Power.DemandKilowatts -= Demand(candidate);
+            state.Power.DemandKilowatts -= SheddableLoad(state, candidate);
             shed.Add(candidate.Name);
         }
 
@@ -818,10 +844,12 @@ public sealed class StationUpkeepSystem
         RoomType.CrewQuarters => 3,
         RoomType.Kitchen => 4,
         RoomType.Hydroponics => 5,
-        RoomType.Engineering => 6,
-        RoomType.Medical => 7,
-        RoomType.ControlRoom => 8,
-        _ => 9
+        RoomType.Medical => 6,
+        RoomType.ControlRoom => 7,
+        // Engineering houses the O2 generator, scrubbers and life-support core,
+        // so it is the last compartment the grid lets go of.
+        RoomType.Engineering => 9,
+        _ => 8
     };
 
     // ------------------------------------------------------------- failures --
