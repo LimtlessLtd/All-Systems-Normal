@@ -59,6 +59,7 @@ public sealed class BrowserInteropTests
         var loop = home[home.IndexOf("private async Task RunClockAsync", StringComparison.Ordinal)..
             home.IndexOf("private void StopClock()", StringComparison.Ordinal)];
         Assert.Contains("catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)", loop);
+        Assert.Contains("catch (Exception) when (!cancellationToken.IsCancellationRequested)", loop);
         Assert.Contains("Session.PauseClock();", loop);
         Assert.Contains("_paused = true;", loop);
     }

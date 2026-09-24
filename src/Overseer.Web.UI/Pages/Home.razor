@@ -2457,9 +2457,10 @@
         {
             // Normal pause/dispose path.
         }
-        catch (Exception)
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {
-            // A turn failed without a pause being asked for. Leaving the loop
+            // A turn failed without a pause being asked for (once this loop is
+            // cancelled, a newer clock may own the session). Leaving the loop
             // with the clock still marked running froze the station until the
             // player happened to toggle pause; show it paused so Play resumes.
             _paused = true;
