@@ -671,37 +671,52 @@ public sealed class ActionResolver
         NpcAction action,
         out string message)
     {
-        if (string.IsNullOrWhiteSpace(action.TargetId)
-            || !state.Devices.TryGetValue(action.TargetId, out var device)
-            || device.Kind == StationSystemKind.Door)
+        var resolution = PhysicalInteractionRules.ResolveTarget(
+            state,
+            npc,
+            action.Kind,
+            action.TargetId);
+
+        if (resolution.Status is PhysicalInteractionTargetStatus.UnsupportedAction
+            or PhysicalInteractionTargetStatus.MissingTarget
+            or PhysicalInteractionTargetStatus.DoorNotAllowed)
         {
             message = "Disconnect target is not a valid station device.";
             return false;
         }
 
-        if (!device.RoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
-            || !state.Facility.Rooms.TryGetValue(device.RoomId, out var room))
+        var device = resolution.Device!;
+
+        if (resolution.Status is PhysicalInteractionTargetStatus.WrongRoom
+            or PhysicalInteractionTargetStatus.MissingRoom)
         {
             message = $"{npc.Name} must physically reach {device.Label} before disconnecting it.";
             return false;
         }
 
-        var fixture = LocalMovementSystem.FixtureForDevice(room, device.Kind);
-        if (fixture is null || !LocalMovementSystem.IsAtInteractionPoint(room, npc, fixture))
+        if (resolution.Status == PhysicalInteractionTargetStatus.MissingHardware)
         {
             message = $"{npc.Name} must physically reach {device.Label}'s local hardware.";
             return false;
         }
 
-        if (device.IsFailed)
+        if (resolution.Status == PhysicalInteractionTargetStatus.Failed)
         {
             message = $"{device.Label} has already failed.";
             return false;
         }
 
-        if (!device.IsEnabled)
+        if (resolution.Status == PhysicalInteractionTargetStatus.Disabled)
         {
             message = $"{device.Label} is already disconnected.";
+            return false;
+        }
+
+        var room = resolution.Room!;
+        var fixture = resolution.Fixture!;
+        if (!LocalMovementSystem.IsAtInteractionPoint(room, npc, fixture))
+        {
+            message = $"{npc.Name} must physically reach {device.Label}'s local hardware.";
             return false;
         }
 
