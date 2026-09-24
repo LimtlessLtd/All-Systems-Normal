@@ -33,7 +33,7 @@ public sealed class GameSession(
         var (crew, robots) = await CreateCrewForScenarioAsync(scenario, cancellationToken);
         State = FacilitySeeder.CreateDefault(
             crew,
-            stationConstraints: scenario.StationConstraints,
+            stationConstraints: RosterCompositionRules.ConstraintsFor(scenario, crew.Count),
             robotCount: robots);
         _initialized = true;
     }
@@ -75,7 +75,7 @@ public sealed class GameSession(
         var (crew, robots) = await CreateCrewForScenarioAsync(scenario, cancellationToken);
         State = FacilitySeeder.CreateDefault(
             crew,
-            stationConstraints: scenario.StationConstraints,
+            stationConstraints: RosterCompositionRules.ConstraintsFor(scenario, crew.Count),
             robotCount: robots);
         _initialized = true;
     }
@@ -92,7 +92,7 @@ public sealed class GameSession(
         State = FacilitySeeder.CreateDefault(
             crew,
             stationSeed: seed,
-            stationConstraints: scenario.StationConstraints,
+            stationConstraints: RosterCompositionRules.ConstraintsFor(scenario, crew.Count),
             robotCount: robots);
         ScenarioCatalog.Apply(State, scenario);
         CampaignProgressionSystem.ApplyCarryOver(Campaign, State);
@@ -116,7 +116,7 @@ public sealed class GameSession(
             var (freshCrew, freshRobots) = await CreateCrewForScenarioAsync(freshScenario, cancellationToken);
             State = FacilitySeeder.CreateDefault(
                 freshCrew,
-                stationConstraints: freshScenario.StationConstraints,
+                stationConstraints: RosterCompositionRules.ConstraintsFor(freshScenario, freshCrew.Count),
                 robotCount: freshRobots);
             State.EventLog.Insert(
                 0,
@@ -137,7 +137,7 @@ public sealed class GameSession(
         var (crew, robots) = await CreateCrewForScenarioAsync(scenario, cancellationToken);
         State = FacilitySeeder.CreateDefault(
             crew,
-            stationConstraints: scenario.StationConstraints,
+            stationConstraints: RosterCompositionRules.ConstraintsFor(scenario, crew.Count),
             robotCount: robots);
         ScenarioCatalog.Apply(State, scenario);
 
@@ -181,7 +181,7 @@ public sealed class GameSession(
         var (crew, robots) = await CreateCrewForScenarioAsync(scenario, cancellationToken);
         State = FacilitySeeder.CreateDefault(
             crew,
-            stationConstraints: scenario.StationConstraints,
+            stationConstraints: RosterCompositionRules.ConstraintsFor(scenario, crew.Count),
             robotCount: robots);
         ScenarioCatalog.Apply(State, scenario);
         CampaignProgressionSystem.ApplyCarryOver(Campaign, State);
@@ -211,7 +211,7 @@ public sealed class GameSession(
         var (crew, robots) = await CreateCrewForScenarioAsync(scenario, cancellationToken);
         State = FacilitySeeder.CreateDefault(
             crew,
-            stationConstraints: scenario.StationConstraints,
+            stationConstraints: RosterCompositionRules.ConstraintsFor(scenario, crew.Count),
             robotCount: robots);
         ScenarioCatalog.Apply(State, scenario);
         _initialized = true;

@@ -39,7 +39,7 @@ public sealed class GameSession : StationSession
         var state = FacilitySeeder.CreateDefault(
             crew,
             stationSeed: stationSeed,
-            stationConstraints: scenario.StationConstraints,
+            stationConstraints: RosterCompositionRules.ConstraintsFor(scenario, crew.Count),
             robotCount: composition.RobotCount);
 
         ScenarioCatalog.Apply(state, scenario);

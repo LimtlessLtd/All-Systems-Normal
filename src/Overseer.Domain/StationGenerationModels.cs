@@ -182,6 +182,59 @@ public sealed class StationGenerationConstraints
     public bool FullyAuthoredGeometry { get; init; }
     public List<StationAuthoredGeometryRoom> FixedRooms { get; } = [];
     public List<StationAuthoredConnection> FixedConnections { get; } = [];
+
+    /// <summary>
+    /// Returns an independent copy with a different <see cref="PlannedCrewCount"/>,
+    /// so a run can size provisioning to its actual roster without mutating the
+    /// shared scenario constraints. Collection elements are immutable records
+    /// or init-only objects, so they are shared rather than cloned.
+    /// </summary>
+    public StationGenerationConstraints WithPlannedCrewCount(int? plannedCrewCount)
+    {
+        var copy = new StationGenerationConstraints
+        {
+            ForcedArchetype = ForcedArchetype,
+            ForcedPurpose = ForcedPurpose,
+            ForcedBudget = ForcedBudget,
+            ForcedSize = ForcedSize,
+            ForcedExpansionHistory = ForcedExpansionHistory,
+            ForcedSecurityLevel = ForcedSecurityLevel,
+            MinimumFunctionalRoomCount = MinimumFunctionalRoomCount,
+            MaximumFunctionalRoomCount = MaximumFunctionalRoomCount,
+            RequiredAirlockCount = RequiredAirlockCount,
+            RequiredTurretCount = RequiredTurretCount,
+            RequiredRobotCount = RequiredRobotCount,
+            PlannedCrewCount = plannedCrewCount,
+            HydroponicsCapacityMultiplier = HydroponicsCapacityMultiplier,
+            RequireRedundantPaths = RequireRedundantPaths,
+            ForbidRedundantPaths = ForbidRedundantPaths,
+            RequiredChokepointCount = RequiredChokepointCount,
+            ReactorMustBeIsolated = ReactorMustBeIsolated,
+            MedicalMustBeNearHabitat = MedicalMustBeNearHabitat,
+            RequiredShutdownRoomId = RequiredShutdownRoomId,
+            FullyAuthoredGeometry = FullyAuthoredGeometry
+        };
+
+        copy.RequiredRoomIds.UnionWith(RequiredRoomIds);
+        copy.ForbiddenRoomIds.UnionWith(ForbiddenRoomIds);
+        copy.AuthoredRooms.AddRange(AuthoredRooms);
+        copy.RequiredAdjacency.AddRange(RequiredAdjacency);
+        copy.RequiredSeparation.AddRange(RequiredSeparation);
+        copy.RequiredAirlockRoomIds.AddRange(RequiredAirlockRoomIds);
+        copy.RequiredTurretRoomIds.AddRange(RequiredTurretRoomIds);
+        copy.RequiredRobotRoomIds.AddRange(RequiredRobotRoomIds);
+        copy.AllowedCropKinds.UnionWith(AllowedCropKinds);
+        copy.InitiallyAccessibleRoomIds.UnionWith(InitiallyAccessibleRoomIds);
+        copy.InitiallyInaccessibleRoomIds.UnionWith(InitiallyInaccessibleRoomIds);
+        foreach (var (roomId, environment) in EnvironmentOverrides)
+        {
+            copy.EnvironmentOverrides[roomId] = environment;
+        }
+
+        copy.FixedRooms.AddRange(FixedRooms);
+        copy.FixedConnections.AddRange(FixedConnections);
+        return copy;
+    }
 }
 
 public sealed class StationGenerationMetadata

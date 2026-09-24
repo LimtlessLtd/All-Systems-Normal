@@ -1,3 +1,5 @@
+using Overseer.Domain;
+
 namespace Overseer.Simulation;
 
 /// <summary>
@@ -36,6 +38,27 @@ public static class RosterCompositionRules
     /// </summary>
     public static RosterComposition Sample(int seed) =>
         FromIndex((int)(Mix(seed) % (uint)CombinationCount));
+
+    /// <summary>
+    /// The scenario's station constraints with provisioning
+    /// (<see cref="StationGenerationConstraints.PlannedCrewCount"/>, which sizes
+    /// hydroponics) set to the roster actually aboard: sampled crew plus any
+    /// scenario prisoners, or a continuing campaign's survivors. The shared
+    /// scenario instance is never mutated.
+    /// </summary>
+    public static StationGenerationConstraints ConstraintsFor(
+        ScenarioDefinition scenario,
+        int rosterSize)
+    {
+        ArgumentNullException.ThrowIfNull(scenario);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(rosterSize);
+
+        var constraints = scenario.StationConstraints
+            ?? ScenarioCatalog.SecureContinuity.StationConstraints
+            ?? throw new InvalidOperationException(
+                "The Secure Continuity scenario must define station generation constraints.");
+        return constraints.WithPlannedCrewCount(rosterSize);
+    }
 
     private static RosterComposition FromIndex(int index) =>
         new(MinCrew + (index / RobotOptions), MinRobots + (index % RobotOptions));
