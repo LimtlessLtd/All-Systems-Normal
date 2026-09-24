@@ -16,8 +16,16 @@ public static class CampaignProgressionSystem
         ArgumentNullException.ThrowIfNull(campaign);
         ArgumentNullException.ThrowIfNull(state);
 
-        if (state.Scenario is null || state.ScenarioStatus == ScenarioStatus.Running)
+        if (state.Scenario is null
+            || state.ScenarioStatus == ScenarioStatus.Running
+            || !ScenarioCatalog.Campaign.Any(scenario =>
+                scenario.Id.Equals(
+                    state.Scenario.Id,
+                    StringComparison.OrdinalIgnoreCase)))
         {
+            // Standalone assignments are deliberately outside campaign
+            // continuity: completing one must not advance mission history,
+            // replace the carried roster/station snapshot, or reveal campaign lore.
             return;
         }
 
