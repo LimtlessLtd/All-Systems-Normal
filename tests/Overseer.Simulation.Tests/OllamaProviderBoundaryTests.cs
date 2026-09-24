@@ -79,4 +79,47 @@ public sealed class OllamaProviderBoundaryTests
         Assert.Equal("NPC decision", runtime.LastOperation);
         Assert.False(string.IsNullOrWhiteSpace(runtime.LastError));
     }
+
+    [Fact]
+    public async Task StructuredDecision_AsksOllamaForEnoughOutputToFinishTheJson()
+    {
+        // Owner report (2026-09-24): with a 300-token cap, qwen3 decisions
+        // were cut short. The cap must reach the wire as Ollama's num_predict.
+        var handler = new CapturingHandler();
+        var client = new OllamaApiClient(
+            new HttpClient(handler) { BaseAddress = new Uri("http://127.0.0.1:11434/") },
+            "qwen3:4b");
+        var service = new OllamaAiDecisionService(
+            client,
+            new RuleBasedAiDecisionService());
+        var state = FacilitySeeder.CreateDefault(stationSeed: 480043);
+
+        _ = await service.DecideAsync(state.Crew[0], state);
+
+        Assert.Equal(750, OllamaAiDecisionService.DecisionMaxOutputTokens);
+        Assert.NotEmpty(handler.Bodies);
+        Assert.All(handler.Bodies, body =>
+        {
+            var compact = body.Replace(" ", string.Empty);
+            Assert.Contains("\"num_predict\":750", compact);
+            Assert.Contains(
+                $"\"num_ctx\":{OllamaAiDecisionService.ContextWindowTokens}",
+                compact);
+        });
+    }
+
+    private sealed class CapturingHandler : HttpMessageHandler
+    {
+        public List<string> Bodies { get; } = [];
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Bodies.Add(request.Content is null
+                ? string.Empty
+                : await request.Content.ReadAsStringAsync(cancellationToken));
+            return new HttpResponseMessage(HttpStatusCode.InternalServerError);
+        }
+    }
 }

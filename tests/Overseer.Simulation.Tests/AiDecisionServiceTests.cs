@@ -254,10 +254,16 @@ public sealed class AiDecisionServiceTests
 
         var options = Assert.Single(client.CapturedOptions);
         Assert.NotNull(options?.AdditionalProperties);
-        Assert.Equal(8192, options!.AdditionalProperties!["num_ctx"]);
+        // NpcPromptBudgetTests checks that the window fits the real prompt.
+        Assert.True(OllamaAiDecisionService.ContextWindowTokens >= 8192);
+        Assert.Equal(
+            OllamaAiDecisionService.ContextWindowTokens,
+            options!.AdditionalProperties!["num_ctx"]);
 
         var trace = Assert.Single(state.CognitionTelemetry);
-        Assert.Contains("num_ctx: 8192", trace.Prompt);
+        Assert.Contains(
+            $"num_ctx: {OllamaAiDecisionService.ContextWindowTokens}",
+            trace.Prompt);
     }
 
     [Fact]

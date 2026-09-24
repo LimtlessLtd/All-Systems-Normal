@@ -12,10 +12,21 @@ public sealed class OllamaAiDecisionService(
     RuleBasedAiDecisionService fallback,
     OllamaRuntimeDiagnostics? runtimeDiagnostics = null) : IAiDecisionService
 {
-    // NpcPromptBuilder emits every action plus every room's atmosphere, which
-    // runs close to Ollama's 2048-token default context window; a model would
-    // silently drop the rules at the top of the prompt without this.
-    private const int ContextWindowTokens = 8192;
+    // NpcPromptBuilder emits every action plus every room's atmosphere. On the
+    // default station that is ~33k characters (~8-10k tokens), which no longer
+    // fit the old 8192 window once the output budget is added, so Ollama
+    // silently dropped the rules at the top of the prompt. Keep prompt plus
+    // output inside this; NpcPromptBudgetTests guards it. Condensing the
+    // prompt (BACKLOG owner idea #97) should let this come back down.
+    public const int ContextWindowTokens = 16384;
+
+    /// <summary>
+    /// Output cap for one NPC decision. The owner raised it from 300 because
+    /// replies were being cut short: thinking models such as qwen3 spend
+    /// part of this budget on reasoning before the JSON, so 300 could end
+    /// the decision mid-object and force a retry or the fallback.
+    /// </summary>
+    public const int DecisionMaxOutputTokens = 750;
 
     private const string RetryInstruction = """
 
@@ -41,7 +52,7 @@ public sealed class OllamaAiDecisionService(
             var options = new ChatOptions
             {
                 Temperature = 0.7f,
-                MaxOutputTokens = 750
+                MaxOutputTokens = DecisionMaxOutputTokens
             }.AddOllamaOption(OllamaOption.NumCtx, ContextWindowTokens);
 
             var attempt = await RequestDecisionAsync(
