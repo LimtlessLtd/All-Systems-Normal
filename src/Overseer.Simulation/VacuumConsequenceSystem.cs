@@ -28,6 +28,8 @@ public sealed class VacuumConsequenceSystem
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        StationHazardSystem.HullRepairRules.UpdateEmergencySuits(state);
+
         var vacuumDepths = EnvironmentSystem.FindVacuumDepths(state);
 
         foreach (var npc in state.Crew.Where(npc => npc.IsAlive && npc.IsPresent))
@@ -39,7 +41,7 @@ public sealed class VacuumConsequenceSystem
 
             var room = state.Facility.Rooms[npc.CurrentRoomId];
 
-            if (StationHazardSystem.HullRepairRules.HasEmergencyPressureProtection(npc, room.Id))
+            if (StationHazardSystem.HullRepairRules.HasEmergencyPressureProtection(npc))
             {
                 StatLogSystem.Set(state, npc, CrewStat.Fear, Math.Clamp(npc.Fear + 18, 0, 100), "decompression");
                 StatLogSystem.Set(state, npc, CrewStat.Stress, Math.Clamp(npc.Stress + 15, 0, 100), "decompression");

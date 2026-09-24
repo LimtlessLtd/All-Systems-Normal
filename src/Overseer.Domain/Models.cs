@@ -1186,6 +1186,12 @@ public sealed class Npc : IStationMobileEntity
     public string? CauseOfDeath { get; set; }
     public TimeSpan? LastDeathAnnouncementAt { get; set; }
     public bool IsPresent { get; set; } = true;
+
+    /// <summary>
+    /// Wearing the emergency pressure suit a PatchHull job puts on. Set and
+    /// cleared only by <c>StationHazardSystem.HullRepairRules.UpdateEmergencySuits</c>.
+    /// </summary>
+    public bool IsWearingEmergencySuit { get; set; }
     public bool IsPrisoner { get; set; }
     public PrisonerDangerLevel PrisonerDangerLevel { get; set; } = PrisonerDangerLevel.Low;
     public double PrisonerViolenceBias { get; set; }

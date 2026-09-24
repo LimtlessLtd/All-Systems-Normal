@@ -114,7 +114,11 @@ public sealed class BrowserMindSystem
         {
             var currentRoom = state.Facility.Rooms[npc.CurrentRoomId];
             var repairableLocalBreach =
-                StationHazardSystem.HullRepairRules.CanAttempt(npc, currentRoom);
+                StationHazardSystem.HullRepairRules.CanAttempt(npc, currentRoom)
+                && !StationHazardSystem.HullRepairRules.IsClaimedByAnotherResponder(
+                    state,
+                    npc,
+                    currentRoom);
 
             if (repairableLocalBreach)
             {

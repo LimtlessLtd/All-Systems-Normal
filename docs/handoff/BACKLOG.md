@@ -647,8 +647,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 
   **Proposed 4B prompt/response shape for the next slices:** (1) identity + compact stats/personality; (2) `WHAT YOU CAN SEE NOW` as a labelled relational list first, not ASCII by default — e.g. `R0 current room: Engineering; exits H1→R1(open); people P1; fixtures F1 generator, F2 tool cabinet; hazards fire X1 near F1`; benchmark ASCII against this list before choosing it, because labels are what actions must ground to; (3) 3–6 retrieved recent memories/claims, with source/age and no omniscient distant state; (4) one compact action table containing only currently targetable action families plus closed resolvers; (5) output `{"goal":"…","steps":[...]}` with at most `NpcPlan.MaxSteps` steps, each step containing only `action`, `targetLabelOrResolver`, optional closed-catalogue `condition`, and an optional short `say`. No free-form coordinates, code, or hidden world IDs. The next implementation slice is the labelled local view; plan-array production remains shared with owner idea #5.
 
-
-
 ### 99. Remove radial fire rings
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790262157487449 (2026-09-24)
 - Idea: "Remove the circles which radiate out from a fire source."
@@ -683,7 +681,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Outcome: reaching a win/completion condition freezes the scenario result and keeps the completion banner, but does not stop station ticks; the player can continue observing/interacting indefinitely until they explicitly load/restart/advance to another scenario. Post-completion play must not repeatedly re-award progression or mutate an already-recorded outcome.
 - Size: small (one PR, with regression coverage for continued ticks + idempotent outcome/progression)
 - Status: **ready**.
-
 
 ## Deliberate decisions (do not "fix")
 
@@ -761,7 +758,6 @@ No `ISystem` interface; `Tick` is duck-typed with two signatures (`Tick(GameStat
   - Small crews leave ripe bays unharvested and produce uncooked for 8h+ (likely nobody with horticulture/galley skill ≥ 25 on shift).
 
   Both belong to #80's competence/balance pass. With stress no longer pinned, check whether the ignition rate still needs tuning before touching it.
-- **Hull-patch follow-ups (audit of #210, 2026-09-24).** (1) The emergency suit (`StationHazardSystem.HullRepairRules.HasEmergencyPressureProtection`) protects only while the PatchHull intent/task is live and only in the target room. When the patch finishes, the patcher stands unprotected in a ~0 kPa, low-O₂ room while it refills at ~6 kPa/min, and takes low-pressure and hypoxia damage walking out. A depth-1 neighbour under 25 kPa can still eject them on the way in. Fix direction: key the suit to the person until they reach a room at safe pressure. (2) `BrowserMindSystem`'s in-room PatchHull branch skips the duplicate-responder check that `FindRepairableBreachForResponder` does. (3) In `StationHazardSystem.cs` the `<summary>` meant for `ShouldFightFire` now sits above `HullRepairRules`.
 - **Long-run soaks need a scenario that keeps running.** Secure Continuity ends at T+08:00 (`ObservationWindow`), so a "24h" soak of it covers only 8h. Long-run #80 soaks need a scenario or harness that keeps running. Related grid note (2026-09-24, after the shed-order fix): on a 60-seed browser-mind soak with every reactor forced to 12%, 2 stations still lost Engineering for most of the 8h, because once every other room was dark, generation still could not carry Engineering on top of the never-shed reactor, generator and corridors. That's a maintenance/competence question for #80, not a grid-order bug.
 - **Sleep follow-ups (after the "crew never sleep" fix, 2026-09-23).** A headless 12-crew soak (browser-mind `StationSession`, 4 seeds × 36h) showed crew in bed for only ~18% of their sleep-window minutes. They were pulled up by mild routine hunger, chore assignment, round-robin fallback thoughts and ambient chat. The fix raised that to ~52%, and starvation minutes and time to first death also improved. Remaining gaps, not yet investigated: (1) the day cohort's sleep window (22:00–06:00 = T+16h–T+24h) never occurs during Mission 1, which usually ends around T+8h, so in a typical first playthrough only the night cohort (Security/Technicians, T+4h–T+12h) is ever seen sleeping. Whether to shift the start time or shorten days is a product call. (2) The remaining out-of-bed sleep-window time is mostly night toilet trips (the contested capacity-1 toilet sometimes forces a second trip). Crew Quarters has fewer beds than a cohort, so several sleepers share a bed (see #20's same-bed note). (3) The same soak still starves and ends in decompression deaths well before T+36h once play continues past the win, which is #80's self-sustaining-station work.
 
