@@ -190,9 +190,18 @@ public abstract class StationSession
             return false;
         }
 
+        var outcomeWasOpen = State.ScenarioStatus == ScenarioStatus.Running;
+
         await AdvanceCoreAsync(cancellationToken);
 
-        if (State.ScenarioStatus != ScenarioStatus.Running)
+        // A won run keeps ticking (#103), so the campaign records the mission
+        // on the turn it resolves; later play cannot change that record.
+        if (outcomeWasOpen && State.ScenarioStatus != ScenarioStatus.Running)
+        {
+            CaptureCampaignProgress();
+        }
+
+        if (!State.IsSimulationLive)
         {
             _clock.Pause();
             return false;
@@ -609,7 +618,7 @@ public abstract class StationSession
         string text,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(text) || State.ScenarioStatus != ScenarioStatus.Running)
+        if (string.IsNullOrWhiteSpace(text) || !State.IsSimulationLive)
         {
             return false;
         }
@@ -823,7 +832,7 @@ public abstract class StationSession
 
     private async Task AdvanceCoreAsync(CancellationToken cancellationToken)
     {
-        if (State.ScenarioStatus != ScenarioStatus.Running) return;
+        if (!State.IsSimulationLive) return;
         var turn = TimeSpan.FromMinutes(1);
         _upkeep.Tick(State, turn);
         _environment.Tick(State, turn);

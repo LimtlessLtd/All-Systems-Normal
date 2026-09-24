@@ -33,7 +33,7 @@ public sealed class CrewProvisioningSystem
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (state.ScenarioStatus != ScenarioStatus.Running || state.CropBeds.Count == 0)
+        if (!state.IsSimulationLive || state.CropBeds.Count == 0)
         {
             return;
         }

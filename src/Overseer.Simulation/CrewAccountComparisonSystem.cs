@@ -34,7 +34,7 @@ public sealed class CrewAccountComparisonSystem
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (state.ScenarioStatus != ScenarioStatus.Running)
+        if (!state.IsSimulationLive)
         {
             return;
         }

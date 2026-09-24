@@ -3,6 +3,29 @@ namespace Overseer.Simulation.Tests;
 public sealed class PlaytestUiPolishTests
 {
     [Fact]
+    public void RunEndCard_StacksAboveTheStationFocusWorkspace()
+    {
+        // The focus-mode workspace is a fixed full-screen layer; a run-end card
+        // beneath it left CONTINUE CAMPAIGN and the ending choices unreachable.
+        foreach (var css in ReadMirroredCss())
+        {
+            Assert.True(
+                ZIndexOf(css, ".run-end-overlay {") > ZIndexOf(css, ".workspace-shell.station-focus-mode {"),
+                "The run-end overlay must stack above the station-focus workspace.");
+        }
+    }
+
+    private static int ZIndexOf(string css, string selectorBlock)
+    {
+        var start = css.IndexOf(selectorBlock, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing CSS block {selectorBlock}");
+        var body = css[start..css.IndexOf('}', start)];
+        var match = System.Text.RegularExpressions.Regex.Match(body, @"z-index:\s*(\d+)");
+        Assert.True(match.Success, $"{selectorBlock} declares no z-index");
+        return int.Parse(match.Groups[1].Value);
+    }
+
+    [Fact]
     public void StationInteractiveButtons_NeverUseGenericPressedTransform()
     {
         foreach (var css in ReadMirroredCss())

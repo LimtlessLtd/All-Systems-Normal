@@ -19,7 +19,7 @@ public sealed class PrisonerContainmentSystem
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (state.ScenarioStatus != ScenarioStatus.Running)
+        if (!state.IsSimulationLive)
             return;
 
         TickRecaptureAttempts(state);

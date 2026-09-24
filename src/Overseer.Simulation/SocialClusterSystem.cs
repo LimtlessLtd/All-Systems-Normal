@@ -24,7 +24,7 @@ public sealed class SocialClusterSystem
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (state.ScenarioStatus != ScenarioStatus.Running)
+        if (!state.IsSimulationLive)
             return;
 
         var members = state.Crew
