@@ -113,6 +113,33 @@ public sealed class BrowserMindSystem
                              state.Facility.Rooms[npc.CurrentRoomId])))
         {
             var currentRoom = state.Facility.Rooms[npc.CurrentRoomId];
+            var repairableLocalBreach =
+                StationHazardSystem.HullRepairRules.CanAttempt(npc, currentRoom);
+
+            if (repairableLocalBreach)
+            {
+                if (npc.Intent is { Action: ActionKind.PatchHull, TargetId: { } patchTarget }
+                    && patchTarget.Equals(currentRoom.Id, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                npc.Intent = null;
+                npc.Movement = null;
+                npc.RoutineUntil = TimeSpan.Zero;
+                SetIntent(
+                    state,
+                    npc,
+                    Create(
+                        state,
+                        ActionKind.PatchHull,
+                        currentRoom.Id,
+                        $"Patch the hull breach in {currentRoom.Name}.",
+                        "The fire is out, this compartment is open to space, and I have the repair skill to seal it using emergency EVA gear.",
+                        100),
+                    NpcBubbleKind.Alert);
+                continue;
+            }
 
             if (!CrewEnvironmentSafety.IsDangerous(currentRoom)
                 || IsAlreadyEscapingToSaferRoom(state, npc, currentRoom)
