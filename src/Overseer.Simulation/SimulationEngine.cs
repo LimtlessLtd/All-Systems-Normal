@@ -114,6 +114,31 @@ public sealed class SimulationEngine
                     $"eating raw {crop.ToString().ToLowerInvariant()}");
             }
 
+            // Owner idea #90: a seat at the table makes a meal a small comfort;
+            // eating on your feet because every chair is taken is a small
+            // irritation. Walking to a free chair costs nothing either way.
+            if (eatingPrepared || eatingRaw)
+            {
+                if (DiningSeatRules.SeatedAt(state, npc) is not null)
+                {
+                    StatLogSystem.Set(
+                        state,
+                        npc,
+                        CrewStat.Stress,
+                        Clamp(npc.Stress - (DiningSeatRules.SeatedStressReliefPerMinute * minutes)),
+                        "eating seated");
+                }
+                else if (DiningSeatRules.IsEatingStanding(state, npc))
+                {
+                    StatLogSystem.Set(
+                        state,
+                        npc,
+                        CrewStat.Stress,
+                        Clamp(npc.Stress + (DiningSeatRules.StandingStressPerMinute * minutes)),
+                        "no free seat to eat at");
+                }
+            }
+
             // A person physically asleep in a bed burns far less than one on
             // shift (and the bladder fills more slowly), so a full night's
             // sleep no longer guarantees waking up starving or bursting, which

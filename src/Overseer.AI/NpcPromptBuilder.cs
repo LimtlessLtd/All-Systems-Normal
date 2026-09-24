@@ -458,6 +458,16 @@ public static class NpcPromptBuilder
                 + (source.Device.IsDegraded ? $", worn and rattling at {source.Device.Condition:0}% condition" : string.Empty));
             builder.AppendLine($"NOISE: loud here ({noiseLevel:0}; restful below {StationNoiseSystem.DisturbingAt:0}). Loudest: {string.Join("; ", loudest)}. Sleep or rest in this noise is much less restorative. What, if anything, to do about it is up to you.");
         }
+        // Meals are eaten in the galley; chairs at consoles or desks elsewhere
+        // are not somewhere to eat.
+        var (freeSeats, totalSeats) = DiningSeatRules.Availability(state, room);
+        if (room.Type == RoomType.Kitchen
+            && totalSeats > 0
+            && (npc.CurrentAction.Kind == ActionKind.Eat || npc.Hunger >= StationProvisionRules.HungryAt))
+        {
+            var seatedHere = DiningSeatRules.SeatedAt(state, npc) is not null ? " You are sitting in one." : string.Empty;
+            builder.AppendLine($"SEATS: {freeSeats} of {totalSeats} chairs here are free.{seatedHere} A meal eaten sitting down is a small comfort; eating on your feet because every chair is taken is a small irritation. Whether to eat now or wait for a seat is up to you.");
+        }
         if (DecompressionContainmentRules.FindHatchTowardBreach(state, npc) is { } breachHatch)
         {
             var breachSide = state.Facility.Rooms[DecompressionContainmentRules.FarSide(npc, breachHatch)];
