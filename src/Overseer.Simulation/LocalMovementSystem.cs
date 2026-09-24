@@ -230,8 +230,11 @@ public sealed class LocalMovementSystem
                 room.Fixtures.FirstOrDefault(fixture =>
                     fixture.Type is FixtureType.Bed or FixtureType.MedicalBed),
 
-            ActionKind.Eat => room.Fixtures.FirstOrDefault(fixture =>
-                fixture.Type is FixtureType.Table or FixtureType.KitchenCounter),
+            // Owner idea #90: sit at a free chair if there is one, otherwise
+            // eat standing at the table or counter.
+            ActionKind.Eat => DiningSeatRules.SeatFor(state, npc)
+                ?? room.Fixtures.FirstOrDefault(fixture =>
+                    fixture.Type is FixtureType.Table or FixtureType.KitchenCounter),
 
             ActionKind.Recreate => room.Fixtures.FirstOrDefault(fixture =>
                 fixture.Type is FixtureType.Sofa
