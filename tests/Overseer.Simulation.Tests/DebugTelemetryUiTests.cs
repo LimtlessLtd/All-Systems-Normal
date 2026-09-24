@@ -13,6 +13,11 @@ public sealed class DebugTelemetryUiTests
         Assert.Contains("LLM RESPONSE // RAW PROVIDER OUTPUT", debug);
         Assert.Contains("data-cognition-sequence=\"@trace.Sequence\"", debug);
         Assert.Contains("#@trace.Sequence", debug);
+        Assert.Contains("OLLAMA PROVIDER STATUS", debug);
+        Assert.Contains("runtime.ProviderRequestsStarted", debug);
+        Assert.Contains("runtime.NpcDecisionRequestsStarted", debug);
+        Assert.Contains("LAST PROVIDER ERROR", debug);
+        Assert.Contains("COGNITION DISPATCH FAILURE", debug);
 
         var request = debug.IndexOf("LLM REQUEST // EXACT PROMPT + OPTIONS", StringComparison.Ordinal);
         var response = debug.IndexOf("LLM RESPONSE // RAW PROVIDER OUTPUT", StringComparison.Ordinal);
