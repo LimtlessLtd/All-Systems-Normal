@@ -34,6 +34,8 @@ public static class BedUseRules
             return null;
         }
 
+        // Stable ordering preserves seeded roster order for duplicate names.
+        // Do not order by Npc.Id: it is a runtime Guid and must not affect replay.
         var sleepers = state.Crew
             .Where(other =>
                 other.IsAlive
@@ -41,10 +43,40 @@ public static class BedUseRules
                 && other.CurrentAction.Kind == ActionKind.Sleep
                 && other.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
             .OrderBy(other => other.Name, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(other => other.Id)
             .ToList();
 
-        var index = sleepers.FindIndex(other => other.Id == npc.Id);
-        return index >= 0 && index < beds.Count ? beds[index] : null;
+        // A sleeper already physically at a bed keeps it. Remaining sleepers
+        // are assigned to the first free beds in deterministic order.
+        var assignment = new Dictionary<Npc, int>();
+        var claimed = new bool[beds.Count];
+
+        for (var bedIndex = 0; bedIndex < beds.Count; bedIndex++)
+        {
+            var occupant = sleepers.FirstOrDefault(other =>
+                !assignment.ContainsKey(other)
+                && LocalMovementSystem.IsAtInteractionPoint(room, other, beds[bedIndex]));
+            if (occupant is null)
+                continue;
+
+            assignment[occupant] = bedIndex;
+            claimed[bedIndex] = true;
+        }
+
+        foreach (var sleeper in sleepers)
+        {
+            if (assignment.ContainsKey(sleeper))
+                continue;
+
+            var freeIndex = Array.FindIndex(claimed, isClaimed => !isClaimed);
+            if (freeIndex < 0)
+                break;
+
+            assignment[sleeper] = freeIndex;
+            claimed[freeIndex] = true;
+        }
+
+        return assignment.TryGetValue(npc, out var assignedIndex)
+            ? beds[assignedIndex]
+            : null;
     }
 }
