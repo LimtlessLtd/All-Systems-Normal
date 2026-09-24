@@ -85,14 +85,12 @@ public sealed class OllamaAiDecisionService(
 
             return intent;
         }
-        catch (OperationCanceledException exception)
+        catch (OperationCanceledException)
         {
-            _runtimeDiagnostics?.RecordFailure("NPC decision", exception);
             throw;
         }
         catch (Exception exception)
         {
-            _runtimeDiagnostics?.RecordFailure("NPC decision", exception);
             CognitionTelemetrySystem.Record(
                 state,
                 npc,
@@ -119,28 +117,53 @@ public sealed class OllamaAiDecisionService(
 
         // Record before awaiting the provider. Previously a hung/cancelled call
         // could leave /debug saying "0 Ollama calls" even though cognition had
-        // reached the model boundary.
-        _runtimeDiagnostics?.RecordStarted(operation, npcDecision: true);
+        // reached the model boundary. In Development the process-wide trace also
+        // keeps the exact bounded request so a fresh /debug circuit can inspect it.
+        var sequence = _runtimeDiagnostics?.RecordStarted(
+            operation,
+            npcDecision: true,
+            prompt: promptTrace);
 
-        var response = await _chatClient.GetResponseAsync<NpcMindDecision>(
-            modelPrompt,
-            options: options,
-            useJsonSchemaResponseFormat: true,
-            cancellationToken: cancellationToken);
-
-        _runtimeDiagnostics?.RecordResponse(operation);
-
-        var responseText = response.Text;
-        var rawResponse = BuildRawResponseTrace(
-            response.RawRepresentation,
-            responseText);
-
-        if (!response.TryGetResult(out var decision) || decision is null)
+        try
         {
-            decision = TryParse(responseText);
-        }
+            var response = await _chatClient.GetResponseAsync<NpcMindDecision>(
+                modelPrompt,
+                options: options,
+                useJsonSchemaResponseFormat: true,
+                cancellationToken: cancellationToken);
 
-        return (decision, promptTrace, rawResponse);
+            var responseText = response.Text;
+            var rawResponse = BuildRawResponseTrace(
+                response.RawRepresentation,
+                responseText);
+
+            if (sequence is { } requestSequence)
+            {
+                _runtimeDiagnostics?.RecordResponse(
+                    requestSequence,
+                    operation,
+                    rawResponse);
+            }
+
+            if (!response.TryGetResult(out var decision) || decision is null)
+            {
+                decision = TryParse(responseText);
+            }
+
+            return (decision, promptTrace, rawResponse);
+        }
+        catch (Exception exception)
+        {
+            if (sequence is { } requestSequence)
+            {
+                _runtimeDiagnostics?.RecordFailure(
+                    requestSequence,
+                    operation,
+                    exception);
+            }
+
+            throw;
+        }
     }
 
     private static string BuildRequestTrace(
