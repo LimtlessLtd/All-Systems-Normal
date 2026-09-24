@@ -6,10 +6,12 @@ namespace Overseer.AI;
 
 public sealed class OllamaCrewGenerator(
     IChatClient chatClient,
-    RuleBasedCrewGenerator fallback) : IAiCrewGenerator
+    RuleBasedCrewGenerator fallback,
+    OllamaRuntimeDiagnostics? runtimeDiagnostics = null) : IAiCrewGenerator
 {
     private readonly IChatClient _chatClient = chatClient;
     private readonly RuleBasedCrewGenerator _fallback = fallback;
+    private readonly OllamaRuntimeDiagnostics? _runtimeDiagnostics = runtimeDiagnostics;
 
     private static readonly CrewRole[] RequiredRoles =
         Enum.GetValues<CrewRole>()
@@ -37,6 +39,7 @@ public sealed class OllamaCrewGenerator(
     {
         try
         {
+            _runtimeDiagnostics?.RecordStarted("crew generation");
             var response = await _chatClient.GetResponseAsync<AiCrewRoster>(
                 BuildPrompt(),
                 options: new ChatOptions
@@ -46,6 +49,8 @@ public sealed class OllamaCrewGenerator(
                 },
                 useJsonSchemaResponseFormat: true,
                 cancellationToken: cancellationToken);
+
+            _runtimeDiagnostics?.RecordResponse("crew generation");
 
             AiCrewRoster? roster = null;
 
@@ -62,12 +67,14 @@ public sealed class OllamaCrewGenerator(
 
             return Validate(roster);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException exception)
         {
+            _runtimeDiagnostics?.RecordFailure("crew generation", exception);
             throw;
         }
-        catch
+        catch (Exception exception)
         {
+            _runtimeDiagnostics?.RecordFailure("crew generation", exception);
             return await _fallback.GenerateAsync(cancellationToken);
         }
     }
