@@ -653,9 +653,96 @@ public sealed class LocalMovementSystem
         }
     }
 
-    private static bool MoveTowards(
-        Room room,
+    /// <summary>
+    /// Presentation preview of the exact local door-approach steps authoritative
+    /// movement will take from the entity's current position. This is deliberately
+    /// derived from the same pure step planner <see cref="MoveTowards"/> consumes,
+    /// so route lines cannot claim a straight portal path while fixture avoidance
+    /// is physically sending the actor around machinery.
+    /// </summary>
+    public static IReadOnlyList<(double X, double Y)> PreviewDoorRoute(
+        GameState state,
         IStationMobileEntity entity,
+        TimeSpan delta,
+        int maxSteps = 12)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(entity);
+
+        if (delta <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(delta));
+        if (maxSteps <= 0)
+            return [];
+        if (entity.Movement is not { } movement
+            || !entity.CurrentRoomId.Equals(
+                movement.FromRoomId,
+                StringComparison.OrdinalIgnoreCase)
+            || !state.Facility.Rooms.TryGetValue(movement.FromRoomId, out var room))
+        {
+            return [];
+        }
+
+        var maxDistance = WalkingMapUnitsPerMinute * delta.TotalMinutes;
+        if (entity is Npc npc)
+            maxDistance *= CrewConditionRules.MovementMultiplier(npc);
+        maxDistance *= DoorApproachMultiplier;
+
+        var x = entity.PositionX;
+        var y = entity.PositionY;
+        var points = new List<(double X, double Y)>(Math.Min(maxSteps, 12));
+
+        for (var index = 0; index < maxSteps; index++)
+        {
+            var step = PlanStep(
+                room,
+                x,
+                y,
+                movement.ExitX,
+                movement.ExitY,
+                maxDistance);
+
+            x = step.StartX;
+            y = step.StartY;
+
+            if (!step.ShouldMove)
+            {
+                if (step.Reached
+                    && Distance(x, y, step.NextX, step.NextY) > .001)
+                {
+                    points.Add((step.NextX, step.NextY));
+                }
+
+                break;
+            }
+
+            if (Distance(x, y, step.NextX, step.NextY) <= .001)
+                break;
+
+            points.Add((step.NextX, step.NextY));
+            x = step.NextX;
+            y = step.NextY;
+
+            if (step.Reached)
+                break;
+        }
+
+        return points;
+    }
+
+    private readonly record struct PlannedLocalStep(
+        double StartX,
+        double StartY,
+        double NextX,
+        double NextY,
+        double FacingDx,
+        double FacingDy,
+        bool ShouldMove,
+        bool Reached);
+
+    private static PlannedLocalStep PlanStep(
+        Room room,
+        double startX,
+        double startY,
         double targetX,
         double targetY,
         double maxDistance)
@@ -667,63 +754,144 @@ public sealed class LocalMovementSystem
         // point can sit in a hull-side pocket cut off by inflated fixture
         // clearance, so invalid starts recover to the nearest walkable region
         // that can actually route to this destination.
-        if (!IsWalkable(room, entity.PositionX, entity.PositionY))
+        if (!IsWalkable(room, startX, startY))
         {
             var recovered = FindReachableRecoveryPoint(
                 room,
-                entity.PositionX,
-                entity.PositionY,
+                startX,
+                startY,
                 destination.X,
                 destination.Y);
-            entity.PositionX = recovered.X;
-            entity.PositionY = recovered.Y;
+            startX = recovered.X;
+            startY = recovered.Y;
         }
-        var dx = destination.X - entity.PositionX;
-        var dy = destination.Y - entity.PositionY;
-        var distance = PhysicalDistance(room, dx, dy);
 
-        SetFacing(entity, dx, dy);
+        var dx = destination.X - startX;
+        var dy = destination.Y - startY;
+        var distance = PhysicalDistance(room, dx, dy);
 
         if (distance <= 0.00001)
         {
-            entity.PositionX = destination.X;
-            entity.PositionY = destination.Y;
-            return true;
+            return new PlannedLocalStep(
+                startX,
+                startY,
+                destination.X,
+                destination.Y,
+                dx,
+                dy,
+                ShouldMove: false,
+                Reached: true);
         }
 
         // Never snap to a later waypoint through geometry. Movement distance is
         // measured in station-map units rather than local room percentages.
         var canReachDestinationThisTick = distance <= maxDistance;
         var scale = canReachDestinationThisTick ? 1d : maxDistance / distance;
-        var nextX = entity.PositionX + (dx * scale);
-        var nextY = entity.PositionY + (dy * scale);
+        var nextX = startX + (dx * scale);
+        var nextY = startY + (dy * scale);
+        var facingDx = dx;
+        var facingDy = dy;
 
-        if (SegmentHitsFixture(room, entity.PositionX, entity.PositionY, nextX, nextY))
+        if (SegmentHitsFixture(room, startX, startY, nextX, nextY))
         {
-            var detour = DetourPoint(room, entity.PositionX, entity.PositionY, destination.X, destination.Y);
-            var detourDx = detour.X - entity.PositionX;
-            var detourDy = detour.Y - entity.PositionY;
+            var detour = DetourPoint(
+                room,
+                startX,
+                startY,
+                destination.X,
+                destination.Y);
+            var detourDx = detour.X - startX;
+            var detourDy = detour.Y - startY;
             var detourDistance = PhysicalDistance(room, detourDx, detourDy);
 
             if (detourDistance <= 0.00001)
-                return false;
+            {
+                return new PlannedLocalStep(
+                    startX,
+                    startY,
+                    startX,
+                    startY,
+                    facingDx,
+                    facingDy,
+                    ShouldMove: false,
+                    Reached: false);
+            }
 
             var detourScale = Math.Min(1, maxDistance / detourDistance);
-            nextX = entity.PositionX + (detourDx * detourScale);
-            nextY = entity.PositionY + (detourDy * detourScale);
-            SetFacing(entity, detourDx, detourDy);
+            nextX = startX + (detourDx * detourScale);
+            nextY = startY + (detourDy * detourScale);
+            facingDx = detourDx;
+            facingDy = detourDy;
 
-            if (SegmentHitsFixture(room, entity.PositionX, entity.PositionY, nextX, nextY))
-                return false;
+            if (SegmentHitsFixture(room, startX, startY, nextX, nextY))
+            {
+                return new PlannedLocalStep(
+                    startX,
+                    startY,
+                    startX,
+                    startY,
+                    facingDx,
+                    facingDy,
+                    ShouldMove: false,
+                    Reached: false);
+            }
+        }
+
+        nextX = Math.Clamp(nextX, 2, 98);
+        nextY = Math.Clamp(nextY, 2, 98);
+
+        var reached = canReachDestinationThisTick
+            && Math.Abs(nextX - destination.X) <= 0.001
+            && Math.Abs(nextY - destination.Y) <= 0.001;
+
+        return new PlannedLocalStep(
+            startX,
+            startY,
+            nextX,
+            nextY,
+            facingDx,
+            facingDy,
+            ShouldMove: true,
+            Reached: reached);
+    }
+
+    private static bool MoveTowards(
+        Room room,
+        IStationMobileEntity entity,
+        double targetX,
+        double targetY,
+        double maxDistance)
+    {
+        var step = PlanStep(
+            room,
+            entity.PositionX,
+            entity.PositionY,
+            targetX,
+            targetY,
+            maxDistance);
+
+        // Recovery from invalid generated geometry is authoritative and happens
+        // before this tick's ordinary movement, exactly as it did before the
+        // step planner was extracted for route presentation.
+        entity.PositionX = step.StartX;
+        entity.PositionY = step.StartY;
+        SetFacing(entity, step.FacingDx, step.FacingDy);
+
+        if (!step.ShouldMove)
+        {
+            if (step.Reached)
+            {
+                entity.PositionX = step.NextX;
+                entity.PositionY = step.NextY;
+            }
+
+            return step.Reached;
         }
 
         MarkLocallyMoving(entity);
-        entity.PositionX = Math.Clamp(nextX, 2, 98);
-        entity.PositionY = Math.Clamp(nextY, 2, 98);
-
-        return canReachDestinationThisTick
-            && Math.Abs(entity.PositionX - destination.X) <= 0.001
-            && Math.Abs(entity.PositionY - destination.Y) <= 0.001;
+        entity.PositionX = step.NextX;
+        entity.PositionY = step.NextY;
+        return step.Reached;
     }
 
     private static double PhysicalDistance(Room room, double localDx, double localDy)

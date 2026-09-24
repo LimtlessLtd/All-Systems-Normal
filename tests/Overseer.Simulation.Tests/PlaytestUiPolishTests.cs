@@ -79,8 +79,8 @@ public sealed class PlaytestUiPolishTests
         foreach (var home in ReadMirroredHomes())
         {
             Assert.Contains("crew-route-lines", home);
-            Assert.Contains("CrewNextMapX", home);
-            Assert.Contains("CrewNextMapY", home);
+            Assert.Contains("CrewNextMapPoint", home);
+            Assert.Contains("LocalMovementSystem.PreviewDoorRoute", home);
         }
 
         foreach (var css in ReadMirroredCss())

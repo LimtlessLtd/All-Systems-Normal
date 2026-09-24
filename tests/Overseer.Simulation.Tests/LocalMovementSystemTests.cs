@@ -337,6 +337,40 @@ public sealed class LocalMovementSystemTests
             $"Expected a visible detour around the blocker, got {npc.PositionX:0.0},{npc.PositionY:0.0}.");
     }
 
+    [Fact]
+    public void PreviewDoorRoute_MatchesAuthoritativeDetourSteps()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 51515);
+        var npc = state.Crew.First();
+        foreach (var other in state.Crew.Where(other => other.Id != npc.Id))
+            other.IsPresent = false;
+
+        var room = state.Facility.Rooms["hydroponics"];
+        room.Fixtures.Clear();
+        room.Fixtures.Add(new RoomFixture(
+            FixtureType.Crate, "Preview obstacle", 60, 50, 12, 18));
+
+        npc.CurrentRoomId = room.Id;
+        npc.PositionX = 80;
+        npc.PositionY = 50;
+        npc.Movement = new NpcMovement(
+            "preview-door", room.Id, "corridor", 20, 50, 50, 50);
+
+        var preview = LocalMovementSystem.PreviewDoorRoute(
+            state, npc, TimeSpan.FromMinutes(1));
+
+        Assert.NotEmpty(preview);
+        Assert.Contains(preview, point => Math.Abs(point.Y - 50) > .5);
+
+        var movement = new LocalMovementSystem();
+        foreach (var expected in preview)
+        {
+            movement.Tick(state, TimeSpan.FromMinutes(1));
+            Assert.Equal(expected.X, npc.PositionX, 6);
+            Assert.Equal(expected.Y, npc.PositionY, 6);
+        }
+    }
+
     private static Door NetworkDoorForHall(
         GameState state,
         string hallwayId,
