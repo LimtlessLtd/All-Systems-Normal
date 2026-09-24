@@ -638,6 +638,53 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Size: large (slices: (1) research note: survey prior LLM-agent work (e.g. Generative Agents' memory-stream/reflection/plan loop, Voyager-style skill libraries, ReAct-style tool calls, small-model structured output) and propose a prompt/response design for a 4B local model, recorded here; (2) labelled local view (ASCII or labelled list, whichever small models read better, measured) replacing whole-station status/topology for the person's surroundings; (3) plan-array response + label/resolver catalogue, shared with #5 slice 1; (4) A/B the new prompt against the current one on parse rate, valid-action rate and latency with the owner's model).
 - Status: **ready**. Do after the thinking fix (2026-09-24 15:43 report), which was the main reason replies were empty/cut off; re-measure parse rates with thinking off before redesigning.
 
+  **Research slice (2026-09-24) — shipped as documentation/design, no runtime behaviour yet.** The prior-agent literature points to a smaller, more grounded loop rather than giving a 4B model more prose or hidden reasoning:
+  - **Generative Agents** (Park et al., 2023, https://arxiv.org/abs/2304.03442) separates observation, memory retrieval/reflection and planning. For this project: keep the observation small and perception-local, retrieve only the few memories/claims relevant to the present situation, and keep any longer-term reflection as stored cognition rather than re-sending the station encyclopedia every turn.
+  - **ReAct** (Yao et al., 2022/2023, https://arxiv.org/abs/2210.03629) gets robustness from alternating environment interaction and feedback. For this project: do **not** ask qwen3:4b for a visible chain-of-thought; thinking is intentionally disabled after the owner's truncation report. Preserve the useful part as an **act → deterministic C# result/rejection → observe again** loop. Rejections already become typed failed-attempt memories, so the model can re-plan from concrete feedback without C# deciding the next goal.
+  - **Voyager** (Wang et al., 2023, https://arxiv.org/abs/2305.16291) composes reusable skills and uses execution errors/self-verification. For this project, the analogue is the existing closed affordance/resolver catalogue — **not model-written code**. Compact named actions such as `MoveTo(fixture:F3)`, `FightFire(fire:H2)`, or `Talk(person:P1)` can compose into a max-4-step `NpcPlan`; C# resolves labels, validates every step at execution time, and returns concrete failure feedback.
+  - **Structured-output work** (Geng et al., 2025, https://arxiv.org/abs/2501.10868) supports constrained JSON-schema decoding for syntactic compliance, but schema compliance alone does not establish that a target/action is physically valid. Keep Microsoft.Extensions.AI/Ollama JSON-schema output for syntax and the existing deterministic validators for semantics.
+  - **Embodied Agent Interface** (Li et al., 2024, https://arxiv.org/abs/2410.07166) separates goal interpretation, subgoal decomposition, action sequencing and transition modelling and measures hallucination/affordance/planning errors independently. Adopt the same measurement split for #98's A/B: JSON parse rate, catalogue-action validity, target/affordance validity, plan-step completion/re-plan rate, fallback rate and provider latency.
+
+  **Proposed 4B prompt/response shape for the next slices:** (1) identity + compact stats/personality; (2) `WHAT YOU CAN SEE NOW` as a labelled relational list first, not ASCII by default — e.g. `R0 current room: Engineering; exits H1→R1(open); people P1; fixtures F1 generator, F2 tool cabinet; hazards fire X1 near F1`; benchmark ASCII against this list before choosing it, because labels are what actions must ground to; (3) 3–6 retrieved recent memories/claims, with source/age and no omniscient distant state; (4) one compact action table containing only currently targetable action families plus closed resolvers; (5) output `{"goal":"…","steps":[...]}` with at most `NpcPlan.MaxSteps` steps, each step containing only `action`, `targetLabelOrResolver`, optional closed-catalogue `condition`, and an optional short `say`. No free-form coordinates, code, or hidden world IDs. The next implementation slice is the labelled local view; plan-array production remains shared with owner idea #5.
+
+
+
+### 99. Remove radial fire rings
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790262157487449 (2026-09-24)
+- Idea: "Remove the circles which radiate out from a fire source."
+- Outcome: the station overview no longer renders decorative/diagnostic concentric circles around fires; fire presentation is limited to visuals grounded in the deterministic fire state.
+- Size: small (one PR)
+- Status: **ready**.
+
+### 100. Fire sprites must match physical spread and intensity
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790262157487449 (2026-09-24)
+- Idea: "Increase the number of fire sprites when the fire is spreading, and place them where the fires are physically located. The number of fire sprites and where they are placed should reflect exactly how the fire is spreading, where it is located, and how intense it is. For more information lookup Rimworld fire mechanics."
+- Outcome: fire sprites are a presentation of deterministic fire geometry/intensity, not decorative random effects: every sprite is anchored to an actual burning location/cell/fixture represented by C# fire state, sprite density/intensity scales monotonically with that state, and no sprite suggests fire where the simulation has none. Research RimWorld's readable fire presentation for UI inspiration without importing its mechanics as simulation authority.
+- Size: large (slices: map current deterministic fire geometry/intensity to render data; replace random/decorative placement with grounded positions; scale sprite count/animation by intensity; browser visual regression/playtest)
+- Status: **ready**, after #99 so the obsolete rings are removed first.
+
+### 101. Increase emergent, LLM-authored activity toward RimWorld-like density
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790262252723339 (2026-09-24)
+- Idea: "aiming for rimworld levels of emergent behaviour and sim functionality, but with an LLM making real human decisions every so often ... after 30 real world seconds it would be nice to see something novel or unique ... at the moment things are TOO rigid."
+- Outcome: normal server play produces frequent model-authored social/goal variation instead of long stretches dominated by fixed fallback routines. Add telemetry/playtest measures for real-time gaps between successful LLM-authored intents/plans and for repeated fallback/action patterns; then use #98's perception-first prompt plus existing/emerging social affordances to reduce those gaps without C# choosing the novel behaviour. The 30-real-second observation is a product target to measure, not a deterministic rule that forces a scripted event every 30 seconds.
+- Size: large (slices: instrumentation/benchmark; diagnose cadence vs provider latency vs prompt/fallback causes; expand model-visible social/composable affordances where evidence shows rigidity; long playtest/A-B)
+- Status: **ready**, but implement through/after #98 so prompt/plan architecture is not duplicated.
+
+### 102. Show a processing / awaiting-LLM indicator
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790262759659339 (2026-09-24)
+- Idea: show "some small white text in the very bottom left handcorner of the space station overview window" such as "processing", "awaiting LLM response" or "determining appropriate course of action" when the simulation appears paused doing background work.
+- Outcome: the station overview exposes a small unobtrusive bottom-left busy-status label whenever an awaited operation is blocking visible progression, using truthful operation-specific state (at minimum `Awaiting LLM response` around provider calls) and clearing it reliably on success, failure or cancellation. It must not claim LLM activity on the static Pages/browser-mind build.
+- Size: small (one PR)
+- Status: **ready**.
+
+### 103. Continue simulation after scenario completion
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790262800183259 (2026-09-24)
+- Idea: "Scenarios should continue even after the \"Scenario Complete\" message appears at the top in the overview header bar."
+- Outcome: reaching a win/completion condition freezes the scenario result and keeps the completion banner, but does not stop station ticks; the player can continue observing/interacting indefinitely until they explicitly load/restart/advance to another scenario. Post-completion play must not repeatedly re-award progression or mutate an already-recorded outcome.
+- Size: small (one PR, with regression coverage for continued ticks + idempotent outcome/progression)
+- Status: **ready**.
+
+
 ## Deliberate decisions (do not "fix")
 
 - The server tick awaits the Ollama decision, so the station pauses while a mind thinks. The owner wants the model to have time to take in the situation. Do not make cognition non-blocking unless asked.
