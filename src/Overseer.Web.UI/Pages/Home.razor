@@ -17,10 +17,17 @@
                     <h2>STATION OVERVIEW</h2>
                 </div>
                 <div class="station-header-actions">
-                    <span class="station-clock @(Session.State.ScenarioStatus == ScenarioStatus.Running && !_paused ? "sim-running" : "sim-paused")"
+                    <span class="station-clock @(Session.State.IsSimulationLive && !_paused ? "sim-running" : "sim-paused")"
                           title="Mission time">
                         T+@Session.State.Elapsed.ToString(@"hh\:mm") · @TurnStatusLabel
                     </span>
+                    @if (Session.State.ScenarioStatus == ScenarioStatus.Won && _runEndDismissed)
+                    {
+                        <button type="button"
+                                class="mini secondary run-end-reopen"
+                                title="Show this assignment's recorded result again"
+                                @onclick="() => _runEndDismissed = false">RESULT</button>
+                    }
                     <button type="button"
                             class="mini station-alerts station-popup-toggle @(Session.AlertCount > 0 ? "has-alerts" : "no-alerts") @(_stationOverlay == "alerts" ? "active" : "")"
                             aria-pressed="@(_stationOverlay == "alerts")"
@@ -29,7 +36,7 @@
                     <button type="button"
                             class="mini fire-alarm-toggle @(_fireAlarmArming ? "armed" : "")"
                             aria-pressed="@_fireAlarmArming"
-                            disabled="@(Session.State.ScenarioStatus != ScenarioStatus.Running)"
+                            disabled="@(!Session.State.IsSimulationLive)"
                             title="Sound the station-wide fire alarm: press, then click the burning room. Crew decide for themselves how to respond, and a false alarm costs their trust."
                             @onclick="ToggleFireAlarmArming">@(_fireAlarmArming ? "SELECT ROOM · CANCEL" : "FIRE ALARM")</button>
                     <button type="button"
@@ -1635,7 +1642,8 @@
 
     </div>
 
-    @if (Session.State.ScenarioStatus != ScenarioStatus.Running)
+    @if (Session.State.ScenarioStatus != ScenarioStatus.Running
+         && !(Session.State.ScenarioStatus == ScenarioStatus.Won && _runEndDismissed))
     {
         <div class="run-end-overlay">
             <section class="run-end-card run-end-@Session.State.ScenarioStatus.ToString().ToLowerInvariant()">
@@ -1682,6 +1690,12 @@
                     {
                         <strong>@campaignEnding.Title</strong>
                     }
+
+                    @if (Session.State.ScenarioStatus == ScenarioStatus.Won)
+                    {
+                        <button class="wide secondary run-end-keep-observing"
+                                @onclick="() => _runEndDismissed = true">KEEP OBSERVING THE STATION</button>
+                    }
                 </div>
             </section>
         </div>
@@ -1698,6 +1712,9 @@
     private bool _soundEnabled = true;
     private bool _musicEnabled = true;
     private string? _stationOverlay;
+    // Owner idea #103: a won run keeps simulating behind its result card, and
+    // the player may put the card away to carry on watching the station.
+    private bool _runEndDismissed;
     private bool _fireAlarmArming;
     private bool _paused;
     private bool _confirmingReset;
@@ -1813,6 +1830,7 @@
         _confirmingStandalone = false;
         StopClock();
         await Session.LoadStandaloneScenarioAsync(ScenarioCatalog.ContainmentTransfer.Id);
+        _runEndDismissed = false;
         _selection = new(StationSelectionKind.Room, "control");
         _lastAudioSequence = 0;
         StartAutoClock();
@@ -1909,7 +1927,7 @@
     private bool CanTransmit =>
         !_transmitting
         && !string.IsNullOrWhiteSpace(_messageText)
-        && Session.State.ScenarioStatus == ScenarioStatus.Running
+        && Session.State.IsSimulationLive
         && (_messageScope == OverseerMessageScope.Broadcast
             || !string.IsNullOrWhiteSpace(_messageTarget));
 
@@ -1981,6 +1999,7 @@
         }
 
         await Session.LoadScenarioAsync(next.Id);
+        _runEndDismissed = false;
         _selection = null;
         _lastAudioSequence = 0;
         await PersistCampaignAsync();
@@ -2094,7 +2113,8 @@
 
     private string TurnStatusLabel => Session.State.ScenarioStatus switch
     {
-        ScenarioStatus.Won => "SCENARIO COMPLETE",
+        ScenarioStatus.Won when _paused => "SCENARIO COMPLETE · PAUSED",
+        ScenarioStatus.Won => $"SCENARIO COMPLETE · LIVE {SpeedLabel}",
         ScenarioStatus.Failed => "OVERSEER OFFLINE",
         _ when _paused => "PAUSED",
         _ => $"LIVE {SpeedLabel}"
@@ -2177,7 +2197,7 @@
 
     private void ToggleFireAlarmArming() =>
         _fireAlarmArming = !_fireAlarmArming
-            && Session.State.ScenarioStatus == ScenarioStatus.Running;
+            && Session.State.IsSimulationLive;
 
     private void SelectCrew(Guid crewId) =>
         _selection = new(StationSelectionKind.Crew, crewId.ToString());
@@ -2207,6 +2227,7 @@
     {
         StopClock();
         await Session.RegenerateStationAsync(seed);
+        _runEndDismissed = false;
         _selection = new(StationSelectionKind.Room, "control");
         _lastAudioSequence = 0;
         StartAutoClock();
@@ -2216,6 +2237,7 @@
     {
         StopClock();
         await Session.ResetAsync();
+        _runEndDismissed = false;
         await JS.InvokeVoidAsync("localStorage.removeItem", CampaignStorageKey);
         _selection = new(StationSelectionKind.Room, "control");
         _lastAudioSequence = 0;
@@ -2288,6 +2310,7 @@
 
         StopClock();
         await Session.RestoreCampaignAsync(campaign);
+        _runEndDismissed = false;
         _selection = null;
         _lastAudioSequence = 0;
     }
@@ -2296,7 +2319,7 @@
     {
         if (_paused
             || Session.IsRunning
-            || Session.State.ScenarioStatus != ScenarioStatus.Running)
+            || !Session.State.IsSimulationLive)
         {
             return;
         }
@@ -2372,11 +2395,21 @@
             {
                 await Task.Delay(_delayMs, cancellationToken);
 
+                var outcomeWasOpen = Session.State.ScenarioStatus == ScenarioStatus.Running;
                 var keepRunning = await Session.TryAdvanceRunningAsync(
                     generation,
                     cancellationToken);
+                var outcomeResolved = outcomeWasOpen
+                    && Session.State.ScenarioStatus != ScenarioStatus.Running;
 
-                if (!keepRunning)
+                if (outcomeResolved)
+                {
+                    _runEndDismissed = false;
+                }
+
+                // A won run keeps ticking (#103); its result is recorded and
+                // persisted on the turn it resolves, not when the clock stops.
+                if (!keepRunning || outcomeResolved)
                 {
                     Session.CaptureCampaignProgress();
                     await PersistCampaignAsync();

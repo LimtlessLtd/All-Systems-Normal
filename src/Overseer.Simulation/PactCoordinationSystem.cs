@@ -13,7 +13,7 @@ public sealed class PactCoordinationSystem
 {
     public void Tick(GameState state)
     {
-        if (state.ScenarioStatus != ScenarioStatus.Running)
+        if (!state.IsSimulationLive)
             return;
 
         ExpireOldProposals(state);

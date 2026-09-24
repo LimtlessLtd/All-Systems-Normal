@@ -30,7 +30,7 @@ public sealed class CrewMaintenanceSystem
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (state.Devices.Count == 0 || state.ScenarioStatus != ScenarioStatus.Running)
+        if (state.Devices.Count == 0 || !state.IsSimulationLive)
         {
             return;
         }

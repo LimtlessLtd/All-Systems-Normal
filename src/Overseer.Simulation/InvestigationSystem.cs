@@ -12,7 +12,7 @@ public sealed class InvestigationSystem
 
     public void Tick(GameState state)
     {
-        if (state.ScenarioStatus != ScenarioStatus.Running)
+        if (!state.IsSimulationLive)
             return;
 
         foreach (var npc in state.Crew.Where(npc =>

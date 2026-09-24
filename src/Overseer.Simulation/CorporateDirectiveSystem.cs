@@ -20,6 +20,8 @@ public sealed class CorporateDirectiveSystem
     {
         ArgumentNullException.ThrowIfNull(state);
 
+        // Grading stops once the outcome is recorded, so compliance stays frozen
+        // while a won run keeps simulating (#103).
         if (state.ScenarioStatus != ScenarioStatus.Running || state.Directives.Count == 0)
         {
             return;

@@ -84,6 +84,7 @@ Part of the authoritative handoff set; see `PROJECT_HANDOFF.md` for the index. T
 
 - Five ordered campaign assignments (`ScenarioCatalog.Campaign`), corporate directives, carry-over consequences and endings. Resource-dependency research can measure restricted food variety and strongly-disliked raw-food exposure from deterministic consumption telemetry. Mission 1's (`ScenarioCatalog.SecureContinuity`) two supplementary directives are deliberately non-mandatory so a benign player can win (`ScenarioOutcomeGateTests.AQuietStationSatisfiesBothLayersAndWins`).
 - Browser-local campaign persistence (see `ARCHITECTURE.md` → Persistence boundary).
+- A won scenario keeps simulating (owner idea #103, `GameState.IsSimulationLive`). Crew, physics, social systems and Overseer controls (doors, comms, FIRE ALARM) carry on. The recorded result stays frozen because its owners (`ScenarioProgressSystem`, `CorporateDirectiveSystem` and the Overseer-isolation `ShutdownSystem`/`ShutdownCoordinationSystem`) still gate on `ScenarioStatus.Running`. `StationSession.TryAdvanceRunningAsync` records the campaign mission on the turn the outcome resolves, so later play cannot change it (`ScenarioContinuationTests`). The run-end card has KEEP OBSERVING THE STATION, and the header's RESULT button reopens it. Only a failed run (Overseer offline) halts the station.
 
 **Presentation** — one shared Pages/server console; see `ARCHITECTURE.md` → Station presentation architecture for its contracts.
 
