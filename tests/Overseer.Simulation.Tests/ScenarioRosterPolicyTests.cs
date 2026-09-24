@@ -151,6 +151,30 @@ public sealed class ScenarioRosterPolicyTests
         Assert.Equal(Snapshot(expected!), Snapshot(actual!));
     }
 
+    [Fact]
+    public void StandaloneAssignment_DoesNotMutateCampaignContinuity()
+    {
+        var campaign = CaptureOpeningMission(551);
+        var before = CampaignStateSerializer.Serialize(campaign);
+
+        var state = FacilitySeeder.CreateDefault(
+            SeededCrewRosterGenerator.Generate(552));
+        ScenarioCatalog.Apply(state, ScenarioCatalog.ContainmentTransfer);
+        state.ScenarioStatus = ScenarioStatus.Won;
+        state.Crew[0].Health = 0;
+        state.Stores.Meals = 0;
+        state.Stores.Water = 0;
+
+        CampaignProgressionSystem.CaptureCompletedMission(campaign, state);
+
+        Assert.Equal(before, CampaignStateSerializer.Serialize(campaign));
+        Assert.DoesNotContain(
+            campaign.MissionHistory,
+            mission => mission.ScenarioId.Equals(
+                ScenarioCatalog.ContainmentTransfer.Id,
+                StringComparison.OrdinalIgnoreCase));
+    }
+
     /// <summary>
     /// Prisoners are only ever `FreshGenerated` today (containment-transfer is
     /// a standalone assignment), so this gap was never exercised in practice.
@@ -161,13 +185,19 @@ public sealed class ScenarioRosterPolicyTests
     [Fact]
     public void PrisonerFieldsSurviveCrewContinuityAndCampaignPersistenceRoundTrip()
     {
-        var state = CreateContainmentState(552_000);
+        var state = FacilitySeeder.CreateDefault(
+            SeededCrewRosterGenerator.Generate(552_000));
+        ScenarioCatalog.Apply(state, ScenarioCatalog.SecureContinuity);
+
+        var prisoner = state.Crew[0];
+        prisoner.IsPrisoner = true;
+        prisoner.PrisonerDangerLevel = PrisonerDangerLevel.Extreme;
+        prisoner.PrisonerViolenceBias = 22;
+        var guard = state.Crew[1];
         state.ScenarioStatus = ScenarioStatus.Won;
 
-        var prisoner = state.Crew.Single(npc => npc.PrisonerDangerLevel == PrisonerDangerLevel.Extreme);
         Assert.True(prisoner.IsPrisoner);
         Assert.True(prisoner.PrisonerViolenceBias > 0);
-        var guard = state.Crew.First(npc => !npc.IsPrisoner);
 
         var campaign = new CampaignState();
         CampaignProgressionSystem.CaptureCompletedMission(campaign, state);
@@ -270,32 +300,6 @@ public sealed class ScenarioRosterPolicyTests
                             ",",
                             npc.Traits.Select(trait =>
                                 $"{trait.Name}[{string.Join(";", trait.Effects.Select(effect => $"{effect.Kind}:{effect.Modifier}"))}]")))));
-
-    private static GameState CreateContainmentState(int baseSeed)
-    {
-        for (var seed = baseSeed; seed < baseSeed + 300; seed++)
-        {
-            try
-            {
-                var baseCrew = SeededCrewRosterGenerator.Generate(seed);
-                var crew = PrisonerRosterSystem.Compose(baseCrew, ScenarioCatalog.ContainmentTransfer);
-                var state = FacilitySeeder.CreateDefault(
-                    crew,
-                    stationSeed: seed,
-                    stationConstraints: ScenarioCatalog.ContainmentTransfer.StationConstraints);
-
-                ScenarioCatalog.Apply(state, ScenarioCatalog.ContainmentTransfer);
-                return state;
-            }
-            catch (StationGenerationException)
-            {
-                // Spatial packing is allowed to reject individual seeds.
-            }
-        }
-
-        throw new InvalidOperationException(
-            $"No containment-transfer station generated in the range starting at {baseSeed}.");
-    }
 
     private static string FindRepositoryRoot()
     {
