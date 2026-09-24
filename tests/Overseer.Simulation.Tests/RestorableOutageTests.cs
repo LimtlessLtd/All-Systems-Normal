@@ -105,19 +105,7 @@ public sealed class RestorableOutageTests
         // Seed 10 of a 60-seed browser-mind soak (2026-09-24): the station
         // starts with its reactor at 22% condition. Before the fix, 8 of 11
         // crew died of oxygen deprivation by T+08:00.
-        const int rosterSeed = 10 * 7919;
-        var composition = RosterCompositionRules.Sample(rosterSeed);
-        var crew = PrisonerRosterSystem.Compose(
-            SeededCrewRosterGenerator.Generate(rosterSeed, composition.CrewCount),
-            ScenarioCatalog.SecureContinuity);
-        var state = FacilitySeeder.CreateDefault(
-            crew,
-            stationSeed: 10 * 104729,
-            stationConstraints: RosterCompositionRules.ConstraintsFor(
-                ScenarioCatalog.SecureContinuity,
-                crew.Count),
-            robotCount: composition.RobotCount);
-        ScenarioCatalog.Apply(state, ScenarioCatalog.SecureContinuity);
+        var state = SoakStation(10);
         var reactor = state.Devices.Values.Single(device => device.Kind == StationSystemKind.Reactor);
         Assert.True(reactor.Condition < reactor.DegradedAt, "The soak seed no longer starts with a worn reactor; pick a new seed that does.");
 
@@ -125,6 +113,40 @@ public sealed class RestorableOutageTests
 
         Assert.All(state.Crew, npc => Assert.True(npc.IsAlive, $"{npc.Name}: {npc.CauseOfDeath}"));
         Assert.True(reactor.Condition >= reactor.DegradedAt);
+    }
+
+    [Fact]
+    public async Task SoakSeed_GridKeepsLifeSupportLitWhileAWornReactorIsServiced()
+    {
+        // Seed 52 of a 60-seed browser-mind soak with every reactor forced to
+        // 12% (2026-09-24). The grid shed Engineering while Medical, the Control
+        // Room and the Airlock stayed lit, then restored and re-shed it every few
+        // minutes. Life support was down for all eight hours and two crew
+        // suffocated.
+        var state = SoakStation(52);
+        state.Devices.Values.Single(device => device.Kind == StationSystemKind.Reactor).Condition = 12;
+
+        await new BrowserMindSession(state).AdvanceMinutesAsync(8 * 60);
+
+        Assert.All(state.Crew, npc => Assert.True(npc.IsAlive, $"{npc.Name}: {npc.CauseOfDeath}"));
+    }
+
+    private static GameState SoakStation(int seed)
+    {
+        var rosterSeed = seed * 7919;
+        var composition = RosterCompositionRules.Sample(rosterSeed);
+        var crew = PrisonerRosterSystem.Compose(
+            SeededCrewRosterGenerator.Generate(rosterSeed, composition.CrewCount),
+            ScenarioCatalog.SecureContinuity);
+        var state = FacilitySeeder.CreateDefault(
+            crew,
+            stationSeed: seed * 104729,
+            stationConstraints: RosterCompositionRules.ConstraintsFor(
+                ScenarioCatalog.SecureContinuity,
+                crew.Count),
+            robotCount: composition.RobotCount);
+        ScenarioCatalog.Apply(state, ScenarioCatalog.SecureContinuity);
+        return state;
     }
 
     private static void ShedEngineering(GameState state)
