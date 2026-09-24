@@ -240,10 +240,30 @@ public sealed class GameSession(
         // cadence. C# still does not choose the goal: it only asks the mind to
         // reconsider immediately instead of leaving somebody committed to a
         // 24-minute-old routine while their compartment becomes unsafe.
+        // A compartment draining toward a breach through an open hatch beside
+        // this person counts too, before its pressure crosses the danger line.
+        var vacuumDepths = EnvironmentSystem.FindVacuumDepths(State);
         var emergencyNpc = living
             .Where(npc =>
             {
                 var room = State.Facility.Rooms[npc.CurrentRoomId];
+
+                if (npc.IsPresent
+                    && vacuumDepths.Count > 0
+                    && DecompressionContainmentRules.FindHatchTowardBreach(
+                        State,
+                        npc,
+                        vacuumDepths) is { } hatch)
+                {
+                    // Ollama may weigh the open hatch and choose something
+                    // else; respect a fresh decision instead of re-asking
+                    // every tick until it says CloseDoor.
+                    var decidedRecently = npc.Intent is { Urgency: >= 85 }
+                        && State.Elapsed - npc.LastThoughtAt < TimeSpan.FromMinutes(2);
+
+                    return !DecompressionContainmentRules.IsAlreadyClosing(npc, hatch)
+                        && !decidedRecently;
+                }
 
                 return CrewEnvironmentSafety.IsDangerous(room)
                     && !IsAlreadyEscapingToSaferRoom(npc, room);

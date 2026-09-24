@@ -61,8 +61,15 @@ public static class CrewTaskSystem
                 npc.CurrentRoomId,
                 fireRoom.Id).Count >= 2;
 
+        // A compartment draining to space through an open hatch is a threat
+        // before its own pressure has fallen past the danger line.
+        var decompressing =
+            intent.Action == ActionKind.CloseDoor
+            && EnvironmentSystem.FindVacuumDepths(state).ContainsKey(room.Id);
+
         var genuineThreat =
             hazardousAtmosphere
+            || decompressing
             || hostileMachineHere
             || acuteInjury
             || remoteFireResponse;
@@ -76,6 +83,7 @@ public static class CrewTaskSystem
             or ActionKind.FightFire
             or ActionKind.SealHazardRoom
             or ActionKind.VentHazardRoom
+            or ActionKind.CloseDoor
             or ActionKind.ForceDoor
             or ActionKind.Attack
             or ActionKind.RequestHelp;

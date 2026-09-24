@@ -13,7 +13,20 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
         NpcIntent intent;
         var room = state.Facility.Rooms[npc.CurrentRoomId];
 
-        if (CrewEnvironmentSafety.IsDangerous(room))
+        // Same order as BrowserMindSystem: every room behind an open hatch is
+        // draining, so sealing the hatch toward the breach comes before flight.
+        if (DecompressionContainmentRules.FindHatchTowardBreach(state, npc) is { } hatch)
+        {
+            intent = Create(
+                npc,
+                state,
+                ActionKind.CloseDoor,
+                hatch.Id,
+                DecompressionContainmentRules.Goal(hatch),
+                DecompressionContainmentRules.Reason(state, npc, hatch),
+                99);
+        }
+        else if (CrewEnvironmentSafety.IsDangerous(room))
         {
             var fightFire = room.FireIntensity > 0 && StationHazardSystem.ShouldFightFire(npc, room);
             var saferRoom = fightFire ? null : FindSaferRoom(state, npc, room);

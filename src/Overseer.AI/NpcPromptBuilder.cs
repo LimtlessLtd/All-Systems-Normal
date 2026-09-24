@@ -463,6 +463,11 @@ public static class NpcPromptBuilder
                 + (source.Device.IsDegraded ? $", worn and rattling at {source.Device.Condition:0}% condition" : string.Empty));
             builder.AppendLine($"NOISE: loud here ({noiseLevel:0}; restful below {StationNoiseSystem.DisturbingAt:0}). Loudest: {string.Join("; ", loudest)}. Sleep or rest in this noise is much less restorative. What, if anything, to do about it is up to you.");
         }
+        if (DecompressionContainmentRules.FindHatchTowardBreach(state, npc) is { } breachHatch)
+        {
+            var breachSide = state.Facility.Rooms[DecompressionContainmentRules.FarSide(npc, breachHatch)];
+            builder.AppendLine($"DECOMPRESSION: this compartment is losing air to space through the open hatch {breachHatch.Id} toward {breachSide.Id} ({breachSide.Name}), which is closer to the breach. Closing that hatch (CloseDoor {breachHatch.Id}) would stop the drain on this side; anyone behind it can still open it to come through. What you do is up to you.");
+        }
         builder.AppendLine($"STATION LIFE SUPPORT: {(state.LifeSupport.IsOnline ? "online" : "offline")}, oxygen reserve {state.LifeSupport.OxygenReservePercent:0.0}%, scrubbers {state.LifeSupport.ScrubberEfficiencyPercent:0}%");
         if (SecurityMalwareSystem.HasControllerDiagnostic(npc))
         {
