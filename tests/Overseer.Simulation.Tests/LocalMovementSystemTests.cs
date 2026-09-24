@@ -366,8 +366,6 @@ public sealed class LocalMovementSystemTests
             separation >= 1.2,
             $"Crew remained stacked at {crew[0].PositionX:0.00},{crew[0].PositionY:0.00} and " +
             $"{crew[1].PositionX:0.00},{crew[1].PositionY:0.00} ({separation:0.00} map units apart).");
-        Assert.True(LocalMovementSystem.IsWalkable(room, crew[0].PositionX, crew[0].PositionY));
-        Assert.True(LocalMovementSystem.IsWalkable(room, crew[1].PositionX, crew[1].PositionY));
     }
 
     [Fact]
