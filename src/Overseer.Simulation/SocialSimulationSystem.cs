@@ -192,7 +192,7 @@ public sealed class SocialSimulationSystem
         switch (kind)
         {
             case ActionKind.CheckOnCrew:
-                target.Stress = Clamp(target.Stress - 1.5);
+                StatLogSystem.Set(state, target, CrewStat.Stress, Clamp(target.Stress - 1.5), $"{actor.Name} checked on them");
                 actorToTarget.Affinity = Clamp(actorToTarget.Affinity + 0.4);
                 targetToActor.Trust = Clamp(targetToActor.Trust + 0.5);
                 QueueSpeech(actor, "You doing okay?", state.Elapsed, 2);
@@ -202,7 +202,7 @@ public sealed class SocialSimulationSystem
             case ActionKind.AssistCrew:
                 actorToTarget.Trust = Clamp(actorToTarget.Trust + 0.6);
                 targetToActor.Trust = Clamp(targetToActor.Trust + 0.9);
-                target.Stress = Clamp(target.Stress - 1);
+                StatLogSystem.Set(state, target, CrewStat.Stress, Clamp(target.Stress - 1), $"{actor.Name} helped out");
                 QueueSpeech(actor, "Need another pair of hands?", state.Elapsed, 2);
                 break;
 
@@ -213,8 +213,8 @@ public sealed class SocialSimulationSystem
                 break;
 
             case ActionKind.ReassureCrew:
-                target.Fear = Clamp(target.Fear - 2.5);
-                target.Stress = Clamp(target.Stress - 2);
+                StatLogSystem.Set(state, target, CrewStat.Fear, Clamp(target.Fear - 2.5), $"{actor.Name} reassured them");
+                StatLogSystem.Set(state, target, CrewStat.Stress, Clamp(target.Stress - 2), $"{actor.Name} reassured them");
                 targetToActor.Trust = Clamp(targetToActor.Trust + 0.7);
                 QueueSpeech(actor, "We'll handle it. Stay with me.", state.Elapsed, 2);
                 break;
@@ -417,8 +417,8 @@ public sealed class SocialSimulationSystem
         secondToFirst.Trust = Clamp(secondToFirst.Trust - 1.4);
         firstToSecond.Attraction = Clamp(firstToSecond.Attraction - 0.8);
         secondToFirst.Attraction = Clamp(secondToFirst.Attraction - 0.8);
-        first.Stress = Clamp(first.Stress + 2.5);
-        second.Stress = Clamp(second.Stress + 2.5);
+        StatLogSystem.Set(state, first, CrewStat.Stress, Clamp(first.Stress + 2.5), $"argument with {second.Name}");
+        StatLogSystem.Set(state, second, CrewStat.Stress, Clamp(second.Stress + 2.5), $"argument with {first.Name}");
         firstToSecond.Arguments++;
         secondToFirst.Arguments++;
 
@@ -557,10 +557,10 @@ public sealed class SocialSimulationSystem
                 aggressor.Personality.Temper) * 0.18)
             + (relationship.Resentment * 0.11);
 
-        target.Health = Clamp(target.Health - damage);
-        target.Fear = Clamp(target.Fear + 30);
-        target.Stress = Clamp(target.Stress + 25);
-        aggressor.Stress = Clamp(aggressor.Stress + 8);
+        StatLogSystem.Set(state, target, CrewStat.Health, Clamp(target.Health - damage), $"attacked by {aggressor.Name}");
+        StatLogSystem.Set(state, target, CrewStat.Fear, Clamp(target.Fear + 30), $"attacked by {aggressor.Name}");
+        StatLogSystem.Set(state, target, CrewStat.Stress, Clamp(target.Stress + 25), $"attacked by {aggressor.Name}");
+        StatLogSystem.Set(state, aggressor, CrewStat.Stress, Clamp(aggressor.Stress + 8), $"attacking {target.Name}");
         relationship.Resentment = Clamp(relationship.Resentment + 4);
         SetConversationCooldown(state, aggressor, target, minute, 211 + salt, 4, 8);
 
@@ -583,8 +583,8 @@ public sealed class SocialSimulationSystem
                      && npc.Id != target.Id
                      && npc.CurrentRoomId == aggressor.CurrentRoomId))
         {
-            witness.Fear = Clamp(witness.Fear + 22);
-            witness.Stress = Clamp(witness.Stress + 18);
+            StatLogSystem.Set(state, witness, CrewStat.Fear, Clamp(witness.Fear + 22), "witnessed an assault");
+            StatLogSystem.Set(state, witness, CrewStat.Stress, Clamp(witness.Stress + 18), "witnessed an assault");
             witness.NeedsMindReconsideration = true;
 
             // In the dark, or too far away, a witness hears the struggle but

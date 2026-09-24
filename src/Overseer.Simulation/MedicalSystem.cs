@@ -358,7 +358,7 @@ public sealed class MedicalSystem
         {
             case ActionKind.MedicalCheckup:
                 patient.LastMedicalCheckupAt = state.Elapsed;
-                patient.Stress = Math.Max(0, patient.Stress - 6);
+                StatLogSystem.Set(state, patient, CrewStat.Stress, Math.Max(0, patient.Stress - 6), $"medical checkup by {doctor.Name}");
                 Log(state, $"{doctor.Name} completes a medical checkup for {patient.Name}.");
                 break;
 
@@ -375,10 +375,10 @@ public sealed class MedicalSystem
                 if (state.Medical.MedicationDoses > 0)
                 {
                     state.Medical.MedicationDoses--;
-                    patient.Stress = Math.Max(0, patient.Stress - 8);
+                    StatLogSystem.Set(state, patient, CrewStat.Stress, Math.Max(0, patient.Stress - 8), "medication");
                 }
 
-                patient.Health = Math.Min(100, patient.Health + TreatmentHeal);
+                StatLogSystem.Set(state, patient, CrewStat.Health, Math.Min(100, patient.Health + TreatmentHeal), $"treated by {doctor.Name}");
                 patient.LastHealthSnapshot = Math.Max(patient.LastHealthSnapshot, patient.Health);
                 patient.LastMedicalCheckupAt = state.Elapsed;
                 Log(state, $"{doctor.Name} treats {patient.Name}; health is now {patient.Health:0}%.");
@@ -397,7 +397,7 @@ public sealed class MedicalSystem
                 state.Power.StoredKilowattHours = Math.Max(
                     0,
                     state.Power.StoredKilowattHours - state.Medical.ResurrectionEnergyKwh);
-                patient.Health = 35;
+                StatLogSystem.Set(state, patient, CrewStat.Health, 35, "emergency resurrection");
                 patient.LastHealthSnapshot = 35;
                 patient.CauseOfDeath = null;
                 patient.LastDeathAnnouncementAt = null;
@@ -408,8 +408,8 @@ public sealed class MedicalSystem
                     ActionKind.Rest,
                     medbay.Id,
                     "Recovering after emergency resurrection.");
-                patient.Stress = Math.Min(100, patient.Stress + 25);
-                patient.Fear = Math.Min(100, patient.Fear + 20);
+                StatLogSystem.Set(state, patient, CrewStat.Stress, Math.Min(100, patient.Stress + 25), "emergency resurrection");
+                StatLogSystem.Set(state, patient, CrewStat.Fear, Math.Min(100, patient.Fear + 20), "emergency resurrection");
                 Log(state, $"{doctor.Name} revives {patient.Name} in the high-power resurrection chamber.");
                 AudioCueSystem.Emit(state, AudioCueKind.Critical, patient.Id.ToString(), medbay.Id);
                 break;

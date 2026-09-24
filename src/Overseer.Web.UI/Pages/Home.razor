@@ -1102,6 +1102,19 @@
                     @Metric("INTIMACY NEED", selectedCrew.IntimacyNeed)
                 </div>
 
+                <div class="relationship-card stat-log-card">
+                    <span>STAT LOG · WHAT CHANGED THEM</span>
+                    @{ var statLogRows = StatLogSystem.DisplayRows(selectedCrew); }
+                    @if (statLogRows.Count == 0)
+                    {
+                        <p class="stat-log-empty">No changes recorded yet.</p>
+                    }
+                    @foreach (var entry in statLogRows)
+                    {
+                        <div class="stat-log-row @(StatLogSystem.IsImprovement(entry) ? "stat-log-better" : "stat-log-worse")">@StatLogSystem.Describe(entry)</div>
+                    }
+                </div>
+
                 <div class="action-card">
                     <span>CURRENT PHYSICAL ACTION</span>
                     <strong>@selectedCrew.CurrentAction.Kind</strong>

@@ -63,9 +63,14 @@ public sealed class SimulationEngine
                     state.Stores.Meals = Math.Max(
                         0,
                         state.Stores.Meals - (StationProvisionRules.ComfortEatingExtraMealsPerMinute * minutes));
-                    npc.Stress = Clamp(
-                        npc.Stress
-                        - (StationProvisionRules.ComfortEatingStressReliefPerMinute * minutes));
+                    StatLogSystem.Set(
+                        state,
+                        npc,
+                        CrewStat.Stress,
+                        Clamp(
+                            npc.Stress
+                            - (StationProvisionRules.ComfortEatingStressReliefPerMinute * minutes)),
+                        "comfort eating");
                 }
             }
             else if (rawCrop is { } crop)
@@ -99,9 +104,14 @@ public sealed class SimulationEngine
                     npc.DislikedFoodExposureMinutes += minutes;
                 }
 
-                npc.Stress = Clamp(
-                    npc.Stress
-                    + ((StationProvisionRules.RawFoodStressPerMinute + preferenceStress) * minutes));
+                StatLogSystem.Set(
+                    state,
+                    npc,
+                    CrewStat.Stress,
+                    Clamp(
+                        npc.Stress
+                        + ((StationProvisionRules.RawFoodStressPerMinute + preferenceStress) * minutes)),
+                    $"eating raw {crop.ToString().ToLowerInvariant()}");
             }
 
             // A person physically asleep in a bed burns far less than one on
@@ -115,7 +125,18 @@ public sealed class SimulationEngine
                     : asleep
                         ? SleepingHungerPerMinute
                         : AwakeHungerPerMinute;
-            npc.Hunger = Clamp(npc.Hunger + (hungerDelta * minutes));
+            StatLogSystem.Set(
+                state,
+                npc,
+                CrewStat.Hunger,
+                Clamp(npc.Hunger + (hungerDelta * minutes)),
+                eatingPrepared
+                    ? "eating a prepared meal"
+                    : rawCrop is { } eatenCrop
+                        ? $"eating raw {eatenCrop.ToString().ToLowerInvariant()}"
+                        : asleep
+                            ? "metabolism while asleep"
+                            : "metabolism");
 
             // Crossing into a serious physiological need requests fresh
             // cognition; it does not choose the response. Browser/LLM minds
@@ -160,7 +181,16 @@ public sealed class SimulationEngine
                 : 0.065
                     + (scheduledSleep ? 0.055 : 0)
                     + (Math.Min(360, npc.SleepDebtMinutes) / 12000d);
-            npc.Fatigue = Clamp(npc.Fatigue + (fatigueRate * minutes));
+            StatLogSystem.Set(
+                state,
+                npc,
+                CrewStat.Fatigue,
+                Clamp(npc.Fatigue + (fatigueRate * minutes)),
+                restFixture is null
+                    ? scheduledSleep ? "awake in sleep window" : "awake"
+                    : restFixture.Type == FixtureType.Sofa
+                        ? "resting on a sofa"
+                        : restRecovery < 1 ? "sleeping in a noisy room" : "sleeping in bed");
             if (npc.Fatigue >= 86
                 && npc.Intent?.Action is not (ActionKind.Rest or ActionKind.Sleep)
                 && npc.CurrentAction.Kind is not (ActionKind.Rest or ActionKind.Sleep))
@@ -205,76 +235,114 @@ public sealed class SimulationEngine
                 npc.IntimacyNeed
                 + ((npc.CurrentAction.Kind == ActionKind.Intimacy ? -1.6 : 0.045) * minutes));
 
-            npc.Fear = Clamp(
-                npc.Fear
-                - (0.08 * minutes)
-                - (courageModifier * 0.012 * minutes));
+            StatLogSystem.Set(
+                state,
+                npc,
+                CrewStat.Fear,
+                Clamp(
+                    npc.Fear
+                    - (0.08 * minutes)
+                    - (courageModifier * 0.012 * minutes)),
+                "calming down");
 
             var environmentalStress = 0d;
+            var environmentalCauses = new List<(string Cause, double Rate)>();
 
             if (!room.IsPowered)
             {
                 environmentalStress += 0.55;
-                npc.Fear = Clamp(npc.Fear + (0.18 * minutes));
+                environmentalCauses.Add(("room without power", 0.55));
+                StatLogSystem.Set(state, npc, CrewStat.Fear, Clamp(npc.Fear + (0.18 * minutes)), "room without power");
             }
 
             if (!room.LightsOn)
             {
                 environmentalStress += 0.22;
+                environmentalCauses.Add(("lights off", 0.22));
             }
 
             if (room.OxygenPercent < 19.5)
             {
                 environmentalStress += 1.4;
-                npc.Fear = Clamp(npc.Fear + (0.8 * minutes));
+                environmentalCauses.Add(("low oxygen", 1.4));
+                StatLogSystem.Set(state, npc, CrewStat.Fear, Clamp(npc.Fear + (0.8 * minutes)), "low oxygen");
             }
 
             if (room.OxygenPercent < 17)
             {
-                npc.Health = Clamp(
-                    npc.Health
-                    - ((17 - room.OxygenPercent) * 0.12 * minutes));
+                StatLogSystem.Set(
+                    state,
+                    npc,
+                    CrewStat.Health,
+                    Clamp(
+                        npc.Health
+                        - ((17 - room.OxygenPercent) * 0.12 * minutes)),
+                    "oxygen deprivation");
             }
 
             if (room.CarbonDioxidePercent > 1)
             {
-                environmentalStress += Math.Min(
+                var co2Stress = Math.Min(
                     2.2,
                     (room.CarbonDioxidePercent - 1) * 0.8);
+                environmentalStress += co2Stress;
+                environmentalCauses.Add(("high CO₂", co2Stress));
             }
 
             if (room.CarbonDioxidePercent > 3)
             {
-                npc.Health = Clamp(
-                    npc.Health
-                    - ((room.CarbonDioxidePercent - 3) * 0.08 * minutes));
+                StatLogSystem.Set(
+                    state,
+                    npc,
+                    CrewStat.Health,
+                    Clamp(
+                        npc.Health
+                        - ((room.CarbonDioxidePercent - 3) * 0.08 * minutes)),
+                    "CO₂ poisoning");
             }
 
             if (room.PressureKpa < 70)
             {
                 environmentalStress += 2.4;
-                npc.Fear = Clamp(npc.Fear + (1.5 * minutes));
-                npc.Health = Clamp(
-                    npc.Health
-                    - ((70 - room.PressureKpa) * 0.08 * minutes));
+                environmentalCauses.Add(("low pressure", 2.4));
+                StatLogSystem.Set(state, npc, CrewStat.Fear, Clamp(npc.Fear + (1.5 * minutes)), "low pressure");
+                StatLogSystem.Set(
+                    state,
+                    npc,
+                    CrewStat.Health,
+                    Clamp(
+                        npc.Health
+                        - ((70 - room.PressureKpa) * 0.08 * minutes)),
+                    "low pressure");
             }
 
             if (room.TemperatureC is < 16 or > 28)
             {
                 environmentalStress += 0.65;
+                environmentalCauses.Add((room.TemperatureC < 16 ? "cold room" : "hot room", 0.65));
             }
 
             if (room.TemperatureC < 5)
             {
-                npc.Health = Clamp(
-                    npc.Health
-                    - ((5 - room.TemperatureC) * 0.025 * minutes));
+                StatLogSystem.Set(
+                    state,
+                    npc,
+                    CrewStat.Health,
+                    Clamp(
+                        npc.Health
+                        - ((5 - room.TemperatureC) * 0.025 * minutes)),
+                    "extreme cold");
             }
             else if (room.TemperatureC > 38)
             {
-                npc.Health = Clamp(
-                    npc.Health
-                    - ((room.TemperatureC - 38) * 0.035 * minutes));
+                StatLogSystem.Set(
+                    state,
+                    npc,
+                    CrewStat.Health,
+                    Clamp(
+                        npc.Health
+                        - ((room.TemperatureC - 38) * 0.035 * minutes)),
+                    "extreme heat");
             }
 
             var pressure =
@@ -291,15 +359,25 @@ public sealed class SimulationEngine
                 0.65,
                 1.35);
 
+            var stressBefore = npc.Stress;
             npc.Stress = Clamp(
                 npc.Stress
                 + (pressure * 0.003 * minutes)
                 + (environmentalStress * stressMultiplier * minutes)
                 - (0.04 * minutes));
 
+            var stressParts = new List<(string Cause, double Delta)>
+            {
+                ("unmet needs", pressure * 0.003 * minutes),
+                ("natural recovery", -0.04 * minutes)
+            };
+            stressParts.AddRange(environmentalCauses.Select(part =>
+                (part.Cause, part.Rate * stressMultiplier * minutes)));
+            StatLogSystem.RecordParts(state, npc, CrewStat.Stress, npc.Stress - stressBefore, stressParts);
+
             if (npc.Hunger > 95)
             {
-                npc.Health = Clamp(npc.Health - (0.15 * minutes));
+                StatLogSystem.Set(state, npc, CrewStat.Health, Clamp(npc.Health - (0.15 * minutes)), "starvation");
             }
 
             if (npc.Health <= 0 && npc.CauseOfDeath is null)

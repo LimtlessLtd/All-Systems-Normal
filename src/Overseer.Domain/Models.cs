@@ -1082,6 +1082,14 @@ public sealed class Npc : IStationMobileEntity
     public double Fear { get; set; } = 5;
     public double Stress { get; set; } = 10;
 
+    /// <summary>
+    /// Owner idea #91: what recently changed this person's core stats and why,
+    /// newest first and bounded. Written only by <c>StatLogSystem</c> at the
+    /// deterministic consequence sites. Presentation/diagnostic only: never
+    /// read by cognition and not persisted in campaign saves.
+    /// </summary>
+    public List<StatLogEntry> StatLog { get; } = [];
+
     // Everyday human needs use the same 0..100 "pressure" convention as
     // Hunger/Fatigue: higher values mean the need is becoming more pressing.
     public double HygieneNeed { get; set; } = 12;
@@ -1490,4 +1498,28 @@ public sealed class GameState
 
     /// <summary>0..100 standing with the corporate sponsor.</summary>
     public double ComplianceScore { get; set; } = 100;
+}
+
+/// <summary>The core stats the per-crew stat log (owner idea #91) tracks.</summary>
+public enum CrewStat
+{
+    Health,
+    Stress,
+    Fear,
+    Hunger,
+    Fatigue
+}
+
+/// <summary>
+/// One cause's effect on one stat. Continuous effects (metabolism, smoke,
+/// recovery) keep extending the same entry while they last, so the log reads
+/// as events rather than one line per tick.
+/// </summary>
+public sealed class StatLogEntry
+{
+    public required CrewStat Stat { get; init; }
+    public required string Cause { get; init; }
+    public double Delta { get; set; }
+    public TimeSpan StartedAt { get; init; }
+    public TimeSpan LastAt { get; set; }
 }
