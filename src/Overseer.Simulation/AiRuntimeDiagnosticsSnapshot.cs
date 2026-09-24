@@ -1,11 +1,25 @@
 namespace Overseer.Simulation;
 
 /// <summary>
-/// Process-level diagnostics for the optional external model runtime. This is
-/// deliberately operational telemetry only: it never contains prompts, model
-/// responses or player data, so a fresh /debug circuit can still report whether
-/// the local Ollama provider is actually being reached without leaking another
-/// station session's cognition.
+/// One provider request retained for developer diagnostics. Payload fields are
+/// populated only by the local Development server; production snapshots keep
+/// this collection empty.
+/// </summary>
+public sealed record AiProviderDebugTrace(
+    long Sequence,
+    DateTimeOffset StartedAtUtc,
+    string Operation,
+    bool IsNpcDecision,
+    string? Prompt,
+    string? RawResponse,
+    string? Error);
+
+/// <summary>
+/// Process-level diagnostics for the optional external model runtime. Counters
+/// and redacted errors contain no prompts/model responses. RecentProviderTraces
+/// contains payloads only when the server explicitly enables Development-only
+/// capture, allowing /debug to survive a Blazor circuit/page reload without
+/// exposing one player's prompts to another in production.
 /// </summary>
 public sealed record AiRuntimeDiagnosticsSnapshot(
     string Mode,
@@ -17,7 +31,8 @@ public sealed record AiRuntimeDiagnosticsSnapshot(
     long NpcDecisionRequestsStarted,
     string? LastOperation,
     string? LastError,
-    DateTimeOffset? LastAttemptUtc)
+    DateTimeOffset? LastAttemptUtc,
+    IReadOnlyList<AiProviderDebugTrace> RecentProviderTraces)
 {
     public static AiRuntimeDiagnosticsSnapshot None { get; } =
         new(
@@ -30,5 +45,6 @@ public sealed record AiRuntimeDiagnosticsSnapshot(
             0,
             null,
             null,
-            null);
+            null,
+            []);
 }
