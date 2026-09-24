@@ -131,6 +131,7 @@ public sealed class OverseerCommsSystem
                 }
 
                 claim.Resolved = true;
+                AlarmFatigueRules.Record(state, npc, claim);
 
                 if (claim.WasFalseWhenMade)
                 {
