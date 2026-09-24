@@ -682,6 +682,15 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Size: small (one PR, with regression coverage for continued ticks + idempotent outcome/progression)
 - Status: **ready**.
 
+
+### 104. Local reset confirmation does nothing
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790262907703839 (2026-09-24)
+- Idea: "You cannot reset the run when running it locally, clicking the reset confirmation button does nothing."
+- Outcome: in the server/local build, confirming RESET from the menu reliably starts a fresh run/session with fresh scenario state and returns to the normal station view; cancelling remains a no-op. Add regression coverage for the local host reset path and a browser check of the confirmation flow so this cannot silently regress.
+- Size: small (one PR)
+- Status: **ready; health bug**.
+
+
 ## Deliberate decisions (do not "fix")
 
 - The server tick awaits the Ollama decision, so the station pauses while a mind thinks. The owner wants the model to have time to take in the situation. Do not make cognition non-blocking unless asked.
