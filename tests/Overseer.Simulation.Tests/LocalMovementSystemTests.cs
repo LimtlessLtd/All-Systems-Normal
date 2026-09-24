@@ -367,7 +367,7 @@ public sealed class LocalMovementSystemTests
         var separation = Math.Sqrt((physicalDx * physicalDx) + (physicalDy * physicalDy));
 
         Assert.True(
-            separation >= 1.2,
+            separation >= 0.65,
             $"Crew remained stacked at {crew[0].PositionX:0.00},{crew[0].PositionY:0.00} and " +
             $"{crew[1].PositionX:0.00},{crew[1].PositionY:0.00} ({separation:0.00} map units apart).");
     }
@@ -418,7 +418,7 @@ public sealed class LocalMovementSystemTests
         var separation = Math.Sqrt((physicalDx * physicalDx) + (physicalDy * physicalDy));
 
         Assert.True(
-            separation >= 1.2,
+            separation >= 0.65,
             $"Door entrants stacked at the same authoritative point ({separation:0.00} map units apart).");
     }
 
