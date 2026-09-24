@@ -56,17 +56,27 @@ if (app.Environment.IsDevelopment())
         if (await ollama.IsRunningAsync())
         {
             diagnostics.RecordResponse("startup health probe");
+            app.Logger.LogInformation(
+                "Ollama is reachable at {Endpoint}; configured model: {Model}.",
+                diagnostics.Endpoint,
+                diagnostics.Model);
         }
         else
         {
-            diagnostics.RecordFailure(
-                "startup health probe",
-                "The configured Ollama endpoint did not report a running server.");
+            const string error = "The configured Ollama endpoint did not report a running server.";
+            diagnostics.RecordFailure("startup health probe", error);
+            app.Logger.LogWarning(
+                "Ollama is not reachable at {Endpoint}; NPC cognition will fall back until it becomes available.",
+                diagnostics.Endpoint);
         }
     }
     catch (Exception exception)
     {
         diagnostics.RecordFailure("startup health probe", exception);
+        app.Logger.LogWarning(
+            exception,
+            "Ollama startup probe failed for {Endpoint}; NPC cognition will fall back until the provider can be reached.",
+            diagnostics.Endpoint);
     }
 }
 
