@@ -647,19 +647,12 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 
   **Proposed 4B prompt/response shape for the next slices:** (1) identity + compact stats/personality; (2) `WHAT YOU CAN SEE NOW` as a labelled relational list first, not ASCII by default — e.g. `R0 current room: Engineering; exits H1→R1(open); people P1; fixtures F1 generator, F2 tool cabinet; hazards fire X1 near F1`; benchmark ASCII against this list before choosing it, because labels are what actions must ground to; (3) 3–6 retrieved recent memories/claims, with source/age and no omniscient distant state; (4) one compact action table containing only currently targetable action families plus closed resolvers; (5) output `{"goal":"…","steps":[...]}` with at most `NpcPlan.MaxSteps` steps, each step containing only `action`, `targetLabelOrResolver`, optional closed-catalogue `condition`, and an optional short `say`. No free-form coordinates, code, or hidden world IDs. The next implementation slice is the labelled local view; plan-array production remains shared with owner idea #5.
 
-### 99. Remove radial fire rings
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790262157487449 and follow-up screenshot https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790263414372619 (2026-09-24)
-- Idea: "Remove the circles which radiate out from a fire source."
-- Outcome: the station overview no longer renders decorative/diagnostic concentric circles around fires; fire presentation is limited to visuals grounded in the deterministic fire state.
-- Size: small (one PR)
-- Status: **ready**.
-
 ### 100. Fire sprites must match physical spread and intensity
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790262157487449 and follow-up screenshot https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790263414372619 (2026-09-24)
 - Idea: "Increase the number of fire sprites when the fire is spreading, and place them where the fires are physically located. The number of fire sprites and where they are placed should reflect exactly how the fire is spreading, where it is located, and how intense it is. For more information lookup Rimworld fire mechanics."
 - Outcome: fire sprites are a presentation of deterministic fire geometry/intensity, not decorative random effects: every sprite is anchored to an actual burning location/cell/fixture represented by C# fire state, sprite density/intensity scales monotonically with that state, and no sprite suggests fire where the simulation has none. Research RimWorld's readable fire presentation for UI inspiration without importing its mechanics as simulation authority.
 - Size: large (slices: map current deterministic fire geometry/intensity to render data; replace random/decorative placement with grounded positions; scale sprite count/animation by intensity; browser visual regression/playtest)
-- Status: **ready**, after #99 so the obsolete rings are removed first.
+- Status: **ready**. #99 removed the obsolete radial rings; this is now the next fire-presentation slice.
 
 ### 101. Increase emergent, LLM-authored activity toward RimWorld-like density
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790262252723339 (2026-09-24)
@@ -689,6 +682,29 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Outcome: chairs, tables, televisions and galley/kitchen fixtures get a focused presentation pass so each reads immediately as its function at normal station zoom, with room-appropriate material/shape variation and the same visual polish already achieved by machinery. Treat RimWorld as a reference bar for simulation readability and breadth, not as a requirement to copy assets or literally reproduce every mechanic; concrete functionality gaps remain separate owner/backlog items so the core LLM/deterministic-C# architecture is preserved.
 - Size: large (slices: furniture visual-language audit/reference sheet; chairs/tables; television/recreation fixtures; galley equipment; cross-room consistency/browser visual pass)
 - Status: **ready**.
+
+
+
+### 106. Fire alarm / ship-wide warning acknowledged but no crew respond
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790263762265599 (2026-09-24)
+- Idea/bug: the reactor was visibly on fire; the owner sent a ship-wide message and repeatedly targeted the reactor with FIRE ALARM. Speech bubbles acknowledged the warning, but nobody moved toward the reactor or otherwise responded.
+- Outcome: diagnose the full perception → cognition → intent → deterministic execution path for reported fires. A valid fire alarm/message must become usable, correctly grounded information for crew cognition; the model remains free to choose *how* or whether to help based on its goals/personality, but the system must not silently lose the warning, omit the known fire from the next prompt, or reject a valid chosen response because of stale/incorrect targets. Add a regression reproducing alarm + known remote fire and inspect server prompt/decision telemetry before changing behaviour.
+- Size: medium (diagnosis + focused regression first; fix sized from finding)
+- Status: **ready; health bug**, take before roadmap work.
+
+### 107. Crew movement can drift opposite the selected route
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790263807139299 (2026-09-24)
+- Idea/bug: a human moved away from the green dotted planned route for roughly three turns before turning around and following it.
+- Outcome: route visualization and authoritative local movement agree at every stage of a committed inter-room move. Diagnose whether the dotted route is stale/predicted incorrectly or whether local collision/fixture steering can increase distance from the next portal for multiple turns; preserve deterministic obstacle avoidance while preventing sustained backwards drift unless the displayed route is recomputed to explain it.
+- Size: medium (reproduction/instrumentation + movement/route-display fix + regression)
+- Status: **ready; health bug**.
+
+### 108. Crew can visually encounter a fire and leave without cognition acknowledging it
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790263952816869 (2026-09-24)
+- Idea/bug: a human entered a room to check for fire, saw the fire, did not acknowledge it, then walked out.
+- Outcome: a crew member with line-of-sight/perception of an active fire gets that observation into the next cognition input and memory/knowledge path with the correct room/fire target. Deterministic C# must not hard-code a forced firefighting decision; it must ensure the mind actually receives the salient observation and that any chosen response has valid affordances. Add a reproduction covering arrival into a burning room, prompt/perception contents and subsequent decision opportunity.
+- Size: medium (diagnosis + prompt/perception regression first; likely overlaps #106)
+- Status: **ready; health bug**, investigate jointly with #106 to avoid duplicate fixes.
 
 
 ## Deliberate decisions (do not "fix")

@@ -37,7 +37,7 @@ class FakeOllama(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
 
-def request(method: str, url: str, payload=None):
+def request(method: str, url: str, payload=None, timeout=10):
     data = None if payload is None else json.dumps(payload).encode()
     req = urllib.request.Request(
         url,
@@ -45,7 +45,7 @@ def request(method: str, url: str, payload=None):
         method=method,
         headers={"Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=10) as response:
+    with urllib.request.urlopen(req, timeout=timeout) as response:
         raw = response.read()
         return json.loads(raw) if raw else {}
 
@@ -118,10 +118,45 @@ def main():
                     },
                 }
             }
-        })
+        }, timeout=30)
         session_id = created["value"]["sessionId"]
         base = f"{WEBDRIVER}/session/{session_id}"
         request("POST", base + "/url", {"url": APP_URL})
+
+        # Owner #99: validate the actual browser cascade, not just source text.
+        # Reuse a real rendered room so Blazor's CSS-isolation attribute remains present.
+        wait_until(
+            lambda: request("POST", base + "/execute/sync", {
+                "script": "return !!document.querySelector('.station-authority-layer .room-node[data-room-id]');",
+                "args": [],
+            }).get("value"),
+            timeout=15,
+            message="rendered station room",
+        )
+        fire_style = request("POST", base + "/execute/sync", {
+            "script": """
+                const room = document.querySelector('.station-authority-layer .room-node[data-room-id]');
+                if (!room) return null;
+                room.classList.add('has-fire', 'fire-inferno');
+                room.style.setProperty('--fire-x', '50%');
+                room.style.setProperty('--fire-y', '50%');
+                room.style.setProperty('--fire-r', '35%');
+                const pseudo = getComputedStyle(room, '::after');
+                const result = { backgroundImage: pseudo.backgroundImage, content: pseudo.content };
+                room.classList.remove('has-fire', 'fire-inferno');
+                room.style.removeProperty('--fire-x');
+                room.style.removeProperty('--fire-y');
+                room.style.removeProperty('--fire-r');
+                return result;
+            """,
+            "args": [],
+        }).get("value")
+        if not fire_style:
+            raise AssertionError("Could not inspect a rendered station room for fire styling")
+        if "repeating-radial-gradient" in fire_style.get("backgroundImage", ""):
+            raise AssertionError(f"Fire ring layer still rendered: {fire_style}")
+        if "🔥" not in fire_style.get("content", ""):
+            raise AssertionError(f"Fire flame sprite did not render: {fire_style}")
 
         def find(xpath):
             result = request("POST", base + "/element", {"using": "xpath", "value": xpath})

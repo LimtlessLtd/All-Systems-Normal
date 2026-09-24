@@ -132,6 +132,19 @@ public sealed class StationUiPresentationPolishTests
     }
 
     [Fact]
+    public void FirePresentation_DoesNotRenderRadialRingLayers()
+    {
+        var root = FindRepositoryRoot();
+        var css = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor.css"));
+        var fireStart = css.IndexOf(".station-authority-layer .room-node[data-room-id].has-fire::after", StringComparison.Ordinal);
+        var smokeStart = css.IndexOf("/* Smoke is an atmospheric layer", fireStart, StringComparison.Ordinal);
+
+        Assert.True(fireStart >= 0 && smokeStart > fireStart);
+        var fireCss = css[fireStart..smokeStart];
+        Assert.DoesNotContain("repeating-radial-gradient(", fireCss, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void FireAndSmokeOverlaySelectors_OutrankTheDecorativeRoomPseudoElements()
     {
         // Every room already carries its own decorative ::before (corner dots) and ::after
