@@ -7221,10 +7221,19 @@ button.turret-token {
         inset 0 0 32px rgba(255, 67, 12, .45);
 }
 
+/* This ::after is also every room's decorative floor stripe, which sets a
+   fixed `height`, a faint `opacity` and an edge `box-shadow`. Reset all three:
+   with `inset` plus the stripe's height, the box is over-constrained, the
+   browser drops `bottom`, and the fire renders as a full-width strip only 4%
+   of the room tall (owner idea #76). */
 .station-authority-layer .room-node[data-room-id].has-fire::after {
     content: "🔥";
     position: absolute;
     inset: 2%;
+    width: auto;
+    height: auto;
+    opacity: 1;
+    box-shadow: none;
     z-index: 20;
     display: flex;
     align-items: flex-end;
