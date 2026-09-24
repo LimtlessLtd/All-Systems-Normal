@@ -37,7 +37,7 @@ UI changes also need a real-browser check (e.g. headless Chromium against the pu
 - Do not leave completed green work in an open PR without a genuine reason; merge it.
 - Before pushing and again before merging, re-check remote `main`, open PRs, concurrent branches, CI and `#agentic-coordination`. Reconcile concurrent work with a merge; never overwrite or force-push someone else's branch.
 - After merging, confirm the `main` workflow (build, tests, publish, Pages deploy) completes green.
-- After a PR merges, delete its head branch — `git push origin --delete <branch>` if your session's credentials allow it. If deletion returns a permission error (some agent sessions' GitHub tokens can only push/open PRs, not delete refs), don't treat it as a blocker: note the branch name once in the `[MERGED]` Slack post so a session with delete access (or the owner) can clear it, and don't retry it every run. The owner enabling "Automatically delete head branches" in the repo's GitHub settings removes the need for agents to do this manually at all — prefer suggesting that once rather than fighting per-branch permissions repeatedly.
+- The repository automatically deletes a PR's head branch when it merges (enabled by the owner, 2026-09-23), so agents need not delete merged branches. To keep working on the same branch name after a merge, push it again from current `main` as a new branch.
 
 ## Run procedure
 

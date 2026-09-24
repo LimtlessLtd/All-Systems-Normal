@@ -262,19 +262,29 @@ public sealed class GameSession(
             return;
         }
 
-        ApplyHazardReflexes(living);
-
         // Environmental danger is allowed to interrupt the normal cognition
-        // cadence. C# still does not choose the goal: it only asks the mind to
-        // reconsider immediately instead of leaving somebody committed to a
-        // 24-minute-old routine while their compartment becomes unsafe.
-        // A compartment draining toward a breach through an open hatch beside
-        // this person counts too, before its pressure crosses the danger line.
+        // cadence instead of leaving somebody committed to a 24-minute-old
+        // routine while their compartment becomes unsafe. A compartment
+        // draining toward a breach through an open hatch beside this person
+        // counts too, before its pressure crosses the danger line. Everyone
+        // in it reacts at once through a deterministic reflex; the model is
+        // then asked, one mind per tick, and its decision replaces the reflex.
         var vacuumDepths = EnvironmentSystem.FindVacuumDepths(State);
+        ApplyHazardReflexes(living, vacuumDepths);
+
         var emergencyNpc = living
             .Where(npc =>
             {
                 var room = State.Facility.Rooms[npc.CurrentRoomId];
+
+                // A reflex answered the hazard for now; the model still owes
+                // this person a decision while they remain in it.
+                if (_awaitingModelAfterReflex.Contains(npc.Id)
+                    && (CrewEnvironmentSafety.IsDangerous(room)
+                        || vacuumDepths.ContainsKey(room.Id)))
+                {
+                    return true;
+                }
 
                 if (npc.IsPresent
                     && vacuumDepths.Count > 0
@@ -296,7 +306,10 @@ public sealed class GameSession(
                 return CrewEnvironmentSafety.IsDangerous(room)
                     && !IsAlreadyEscapingToSaferRoom(npc, room);
             })
-            .OrderByDescending(npc =>
+            // Crew acting on a reflex have not been heard by the model yet;
+            // anyone it already answered is asked again after them.
+            .OrderByDescending(npc => _awaitingModelAfterReflex.Contains(npc.Id))
+            .ThenByDescending(npc =>
                 CrewEnvironmentSafety.RiskScore(
                     State.Facility.Rooms[npc.CurrentRoomId]))
             .ThenBy(npc => npc.Name)
@@ -433,23 +446,29 @@ public sealed class GameSession(
     }
 
     /// <summary>
-    /// Owner rule (2026-09-24): a person who meets a fire reacts at once
-    /// through the deterministic model-citizen ladder instead of standing
-    /// still until their model turn, which only one mind gets per tick. The
-    /// reflex is adopted only when that ladder answers the fire itself
-    /// (fighting it, or getting out of a room that has become dangerous). The
-    /// person stays queued for the model, whose decision replaces the reflex
-    /// when it arrives and is not overruled again while the same fire burns.
+    /// Owner rule (2026-09-24, #106): a person who meets a hazard reacts at
+    /// once through the deterministic model-citizen ladder instead of standing
+    /// still until their model turn, which only one mind gets per tick. It
+    /// covers someone who sees a fire or hears a FIRE ALARM, is asked to
+    /// reconsider while a fire burns, stands in a dangerous room, or stands
+    /// beside the open hatch of a compartment draining toward a breach. The
+    /// reflex is adopted only when the ladder answers that hazard: fighting the
+    /// fire, shutting the hatch toward the breach, or its dangerous-room
+    /// response. The person stays queued for the model, whose decision replaces
+    /// the reflex when it arrives and is not overruled again while the same
+    /// hazard lasts.
     /// </summary>
-    private void ApplyHazardReflexes(IReadOnlyList<Npc> living)
+    private void ApplyHazardReflexes(
+        IReadOnlyList<Npc> living,
+        IReadOnlyDictionary<string, int> vacuumDepths)
     {
         _reflexedHazards.RemoveWhere(entry =>
             !State.Facility.Rooms.TryGetValue(entry.RoomId, out var room)
-            || (room.FireIntensity <= 0 && !CrewEnvironmentSafety.IsDangerous(room)));
+            || !IsHazardRoom(room, vacuumDepths));
         _awaitingModelAfterReflex.RemoveWhere(id =>
             living.All(npc => npc.Id != id));
 
-        if (!State.Facility.Rooms.Values.Any(room => room.FireIntensity > 0))
+        if (!State.Facility.Rooms.Values.Any(room => IsHazardRoom(room, vacuumDepths)))
         {
             return;
         }
@@ -458,15 +477,34 @@ public sealed class GameSession(
         {
             if (!npc.IsPresent
                 || _awaitingModelAfterReflex.Contains(npc.Id)
-                || npc.Intent is { Action: ActionKind.FightFire }
-                || !(npc.NeedsMindReconsideration
-                     || HasFreshFireObservation(npc)
-                     || HasFreshFireAlarm(npc)))
+                || npc.Intent is { Action: ActionKind.FightFire })
             {
                 continue;
             }
 
             var currentRoom = State.Facility.Rooms[npc.CurrentRoomId];
+            var inDanger = CrewEnvironmentSafety.IsDangerous(currentRoom);
+            var breachHatch = vacuumDepths.Count > 0
+                ? DecompressionContainmentRules.FindHatchTowardBreach(State, npc, vacuumDepths)
+                : null;
+
+            if (breachHatch is not null
+                    ? DecompressionContainmentRules.IsAlreadyClosing(npc, breachHatch)
+                    : inDanger && IsAlreadyEscapingToSaferRoom(npc, currentRoom))
+            {
+                continue;
+            }
+
+            var fireNews = State.Facility.Rooms.Values.Any(room => room.FireIntensity > 0)
+                && (npc.NeedsMindReconsideration
+                    || HasFreshFireObservation(npc)
+                    || HasFreshFireAlarm(npc));
+
+            if (!fireNews && !inDanger && breachHatch is null)
+            {
+                continue;
+            }
+
             var reflex = _reflexes
                 .DecideAsync(npc, State, CancellationToken.None)
                 .GetAwaiter()
@@ -477,8 +515,13 @@ public sealed class GameSession(
             {
                 hazardRoomId = fireRoomId;
             }
-            else if (currentRoom.FireIntensity > 0
-                && CrewEnvironmentSafety.IsDangerous(currentRoom))
+            else if (breachHatch is not null
+                && reflex is { Action: ActionKind.CloseDoor, TargetId: { } hatchId }
+                && hatchId.Equals(breachHatch.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                hazardRoomId = currentRoom.Id;
+            }
+            else if (inDanger)
             {
                 hazardRoomId = currentRoom.Id;
             }
@@ -506,6 +549,13 @@ public sealed class GameSession(
             Log($"{npc.Name} reacts at once [{ReflexSource}]: {reflex.Goal}");
         }
     }
+
+    private static bool IsHazardRoom(
+        Room room,
+        IReadOnlyDictionary<string, int> vacuumDepths) =>
+        room.FireIntensity > 0
+        || CrewEnvironmentSafety.IsDangerous(room)
+        || vacuumDepths.ContainsKey(room.Id);
 
     private void ResetMindQueues()
     {
