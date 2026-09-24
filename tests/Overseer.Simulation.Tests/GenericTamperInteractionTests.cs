@@ -6,6 +6,76 @@ namespace Overseer.Simulation.Tests;
 public sealed class GenericTamperInteractionTests
 {
     [Fact]
+    public void DisconnectDevice_IsDeclaredAsReusableMotiveNeutralInteractionMetadata()
+    {
+        var method = Assert.Single(PhysicalInteractionRules.Methods);
+
+        Assert.Equal("disconnect", method.Id);
+        Assert.Equal(ActionKind.DisconnectDevice, method.Action);
+        Assert.Equal("local-device", method.TargetType);
+        Assert.Contains("why you want to do it is your decision", method.Description);
+        Assert.True(method.Requirements.HasFlag(PhysicalInteractionTargetRequirement.NonDoorDevice));
+        Assert.True(method.Requirements.HasFlag(PhysicalInteractionTargetRequirement.LocalRoom));
+        Assert.True(method.Requirements.HasFlag(PhysicalInteractionTargetRequirement.Enabled));
+        Assert.True(method.Requirements.HasFlag(PhysicalInteractionTargetRequirement.Working));
+        Assert.True(method.Requirements.HasFlag(PhysicalInteractionTargetRequirement.FixtureBacked));
+
+        var affordance = Assert.Single(
+            CrewAffordanceSystem.Catalog.Where(candidate =>
+                candidate.Action == ActionKind.DisconnectDevice));
+        Assert.Equal(method.TargetType, affordance.TargetType);
+        Assert.Equal(method.Description, affordance.Description);
+    }
+
+    [Fact]
+    public void SharedPhysicalInteractionResolution_ExplainsWhyATargetIsUnavailable()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew[0];
+        var device = state.Devices.Values.First(candidate =>
+            candidate.Kind == StationSystemKind.PowerGenerator);
+
+        npc.CurrentRoomId = device.RoomId;
+
+        var available = PhysicalInteractionRules.ResolveTarget(
+            state,
+            npc,
+            ActionKind.DisconnectDevice,
+            device.Id);
+        Assert.Equal(PhysicalInteractionTargetStatus.Available, available.Status);
+        Assert.Equal(device.Id, available.Device?.Id);
+        Assert.NotNull(available.Room);
+        Assert.NotNull(available.Fixture);
+        Assert.Contains(
+            PhysicalInteractionRules.AvailableTargets(
+                state,
+                npc,
+                ActionKind.DisconnectDevice),
+            candidate => candidate.Id == device.Id);
+
+        npc.CurrentRoomId = state.Facility.Rooms.Values
+            .First(room => !room.Id.Equals(device.RoomId, StringComparison.OrdinalIgnoreCase))
+            .Id;
+        Assert.Equal(
+            PhysicalInteractionTargetStatus.WrongRoom,
+            PhysicalInteractionRules.ResolveTarget(
+                state,
+                npc,
+                ActionKind.DisconnectDevice,
+                device.Id).Status);
+
+        npc.CurrentRoomId = device.RoomId;
+        device.IsEnabled = false;
+        Assert.Equal(
+            PhysicalInteractionTargetStatus.Disabled,
+            PhysicalInteractionRules.ResolveTarget(
+                state,
+                npc,
+                ActionKind.DisconnectDevice,
+                device.Id).Status);
+    }
+
+    [Fact]
     public void DisconnectDevice_IsOnlyTargetableForEnabledLocalPhysicalMachinery()
     {
         var state = FacilitySeeder.CreateDefault();
