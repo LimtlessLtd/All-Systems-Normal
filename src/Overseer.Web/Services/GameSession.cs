@@ -32,6 +32,19 @@ public sealed class GameSession(
     private int _mindCursor;
     private bool _initialized;
 
+    // Owner rule (2026-09-24): immediate reactions are deterministic and the
+    // model's decision takes priority once it arrives. The reflex is the same
+    // shared fallback ladder the model falls back to, so it never invents a
+    // behaviour the minds could not already choose.
+    private readonly RuleBasedAiDecisionService _reflexes = new();
+
+    // Crew acting on a reflex whose model decision has not arrived yet.
+    private readonly HashSet<Guid> _awaitingModelAfterReflex = [];
+
+    // (person, hazard room) pairs already given a reflex, so a model that
+    // overrides a reflex is not overruled again while the same fire burns.
+    private readonly HashSet<(Guid NpcId, string RoomId)> _reflexedHazards = [];
+
     public override async Task InitializeAsync(
         CancellationToken cancellationToken = default)
     {
@@ -82,7 +95,7 @@ public sealed class GameSession(
         CancellationToken cancellationToken = default)
     {
         PauseClock();
-        _mindCursor = 0;
+        ResetMindQueues();
         Campaign = new CampaignState();
         var scenario = ScenarioCatalog.SecureContinuity;
         var (crew, robots) = await CreateCrewForScenarioAsync(scenario, cancellationToken);
@@ -98,7 +111,7 @@ public sealed class GameSession(
         CancellationToken cancellationToken = default)
     {
         PauseClock();
-        _mindCursor = 0;
+        ResetMindQueues();
 
         var scenario = State.Scenario ?? ScenarioCatalog.SecureContinuity;
         var (crew, robots) = await CreateCrewForScenarioAsync(scenario, cancellationToken);
@@ -120,7 +133,7 @@ public sealed class GameSession(
         ArgumentNullException.ThrowIfNull(campaign);
 
         PauseClock();
-        _mindCursor = 0;
+        ResetMindQueues();
 
         if (!CampaignProgressionSystem.CanAutoRestoreCampaign(campaign))
         {
@@ -176,7 +189,7 @@ public sealed class GameSession(
         CancellationToken cancellationToken = default)
     {
         PauseClock();
-        _mindCursor = 0;
+        ResetMindQueues();
         CampaignProgressionSystem.CaptureCompletedMission(Campaign, State);
 
         if (!CampaignProgressionSystem.CanStartScenario(Campaign, scenarioId))
@@ -210,7 +223,7 @@ public sealed class GameSession(
         CancellationToken cancellationToken = default)
     {
         PauseClock();
-        _mindCursor = 0;
+        ResetMindQueues();
 
         var scenario = ScenarioCatalog.StandaloneAssignments.FirstOrDefault(candidate =>
             candidate.Id.Equals(scenarioId, StringComparison.OrdinalIgnoreCase));
@@ -248,6 +261,8 @@ public sealed class GameSession(
         {
             return;
         }
+
+        ApplyHazardReflexes(living);
 
         // Environmental danger is allowed to interrupt the normal cognition
         // cadence. C# still does not choose the goal: it only asks the mind to
@@ -304,33 +319,31 @@ public sealed class GameSession(
         var eventNpc = living
             .Where(npc =>
             {
-                var currentRoom = State.Facility.Rooms[npc.CurrentRoomId];
-                var freshFireObservation = currentRoom.FireIntensity > 0
-                    && npc.Memories.Any(memory =>
-                        memory.ObservedFireRoomId?.Equals(
-                            currentRoom.Id,
-                            StringComparison.OrdinalIgnoreCase) == true
-                        && memory.OccurredAt > npc.LastThoughtAt);
-                var freshFireAlarm =
-                    npc.ReceivedMessages.FirstOrDefault() is { Claim: OverseerClaimKind.FireAlarm } latestAlarm
-                    && npc.LastThoughtAt <= latestAlarm.SentAt;
+                var freshFireObservation = HasFreshFireObservation(npc);
+                var freshFireAlarm = HasFreshFireAlarm(npc);
+                var awaitingModel = _awaitingModelAfterReflex.Contains(npc.Id);
 
                 // These are information updates, not deterministic decisions.
                 // Only the local model runtime gets this extra wake-up; the
                 // static fallback keeps its established decision cadence.
                 return (npc.NeedsMindReconsideration
                         || freshFireObservation
-                        || freshFireAlarm)
+                        || freshFireAlarm
+                        || awaitingModel)
                     && (npc.Intent is null
                         || npc.Intent.Urgency < 85
                         || npc.Hunger >= 72
                         || npc.Fatigue >= 86
                         || freshFireObservation
-                        || freshFireAlarm);
+                        || freshFireAlarm
+                        || awaitingModel);
             })
             .OrderByDescending(npc =>
                 npc.MissingPersonConcerns.Values.Any(concern =>
                     concern.Stage == MissingPersonConcernStage.Escalated))
+            // Someone acting on a reflex is owed the model's decision before a
+            // colleague who has already had one is asked again.
+            .ThenByDescending(npc => _awaitingModelAfterReflex.Contains(npc.Id))
             .ThenBy(npc => npc.Name)
             .FirstOrDefault();
 
@@ -380,6 +393,8 @@ public sealed class GameSession(
         bool emergency,
         CancellationToken cancellationToken)
     {
+        _awaitingModelAfterReflex.Remove(npc.Id);
+
         var intent = await AwaitWithProcessingStatusAsync(
             $"AWAITING LLM RESPONSE — {npc.Name.ToUpperInvariant()} IS DECIDING",
             () => _aiDecisionService.DecideAsync(
@@ -416,6 +431,106 @@ public sealed class GameSession(
         Log(
             $"{npc.Name} forms an intention [{intent.Source}]: {intent.Goal}");
     }
+
+    /// <summary>
+    /// Owner rule (2026-09-24): a person who meets a fire reacts at once
+    /// through the deterministic model-citizen ladder instead of standing
+    /// still until their model turn, which only one mind gets per tick. The
+    /// reflex is adopted only when that ladder answers the fire itself
+    /// (fighting it, or getting out of a room that has become dangerous). The
+    /// person stays queued for the model, whose decision replaces the reflex
+    /// when it arrives and is not overruled again while the same fire burns.
+    /// </summary>
+    private void ApplyHazardReflexes(IReadOnlyList<Npc> living)
+    {
+        _reflexedHazards.RemoveWhere(entry =>
+            !State.Facility.Rooms.TryGetValue(entry.RoomId, out var room)
+            || (room.FireIntensity <= 0 && !CrewEnvironmentSafety.IsDangerous(room)));
+        _awaitingModelAfterReflex.RemoveWhere(id =>
+            living.All(npc => npc.Id != id));
+
+        if (!State.Facility.Rooms.Values.Any(room => room.FireIntensity > 0))
+        {
+            return;
+        }
+
+        foreach (var npc in living)
+        {
+            if (!npc.IsPresent
+                || _awaitingModelAfterReflex.Contains(npc.Id)
+                || npc.Intent is { Action: ActionKind.FightFire }
+                || !(npc.NeedsMindReconsideration
+                     || HasFreshFireObservation(npc)
+                     || HasFreshFireAlarm(npc)))
+            {
+                continue;
+            }
+
+            var currentRoom = State.Facility.Rooms[npc.CurrentRoomId];
+            var reflex = _reflexes
+                .DecideAsync(npc, State, CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+            string hazardRoomId;
+
+            if (reflex is { Action: ActionKind.FightFire, TargetId: { } fireRoomId })
+            {
+                hazardRoomId = fireRoomId;
+            }
+            else if (currentRoom.FireIntensity > 0
+                && CrewEnvironmentSafety.IsDangerous(currentRoom))
+            {
+                hazardRoomId = currentRoom.Id;
+            }
+            else
+            {
+                continue;
+            }
+
+            if (!_reflexedHazards.Add((npc.Id, hazardRoomId)))
+            {
+                continue;
+            }
+
+            npc.Intent = reflex with { Source = ReflexSource };
+            npc.MindMode = ReflexSource;
+            npc.Movement = null;
+            npc.RoutineUntil = TimeSpan.Zero;
+            npc.Bubble = new NpcBubble(
+                reflex.Goal,
+                NpcBubbleKind.Alert,
+                State.Elapsed,
+                State.Elapsed + TimeSpan.FromMinutes(2));
+            _awaitingModelAfterReflex.Add(npc.Id);
+
+            Log($"{npc.Name} reacts at once [{ReflexSource}]: {reflex.Goal}");
+        }
+    }
+
+    private void ResetMindQueues()
+    {
+        _mindCursor = 0;
+        _awaitingModelAfterReflex.Clear();
+        _reflexedHazards.Clear();
+    }
+
+    /// <summary>Intent/mind source for a deterministic reflex awaiting the model.</summary>
+    public const string ReflexSource = "Reflex";
+
+    private bool HasFreshFireObservation(Npc npc)
+    {
+        var currentRoom = State.Facility.Rooms[npc.CurrentRoomId];
+        return currentRoom.FireIntensity > 0
+            && npc.Memories.Any(memory =>
+                memory.ObservedFireRoomId?.Equals(
+                    currentRoom.Id,
+                    StringComparison.OrdinalIgnoreCase) == true
+                && memory.OccurredAt > npc.LastThoughtAt);
+    }
+
+    private static bool HasFreshFireAlarm(Npc npc) =>
+        npc.ReceivedMessages.FirstOrDefault() is { Claim: OverseerClaimKind.FireAlarm } latestAlarm
+        && npc.LastThoughtAt <= latestAlarm.SentAt;
 
     private bool IsAlreadyEscapingToSaferRoom(Npc npc, Room currentRoom)
     {
