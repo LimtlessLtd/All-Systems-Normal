@@ -10,7 +10,7 @@ public sealed class BedUseRulesTests
     {
         var state = FacilitySeeder.CreateDefault(SeededCrewRosterGenerator.Generate(4242), stationSeed: 1337);
         var quarters = state.Facility.Rooms["quarters"];
-        var sleepers = state.Crew.Take(7).ToList();
+        var sleepers = state.Crew.ToList();
 
         foreach (var npc in sleepers)
         {
@@ -24,8 +24,9 @@ public sealed class BedUseRulesTests
             .Select(npc => BedUseRules.AssignedBed(state, npc))
             .ToList();
 
-        var beds = quarters.Fixtures.Count(fixture => fixture.Type == FixtureType.Bed);
-        Assert.Equal(6, beds);
+        var beds = quarters.Fixtures.Count(fixture =>
+            fixture.Type is FixtureType.Bed or FixtureType.MedicalBed);
+        Assert.True(sleepers.Count > beds, "Regression roster must exceed physical bed capacity.");
         Assert.Equal(beds, assignments.Count(fixture => fixture is not null));
         Assert.Equal(
             beds,
@@ -34,7 +35,7 @@ public sealed class BedUseRulesTests
                 .Select(fixture => fixture!.Label)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Count());
-        Assert.Single(assignments, fixture => fixture is null);
+        Assert.Equal(sleepers.Count - beds, assignments.Count(fixture => fixture is null));
     }
 
     [Fact]
@@ -107,7 +108,7 @@ public sealed class BedUseRulesTests
     {
         var state = FacilitySeeder.CreateDefault(SeededCrewRosterGenerator.Generate(4242), stationSeed: 1337);
         var quarters = state.Facility.Rooms["quarters"];
-        var sleepers = state.Crew.Take(7).ToList();
+        var sleepers = state.Crew.ToList();
 
         foreach (var npc in sleepers)
         {
@@ -117,7 +118,7 @@ public sealed class BedUseRulesTests
             npc.SleepDebtMinutes = 240;
         }
 
-        var overflow = sleepers.Single(npc => BedUseRules.AssignedBed(state, npc) is null);
+        var overflow = sleepers.First(npc => BedUseRules.AssignedBed(state, npc) is null);
         var fatigueBefore = overflow.Fatigue;
         var debtBefore = overflow.SleepDebtMinutes;
 
