@@ -323,13 +323,18 @@
                         <button type="button"
                                 class="@(_confirmingReset ? "danger" : "secondary")"
                                 title="Discard this run and campaign progress"
-                                @onclick="RequestResetAsync">@(_confirmingReset ? "CONFIRM RESET?" : "RESET RUN")</button>
+                                disabled="@(_resetInProgress)"
+                                @onclick="RequestResetAsync">@(_confirmingReset ? "CONFIRM RESET?" : _resetInProgress ? "RESETTING…" : "RESET RUN")</button>
                     </div>
                     <small>Space pauses and resumes the station. WASD or arrow keys pan; the mouse wheel zooms.</small>
                 </section>
             }
 
             <div class="station-map-viewport" data-map-camera tabindex="0" aria-label="Station map. Drag to pan; use WASD or arrow keys to move the camera.">
+                @if (_resetInProgress)
+                {
+                    <span class="station-processing-status" role="status" aria-live="polite">PROCESSING — RESETTING RUN</span>
+                }
                 <div class="@StationMapClass" style="@StationMapStyle">
                 @if (_fireAlarmArming)
                 {
@@ -1695,6 +1700,7 @@
     private bool _fireAlarmArming;
     private bool _paused;
     private bool _confirmingReset;
+    private bool _resetInProgress;
     private bool _confirmingStandalone;
     private DotNetObjectReference<Home>? _selfReference;
     private long _lastAudioSequence;
@@ -1753,6 +1759,9 @@
 
     private async Task RequestResetAsync()
     {
+        if (_resetInProgress)
+            return;
+
         if (!_confirmingReset)
         {
             _confirmingReset = true;
@@ -1761,7 +1770,23 @@
         }
 
         _confirmingReset = false;
-        await ResetGame();
+        _resetInProgress = true;
+        _stationOverlay = null;
+
+        // Render the acknowledgement before ResetAsync awaits local crew
+        // generation (which may be an Ollama call in the server runtime).
+        await InvokeAsync(StateHasChanged);
+        await Task.Yield();
+
+        try
+        {
+            await ResetGame();
+        }
+        finally
+        {
+            _resetInProgress = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private async Task ExpireResetConfirmationAsync()

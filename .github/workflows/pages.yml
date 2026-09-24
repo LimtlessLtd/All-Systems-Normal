@@ -35,6 +35,11 @@ jobs:
       - name: Test simulation
         run: dotnet test tests/Overseer.Simulation.Tests/Overseer.Simulation.Tests.csproj -c Release --no-build
 
+      - name: Browser smoke — local reset
+        run: |
+          command -v chromedriver
+          python3 tests/browser/reset_smoke.py
+
       - name: Publish browser demo
         run: dotnet publish src/Overseer.Web.Client/Overseer.Web.Client.csproj -c Release -o release --no-restore
 
