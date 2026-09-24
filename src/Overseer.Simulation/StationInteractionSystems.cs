@@ -83,7 +83,8 @@ public static class CrewAffordanceSystem
         new(ActionKind.ReprogramTurret, "turret", "Reprogram a locally safe hostile turret."),
         new(ActionKind.IsolateSecurityController, "security-controller", "Physically isolate a diagnosed compromised MR/ST controller."),
         new(ActionKind.PurgeSecurityController, "security-controller", "Purge and reimage an isolated compromised MR/ST controller."),
-        new(ActionKind.RecapturePrisoner, "prisoner", "Physically restrain an escaped prisoner and return them to containment.")
+        new(ActionKind.RecapturePrisoner, "prisoner", "Physically restrain an escaped prisoner and return them to containment."),
+        new(ActionKind.AssumeRole, "vacant-post", "Step into a post whose holder you know has died, taking on its duties from now on. Whether you should, and what the others make of it, is up to you.")
     ];
 
     public static bool IsCognitionAction(ActionKind action) =>
@@ -280,6 +281,18 @@ public static class CrewAffordanceSystem
                 && belief.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
                 && possession.HiddenAtRoomId is not null
                 && possession.HiddenAtRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (action == ActionKind.AssumeRole)
+        {
+            if (!RoleSuccessionRules.TryParseRole(requested, out var role)
+                || !RoleSuccessionRules.CanAssume(state, npc, role, out _))
+            {
+                return false;
+            }
+
+            normalizedTarget = role.ToString();
+            return true;
         }
 
         if (action == ActionKind.DisconnectDevice)
