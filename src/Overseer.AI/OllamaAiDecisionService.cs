@@ -565,20 +565,8 @@ public sealed class OllamaAiDecisionService(
             : clean[..(MaxBubbleTextLength - 1)].TrimEnd() + "…";
     }
 
-    private static bool IsRestorableTarget(GameState state, string target)
-    {
-        if (target.Equals("life-support", StringComparison.OrdinalIgnoreCase))
-        {
-            return !state.LifeSupport.IsOnline;
-        }
-
-        return state.Facility.Rooms.TryGetValue(target, out var room)
-            && (!room.IsPowered
-                || !room.CameraOnline
-                || !room.LightsOn
-                || (room.HasTemperatureControl && !room.TemperatureControlOnline)
-                || (room.HasVentilationControl && !room.VentilationEnabled));
-    }
+    private static bool IsRestorableTarget(GameState state, string target) =>
+        CrewCounterplaySystem.HasRestorableProblem(state, target);
 
     private static string Clean(string? value, string fallback)
     {

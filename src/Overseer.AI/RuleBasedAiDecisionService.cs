@@ -139,7 +139,7 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                 $"Repair {damagedDoor.Id}.",
                 "This hatch has visible structural or bypass damage and I can repair it locally.", 72);
         }
-        else if (!state.LifeSupport.IsOnline && CrewCounterplaySystem.BestRepairSkill(npc) >= 55)
+        else if (CrewCounterplaySystem.HasSwitchedOffLifeSupport(state) && CrewCounterplaySystem.BestRepairSkill(npc) >= 55)
         {
             intent = Create(
                 npc,

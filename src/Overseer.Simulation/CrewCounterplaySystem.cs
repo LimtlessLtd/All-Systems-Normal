@@ -107,12 +107,36 @@ public sealed class CrewCounterplaySystem
     {
         if (targetId.Equals(LifeSupportTarget, StringComparison.OrdinalIgnoreCase))
         {
-            return !state.LifeSupport.IsOnline;
+            return HasSwitchedOffLifeSupport(state);
         }
 
         return state.Facility.Rooms.TryGetValue(targetId, out var room)
-            && FindRoomProblem(room) is not null;
+            && FindRoomProblem(state, room) is not null;
     }
+
+    /// <summary>
+    /// Life support is down for a reason the manual controls in Engineering can
+    /// undo: the request was switched off, or a life-support unit was disabled
+    /// (by Overseer or by hand) without failing. Any other cause is not a
+    /// "restore" job. A failed unit needs servicing (<see cref="CrewMaintenanceSystem"/>),
+    /// and an Engineering compartment shed by the grid needs generation back.
+    /// Treating every outage as restorable used to send crew to flip a switch
+    /// the next upkeep tick flipped straight back. That kept them at urgency
+    /// 88-90, which blocked maintenance from ever servicing the worn reactor
+    /// that caused the outage, and a whole crew suffocated.
+    /// </summary>
+    public static bool HasSwitchedOffLifeSupport(GameState state) =>
+        !state.LifeSupport.IsOnline
+        && (!state.LifeSupport.RequestedOnline
+            || DisabledLifeSupportUnits(state).Any());
+
+    private static IEnumerable<StationDevice> DisabledLifeSupportUnits(GameState state) =>
+        state.Devices.Values.Where(device =>
+            device.Kind is StationSystemKind.LifeSupport
+                or StationSystemKind.OxygenGenerator
+                or StationSystemKind.CarbonScrubber
+            && !device.IsEnabled
+            && !device.IsFailed);
 
     public static string? RequiredRoomForRestore(GameState state, string targetId)
     {
@@ -517,8 +541,18 @@ public sealed class CrewCounterplaySystem
             $"{npc.Name} restores {DescribeTarget(state, targetId)}.");
     }
 
-    private static string? FindRoomProblem(Room room)
+    /// <summary>
+    /// What a person at the room's local controls could switch back on. A
+    /// compartment the grid shed has nothing to restore by hand: the grid
+    /// gives power back itself once generation allows. Forcing it on only got
+    /// it shed again within minutes (a robot "restored" Engineering every
+    /// three minutes in a soak while the worn reactor went unserviced).
+    /// </summary>
+    private static string? FindRoomProblem(GameState state, Room room)
     {
+        if (state.Power.SheddedRoomIds.Contains(room.Id))
+            return null;
+
         if (!room.IsPowered)
             return "power";
 
@@ -541,6 +575,11 @@ public sealed class CrewCounterplaySystem
     {
         if (targetId.Equals(LifeSupportTarget, StringComparison.OrdinalIgnoreCase))
         {
+            // Switch everything back on; StationUpkeepSystem then derives
+            // whether it actually runs from power and unit health.
+            state.LifeSupport.RequestedOnline = true;
+            foreach (var unit in DisabledLifeSupportUnits(state).ToList())
+                unit.IsEnabled = true;
             state.LifeSupport.IsOnline = true;
             return true;
         }
@@ -587,7 +626,7 @@ public sealed class CrewCounterplaySystem
         targetId.Equals(LifeSupportTarget, StringComparison.OrdinalIgnoreCase)
             ? "primary life support"
             : state.Facility.Rooms.TryGetValue(targetId, out var room)
-                ? $"{room.Name} {FindRoomProblem(room) ?? "systems"}"
+                ? $"{room.Name} {FindRoomProblem(state, room) ?? "systems"}"
                 : targetId;
 
     private static bool ResolveCheck(

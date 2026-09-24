@@ -75,16 +75,11 @@ public static class NpcPromptBuilder
                 + "]");
 
         var disabledSystems = state.Facility.Rooms.Values
-            .Where(room =>
-                !room.IsPowered
-                || !room.CameraOnline
-                || (room.HasTemperatureControl && !room.TemperatureControlOnline)
-                || (room.HasVentilationControl && !room.VentilationEnabled)
-                || !room.LightsOn)
+            .Where(room => CrewCounterplaySystem.HasRestorableProblem(state, room.Id))
             .Select(room => room.Id)
             .ToList();
 
-        if (!state.LifeSupport.IsOnline)
+        if (CrewCounterplaySystem.HasSwitchedOffLifeSupport(state))
         {
             disabledSystems.Add("life-support");
         }
@@ -467,6 +462,13 @@ public static class NpcPromptBuilder
         {
             var breachSide = state.Facility.Rooms[DecompressionContainmentRules.FarSide(npc, breachHatch)];
             builder.AppendLine($"DECOMPRESSION: this compartment is losing air to space through the open hatch {breachHatch.Id} toward {breachSide.Id} ({breachSide.Name}), which is closer to the breach. Closing that hatch (CloseDoor {breachHatch.Id}) would stop the drain on this side; anyone behind it can still open it to come through. What you do is up to you.");
+        }
+        if (state.Power.SheddedRoomIds.Count > 0)
+        {
+            var sources = state.Devices.Values
+                .Where(device => device.Kind is StationSystemKind.Reactor or StationSystemKind.PowerGenerator)
+                .Select(device => $"{device.Label} {(device.IsFailed ? "FAILED" : $"{device.Condition:0}% condition")}");
+            builder.AppendLine($"STATION GRID: generation cannot carry the load, so the grid has cut power to {string.Join(", ", state.Power.SheddedRoomIds.Order(StringComparer.OrdinalIgnoreCase))}. It restores them by itself once generation recovers; switching them back on by hand does not hold. Power sources: {string.Join("; ", sources)}.");
         }
         builder.AppendLine($"STATION LIFE SUPPORT: {(state.LifeSupport.IsOnline ? "online" : "offline")}, oxygen reserve {state.LifeSupport.OxygenReservePercent:0.0}%, scrubbers {state.LifeSupport.ScrubberEfficiencyPercent:0}%");
         if (SecurityMalwareSystem.HasControllerDiagnostic(npc))
