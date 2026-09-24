@@ -37,11 +37,15 @@ public sealed class OllamaCrewGenerator(
     public async Task<IReadOnlyList<Npc>> GenerateAsync(
         CancellationToken cancellationToken = default)
     {
+        var prompt = BuildPrompt();
+        var sequence = _runtimeDiagnostics?.RecordStarted(
+            "crew generation",
+            prompt: prompt);
+
         try
         {
-            _runtimeDiagnostics?.RecordStarted("crew generation");
             var response = await _chatClient.GetResponseAsync<AiCrewRoster>(
-                BuildPrompt(),
+                prompt,
                 options: new ChatOptions
                 {
                     Temperature = 1.0f,
@@ -50,7 +54,13 @@ public sealed class OllamaCrewGenerator(
                 useJsonSchemaResponseFormat: true,
                 cancellationToken: cancellationToken);
 
-            _runtimeDiagnostics?.RecordResponse("crew generation");
+            if (sequence is { } requestSequence)
+            {
+                _runtimeDiagnostics?.RecordResponse(
+                    requestSequence,
+                    "crew generation",
+                    response.Text);
+            }
 
             AiCrewRoster? roster = null;
 
@@ -69,12 +79,14 @@ public sealed class OllamaCrewGenerator(
         }
         catch (OperationCanceledException exception)
         {
-            _runtimeDiagnostics?.RecordFailure("crew generation", exception);
+            if (sequence is { } requestSequence)
+                _runtimeDiagnostics?.RecordFailure(requestSequence, "crew generation", exception);
             throw;
         }
         catch (Exception exception)
         {
-            _runtimeDiagnostics?.RecordFailure("crew generation", exception);
+            if (sequence is { } requestSequence)
+                _runtimeDiagnostics?.RecordFailure(requestSequence, "crew generation", exception);
             return await _fallback.GenerateAsync(cancellationToken);
         }
     }
