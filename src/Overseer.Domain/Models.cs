@@ -1555,7 +1555,8 @@ public sealed class GameState
     /// (owner idea #103): its recorded result, objectives, score and directive
     /// grading are frozen because the systems that own them still gate on
     /// <see cref="ScenarioStatus.Running"/>, but crew, physics and Overseer
-    /// controls carry on. Only a failed run (Overseer offline) halts the station.
+    /// controls carry on. Only a failed run (a mandatory directive failed, or
+    /// Overseer was isolated) halts the station.
     /// </summary>
     public bool IsSimulationLive => ScenarioStatus != ScenarioStatus.Failed;
 
