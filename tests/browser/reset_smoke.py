@@ -181,9 +181,12 @@ def main():
             message="visible reset processing acknowledgement",
         )
 
+        # Only the reset acknowledgement must clear: once the run restarts, the
+        # station may truthfully show AWAITING LLM RESPONSE (owner #102) while
+        # it waits on the slow fake model.
         def status_gone():
             try:
-                find("//*[contains(@class,'station-processing-status')]")
+                find("//*[contains(@class,'station-processing-status') and contains(.,'RESETTING RUN')]")
                 return False
             except urllib.error.HTTPError as exc:
                 if exc.code == 404:
