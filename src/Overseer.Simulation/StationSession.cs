@@ -957,6 +957,9 @@ public abstract class StationSession
         // previous tick's.
         _directives.Tick(State, turn);
         _scenarioProgress.Tick(State, turn);
+
+        // Last, so the player's camera record matches the end-of-tick station.
+        OverseerSightSystem.Tick(State);
     }
 
     protected void Log(string message)

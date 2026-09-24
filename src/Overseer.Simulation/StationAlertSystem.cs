@@ -80,11 +80,13 @@ public static class StationAlertSystem
                 alerts.Add(new($"{room.Name}: camera offline.", StationAlertSeverity.Warning, target));
             }
 
-            if (room.OxygenPercent < 19.5)
+            // Overseer reads its own sensor channels (#22), not the true
+            // atmosphere, so a spoofed sensor also fools the alert list.
+            if (room.ReportedOxygenPercent < 19.5)
             {
                 alerts.Add(new(
-                    $"{room.Name}: low oxygen ({room.OxygenPercent:0.0}%).",
-                    room.OxygenPercent < 17 ? StationAlertSeverity.Critical : StationAlertSeverity.Warning,
+                    $"{room.Name}: low oxygen ({room.ReportedOxygenPercent:0.0}%).",
+                    room.ReportedOxygenPercent < 17 ? StationAlertSeverity.Critical : StationAlertSeverity.Warning,
                     target));
             }
 
@@ -104,18 +106,27 @@ public static class StationAlertSystem
                     target));
             }
 
-            if (room.TemperatureC is < 16 or > 28)
+            if (room.ReportedTemperatureC is < 16 or > 28)
             {
                 alerts.Add(new(
-                    $"{room.Name}: temperature {room.TemperatureC:0}°C.",
-                    room.TemperatureC is < 5 or > 38 ? StationAlertSeverity.Critical : StationAlertSeverity.Warning,
+                    $"{room.Name}: temperature {room.ReportedTemperatureC:0}°C.",
+                    room.ReportedTemperatureC is < 5 or > 38 ? StationAlertSeverity.Critical : StationAlertSeverity.Warning,
                     target));
             }
 
-            if (room.FireIntensity > 0)
+            // Owner idea #23: a fire is known only through the cameras.
+            var fire = OverseerSightSystem.Fire(room);
+            if (fire is { IsBurning: true, IsLive: true })
             {
                 alerts.Add(new(
-                    $"{room.Name}: FIRE {room.FireIntensity:0}% intensity, smoke {room.SmokePercent:0}%.",
+                    $"{room.Name}: FIRE {fire.Intensity:0}% intensity, smoke {room.SmokePercent:0}%.",
+                    StationAlertSeverity.Critical,
+                    target));
+            }
+            else if (fire is { IsBurning: true, SeenAt: { } seenAt })
+            {
+                alerts.Add(new(
+                    $"{room.Name}: FIRE last seen at {fire.Intensity:0}% (T+{seenAt:hh\\:mm}); no camera view now, smoke {room.SmokePercent:0}%.",
                     StationAlertSeverity.Critical,
                     target));
             }

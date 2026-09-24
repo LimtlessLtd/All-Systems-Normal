@@ -7650,6 +7650,26 @@ button.turret-token {
     opacity: .45;
 }
 
+/* Owner idea #23: a blind room keeps the fire its cameras last saw as a
+   dashed marker and a label, never live flames. */
+.station-authority-layer .room-node.fire-last-seen {
+    outline: 2px dashed rgba(229, 83, 60, .75);
+    outline-offset: -4px;
+}
+
+.fire-last-seen-marker {
+    position: relative;
+    z-index: 4;
+    display: inline-block;
+    margin-top: .25rem;
+    padding: 1px 4px;
+    border-radius: 2px;
+    background: rgba(40, 10, 8, .72);
+    color: #ff9a82;
+    font-size: .48rem;
+    letter-spacing: .07em;
+}
+
 /* Owner ideas #92/#105: the lounge television reads as a flat-panel set on
    a low media stand. A thick bezel frames a picture (horizon, sky and a
    moving glare) that shifts colour while powered; the stand shows as a
