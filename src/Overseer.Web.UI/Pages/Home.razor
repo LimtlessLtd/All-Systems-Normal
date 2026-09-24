@@ -490,10 +490,11 @@
                 <svg class="crew-route-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                     @foreach (var movingCrew in Session.State.Crew.Where(npc => npc.IsAlive && CanSee(npc) && npc.Movement is not null))
                     {
+                        var nextPoint = CrewNextMapPoint(movingCrew);
                         <line x1="@CrewMapX(movingCrew)"
                               y1="@CrewMapY(movingCrew)"
-                              x2="@CrewNextMapX(movingCrew)"
-                              y2="@CrewNextMapY(movingCrew)"></line>
+                              x2="@nextPoint.X"
+                              y2="@nextPoint.Y"></line>
                     }
                     @if (selectedRoute.Count > 1)
                     {
