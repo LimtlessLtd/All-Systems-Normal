@@ -337,6 +337,89 @@ public sealed class LocalMovementSystemTests
             $"Expected a visible detour around the blocker, got {npc.PositionX:0.0},{npc.PositionY:0.0}.");
     }
 
+    [Fact]
+    public void CrewFollowingTheSameLocalTarget_DoNotRemainStacked()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 51515);
+        var room = state.Facility.Rooms["quarters"];
+        var crew = state.Crew.Take(2).ToList();
+
+        foreach (var npc in crew)
+        {
+            npc.CurrentRoomId = room.Id;
+            npc.PositionX = 50;
+            npc.PositionY = 50;
+            npc.Movement = null;
+            npc.CurrentAction = new NpcAction(
+                ActionKind.Sleep,
+                room.Id,
+                "Use the same sleep target for the overlap regression.");
+        }
+
+        new LocalMovementSystem().Tick(state, TimeSpan.FromMinutes(1));
+
+        var physicalDx = (crew[0].PositionX - crew[1].PositionX) / 100d * room.MapWidth;
+        var physicalDy = (crew[0].PositionY - crew[1].PositionY) / 100d * room.MapHeight;
+        var separation = Math.Sqrt((physicalDx * physicalDx) + (physicalDy * physicalDy));
+
+        Assert.True(
+            separation >= 1.2,
+            $"Crew remained stacked at {crew[0].PositionX:0.00},{crew[0].PositionY:0.00} and " +
+            $"{crew[1].PositionX:0.00},{crew[1].PositionY:0.00} ({separation:0.00} map units apart).");
+        Assert.True(LocalMovementSystem.IsWalkable(room, crew[0].PositionX, crew[0].PositionY));
+        Assert.True(LocalMovementSystem.IsWalkable(room, crew[1].PositionX, crew[1].PositionY));
+    }
+
+    [Fact]
+    public void TwoCrewCrossingTheSameDoor_DoNotDeadlockOrStackAtTheEntry()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 16180);
+        var door = state.Facility.Doors.First();
+        door.IsPowered = true;
+        door.IsLocked = false;
+        door.IsOpen = true;
+
+        var crew = state.Crew.Take(2).ToList();
+        var resolver = new ActionResolver();
+
+        foreach (var npc in crew)
+        {
+            npc.CurrentRoomId = door.RoomAId;
+            npc.PositionX = 50;
+            npc.PositionY = 50;
+            npc.Movement = null;
+
+            Assert.True(
+                resolver.TryApply(
+                    state,
+                    npc.Id,
+                    new NpcAction(ActionKind.Move, door.RoomBId, "Cross together."),
+                    out var message),
+                message);
+
+            var movement = Assert.IsType<NpcMovement>(npc.Movement);
+            npc.PositionX = movement.ExitX;
+            npc.PositionY = movement.ExitY;
+        }
+
+        new LocalMovementSystem().Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.All(crew, npc =>
+        {
+            Assert.Equal(door.RoomBId, npc.CurrentRoomId);
+            Assert.Null(npc.Movement);
+        });
+
+        var room = state.Facility.Rooms[door.RoomBId];
+        var physicalDx = (crew[0].PositionX - crew[1].PositionX) / 100d * room.MapWidth;
+        var physicalDy = (crew[0].PositionY - crew[1].PositionY) / 100d * room.MapHeight;
+        var separation = Math.Sqrt((physicalDx * physicalDx) + (physicalDy * physicalDy));
+
+        Assert.True(
+            separation >= 1.2,
+            $"Door entrants stacked at the same authoritative point ({separation:0.00} map units apart).");
+    }
+
     private static Door NetworkDoorForHall(
         GameState state,
         string hallwayId,
