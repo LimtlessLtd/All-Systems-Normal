@@ -1,5 +1,6 @@
 @page "/debug"
 @inject StationSession Session
+@inject NavigationManager Navigation
 
 <PageTitle>All Systems Normal · Debug Telemetry</PageTitle>
 
@@ -10,7 +11,11 @@
             <h1>COGNITION TELEMETRY</h1>
             <p>This screen is intentionally separate from the station workspace and contains no player-critical controls.</p>
         </div>
-        <a class="debug-return" href="">RETURN TO STATION</a>
+        <button type="button"
+                class="debug-return"
+                @onclick='() => Navigation.NavigateTo("/")'>
+            RETURN TO STATION
+        </button>
     </header>
 
     @if (!DebugTelemetrySystem.UiEnabled)
