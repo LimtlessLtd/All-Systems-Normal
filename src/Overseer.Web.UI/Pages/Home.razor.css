@@ -7564,3 +7564,46 @@ button.turret-token {
     stroke: rgba(40, 130, 220, .7);
     stroke-dasharray: 4px 3px;
 }
+
+/* Owner idea #96: a sleeper who is asleep in their assigned bed lies on it,
+   head at the pillow end. Walking crew stay upright (#86); this pose only
+   appears while BedUseRules says the body is in the bed. */
+.crew-token.is-asleep-in-bed .person-orientation {
+    transform: none;
+}
+
+.crew-token.is-asleep-in-bed .person-icon {
+    opacity: 1;
+    animation: none;
+    transform: translateX(-50%) rotate(var(--crew-bed-angle, -90deg)) scale(.86);
+}
+
+.crew-token.is-asleep-in-bed .crew-shadow,
+.crew-token.is-asleep-in-bed .crew-facing-cue {
+    display: none;
+}
+
+.crew-token.is-asleep-in-bed::after {
+    content: "z";
+    position: absolute;
+    right: -4px;
+    top: -6px;
+    color: #cfe9ff;
+    font: 700 11px/1 var(--mono, monospace);
+    text-shadow: 0 0 3px rgba(4, 12, 18, .95);
+    pointer-events: none;
+    animation: sleeper-z 2.4s ease-in-out infinite;
+}
+
+@keyframes sleeper-z {
+    0% { opacity: 0; transform: translate(0, 4px) scale(.8); }
+    35% { opacity: 1; }
+    100% { opacity: 0; transform: translate(6px, -8px) scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .crew-token.is-asleep-in-bed::after {
+        animation: none;
+        opacity: .9;
+    }
+}
