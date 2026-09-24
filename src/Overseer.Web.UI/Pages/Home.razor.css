@@ -646,6 +646,30 @@ button.mini {
     line-height: 1.35;
 }
 
+/* Owner idea #91: per-crew stat log in the Inspector. */
+.stat-log-row {
+    padding: .3rem 0 .3rem .45rem;
+    border-top: 1px solid rgba(54,85,101,.48);
+    border-left: 2px solid transparent;
+    font-size: .52rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.stat-log-worse {
+    border-left-color: #d9735f;
+}
+
+.stat-log-better {
+    border-left-color: #6fc59a;
+}
+
+.stat-log-empty {
+    margin: 0;
+    color: var(--muted);
+    font-size: .52rem;
+}
+
 .connection {
     stroke-width: 4;
     opacity: .8;

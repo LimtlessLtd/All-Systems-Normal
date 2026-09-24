@@ -593,7 +593,7 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Idea: "We should display each event which affects each humans various stats like an event log for each human you select."
 - Outcome: each `Npc` keeps a bounded (e.g. last 40) ring of stat-change entries — timestamp, stat (Health/Stress/Hunger/Fatigue/Morale/Trust/relationship…), signed delta and a short cause ("ate a meal", "witnessed Kim attack Rao", "smoke inhalation") — recorded at the deterministic consequence sites, with per-tick continuous drift (hunger/fatigue growth) coalesced so it doesn't flood the list. Selecting a crew member shows this log in the Inspector. Presentation/diagnostic only; not persisted across campaign saves (see Deliberate decisions → persistence).
 - Size: large (slices: bounded log model + coalescing + wiring the highest-impact consequence sites (damage, eating, sleep, social/witness stress) with tests; Inspector panel with browser check; progressively cover remaining sites)
-- Status: ready.
+- Status: **in progress**. Slice 1 is shipped (see `SYSTEMS.md` → per-crew stat log): the model, coalescing, the Inspector card, and physiology, fire/smoke, assault/argument/support and medical sites for Health/Stress/Fear/Hunger/Fatigue. Remaining: route the other direct writers of those five stats through `StatLogSystem.Set`. They are in `PrisonerContainmentSystem`, `TurretSystem`, `VacuumConsequenceSystem`, `RobotSystem`, `MissingPersonSystem`, `CrewCounterplaySystem`, `ScenarioSystems`, `RobotCountermeasureSystem`, `OverseerCommsSystem`, `MedicalEvidenceSystem`, `IntentExecutionSystem`, `CrewPactSystem`, `ConversationTopicSystem` and the rest of `SocialSimulationSystem`; `grep -n "\.Stress = \|\.Health = \|\.Fear = "` finds them. Then decide with the owner whether relationship (Trust/Affinity/Resentment) and need (hygiene/bladder/recreation/social) changes belong in the same log.
 
 ### 92. Television and more recreational activities
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790201540463659 (2026-09-23)
@@ -690,6 +690,7 @@ No `ISystem` interface; `Tick` is duck-typed with two signatures (`Tick(GameStat
 
 - Missions start running immediately. Consider starting paused on the briefing and auto-pausing on a death or an attack.
 - The station seed (`GEN // …`) is developer information in the player toolbar and is oversized.
+- At a 1600×1000 viewport the Pages build is 12px wider than the window before anything is selected, so the page scrolls horizontally (found during the #91 browser check; not yet traced to an element).
 
 **Aesthetics** (need visual review in a real browser)
 

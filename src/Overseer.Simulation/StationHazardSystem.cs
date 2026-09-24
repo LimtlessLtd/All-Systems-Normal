@@ -56,8 +56,8 @@ public sealed class StationHazardSystem
                          && n.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)))
             {
                 npc.NeedsMindReconsideration = true;
-                npc.Fear = Math.Clamp(npc.Fear + 20, 0, 100);
-                npc.Stress = Math.Clamp(npc.Stress + 12, 0, 100);
+                StatLogSystem.Set(state, npc, CrewStat.Fear, Math.Clamp(npc.Fear + 20, 0, 100), $"fire broke out in {room.Name}");
+                StatLogSystem.Set(state, npc, CrewStat.Stress, Math.Clamp(npc.Stress + 12, 0, 100), $"fire broke out in {room.Name}");
             }
         }
     }
@@ -134,12 +134,12 @@ public sealed class StationHazardSystem
                          n.IsAlive && n.IsPresent
                          && n.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)))
             {
-                npc.Fear = Math.Clamp(npc.Fear + (.32 * minutes), 0, 100);
-                npc.Stress = Math.Clamp(npc.Stress + (.28 * minutes), 0, 100);
+                StatLogSystem.Set(state, npc, CrewStat.Fear, Math.Clamp(npc.Fear + (.32 * minutes), 0, 100), $"fire in {room.Name}");
+                StatLogSystem.Set(state, npc, CrewStat.Stress, Math.Clamp(npc.Stress + (.28 * minutes), 0, 100), $"fire in {room.Name}");
 
                 var fireDamageRate = Math.Max(0, room.FireIntensity - 28) * .012;
                 if (fireDamageRate > 0)
-                    npc.Health = Math.Max(0, npc.Health - (fireDamageRate * minutes));
+                    StatLogSystem.Set(state, npc, CrewStat.Health, Math.Max(0, npc.Health - (fireDamageRate * minutes)), "burns");
             }
 
             if (room.FireIntensity < .5)
@@ -209,14 +209,24 @@ public sealed class StationHazardSystem
                 continue;
             }
 
-            npc.Fear = Math.Clamp(
-                npc.Fear + (Math.Max(0, room.SmokePercent - 25) * .012 * minutes),
-                0,
-                100);
-            npc.Stress = Math.Clamp(
-                npc.Stress + (Math.Max(0, room.SmokePercent - 25) * .01 * minutes),
-                0,
-                100);
+            StatLogSystem.Set(
+                state,
+                npc,
+                CrewStat.Fear,
+                Math.Clamp(
+                    npc.Fear + (Math.Max(0, room.SmokePercent - 25) * .012 * minutes),
+                    0,
+                    100),
+                "smoke");
+            StatLogSystem.Set(
+                state,
+                npc,
+                CrewStat.Stress,
+                Math.Clamp(
+                    npc.Stress + (Math.Max(0, room.SmokePercent - 25) * .01 * minutes),
+                    0,
+                    100),
+                "smoke");
 
             // Thick smoke becomes rapidly unsurvivable even after flames have
             // been contained or in a neighbouring compartment.
@@ -225,9 +235,14 @@ public sealed class StationHazardSystem
                 + Math.Max(0, room.SmokePercent - 80) * .035;
             if (smokeDamageRate > 0)
             {
-                npc.Health = Math.Max(
-                    0,
-                    npc.Health - (smokeDamageRate * minutes));
+                StatLogSystem.Set(
+                    state,
+                    npc,
+                    CrewStat.Health,
+                    Math.Max(
+                        0,
+                        npc.Health - (smokeDamageRate * minutes)),
+                    "smoke inhalation");
                 npc.NeedsMindReconsideration = true;
             }
         }
@@ -297,7 +312,7 @@ public sealed class StationHazardSystem
                 var reduction = 6 + (skill * .08);
                 room.FireIntensity = Math.Max(0, room.FireIntensity - reduction);
                 room.SmokePercent = Math.Max(0, room.SmokePercent - 3);
-                npc.Stress = Math.Clamp(npc.Stress + 3, 0, 100);
+                StatLogSystem.Set(state, npc, CrewStat.Stress, Math.Clamp(npc.Stress + 3, 0, 100), $"fighting the fire in {room.Name}");
                 message = room.FireIntensity <= 0
                     ? $"{npc.Name} extinguishes the fire in {room.Name}."
                     : $"{npc.Name} knocks the fire in {room.Name} down to {room.FireIntensity:0}% intensity.";
