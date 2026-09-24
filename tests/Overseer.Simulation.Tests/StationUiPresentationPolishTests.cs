@@ -136,6 +136,24 @@ public sealed class StationUiPresentationPolishTests
     }
 
     [Fact]
+    public void SeatsDrawABackrestForEveryFacing()
+    {
+        // Owner idea #105: Home.razor adds seat-faces-{facing} from
+        // SeatFacingRules; each facing needs its backrest rule.
+        var root = FindRepositoryRoot();
+        var home = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor"));
+        var css = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor.css"));
+
+        Assert.Contains("SeatFacingRules.Facing(room, seat)", home);
+        foreach (var facing in Enum.GetNames<SeatFacing>())
+        {
+            var name = facing.ToLowerInvariant();
+            Assert.Contains($".station-authority-layer .fixture-chair.seat-faces-{name}::before", css);
+            Assert.Contains($".station-authority-layer .fixture-sofa.seat-faces-{name}::before", css);
+        }
+    }
+
+    [Fact]
     public void FirePresentation_DoesNotRenderRadialRingLayers()
     {
         var root = FindRepositoryRoot();

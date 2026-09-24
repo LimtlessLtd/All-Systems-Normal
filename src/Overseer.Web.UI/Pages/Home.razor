@@ -2738,10 +2738,22 @@
             : level > 0 ? $"{level:0}" : "QUIET";
     }
 
-    private string MachineFixtureClass(Room room, RoomFixture fixture) =>
-        FixtureIsRunning(room, fixture)
+    private string MachineFixtureClass(Room room, RoomFixture fixture)
+    {
+        var classes = FixtureIsRunning(room, fixture)
             ? FixtureClass(fixture)
             : $"{FixtureClass(fixture)} fixture-inert";
+
+        return SeatFacingClass(room, fixture) is { } facing
+            ? $"{classes} {facing}"
+            : classes;
+    }
+
+    // Owner idea #105: seats are drawn with the backrest on the far side.
+    private static string? SeatFacingClass(Room room, RoomFixture seat) =>
+        SeatFacingRules.Facing(room, seat) is { } facing
+            ? $"seat-faces-{facing.ToString().ToLowerInvariant()}"
+            : null;
 
     private bool FixtureIsRunning(Room room, RoomFixture fixture)
     {
