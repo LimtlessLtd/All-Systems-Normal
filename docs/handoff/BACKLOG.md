@@ -566,15 +566,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Size: large (slices: oxygen-dependent burn/extinguish regression tests; fire-driven temperature target; open-door heat-transfer tuning; smoke-transfer tuning and cross-room regression coverage)
 - Status: **in progress** — oxygen slice implemented on PR #127: effectively oxygen-free rooms extinguish immediately before further combustion consequences, ignition is rejected at near-zero O₂, and sub-18% O₂ progressively accelerates fire decay instead of using one flat starvation rate. Remaining: fire-driven ~300°C equilibrium, open-door heat transfer, and smoke-transfer tuning/cross-room coverage.
 
-### 78. Standardize repeated station-module fixture sizes
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790171325613139 (2026-09-23)
-- Idea: "Standardise the size of units that are used across multiple rooms. lighting system module should be the same size in each room. Same goes for all standard modules which are present in most rooms."
-- Outcome: repeated standard fixture/device families (lighting, climate, ventilation and other shared modules) derive Width/Height from one canonical per-family size contract so the same module renders at the same physical size in every room, unless an explicitly different variant is authored.
-- Size: small (one PR: central canonical fixture-size table + generation regression asserting repeated family dimensions are identical)
-- Status: ready
-
-
-
 ### 80. Normally self-sustaining crew with a competence distribution
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790172640015429 (2026-09-23)
 - Idea: a normal station should survive indefinitely when humans are left to perform their duties; usually about 60–70% of crew should be broadly competent while the remainder have meaningful weaknesses (poor skills, addictions, bad judgement, etc.), with rare seeds where the competence mix is unusually bad and the station genuinely collapses without help.
