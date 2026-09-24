@@ -70,11 +70,44 @@ public sealed class BedUseRulesTests
     }
 
     [Fact]
+    public void SettledSleeperKeepsAssignedBedWhenPeerStopsSleeping()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var quarters = state.Facility.Rooms["quarters"];
+        var sleepers = state.Crew.Take(2)
+            .OrderBy(npc => npc.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var npc in sleepers)
+        {
+            npc.CurrentRoomId = quarters.Id;
+            npc.PositionX = 50;
+            npc.PositionY = 50;
+            npc.CurrentAction = new NpcAction(ActionKind.Sleep, quarters.Id, "Sleep in a stable bunk.");
+            npc.Intent = null;
+            npc.Movement = null;
+        }
+
+        var movement = new LocalMovementSystem();
+        for (var minute = 0; minute < 20; minute++)
+        {
+            movement.Tick(state, TimeSpan.FromMinutes(1));
+        }
+
+        var retained = Assert.IsType<RoomFixture>(BedUseRules.AssignedBed(state, sleepers[1]));
+        Assert.True(LocalMovementSystem.IsAtInteractionPoint(quarters, sleepers[1], retained));
+
+        sleepers[0].CurrentAction = new NpcAction(ActionKind.Idle, quarters.Id, "Done resting.");
+
+        Assert.Same(retained, BedUseRules.AssignedBed(state, sleepers[1]));
+    }
+
+    [Fact]
     public void SleeperWithoutABedDoesNotReceiveRestorativeRecovery()
     {
         var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
         var quarters = state.Facility.Rooms["quarters"];
-        var sleepers = state.Crew.Take(7).OrderBy(npc => npc.Name, StringComparer.OrdinalIgnoreCase).ThenBy(npc => npc.Id).ToList();
+        var sleepers = state.Crew.Take(7).ToList();
 
         foreach (var npc in sleepers)
         {
