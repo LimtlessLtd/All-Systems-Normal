@@ -22,8 +22,11 @@ public static class BedUseRules
             return null;
         }
 
+        // A medical bed someone is already eating at is taken, just as a
+        // patient lying in it is taken for bedside dining.
         var beds = room.Fixtures
             .Where(fixture => fixture.Type is FixtureType.Bed or FixtureType.MedicalBed)
+            .Where(fixture => DiningSeatRules.BedsideEaterAt(state, room, fixture) is null)
             .OrderBy(fixture => fixture.Label, StringComparer.OrdinalIgnoreCase)
             .ThenBy(fixture => fixture.X)
             .ThenBy(fixture => fixture.Y)
