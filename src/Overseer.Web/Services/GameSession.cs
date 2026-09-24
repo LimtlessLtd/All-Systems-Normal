@@ -325,12 +325,13 @@ public sealed class GameSession(
             return;
         }
 
-        var npc = living[_mindCursor % living.Count];
-        _mindCursor++;
-
-        // Do not let a routine model call erase a goal that the human is already
-        // physically pursuing (including mutually coordinated social routines).
-        if (npc.Intent is not null)
+        // A busy round-robin member must not consume the entire model
+        // cadence slot. With small rosters the old pick-then-return logic made
+        // the first round of Ollama calls land by ~T+20, then later slots were
+        // repeatedly wasted on crew who still had intents even while somebody
+        // else was idle. Scan deterministically for the next idle mind instead.
+        var npc = MindCadenceRules.NextIdleMind(living, ref _mindCursor);
+        if (npc is null)
         {
             return;
         }
