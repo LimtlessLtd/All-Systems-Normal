@@ -8,7 +8,7 @@ namespace Overseer.Simulation.Tests;
 public sealed class FireCognitionWakeTests
 {
     [Fact]
-    public void FirstHandFireObservation_IsGroundedAndWakesTheMindOncePerFireEpisode()
+    public void FirstHandFireObservation_IsGroundedOncePerFireEpisode()
     {
         var state = FacilitySeeder.CreateDefault(stationSeed: 4242);
         var observer = state.Crew.First(npc => npc.IsAlive && npc.IsPresent);
@@ -25,29 +25,28 @@ public sealed class FireCognitionWakeTests
         observer.NeedsMindReconsideration = false;
 
         var reactor = state.Facility.Rooms["reactor"];
-        FireFrontRules.Ignite(reactor, 50, 50, intensity: 1);
+        FireFrontRules.Ignite(reactor, 50, 50, intensity: 5);
 
         var perception = new PerceptionSystem();
         perception.Tick(state);
 
-        Assert.True(observer.NeedsMindReconsideration);
-        Assert.Contains("reactor:fire", observer.ObservedFaults);
-        Assert.Contains(
-            observer.Memories,
-            memory => memory.Description.Contains("active fire", StringComparison.OrdinalIgnoreCase)
-                && memory.Description.Contains("[reactor]", StringComparison.OrdinalIgnoreCase));
-
-        observer.NeedsMindReconsideration = false;
-        perception.Tick(state);
         Assert.False(observer.NeedsMindReconsideration);
+        Assert.Contains("reactor:fire", observer.ObservedFaults);
+        var observation = Assert.Single(observer.Memories.Where(memory =>
+            memory.ObservedFireRoomId == "reactor"));
+        Assert.Contains("active fire", observation.Description, StringComparison.OrdinalIgnoreCase);
+
+        perception.Tick(state);
+        Assert.Single(observer.Memories.Where(memory =>
+            memory.ObservedFireRoomId == "reactor"));
 
         reactor.FireIntensity = 0;
         perception.Tick(state);
         Assert.DoesNotContain("reactor:fire", observer.ObservedFaults);
 
-        FireFrontRules.Ignite(reactor, 50, 50, intensity: 1);
+        FireFrontRules.Ignite(reactor, 50, 50, intensity: 5);
         perception.Tick(state);
-        Assert.True(observer.NeedsMindReconsideration);
+        Assert.Equal(2, observer.Memories.Count(memory => memory.ObservedFireRoomId == "reactor"));
     }
 
     [Fact]
@@ -64,12 +63,14 @@ public sealed class FireCognitionWakeTests
         // Below CrewEnvironmentSafety's emergency fire threshold: this test is
         // specifically about first-hand observation, not the dangerous-room
         // emergency branch.
-        FireFrontRules.Ignite(session.State.Facility.Rooms["reactor"], 50, 50, intensity: 1);
+        FireFrontRules.Ignite(session.State.Facility.Rooms["reactor"], 50, 50, intensity: 5);
 
         await session.AdvanceOneMinuteAsync();
 
         Assert.Contains(observer.Id, decisions.Calls);
-        Assert.Contains("reactor:fire", observer.ObservedFaults);
+        Assert.Contains(
+            observer.Memories,
+            memory => memory.ObservedFireRoomId == "reactor");
     }
 
     [Fact]
@@ -116,6 +117,7 @@ public sealed class FireCognitionWakeTests
 
         foreach (var npc in session.State.Crew)
         {
+            npc.CurrentRoomId = "control";
             npc.IsPresent = npc.Id == target.Id;
             npc.NeedsMindReconsideration = false;
             npc.Hunger = 10;
