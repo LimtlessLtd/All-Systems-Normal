@@ -167,6 +167,66 @@ public sealed class DiningSeatTests
     }
 
     [Fact]
+    public void AMealChosenForMedical_IsCollectedInTheGalley_AndEatenAtABedside()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        state.Stores.Meals = 20;
+        var npc = state.Crew.First(candidate => candidate.IsAlive);
+        npc.CurrentRoomId = "control";
+        npc.Movement = null;
+        npc.Hunger = 70;
+        npc.Stress = 40;
+        npc.CurrentAction = new NpcAction(ActionKind.Idle, null, "Idle.");
+        npc.Intent = EatIntent(state, "medical");
+
+        var collected = false;
+        RunUntil(state, npc, () =>
+        {
+            collected |= npc.CarriedMealPortion > 0;
+            return npc.CurrentRoomId == "medical"
+                && DiningSeatRules.SeatedAt(state, npc) is { Type: FixtureType.MedicalBed };
+        });
+
+        Assert.True(collected, "the bedside meal was physically collected from the galley first");
+        var bedside = Assert.IsType<RoomFixture>(DiningSeatRules.SeatedAt(state, npc));
+        Assert.Equal(FixtureType.MedicalBed, bedside.Type);
+
+        var galleyMeals = state.Stores.Meals;
+        var hunger = npc.Hunger;
+        new SimulationEngine().Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.Equal(galleyMeals, state.Stores.Meals);
+        Assert.True(npc.Hunger < hunger);
+        Assert.Contains(npc.StatLog, entry => entry.Cause == "eating seated");
+    }
+
+    [Fact]
+    public void OccupiedMedicalBed_IsNotAssignedAsABedsideDiningSeat()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var medical = state.Facility.Rooms["medical"];
+        var beds = medical.Fixtures.Where(fixture => fixture.Type == FixtureType.MedicalBed).ToList();
+        Assert.True(beds.Count >= 2);
+
+        var patient = state.Crew[0];
+        patient.CurrentRoomId = medical.Id;
+        patient.PositionX = beds[0].X;
+        patient.PositionY = beds[0].Y;
+        patient.CurrentAction = new NpcAction(ActionKind.Rest, medical.Id, "Recovering in bed.");
+
+        var eater = state.Crew[1];
+        eater.CurrentRoomId = medical.Id;
+        eater.PositionX = 50;
+        eater.PositionY = 80;
+        eater.CarriedMealPortion = DiningSeatRules.CarriedMealSize;
+        eater.CurrentAction = new NpcAction(ActionKind.Eat, medical.Id, "Eating at bedside.");
+
+        var assigned = Assert.IsType<RoomFixture>(DiningSeatRules.SeatFor(state, eater));
+        Assert.NotSame(beds[0], assigned);
+        Assert.Equal(FixtureType.MedicalBed, assigned.Type);
+    }
+
+    [Fact]
     public void TheRoutineLetsSomeoneFinishTheMealTheyCarried_InsteadOfSendingThemToTheGalley()
     {
         // Soak regression: a take-away eater in the lounge had no intent left,
@@ -239,6 +299,7 @@ public sealed class DiningSeatTests
         Assert.Equal("kitchen", DiningSeatRules.DiningRoomFor(state, "no-such-room"));
         Assert.Equal("lounge", DiningSeatRules.DiningRoomFor(state, "LOUNGE"));
         Assert.Equal("quarters", DiningSeatRules.DiningRoomFor(state, "quarters"));
+        Assert.Equal("medical", DiningSeatRules.DiningRoomFor(state, "medical"));
     }
 
     [Fact]
@@ -289,6 +350,7 @@ public sealed class DiningSeatTests
         Assert.Contains("DINING: food is kept in the galley (12 prepared meals).", prompt);
         Assert.Contains("[lounge] 3 of 3 seats free", prompt);
         Assert.Contains("Crew Quarters [quarters] ", prompt);
+        Assert.Contains("[medical] 2 of 2 seats free", prompt);
         Assert.Contains("For Eat, TargetId is null to eat in the galley", prompt);
 
         npc.Hunger = 5;

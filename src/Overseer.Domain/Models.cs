@@ -1377,6 +1377,16 @@ public sealed class Room
     /// <summary>0..100 deterministic compartment fire severity.</summary>
     public double FireIntensity { get; set; }
 
+    /// <summary>
+    /// Room-local point (0..100) where the current fire started: the failing
+    /// machine, or the hatch it spread through. Null means the fire has no
+    /// known origin and fills the room. Meaningful only while burning.
+    /// </summary>
+    public double? FireOriginX { get; set; }
+
+    /// <inheritdoc cref="FireOriginX"/>
+    public double? FireOriginY { get; set; }
+
     /// <summary>0..100 visible smoke contamination from fire.</summary>
     public double SmokePercent { get; set; }
 

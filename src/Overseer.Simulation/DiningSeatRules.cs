@@ -26,13 +26,17 @@ public static class DiningSeatRules
     /// </summary>
     public const double CarriedMealSize = 1;
 
-    /// <summary>Rooms a carried meal may be eaten in besides the galley.</summary>
+    /// <summary>
+    /// Rooms a carried meal may be eaten in besides the galley. Medical is
+    /// deliberately a valid mind-chosen destination: its real medical beds act
+    /// as bedside meal places, but only when they are physically free.
+    /// </summary>
     public static bool IsAwayDiningRoom(Room room) =>
-        room.Type is RoomType.Recreation or RoomType.CrewQuarters;
+        room.Type is RoomType.Recreation or RoomType.CrewQuarters or RoomType.Medical;
 
     /// <summary>
     /// Where an <c>Eat</c> intent is eaten: its target when that names a
-    /// recreation room or crew quarters, otherwise the galley.
+    /// recreation room, crew quarters or medical bay, otherwise the galley.
     /// </summary>
     public static string DiningRoomFor(GameState state, string? targetId) =>
         targetId is not null
@@ -179,17 +183,41 @@ public static class DiningSeatRules
     }
 
     private static List<RoomFixture> Seats(Room room) =>
-        room.Fixtures.Where(fixture => fixture.Type is FixtureType.Chair or FixtureType.Sofa).ToList();
+        room.Fixtures
+            .Where(fixture =>
+                fixture.Type is FixtureType.Chair or FixtureType.Sofa
+                || (room.Type == RoomType.Medical && fixture.Type == FixtureType.MedicalBed))
+            .ToList();
 
     private static IEnumerable<Npc> EatersIn(GameState state, Room room) =>
         state.Crew
             .Where(other =>
                 IsEating(other)
                 && other.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(other => other.Name, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(other => other.Id);
+            // LINQ ordering is stable, so duplicate names retain seeded roster
+            // order. Runtime Guid IDs must never arbitrate simulation outcomes.
+            .OrderBy(other => other.Name, StringComparer.OrdinalIgnoreCase);
 
-    private static Npc? OccupantOf(GameState state, Room room, RoomFixture chair) =>
-        EatersIn(state, room)
-            .FirstOrDefault(eater => LocalMovementSystem.IsAtInteractionPoint(room, eater, chair));
+    private static Npc? OccupantOf(GameState state, Room room, RoomFixture seat)
+    {
+        // A medical bed is a real scarce physical resource even when the person
+        // using it is resting rather than eating. Bedside dining must not route
+        // an eater onto a patient who is already lying in that bed.
+        if (seat.Type == FixtureType.MedicalBed)
+        {
+            var bedOccupant = state.Crew
+                .Where(other =>
+                    other.IsAlive
+                    && other.IsPresent
+                    && other.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(other => other.Name, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault(other => BedUseRules.IsPhysicallyAt(room, other, seat));
+
+            if (bedOccupant is not null)
+                return bedOccupant;
+        }
+
+        return EatersIn(state, room)
+            .FirstOrDefault(eater => LocalMovementSystem.IsAtInteractionPoint(room, eater, seat));
+    }
 }

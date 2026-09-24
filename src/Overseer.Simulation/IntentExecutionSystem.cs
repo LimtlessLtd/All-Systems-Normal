@@ -565,32 +565,41 @@ public sealed class IntentExecutionSystem
         Npc npc,
         NpcIntent intent)
     {
-        if (string.IsNullOrWhiteSpace(intent.TargetId)
-            || !state.Devices.TryGetValue(intent.TargetId, out var device)
-            || device.Kind == StationSystemKind.Door
-            || device.IsFailed
-            || !device.IsEnabled)
+        var resolution = PhysicalInteractionRules.ResolveTarget(
+            state,
+            npc,
+            intent.Action,
+            intent.TargetId);
+
+        if (resolution.Status is PhysicalInteractionTargetStatus.UnsupportedAction
+            or PhysicalInteractionTargetStatus.MissingTarget
+            or PhysicalInteractionTargetStatus.DoorNotAllowed
+            or PhysicalInteractionTargetStatus.Failed
+            or PhysicalInteractionTargetStatus.Disabled)
         {
             FailIntent(state, npc, "That machine can no longer be disconnected.");
             return;
         }
 
-        if (!device.RoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
-            || !state.Facility.Rooms.TryGetValue(device.RoomId, out var room))
+        if (resolution.Status is PhysicalInteractionTargetStatus.WrongRoom
+            or PhysicalInteractionTargetStatus.MissingRoom)
         {
             FailIntent(state, npc, "I need to be in the machine's compartment to disconnect it.");
             return;
         }
 
-        var fixture = LocalMovementSystem.FixtureForDevice(room, device.Kind);
-        if (fixture is null)
+        if (resolution.Status == PhysicalInteractionTargetStatus.MissingHardware)
         {
             FailIntent(state, npc, "I cannot find accessible local hardware for that machine.");
             return;
         }
 
+        var device = resolution.Device!;
+        var room = resolution.Room!;
+        var fixture = resolution.Fixture!;
+
         npc.CurrentAction = new NpcAction(
-            ActionKind.DisconnectDevice,
+            intent.Action,
             device.Id,
             intent.Reason);
 
@@ -603,7 +612,7 @@ public sealed class IntentExecutionSystem
                 state,
                 npc.Id,
                 new NpcAction(
-                    ActionKind.DisconnectDevice,
+                    intent.Action,
                     device.Id,
                     intent.Reason),
                 out var message))
@@ -877,7 +886,7 @@ public sealed class IntentExecutionSystem
     }
 
     // Owner idea #90: food is in the galley. A mind that wants to eat in the
-    // recreation room or quarters walks to the galley, collects a portion and
+    // recreation room, quarters or medical bay walks to the galley, collects a portion and
     // carries it there. With no prepared meal to take, it eats in the galley.
     private void ExecuteEatIntent(GameState state, Npc npc, NpcIntent intent)
     {
