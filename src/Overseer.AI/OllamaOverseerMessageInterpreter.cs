@@ -82,7 +82,7 @@ public sealed class OllamaOverseerMessageInterpreter(
 
             return OverseerMessageValidator.Validate(reading, state, "Ollama");
         }
-        catch (OperationCanceledException exception)
+        catch (OperationCanceledException exception) when (cancellationToken.IsCancellationRequested)
         {
             if (sequence is { } requestSequence)
                 _runtimeDiagnostics?.RecordFailure(requestSequence, "Overseer message interpretation", exception);

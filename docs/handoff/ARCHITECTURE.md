@@ -54,6 +54,7 @@ Shared mechanics belong in Domain/Simulation and must not be independently reimp
 - `Components/App.razor` disables prerender (`new InteractiveServerRenderMode(prerender: false)`) so crew is generated once, by the real circuit. Tradeoff: first paint is blank until the SignalR circuit connects and generation finishes. Guarded by `StationSessionTests.ServerHostDoesNotPrerenderTheInteractiveRoute`.
 - `GameSession` is scoped per circuit: opening `/debug` in a new tab shows a fresh session; in-app navigation keeps the same circuit.
 - `OllamaAiDecisionService` sets `num_ctx` 16384 (the decision prompt is ~3.9k tokens; Ollama's 2048 default truncates silently) and retries once with a corrective instruction on unparseable output before falling back to `RuleBasedAiDecisionService`. Covered by `AiDecisionServiceTests`.
+- Only the caller's cancellation propagates out of the Ollama services. A provider timeout is also a `TaskCanceledException`, so it is treated as a failed call and falls back (`OllamaProviderBoundaryTests`). The console's clock loop treats only its own token as a pause; any other failure leaves the clock paused, never marked running with no loop. Campaign storage and audio interop go through `BrowserInterop` (best-effort) because a cancelled or refused browser call must not kill the circuit or the run (`BrowserInteropTests`).
 - `dotnet run` in Production mode serves no static assets (no static-web-assets manifest). Use Development locally, or `dotnet publish` for Production.
 
 ---

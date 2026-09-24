@@ -162,6 +162,69 @@ public sealed class OllamaProviderBoundaryTests
             handler.Bodies[0].Replace(" ", string.Empty));
     }
 
+    [Fact]
+    public async Task AProviderTimeout_FallsBackInsteadOfLookingLikeAPause()
+    {
+        // An HttpClient timeout surfaces as TaskCanceledException. Rethrown,
+        // it escaped to the UI clock loop, whose pause handler swallowed it
+        // and left the run frozen with its clock still marked running.
+        var client = new OllamaApiClient(
+            new HttpClient(new HangingHandler())
+            {
+                BaseAddress = new Uri("http://127.0.0.1:11434/"),
+                Timeout = TimeSpan.FromMilliseconds(50)
+            },
+            "qwen3:4b");
+        var state = FacilitySeeder.CreateDefault(stationSeed: 480043);
+
+        var intent = await new OllamaAiDecisionService(
+                client,
+                new RuleBasedAiDecisionService())
+            .DecideAsync(state.Crew[0], state);
+        var crew = await new OllamaCrewGenerator(client, new RuleBasedCrewGenerator())
+            .GenerateAsync();
+        var reading = await new OllamaOverseerMessageInterpreter(
+                client,
+                new RuleBasedOverseerMessageInterpreter())
+            .InterpretAsync(
+                "There is a fire in engineering.",
+                Overseer.Domain.OverseerMessageScope.Broadcast,
+                null,
+                state);
+
+        Assert.NotNull(intent);
+        Assert.NotEmpty(crew);
+        Assert.NotNull(reading);
+        Assert.Contains(
+            state.CognitionTelemetry,
+            trace => trace.Note?.Contains("MODEL/FALLBACK: TaskCanceledException", StringComparison.Ordinal) == true);
+    }
+
+    [Fact]
+    public async Task TheCallersCancellation_StillPropagates()
+    {
+        var client = new OllamaApiClient(
+            new HttpClient(new HangingHandler()) { BaseAddress = new Uri("http://127.0.0.1:11434/") },
+            "qwen3:4b");
+        var state = FacilitySeeder.CreateDefault(stationSeed: 480043);
+        using var cancel = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            new OllamaAiDecisionService(client, new RuleBasedAiDecisionService())
+                .DecideAsync(state.Crew[0], state, cancel.Token));
+    }
+
+    private sealed class HangingHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            throw new InvalidOperationException("unreachable");
+        }
+    }
+
     private sealed class CapturingHandler : HttpMessageHandler
     {
         public List<string> Bodies { get; } = [];
