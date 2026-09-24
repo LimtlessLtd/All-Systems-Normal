@@ -380,9 +380,9 @@
                             {
                                 <b class="bad">HULL BREACH</b>
                             }
-                            else if (calloutRoom.FireIntensity > 0)
+                            else if (OverseerSightSystem.Fire(calloutRoom) is { IsBurning: true } calloutFire)
                             {
-                                <b class="bad">FIRE @calloutRoom.FireIntensity.ToString("0")%</b>
+                                <b class="bad">@FireSightingLabel(calloutFire)</b>
                             }
                             else if (calloutRoom.SmokePercent >= 12)
                             {
@@ -404,7 +404,7 @@
                          data-station-interactive
                          aria-label="@($"Select {room.Name}")"
                          @onclick="() => SelectRoom(room.Id)">
-                        @if (room.FireIntensity > 0)
+                        @if (room.FireIntensity > 0 && room.HasVisualFeed)
                         {
                             <span class="fire-layer" aria-hidden="true">
                                 @foreach (var flame in FireFrontRules.FlameSprites(room))
@@ -461,6 +461,10 @@
                         @if (!room.HasVisualFeed)
                         {
                             <span class="signal-lost">VISUAL LOST</span>
+                            @if (OverseerSightSystem.Fire(room) is { IsBurning: true } lastSeenFire)
+                            {
+                                <span class="fire-last-seen-marker">@FireSightingLabel(lastSeenFire)</span>
+                            }
                         }
                         else if (!room.LightsOn)
                         {
@@ -1298,7 +1302,7 @@
                     <div><span>CO₂</span><strong>@selectedRoom.CarbonDioxidePercent.ToString("0.00")%</strong></div>
                     <div><span>PRESSURE</span><strong>@selectedRoom.PressureKpa.ToString("0.0") kPa</strong></div>
                     <div><span>HULL</span><strong>@(selectedRoom.HasHullBreach ? "BREACHED" : $"{selectedRoom.HullIntegrityPercent:0}%")</strong></div>
-                    <div><span>FIRE</span><strong>@selectedRoom.FireIntensity.ToString("0")%</strong></div>
+                    <div><span>FIRE</span><strong>@FireReadout(selectedRoom)</strong></div>
                     <div><span>SMOKE</span><strong>@selectedRoom.SmokePercent.ToString("0")%</strong></div>
                     <div><span>OCCUPANTS</span><strong>@VisibleOccupantLabel(selectedRoom)</strong></div>
                     <div><span>NOISE</span><strong>@RoomNoiseLabel(selectedRoom)</strong></div>
@@ -2902,7 +2906,9 @@
         if (!room.LightsOn)
             classes.Add("lights-off");
 
-        if (room.FireIntensity > 0)
+        // Owner idea #23: flames are drawn only where a camera sees them; a
+        // blind room keeps a marker for the fire it was last seen with.
+        if (room.FireIntensity > 0 && room.HasVisualFeed)
         {
             classes.Add("has-fire");
             classes.Add(room.FireIntensity switch
@@ -2912,6 +2918,11 @@
                 >= 25 => "fire-growing",
                 _ => "fire-minor"
             });
+        }
+
+        else if (OverseerSightSystem.Fire(room) is { IsBurning: true, IsLive: false })
+        {
+            classes.Add("fire-last-seen");
         }
 
         if (room.SmokePercent >= 5)
@@ -2937,10 +2948,25 @@
     // where the fire started and sized by FireFrontRules. A fire with no
     // recorded origin keeps the CSS defaults, which fill the room.
     private static string FireFrontStyle(Room room) =>
-        room.FireIntensity > 0 && room.FireOriginX is { } x && room.FireOriginY is { } y
+        room.FireIntensity > 0 && room.HasVisualFeed && room.FireOriginX is { } x && room.FireOriginY is { } y
             ? FormattableString.Invariant(
                 $"--fire-x:{x:0.##}%;--fire-y:{y:0.##}%;--fire-r:{FireFrontRules.FrontRadius(room.FireIntensity):0.##}%;")
             : string.Empty;
+
+    private static string FireSightingLabel(FireSighting fire) =>
+        fire.IsLive
+            ? FormattableString.Invariant($"FIRE {fire.Intensity:0}%")
+            : FormattableString.Invariant($"FIRE? LAST SEEN {fire.Intensity:0}%");
+
+    // Owner idea #23: the Inspector's FIRE reading is the camera's, so a blind
+    // room says when its fire was last seen, or that nobody can see it.
+    private static string FireReadout(Room room) =>
+        OverseerSightSystem.Fire(room) switch
+        {
+            { IsLive: true } live => FormattableString.Invariant($"{live.Intensity:0}%"),
+            { SeenAt: { } seenAt } seen => FormattableString.Invariant($"{seen.Intensity:0}% @ T+{seenAt:hh\\:mm}"),
+            _ => "UNKNOWN"
+        };
 
     // Owner idea #100: one flame per burning lattice point of the authoritative
     // front (FireFrontRules.FlameSprites), sized by its heat.

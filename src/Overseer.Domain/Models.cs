@@ -1434,6 +1434,16 @@ public sealed class Room
     /// <inheritdoc cref="FireOriginX"/>
     public double? FireOriginY { get; set; }
 
+    /// <summary>
+    /// Owner idea #23: the fire intensity Overseer's cameras last saw here,
+    /// recorded by OverseerSightSystem at the end of each tick the room had a
+    /// visual feed. Read it only through OverseerSightSystem.Fire.
+    /// </summary>
+    public double ObservedFireIntensity { get; set; }
+
+    /// <summary>When the cameras last saw this room; null means never.</summary>
+    public TimeSpan? FireObservedAt { get; set; }
+
     /// <summary>0..100 visible smoke contamination from fire.</summary>
     public double SmokePercent { get; set; }
 
