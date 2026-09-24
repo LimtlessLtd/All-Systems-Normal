@@ -240,7 +240,7 @@ public sealed class OllamaAiDecisionService(
         }
         else if (action == ActionKind.Eat)
         {
-            // Owner idea #90: a named recreation room or crew quarters means
+            // Owner idea #90: a named recreation room, crew quarters or medical bay means
             // "carry a meal there"; anything else eats in the galley.
             target = target is not null
                 && state.Facility.Rooms.TryGetValue(target, out var diningRoom)
