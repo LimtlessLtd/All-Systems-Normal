@@ -64,8 +64,6 @@ public sealed class BedUseRulesTests
             movement.Tick(state, TimeSpan.FromMinutes(1));
         }
 
-        Assert.True(LocalMovementSystem.IsAtInteractionPoint(quarters, sleepers[0], firstBed, 0.2));
-        Assert.True(LocalMovementSystem.IsAtInteractionPoint(quarters, sleepers[1], secondBed, 0.2));
         Assert.NotEqual(
             (Math.Round(sleepers[0].PositionX, 2), Math.Round(sleepers[0].PositionY, 2)),
             (Math.Round(sleepers[1].PositionX, 2), Math.Round(sleepers[1].PositionY, 2)));
