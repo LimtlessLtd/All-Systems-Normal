@@ -1,3 +1,4 @@
+using Overseer.AI;
 using Overseer.Domain;
 using Overseer.Simulation;
 
@@ -172,6 +173,60 @@ public sealed class CrewProvisioningSystemTests
         }
 
         Assert.True(bed.Growth > 10);
+    }
+
+    [Theory]
+    [InlineData(100, 1.0)]
+    [InlineData(45, 1.0)]
+    [InlineData(0.5, 0.5)]
+    public void WornButServiceableGrowEquipment_GrowsAtFullRate(double conditionOverDegradedAt, double expectedRate)
+    {
+        // 2026-09-24 soak: growth used to scale from 100% condition, so a
+        // 45% unit (not degraded, so maintenance ignores it) halved food
+        // output and stations starved. Like the generator, bus and coolant it
+        // now runs at full rate until degraded, and only then slows.
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var bed = state.CropBeds[0];
+        bed.Lifecycle = CropLifecycleState.Seedling;
+        bed.Growth = 10;
+        bed.Water = 100;
+        bed.Nutrients = 100;
+        var growSystem = state.Devices.Values.Single(device =>
+            device.Kind == StationSystemKind.GrowBeds && device.RoomId == bed.RoomId);
+        growSystem.Condition = conditionOverDegradedAt > 1
+            ? conditionOverDegradedAt
+            : growSystem.DegradedAt * conditionOverDegradedAt;
+
+        new CrewProvisioningSystem().Tick(state, Hour);
+
+        Assert.Equal(
+            10 + (StationProvisionRules.GrowthPerHour * expectedRate),
+            bed.Growth,
+            3);
+    }
+
+    [Fact]
+    public async Task WallSideGrowBays_GetPlanted_OnTheSoakSeedThatStarved()
+    {
+        // 2026-09-24 soak, seed 23: every bay touches a bulkhead, so movement
+        // stops workers at the bay's inward point, but "arrived at the bay"
+        // measured from the authored interaction point 17 units away. Nobody
+        // ever planted, the three horticulture slots stayed held for 36h, and
+        // all nine crew starved.
+        var composition = RosterCompositionRules.Sample(23);
+        var crew = PrisonerRosterSystem.Compose(
+            SeededCrewRosterGenerator.Generate(23 * 7919, composition.CrewCount),
+            ScenarioCatalog.SecureContinuity);
+        var state = FacilitySeeder.CreateDefault(
+            crew,
+            stationSeed: 23 * 31,
+            stationConstraints: RosterCompositionRules.ConstraintsFor(ScenarioCatalog.SecureContinuity, crew.Count),
+            robotCount: composition.RobotCount);
+        var session = new BrowserMindSession(state);
+
+        await session.AdvanceMinutesAsync(8 * 60);
+
+        Assert.All(state.CropBeds, bed => Assert.NotEqual(CropLifecycleState.Empty, bed.Lifecycle));
     }
 
     [Fact]
@@ -622,5 +677,32 @@ public sealed class CrewProvisioningSystemTests
         room.TemperatureC = 21;
         room.OxygenPercent = 15;
         Assert.True(CrewEnvironmentSafety.IsDangerous(room));
+    }
+
+    private sealed class BrowserMindSession(GameState state)
+        : StationSession(new RuleBasedOverseerMessageInterpreter(), state)
+    {
+        private readonly BrowserMindSystem _mind = new();
+
+        public override Task ResetAsync(CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public override Task RegenerateStationAsync(int? seed = null, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public override Task RestoreCampaignAsync(CampaignState campaign, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public override Task LoadScenarioAsync(string scenarioId, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public override Task LoadStandaloneScenarioAsync(string scenarioId, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        protected override Task ThinkAsync(CancellationToken cancellationToken)
+        {
+            _mind.Tick(State);
+            return Task.CompletedTask;
+        }
     }
 }

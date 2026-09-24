@@ -165,9 +165,14 @@ public sealed class CrewProvisioningSystem
             var growSystem = state.Devices.Values.FirstOrDefault(device =>
                 device.Kind == StationSystemKind.GrowBeds && device.RoomId == bed.RoomId);
 
+            // Like the generator, bus and coolant (StationUpkeepSystem), grow
+            // equipment runs at full rate until it is actually degraded and
+            // only then slows. Scaling from 100% meant a merely "worn" 45%
+            // unit, which maintenance ignores, halved food production and
+            // starved stations (2026-09-24 soak).
             var equipment = growSystem is null || growSystem.IsFailed || !growSystem.IsEnabled
                 ? 0
-                : Math.Clamp(growSystem.Condition / 100, 0.2, 1);
+                : GrowEquipmentEfficiency(growSystem);
             var lit = room.IsPowered && room.LightsOn ? 1 : 0;
             var supplied = Math.Min(bed.Water, bed.Nutrients) > 0 ? 1 : 0;
 
@@ -199,6 +204,11 @@ public sealed class CrewProvisioningSystem
             }
         }
     }
+
+    internal static double GrowEquipmentEfficiency(StationDevice growSystem) =>
+        growSystem.Condition >= growSystem.DegradedAt
+            ? 1
+            : Math.Clamp(growSystem.Condition / Math.Max(1, growSystem.DegradedAt), 0.2, 1);
 
     /// <summary>
     /// The reclaim loop tops up irrigation stock, but only while life support is
@@ -655,16 +665,19 @@ public sealed class CrewProvisioningSystem
         if (fixture is null)
             return false;
 
-        var targetX = fixture.InteractionX ?? fixture.X;
-        var targetY = fixture.InteractionY ?? fixture.Y;
-        var dx = npc.PositionX - targetX;
-        var dy = npc.PositionY - targetY;
-
-        // Fixture interaction coordinates are local room percentages. This
-        // radius allows normal animation jitter while still requiring the
-        // worker to be physically beside the selected bay.
-        return Math.Sqrt((dx * dx) + (dy * dy)) <= 8;
+        // The same point LocalMovementSystem walks the worker to. Checking
+        // the authored InteractionX/Y instead left workers standing at a
+        // wall-side bay's inward point, 17 units from "arrived", forever:
+        // the bay was never planted and the station starved (2026-09-24 soak).
+        return LocalMovementSystem.IsAtInteractionPoint(
+            room,
+            npc,
+            fixture,
+            BayArrivalToleranceMapUnits);
     }
+
+    /// <summary>Allows normal animation jitter beside the bay, in map units.</summary>
+    private const double BayArrivalToleranceMapUnits = 1.5;
 
     private static bool Qualified(Npc npc, MaintenanceDiscipline discipline) =>
         StationUpkeepRules.SkillOf(npc, discipline) >= 25;
