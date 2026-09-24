@@ -58,8 +58,8 @@ public sealed class MedicalEvidenceSystem
 
                 observer.ObservedBloodEvidenceIds.Add(evidence.Id);
                 observer.NeedsMindReconsideration = true;
-                observer.Fear = Math.Clamp(observer.Fear + (4 * evidence.Severity), 0, 100);
-                observer.Stress = Math.Clamp(observer.Stress + (3 * evidence.Severity), 0, 100);
+                StatLogSystem.Set(state, observer, CrewStat.Fear, Math.Clamp(observer.Fear + (4 * evidence.Severity), 0, 100), "saw blood");
+                StatLogSystem.Set(state, observer, CrewStat.Stress, Math.Clamp(observer.Stress + (3 * evidence.Severity), 0, 100), "saw blood");
 
                 var source = state.Crew.FirstOrDefault(npc => npc.Id == evidence.SourceNpcId);
                 observer.Memories.Add(new Memory(

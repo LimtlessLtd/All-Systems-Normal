@@ -288,9 +288,9 @@ public sealed class RobotSystem
 
         robot.NextAttackAt = state.Elapsed + TimeSpan.FromMinutes(2);
         var damage = 12 + (StableIndex($"{robot.Id}|{target.Id}|{state.Elapsed.Ticks}") % 7);
-        target.Health = Math.Max(0, target.Health - damage);
-        target.Fear = Math.Clamp(target.Fear + 18, 0, 100);
-        target.Stress = Math.Clamp(target.Stress + 12, 0, 100);
+        StatLogSystem.Set(state, target, CrewStat.Health, Math.Max(0, target.Health - damage), $"attacked by robot {robot.Name}");
+        StatLogSystem.Set(state, target, CrewStat.Fear, Math.Clamp(target.Fear + 18, 0, 100), $"attacked by robot {robot.Name}");
+        StatLogSystem.Set(state, target, CrewStat.Stress, Math.Clamp(target.Stress + 12, 0, 100), $"attacked by robot {robot.Name}");
         target.NeedsMindReconsideration = true;
         robot.CurrentTask = $"Attacked {target.Name}; pursuing.";
 

@@ -949,8 +949,8 @@ public sealed class SuspicionSystem
                     locationId: body.CurrentRoomId,
                     evidenceId: $"body:{body.Id:N}");
 
-                witness.Fear = Math.Clamp(witness.Fear + 18, 0, 100);
-                witness.Stress = Math.Clamp(witness.Stress + 15, 0, 100);
+                StatLogSystem.Set(state, witness, CrewStat.Fear, Math.Clamp(witness.Fear + 18, 0, 100), $"found {body.Name}'s body");
+                StatLogSystem.Set(state, witness, CrewStat.Stress, Math.Clamp(witness.Stress + 15, 0, 100), $"found {body.Name}'s body");
                 witness.Bubble = new NpcBubble(
                     $"Oh God... {body.Name}.",
                     NpcBubbleKind.Alert,

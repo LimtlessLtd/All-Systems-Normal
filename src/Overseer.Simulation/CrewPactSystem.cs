@@ -180,7 +180,7 @@ public static class CrewPactSystem
 
         relationship.Trust = Math.Clamp(relationship.Trust - 15, 0, 100);
         relationship.Resentment = Math.Clamp(relationship.Resentment + 12, 0, 100);
-        promisee.Stress = Math.Clamp(promisee.Stress + 4, 0, 100);
+        StatLogSystem.Set(state, promisee, CrewStat.Stress, Math.Clamp(promisee.Stress + 4, 0, 100), $"{promisor.Name} broke a promise");
 
         promisor.Memories.Add(new Memory(
             $"I broke my promise to {promisee.Name}: {pact.PromiseText}",

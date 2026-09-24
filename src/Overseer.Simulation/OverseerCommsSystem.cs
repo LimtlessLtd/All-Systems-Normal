@@ -322,14 +322,14 @@ public sealed class OverseerCommsSystem
                 // costs a great deal later.
                 var relief = 6 * persuasiveness;
                 npc.OverseerSuspicion = Math.Clamp(npc.OverseerSuspicion - relief, 0, 100);
-                npc.Stress = Math.Clamp(npc.Stress - (4 * persuasiveness), 0, 100);
+                StatLogSystem.Set(state, npc, CrewStat.Stress, Math.Clamp(npc.Stress - (4 * persuasiveness), 0, 100), "Overseer reassurance");
                 break;
             }
 
             case OverseerClaimKind.Warning:
             case OverseerClaimKind.FireAlarm:
             {
-                npc.Fear = Math.Clamp(npc.Fear + (10 * persuasiveness), 0, 100);
+                StatLogSystem.Set(state, npc, CrewStat.Fear, Math.Clamp(npc.Fear + (10 * persuasiveness), 0, 100), message.Claim == OverseerClaimKind.FireAlarm ? "Overseer fire alarm" : "Overseer warning");
                 break;
             }
 

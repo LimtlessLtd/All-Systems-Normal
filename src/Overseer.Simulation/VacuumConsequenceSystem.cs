@@ -41,8 +41,8 @@ public sealed class VacuumConsequenceSystem
 
             if (room.PressureKpa >= EjectionPressureKpa || depth > MaxEjectionDepth)
             {
-                npc.Fear = Math.Clamp(npc.Fear + 18, 0, 100);
-                npc.Stress = Math.Clamp(npc.Stress + 15, 0, 100);
+                StatLogSystem.Set(state, npc, CrewStat.Fear, Math.Clamp(npc.Fear + 18, 0, 100), "decompression");
+                StatLogSystem.Set(state, npc, CrewStat.Stress, Math.Clamp(npc.Stress + 15, 0, 100), "decompression");
                 continue;
             }
 
@@ -52,7 +52,7 @@ public sealed class VacuumConsequenceSystem
 
     private static void Eject(GameState state, Npc npc, Room room)
     {
-        npc.Health = 0;
+        StatLogSystem.Set(state, npc, CrewStat.Health, 0, "ejected into space");
         npc.IsPresent = false;
         npc.CauseOfDeath =
             $"Ejected into space during decompression of {room.Name}; no body remains aboard.";
