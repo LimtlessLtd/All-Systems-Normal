@@ -556,6 +556,17 @@ public static class NpcPromptBuilder
         if (disconnectableLocalDevices.Length == 0) builder.AppendLine("- none");
         else foreach (var device in disconnectableLocalDevices) builder.AppendLine(device);
         builder.AppendLine();
+        // Owner idea #74: only posts this person could really take, so the
+        // skill floor itself never reaches the prompt.
+        var openPosts = RoleSuccessionRules.OpenPostsFor(state, npc);
+        if (openPosts.Count > 0)
+        {
+            builder.AppendLine("VACANT POSTS YOU COULD STEP INTO:");
+            builder.AppendLine("Nobody aboard holds these posts now. Taking one over (AssumeRole) makes its duties yours from now on and leaves your current post behind. Whether you should, and what the others will make of it, is your own judgment.");
+            foreach (var (role, fallen) in openPosts)
+                builder.AppendLine($"- {role}: you found {fallen.Name}'s body; your best relevant skill is {RoleSuccessionRules.SkillFor(npc, role)}.");
+            builder.AppendLine();
+        }
         builder.AppendLine("RELATIONSHIPS:");
         foreach (var relationship in relationships) builder.AppendLine($"- {relationship}");
         builder.AppendLine();
@@ -692,6 +703,7 @@ public static class NpcPromptBuilder
         builder.AppendLine("For IsolateRobotNetwork/DisableRobotCharging, TargetId must be the exact robot ID from ROBOTS YOU PERSONALLY HAVE HOSTILE/ATTACK EVIDENCE ABOUT; you will physically travel to Engineering before the action can occur.");
         builder.AppendLine("For DisarmTurret/DamageTurret/ReprogramTurret, TargetId must be the exact turret ID from FIXED SECURITY TURRETS PHYSICALLY IN YOUR CURRENT ROOM.");
         builder.AppendLine("For IsolateTurretNetwork/DisableTurretPower, TargetId must be the exact turret ID from TURRETS YOU PERSONALLY HAVE HOSTILE WEAPON EVIDENCE ABOUT; you will physically travel to Engineering before the action can occur.");
+        builder.AppendLine("For AssumeRole, TargetId must be an exact post name from VACANT POSTS YOU COULD STEP INTO.");
         builder.AppendLine("For Eat, TargetId is null to eat in the galley, or a room ID from DINING to collect a meal in the galley and carry it there to eat.");
         builder.AppendLine("For Recreate, TargetId is null for a plain break, or an activity ID from RECREATION.");
         builder.AppendLine("For Rest/Sleep/Groom/Shower/UseToilet/Idle, TargetId should be null.");

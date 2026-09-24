@@ -221,6 +221,7 @@ public sealed class OllamaAiDecisionService(
             || CrewAffordanceSystem.IsCrewTarget(action)
             || CrewAffordanceSystem.IsDoorOperation(action)
             || action == ActionKind.DisconnectDevice
+            || action == ActionKind.AssumeRole
             || action is ActionKind.HideItem
                 or ActionKind.ReturnItem
                 or ActionKind.BorrowItem
