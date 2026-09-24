@@ -21,6 +21,9 @@ public sealed class DebugTelemetryUiTests
         Assert.Contains("runtime.RecentProviderTraces", debug);
         Assert.Contains("PROCESS-WIDE DEVELOPMENT TRACE", debug);
         Assert.Contains("data-provider-sequence=\"@trace.Sequence\"", debug);
+        Assert.Contains("@inject NavigationManager Navigation", debug);
+        Assert.Contains("Navigation.NavigateTo(\"/\")", debug);
+        Assert.DoesNotContain("<a class=\"debug-return\" href=\"\"", debug);
 
         var request = debug.IndexOf("LLM REQUEST // EXACT PROMPT + OPTIONS", StringComparison.Ordinal);
         var response = debug.IndexOf("LLM RESPONSE // RAW PROVIDER OUTPUT", StringComparison.Ordinal);
