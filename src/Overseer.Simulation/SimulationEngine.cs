@@ -521,12 +521,19 @@ public sealed class SimulationEngine
             return null;
         }
 
-        var fixtures = room.Fixtures.Where(fixture =>
-            npc.CurrentAction.Kind == ActionKind.Sleep
-                ? fixture.Type is FixtureType.Bed or FixtureType.MedicalBed
-                : fixture.Type is FixtureType.Bed
+        IEnumerable<RoomFixture> fixtures;
+        if (npc.CurrentAction.Kind == ActionKind.Sleep)
+        {
+            var assigned = BedUseRules.AssignedBed(state, npc);
+            fixtures = assigned is null ? [] : [assigned];
+        }
+        else
+        {
+            fixtures = room.Fixtures.Where(fixture =>
+                fixture.Type is FixtureType.Bed
                     or FixtureType.MedicalBed
                     or FixtureType.Sofa);
+        }
 
         foreach (var fixture in fixtures)
         {

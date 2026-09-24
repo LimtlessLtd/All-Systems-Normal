@@ -226,7 +226,9 @@ public sealed class LocalMovementSystem
 
         preferredFixture ??= npc.CurrentAction.Kind switch
         {
-            ActionKind.Rest or ActionKind.Sleep or ActionKind.Intimacy =>
+            ActionKind.Sleep => BedUseRules.AssignedBed(state, npc),
+
+            ActionKind.Rest or ActionKind.Intimacy =>
                 room.Fixtures.FirstOrDefault(fixture =>
                     fixture.Type is FixtureType.Bed or FixtureType.MedicalBed),
 

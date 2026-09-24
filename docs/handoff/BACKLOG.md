@@ -176,7 +176,7 @@ One batch, 20 entries, from the owner's 2026-09-22 22:17 BST message in `#new-id
   2. Add generic wait/yield/request-priority/take-next affordances so need urgency and relationships can drive queueing, altruism, arguments or queue-cutting.
   3. Reuse the same contention pattern for another scarce resource (e.g. last prepared meal, safe bed or EVA suit) once the generic interaction shape is proven.
 
-  Owner reported a concrete case of this gap (2026-09-23 21:35 BST): multiple crew currently sleep in the same bed simultaneously with no exclusivity check at all (unlike the toilet, no `Bed`-capacity/occupant concept exists anywhere in `Overseer.Simulation`). The owner's own stated exception — this should only be allowed between crew in a relationship — means slice 3's bed contention cannot just mirror the toilet's plain capacity-1 rule; it needs a co-occupancy allowance keyed off owner idea #35 (Romance, not yet shipped) once that relationship dimension exists, or a simpler existing-relationship-stat proxy until then.
+  Bed contention now has its first deterministic capacity slice: `BedUseRules` gives each concurrent sleeper in a room one distinct physical bed in stable order, and excess sleepers receive no restorative bed rather than sharing one. Relationship-based co-sleep remains deliberately unimplemented until #35 provides an explicit romance/relationship state; capacity-1 is the safe baseline and does not invent a relationship from generic Trust/Affinity. Queue/wait/yield behaviour remains cognition-facing follow-up work.
 
 One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message in `#new-ideas-and-functionality` — a further emergent-narrative/systems programme. The owner's own closing line governs every entry in this batch: "*none of these should be implemented as "events" in the RimWorld sense where code says Sarah starts a strike. Add physical state and generic affordances, then give the LLM reasons to use them.*" Several items are natural building blocks for others (noted per-entry); in particular #21/#22/#24 want **#12's generic tamper-interaction engine** once it exists, #31/#32 share one authority-claim type, and #54 (body-part injuries) is a prerequisite for #55/#56.
 
@@ -620,16 +620,16 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 ### 95. Crew must not occupy the same physical floor position
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790242588232969 (2026-09-24)
 - Idea: "Humans shouldnt be able to stand directly on top of each other."
-- Outcome: local movement treats other present mobile humans as short-range dynamic occupancy, so two people cannot settle on the same floor point; routing/door crossing must remain deadlock-safe and this must not create a hard global collision grid or let presentation offsets lie about authoritative position.
-- Size: small-to-medium (dynamic local occupancy/separation + crossing/queue regressions).
-- Status: ready — physical-simulation bug; coordinate with #20 bed/toilet contention so fixture users have deterministic distinct standing/lying points.
+- Outcome: authoritative destinations that can attract multiple humans must allocate distinct physical use/wait points rather than letting bodies settle at identical coordinates. Fix this at contested destination/resource assignment sites (beds, toilets, queues, work fixtures) rather than making all nearby crew dynamic pathfinding obstacles.
+- Size: medium (resource-specific destination allocation + queue/wait positions as those affordances ship).
+- Status: **in progress** — sleeping-bed overlap is addressed by #96's distinct `BedUseRules` assignment. A generic post-movement separation experiment was rejected because it perturbed the established decompression soak; remaining non-bed overlap should be reproduced and fixed at its actual shared destination instead of adding a global crowd-collision layer.
 
 ### 96. Sleeping crew should visibly use distinct beds
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790242597079429 (2026-09-24)
 - Idea: "humans dont actually sleep on their beds they just stand there doing nothing, and they keep standing on top of each other too."
 - Outcome: a sleeping NPC physically occupies a specific available bed interaction/pose point and presentation shows a lying/sleeping pose instead of an upright idle token; unrelated sleepers cannot share the same bed/point. Any relationship-based co-sleep exception composes with #20 rather than bypassing bed capacity.
 - Size: medium (bed occupancy assignment + sleep pose/presentation + browser/regression coverage).
-- Status: ready — merge implementation with #20's bed-contention slice where practical.
+- Status: **in progress** — simulation slice implemented on the current PR: `BedUseRules` assigns concurrent sleepers distinct beds and only the assigned bed grants restorative sleep; excess sleepers wait without recovery instead of sharing. Remaining: render the authoritative `FixtureUsePose.Lie`/assigned-bed state as an actual lying sleeper pose in the shared UI, with real-browser validation; relationship-based bed sharing waits for #35.
 
 ## Deliberate decisions (do not "fix")
 
