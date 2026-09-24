@@ -20,6 +20,7 @@ public static class CrewAffordanceSystem
         new(ActionKind.Move, "room", "Travel to a known room."),
         new(ActionKind.SeekSafety, "room", "Move toward a safer compartment when threatened."),
         new(ActionKind.FightFire, "room", "Attempt to suppress an active compartment fire using local emergency equipment."),
+        new(ActionKind.PatchHull, "breached-room", "Don emergency EVA repair gear, travel to a breached compartment and install a temporary pressure-hull patch."),
         new(ActionKind.EvacuateHazard, "room", "Evacuate toward a specifically chosen safer compartment."),
         new(ActionKind.SealHazardRoom, "room", "Close operable hatches around a hazardous compartment to contain it."),
         new(ActionKind.VentHazardRoom, "room", "Vent a smoky/burning compartment, trading pressure and oxygen for fire/smoke reduction."),
@@ -97,6 +98,7 @@ public static class CrewAffordanceSystem
         action is ActionKind.Move
             or ActionKind.SeekSafety
             or ActionKind.FightFire
+            or ActionKind.PatchHull
             or ActionKind.EvacuateHazard
             or ActionKind.SealHazardRoom
             or ActionKind.VentHazardRoom
@@ -165,6 +167,10 @@ public static class CrewAffordanceSystem
                 return false;
 
             if (action == ActionKind.FightFire && room.FireIntensity <= 0)
+                return false;
+
+            if (action == ActionKind.PatchHull
+                && !StationHazardSystem.HullRepairRules.CanAttempt(npc, room))
                 return false;
 
             if (action is ActionKind.SealHazardRoom or ActionKind.VentHazardRoom

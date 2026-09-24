@@ -108,6 +108,7 @@ public sealed class IntentExecutionSystem
                     break;
 
                 case ActionKind.FightFire:
+                case ActionKind.PatchHull:
                 case ActionKind.SealHazardRoom:
                 case ActionKind.VentHazardRoom:
                     ExecuteHazardIntent(state, npc, intent);
@@ -861,6 +862,7 @@ public sealed class IntentExecutionSystem
         var duration = intent.Action switch
         {
             ActionKind.FightFire => TimeSpan.FromMinutes(3),
+            ActionKind.PatchHull => StationHazardSystem.HullRepairRules.PatchDuration,
             ActionKind.SealHazardRoom => TimeSpan.FromMinutes(2),
             ActionKind.VentHazardRoom => TimeSpan.FromMinutes(2),
             _ => TimeSpan.FromMinutes(1)
@@ -878,6 +880,7 @@ public sealed class IntentExecutionSystem
             intent.Action switch
             {
                 ActionKind.FightFire => $"suppressing the fire in {room.Name}",
+                ActionKind.PatchHull => $"installing an emergency hull patch in {room.Name}",
                 ActionKind.SealHazardRoom => $"sealing hatches around {room.Name}",
                 ActionKind.VentHazardRoom => $"venting {room.Name}",
                 _ => $"responding to the hazard in {room.Name}"

@@ -333,7 +333,8 @@ public sealed class SimulationEngine
                 StatLogSystem.Set(state, npc, CrewStat.Fear, Clamp(npc.Fear + (0.8 * minutes)), "low oxygen");
             }
 
-            if (room.OxygenPercent < 17)
+            if (room.OxygenPercent < 17
+                && !StationHazardSystem.HullRepairRules.HasEmergencyPressureProtection(npc, room.Id))
             {
                 StatLogSystem.Set(
                     state,
@@ -371,14 +372,17 @@ public sealed class SimulationEngine
                 environmentalStress += 2.4;
                 environmentalCauses.Add(("low pressure", 2.4));
                 StatLogSystem.Set(state, npc, CrewStat.Fear, Clamp(npc.Fear + (1.5 * minutes)), "low pressure");
-                StatLogSystem.Set(
-                    state,
-                    npc,
-                    CrewStat.Health,
-                    Clamp(
-                        npc.Health
-                        - ((70 - room.PressureKpa) * 0.08 * minutes)),
-                    "low pressure");
+                if (!StationHazardSystem.HullRepairRules.HasEmergencyPressureProtection(npc, room.Id))
+                {
+                    StatLogSystem.Set(
+                        state,
+                        npc,
+                        CrewStat.Health,
+                        Clamp(
+                            npc.Health
+                            - ((70 - room.PressureKpa) * 0.08 * minutes)),
+                        "low pressure");
+                }
             }
 
             if (room.TemperatureC is < 16 or > 28)
