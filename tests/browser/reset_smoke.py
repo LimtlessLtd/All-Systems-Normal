@@ -142,7 +142,23 @@ def main():
                 room.style.setProperty('--fire-y', '50%');
                 room.style.setProperty('--fire-r', '35%');
                 const pseudo = getComputedStyle(room, '::after');
-                const result = { backgroundImage: pseudo.backgroundImage, content: pseudo.content };
+                // Owner #100: flames are real elements placed from simulation
+                // state; render one with the room's CSS-isolation attribute.
+                const flame = document.createElement('span');
+                for (const attr of room.attributes) {
+                    if (attr.name.startsWith('b-')) flame.setAttribute(attr.name, '');
+                }
+                flame.className = 'fire-sprite';
+                flame.textContent = '🔥';
+                room.appendChild(flame);
+                const flameStyle = getComputedStyle(flame);
+                const result = {
+                    backgroundImage: pseudo.backgroundImage,
+                    content: pseudo.content,
+                    flamePosition: flameStyle.position,
+                    flameTransform: flameStyle.transform,
+                };
+                flame.remove();
                 room.classList.remove('has-fire', 'fire-inferno');
                 room.style.removeProperty('--fire-x');
                 room.style.removeProperty('--fire-y');
@@ -155,7 +171,7 @@ def main():
             raise AssertionError("Could not inspect a rendered station room for fire styling")
         if "repeating-radial-gradient" in fire_style.get("backgroundImage", ""):
             raise AssertionError(f"Fire ring layer still rendered: {fire_style}")
-        if "🔥" not in fire_style.get("content", ""):
+        if fire_style.get("flamePosition") != "absolute" or fire_style.get("flameTransform") in (None, "none"):
             raise AssertionError(f"Fire flame sprite did not render: {fire_style}")
 
         def find(xpath):

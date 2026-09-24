@@ -128,7 +128,11 @@ public sealed class StationUiPresentationPolishTests
 
         Assert.Contains(".room-node[data-room-id].has-smoke::before", css);
         Assert.Contains("compartment-smoke-drift", css);
-        Assert.Contains("content: \"🔥  🔥  🔥  🔥\"", css);
+        // Owner idea #100: flames are placed from the authoritative front,
+        // not a fixed emoji row per severity class.
+        Assert.Contains("FireFrontRules.FlameSprites(room)", home);
+        Assert.Contains(".station-authority-layer .room-node .fire-sprite", css);
+        Assert.DoesNotContain("content: \"🔥", css);
     }
 
     [Fact]
