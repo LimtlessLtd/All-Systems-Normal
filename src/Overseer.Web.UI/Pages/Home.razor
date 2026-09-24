@@ -2985,18 +2985,21 @@
         return physicalWidth >= physicalHeight ? -90 : 0;
     }
 
-    private double CrewNextMapX(Npc npc)
+    private RoutePoint CrewNextMapPoint(Npc npc)
     {
         var room = Session.State.Facility.Rooms[npc.CurrentRoomId];
-        var targetX = npc.Movement?.ExitX ?? npc.PositionX;
-        return room.MapX + (((targetX - 50) / 100) * room.MapWidth);
-    }
+        var preview = LocalMovementSystem.PreviewDoorRoute(
+            Session.State,
+            npc,
+            TimeSpan.FromMinutes(1),
+            maxSteps: 1);
+        var local = preview.Count > 0
+            ? preview[0]
+            : npc.Movement is { } movement
+                ? (movement.ExitX, movement.ExitY)
+                : (npc.PositionX, npc.PositionY);
 
-    private double CrewNextMapY(Npc npc)
-    {
-        var room = Session.State.Facility.Rooms[npc.CurrentRoomId];
-        var targetY = npc.Movement?.ExitY ?? npc.PositionY;
-        return room.MapY + (((targetY - 50) / 100) * room.MapHeight);
+        return LocalRoutePoint(room, local);
     }
 
     /// <summary>
