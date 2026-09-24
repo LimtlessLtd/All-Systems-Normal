@@ -454,13 +454,6 @@ public sealed class StationHazardSystem
     }
 
     /// <summary>
-    /// Shared by <c>BrowserMindSystem</c> and <c>RuleBasedAiDecisionService</c>
-    /// (P1 ladder convergence): whether an ordinary crew member facing an
-    /// active fire in their own current room should stay and fight it rather
-    /// than flee, gated on fire intensity still being survivable and the
-    /// person having either the practical skill or the courage for it.
-    /// </summary>
-    /// <summary>
     /// Emergency hull repair is a cognition-visible capability, not an automatic
     /// rescue script. The worker must be healthy enough for the exposure, have
     /// real repair skill, and wait until the fire that caused the breach is out.
@@ -485,27 +478,88 @@ public sealed class StationHazardSystem
                 && room.FireIntensity <= 0;
         }
 
+        /// <summary>Pressure at or above which a room stops harming an unsuited person.</summary>
+        public const double SafePressureKpa = 70;
+
+        /// <summary>Oxygen at or above which a room stops harming an unsuited person.</summary>
+        public const double SafeOxygenPercent = 17;
+
         /// <summary>
         /// Choosing PatchHull includes donning the station's standard emergency
-        /// pressure suit and tether before entering the target compartment.
-        /// This deterministic execution gear protects only while that patch
-        /// intent/task is live; it does not choose the NPC's motive.
+        /// pressure suit and tether. The suit belongs to the person, not the
+        /// target room: it protects on the way in (including a depth-1
+        /// neighbour of the breach) and stays on after the patch until they
+        /// stand in breathable, pressurised air (<see cref="UpdateEmergencySuits"/>).
+        /// This is deterministic execution gear; it does not choose any motive.
         /// </summary>
-        public static bool HasEmergencyPressureProtection(Npc npc, string roomId)
+        public static bool HasEmergencyPressureProtection(Npc npc)
         {
             ArgumentNullException.ThrowIfNull(npc);
-            ArgumentException.ThrowIfNullOrWhiteSpace(roomId);
 
-            return (npc.Intent is { Action: ActionKind.PatchHull, TargetId: { } intentTarget }
-                        && intentTarget.Equals(roomId, StringComparison.OrdinalIgnoreCase))
-                || (npc.ActiveTask is
-                    {
-                        Status: CrewTaskStatus.InProgress,
-                        Action: ActionKind.PatchHull,
-                        TargetId: { } taskTarget
-                    }
-                    && taskTarget.Equals(roomId, StringComparison.OrdinalIgnoreCase));
+            return npc.IsWearingEmergencySuit || IsPatchingHull(npc);
         }
+
+        /// <summary>
+        /// Puts the suit on anyone whose live intent or task is PatchHull, and
+        /// takes it off once a suited person is out of that job and standing in
+        /// a room at safe pressure and oxygen.
+        /// </summary>
+        public static void UpdateEmergencySuits(GameState state)
+        {
+            ArgumentNullException.ThrowIfNull(state);
+
+            foreach (var npc in state.Crew)
+            {
+                if (!npc.IsAlive || !npc.IsPresent)
+                {
+                    npc.IsWearingEmergencySuit = false;
+                    continue;
+                }
+
+                if (IsPatchingHull(npc))
+                {
+                    npc.IsWearingEmergencySuit = true;
+                    continue;
+                }
+
+                if (npc.IsWearingEmergencySuit
+                    && state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var room)
+                    && !room.HasHullBreach
+                    && room.PressureKpa >= SafePressureKpa
+                    && room.OxygenPercent >= SafeOxygenPercent)
+                {
+                    npc.IsWearingEmergencySuit = false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Whether someone else already holds a PatchHull intent or task for
+        /// this room, so fallback minds don't send a second patcher.
+        /// </summary>
+        public static bool IsClaimedByAnotherResponder(GameState state, Npc npc, Room room) =>
+            state.Crew.Any(other =>
+                other.Id != npc.Id
+                && other.IsAlive
+                && other.IsPresent
+                && ((other.Intent is { Action: ActionKind.PatchHull, TargetId: { } intentTarget }
+                        && intentTarget.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+                    || (other.ActiveTask is
+                        {
+                            Status: CrewTaskStatus.InProgress,
+                            Action: ActionKind.PatchHull,
+                            TargetId: { } taskTarget
+                        }
+                        && taskTarget.Equals(room.Id, StringComparison.OrdinalIgnoreCase))));
+
+        /// <summary>Whether this person's live intent or in-progress task is PatchHull.</summary>
+        public static bool IsPatchingHull(Npc npc) =>
+            npc.Intent is { Action: ActionKind.PatchHull }
+            || npc.ActiveTask is
+            {
+                Status: CrewTaskStatus.InProgress,
+                Action: ActionKind.PatchHull
+            };
     }
 
     /// <summary>
@@ -527,23 +581,7 @@ public sealed class StationHazardSystem
 
         return state.Facility.Rooms.Values
             .Where(room => HullRepairRules.CanAttempt(npc, room))
-            .Where(room => !state.Crew.Any(other =>
-                other.Id != npc.Id
-                && other.IsAlive
-                && other.IsPresent
-                && ((other.Intent is
-                        {
-                            Action: ActionKind.PatchHull,
-                            TargetId: { } intentTarget
-                        }
-                        && intentTarget.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
-                    || (other.ActiveTask is
-                        {
-                            Status: CrewTaskStatus.InProgress,
-                            Action: ActionKind.PatchHull,
-                            TargetId: { } taskTarget
-                        }
-                        && taskTarget.Equals(room.Id, StringComparison.OrdinalIgnoreCase)))))
+            .Where(room => !HullRepairRules.IsClaimedByAnotherResponder(state, npc, room))
             .Select(room => new
             {
                 Room = room,
@@ -560,6 +598,13 @@ public sealed class StationHazardSystem
             .FirstOrDefault();
     }
 
+    /// <summary>
+    /// Shared by <c>BrowserMindSystem</c> and <c>RuleBasedAiDecisionService</c>
+    /// (P1 ladder convergence): whether an ordinary crew member facing an
+    /// active fire in their own current room should stay and fight it rather
+    /// than flee, gated on fire intensity still being survivable and the
+    /// person having either the practical skill or the courage for it.
+    /// </summary>
     public static bool ShouldFightFire(Npc npc, Room room)
     {
         ArgumentNullException.ThrowIfNull(npc);

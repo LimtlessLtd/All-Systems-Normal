@@ -73,8 +73,54 @@ public sealed class HullRepairTests
     }
 
     [Fact]
-    public void ChosenPatchHull_GetsEmergencyPressureProtectionOnlyForItsTarget()
+    public void ChosenPatchHull_ProtectsOnlyThePatcher()
     {
+        var state = FacilitySeeder.CreateDefault();
+        var room = state.Facility.Rooms["engineering"];
+        var npc = state.Crew[0];
+        var bystander = state.Crew[1];
+        npc.CurrentRoomId = room.Id;
+        bystander.CurrentRoomId = room.Id;
+        npc.Health = 100;
+        npc.Skills["Engineering"] = 80;
+        room.HasHullBreach = true;
+        room.FireIntensity = 0;
+        room.PressureKpa = 0;
+        npc.Intent = PatchIntent(state, room.Id);
+
+        new VacuumConsequenceSystem().Tick(state);
+
+        Assert.True(npc.IsPresent);
+        Assert.True(npc.IsWearingEmergencySuit);
+        Assert.False(bystander.IsPresent);
+    }
+
+    [Fact]
+    public void EmergencySuit_ProtectsOnTheWayInOutsideTheTargetRoom()
+    {
+        // #210 audit: protection was keyed to the target room, so a depth-1
+        // neighbour below the ejection line could still eject the patcher.
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew[0];
+        var corridor = state.Facility.Rooms.Values.First(candidate =>
+            !candidate.Id.Equals("engineering", StringComparison.OrdinalIgnoreCase));
+        npc.CurrentRoomId = corridor.Id;
+        npc.Health = 100;
+        corridor.PressureKpa = 10;
+        corridor.OxygenPercent = 2;
+        npc.Intent = PatchIntent(state, "engineering");
+
+        new SimulationEngine().Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.True(StationHazardSystem.HullRepairRules.HasEmergencyPressureProtection(npc));
+        Assert.True(npc.Health > 99, $"health {npc.Health}");
+    }
+
+    [Fact]
+    public void EmergencySuit_StaysOnAfterThePatchUntilAirIsSafe()
+    {
+        // #210 audit: the suit ended with the task, leaving the patcher
+        // unprotected in the ~0 kPa room it had just sealed.
         var state = FacilitySeeder.CreateDefault();
         var room = state.Facility.Rooms["engineering"];
         var npc = state.Crew[0];
@@ -84,26 +130,59 @@ public sealed class HullRepairTests
         room.HasHullBreach = true;
         room.FireIntensity = 0;
         room.PressureKpa = 0;
+        room.OxygenPercent = 0;
+        npc.Intent = PatchIntent(state, room.Id);
 
-        npc.Intent = new NpcIntent(
+        StationHazardSystem.HullRepairRules.UpdateEmergencySuits(state);
+        npc.Intent = null;
+        npc.ActiveTask = null;
+        room.HasHullBreach = false;
+
+        StationHazardSystem.HullRepairRules.UpdateEmergencySuits(state);
+        Assert.True(npc.IsWearingEmergencySuit);
+        new SimulationEngine().Tick(state, TimeSpan.FromMinutes(1));
+        Assert.True(npc.Health > 99, $"health {npc.Health}");
+
+        room.PressureKpa = StationHazardSystem.HullRepairRules.SafePressureKpa;
+        room.OxygenPercent = 20.9;
+        StationHazardSystem.HullRepairRules.UpdateEmergencySuits(state);
+        Assert.False(npc.IsWearingEmergencySuit);
+    }
+
+    [Fact]
+    public void BrowserMind_DoesNotSendASecondPatcherToAClaimedBreach()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var room = state.Facility.Rooms["engineering"];
+        var first = state.Crew[0];
+        var second = state.Crew[1];
+        foreach (var npc in new[] { first, second })
+        {
+            npc.CurrentRoomId = room.Id;
+            npc.Health = 100;
+            npc.Skills["Engineering"] = 80;
+        }
+
+        room.HasHullBreach = true;
+        room.FireIntensity = 0;
+        room.PressureKpa = 20;
+        first.Intent = PatchIntent(state, room.Id);
+
+        new BrowserMindSystem().Tick(state);
+
+        Assert.Equal(ActionKind.PatchHull, first.Intent?.Action);
+        Assert.NotEqual(ActionKind.PatchHull, second.Intent?.Action);
+    }
+
+    private static NpcIntent PatchIntent(GameState state, string roomId) =>
+        new(
             ActionKind.PatchHull,
-            room.Id,
+            roomId,
             "Patch the breach.",
             "The station is venting.",
             99,
             "test",
             state.Elapsed);
-
-        new VacuumConsequenceSystem().Tick(state);
-
-        Assert.True(npc.IsAlive);
-        Assert.True(npc.IsPresent);
-
-        npc.Intent = null;
-        new VacuumConsequenceSystem().Tick(state);
-
-        Assert.False(npc.IsPresent);
-    }
 
     [Fact]
     public void BrowserMind_ChoosesReachableHullPatchBeforeFleeingVacuum()
