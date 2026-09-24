@@ -82,6 +82,28 @@ public static class BedUseRules
         return assignments.GetValueOrDefault(npc.Id);
     }
 
+    /// <summary>
+    /// The bed this person is asleep in right now: their assigned bed, while
+    /// they are sleeping, standing still and physically at it. Presentation
+    /// draws the body lying on this bed (owner idea #96). Walking to a bed, or
+    /// sleeping with no free bed, is not being in bed.
+    /// </summary>
+    public static RoomFixture? BedAsleepIn(GameState state, Npc npc)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(npc);
+
+        if (npc.Movement is not null
+            || npc.IsLocallyMoving
+            || AssignedBed(state, npc) is not { } bed)
+        {
+            return null;
+        }
+
+        var room = state.Facility.Rooms[npc.CurrentRoomId];
+        return IsPhysicallyAt(room, npc, bed) ? bed : null;
+    }
+
     internal static bool IsPhysicallyAt(Room room, Npc npc, RoomFixture bed)
     {
         if (LocalMovementSystem.IsAtInteractionPoint(room, npc, bed))

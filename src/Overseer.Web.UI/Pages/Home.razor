@@ -2481,7 +2481,11 @@
                  or ActionKind.RequestHelp)
             classes.Add("is-social");
         else if (npc.CurrentAction.Kind is ActionKind.Sleep or ActionKind.Rest)
+        {
             classes.Add("is-resting");
+            if (BedUseRules.BedAsleepIn(Session.State, npc) is not null)
+                classes.Add("is-asleep-in-bed");
+        }
         else if (npc.CurrentAction.Kind is not ActionKind.Idle)
             classes.Add("is-busy");
         else
@@ -2917,16 +2921,33 @@
         string.Join(" ", points.Select(point =>
             FormattableString.Invariant($"{point.X:0.###},{point.Y:0.###}")));
 
+    // Owner idea #96: a sleeper who is authoritatively asleep in their
+    // assigned bed (BedUseRules) is drawn lying on that bed, not standing at
+    // the bedside point they walked to.
     private double CrewMapX(Npc npc)
     {
         var room = Session.State.Facility.Rooms[npc.CurrentRoomId];
-        return room.MapX + (((npc.PositionX - 50) / 100) * room.MapWidth);
+        var x = BedUseRules.BedAsleepIn(Session.State, npc)?.X ?? npc.PositionX;
+        return room.MapX + (((x - 50) / 100) * room.MapWidth);
     }
 
     private double CrewMapY(Npc npc)
     {
         var room = Session.State.Facility.Rooms[npc.CurrentRoomId];
-        return room.MapY + (((npc.PositionY - 50) / 100) * room.MapHeight);
+        var y = BedUseRules.BedAsleepIn(Session.State, npc)?.Y ?? npc.PositionY;
+        return room.MapY + (((y - 50) / 100) * room.MapHeight);
+    }
+
+    /// <summary>
+    /// Body angle for a sleeper lying in a bed: along the bed's long side,
+    /// with the head at the pillow end (the bed art's left or top end).
+    /// </summary>
+    private double SleeperBedAngle(Npc npc, RoomFixture bed)
+    {
+        var room = Session.State.Facility.Rooms[npc.CurrentRoomId];
+        var physicalWidth = bed.Width * room.MapWidth;
+        var physicalHeight = bed.Height * room.MapHeight;
+        return physicalWidth >= physicalHeight ? -90 : 0;
     }
 
     private double CrewNextMapX(Npc npc)
@@ -2953,9 +2974,12 @@
     {
         var heading = CrewFacingAngle(npc);
         var flip = Math.Cos(npc.FacingDegrees * Math.PI / 180) < -0.01 ? -1 : 1;
+        var bedAngle = BedUseRules.BedAsleepIn(Session.State, npc) is { } bed
+            ? FormattableString.Invariant($"--crew-bed-angle:{SleeperBedAngle(npc, bed):0.##}deg;")
+            : string.Empty;
 
         return FormattableString.Invariant(
-            $"left:{CrewMapX(npc)}%;top:{CrewMapY(npc)}%;--crew-facing:0deg;--crew-flip:{flip};--crew-heading:{heading:0.##}deg;");
+            $"left:{CrewMapX(npc)}%;top:{CrewMapY(npc)}%;--crew-facing:0deg;--crew-flip:{flip};--crew-heading:{heading:0.##}deg;{bedAngle}");
     }
 
     private string BloodStyle(BloodEvidence evidence)
