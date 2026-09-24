@@ -236,6 +236,10 @@ public sealed class LocalMovementSystem
                 ?? room.Fixtures.FirstOrDefault(fixture =>
                     fixture.Type is FixtureType.Table or FixtureType.KitchenCounter),
 
+            // Owner idea #92: a named activity goes to its own fixture.
+            ActionKind.Recreate when RecreationActivityRules.Current(npc) is { } activity =>
+                RecreationActivityRules.PlaceFor(state, room, npc, activity),
+
             ActionKind.Recreate => room.Fixtures.FirstOrDefault(fixture =>
                 fixture.Type is FixtureType.Sofa
                     or FixtureType.RecreationConsole
@@ -1064,6 +1068,7 @@ public sealed class LocalMovementSystem
         fixture.Type is not FixtureType.Camera
             and not FixtureType.Window
             and not FixtureType.Screen
+            and not FixtureType.Television
             and not FixtureType.Mirror
             and not FixtureType.Pipe
             and not FixtureType.AirlockDoor;

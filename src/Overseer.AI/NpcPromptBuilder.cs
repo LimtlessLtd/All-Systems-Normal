@@ -489,6 +489,36 @@ public static class NpcPromptBuilder
                 builder.AppendLine($"DINING: food is kept in the galley ({state.Stores.Meals:0.#} prepared meals).{carrying} You can eat there, or collect a meal there and carry it to eat in: {string.Join("; ", elsewhere)} (Eat with that room ID as TargetId).");
             }
         }
+        // Owner idea #92: what the recreation room physically offers right now.
+        if (room.Type == RoomType.Recreation
+            || npc.CurrentAction.Kind == ActionKind.Recreate
+            || npc.RecreationNeed >= CrewNeedThresholds.RecreationNeed)
+        {
+            var reachableRecreation = ReachableRooms(state, npc, npc.CurrentRoomId);
+            var lounge = state.Facility.Rooms.Values
+                .Where(candidate => candidate.Type == RoomType.Recreation && reachableRecreation.Contains(candidate.Id))
+                .OrderBy(candidate => candidate.Id.Equals(room.Id, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                .ThenBy(candidate => candidate.Id, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+            if (lounge is not null)
+            {
+                var options = RecreationActivityRules.All
+                    .Where(activity => RecreationActivityRules.FixtureFor(lounge, activity) is not null)
+                    .Select(activity =>
+                    {
+                        var doing = RecreationActivityRules.DoingIn(state, lounge, activity).Count(other => other.Id != npc.Id);
+                        var status = RecreationActivityRules.IsAvailable(lounge, activity)
+                            ? doing > 0 ? $"{doing} other{(doing == 1 ? "" : "s")} already {activity.Doing}" : "free"
+                            : "no power, so it does nothing";
+                        return $"{activity.Id} ({activity.Label}: {status})";
+                    })
+                    .ToList();
+                if (options.Count > 0)
+                {
+                    builder.AppendLine($"RECREATION in {lounge.Name} [{lounge.Id}]: {string.Join("; ", options)}. Recreate with one of these IDs as TargetId, or null for a plain break. Which, if any, is up to you.");
+                }
+            }
+        }
         if (DecompressionContainmentRules.FindHatchTowardBreach(state, npc) is { } breachHatch)
         {
             var breachSide = state.Facility.Rooms[DecompressionContainmentRules.FarSide(npc, breachHatch)];
@@ -663,7 +693,8 @@ public static class NpcPromptBuilder
         builder.AppendLine("For DisarmTurret/DamageTurret/ReprogramTurret, TargetId must be the exact turret ID from FIXED SECURITY TURRETS PHYSICALLY IN YOUR CURRENT ROOM.");
         builder.AppendLine("For IsolateTurretNetwork/DisableTurretPower, TargetId must be the exact turret ID from TURRETS YOU PERSONALLY HAVE HOSTILE WEAPON EVIDENCE ABOUT; you will physically travel to Engineering before the action can occur.");
         builder.AppendLine("For Eat, TargetId is null to eat in the galley, or a room ID from DINING to collect a meal in the galley and carry it there to eat.");
-        builder.AppendLine("For Rest/Sleep/Recreate/Groom/Shower/UseToilet/Idle, TargetId should be null.");
+        builder.AppendLine("For Recreate, TargetId is null for a plain break, or an activity ID from RECREATION.");
+        builder.AppendLine("For Rest/Sleep/Groom/Shower/UseToilet/Idle, TargetId should be null.");
         builder.AppendLine("Do not choose Intimacy directly. Attraction may inform social choices, but mutual consent is resolved by deterministic simulation.");
         builder.AppendLine("Urgency must be 0-100.");
         builder.AppendLine("Goal and Reason should each be one short sentence.");

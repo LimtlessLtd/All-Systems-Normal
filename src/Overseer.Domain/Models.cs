@@ -72,7 +72,8 @@ public enum FixtureType
     OxygenGenerator,
     CarbonScrubber,
     NetworkRack,
-    DoorConsole
+    DoorConsole,
+    Television
 }
 
 public enum FixtureUsePose

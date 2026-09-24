@@ -281,7 +281,7 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
         }
         else if (npc.RecreationNeed >= CrewNeedThresholds.RecreationNeed)
         {
-            intent = Create(npc, state, ActionKind.Recreate, null,
+            intent = Create(npc, state, ActionKind.Recreate, RecreationActivityRules.FallbackChoice(state, npc, "lounge"),
                 "Take a break.",
                 "I need some recreation before I burn out.",
                 55);

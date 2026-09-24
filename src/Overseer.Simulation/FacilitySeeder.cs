@@ -712,6 +712,7 @@ public static class FacilitySeeder
             or FixtureType.Window
             or FixtureType.Vent
             or FixtureType.Screen
+            or FixtureType.Television
             or FixtureType.UtilityPanel
             or FixtureType.Camera
             or FixtureType.DoorConsole;
@@ -731,6 +732,7 @@ public static class FacilitySeeder
             or FixtureType.Window
             or FixtureType.Vent
             or FixtureType.Screen
+            or FixtureType.Television
             or FixtureType.UtilityPanel
             or FixtureType.Console
             or FixtureType.RecreationConsole
@@ -1459,7 +1461,8 @@ public static class FacilitySeeder
         AddFixture(facility, "kitchen", FixtureType.Chair, "Chair East", 73, 62, 10, 10, 73, 62, FixtureUsePose.Sit, 270);
 
         // Recreation.
-        AddFixture(facility, "lounge", FixtureType.RecreationConsole, "Entertainment Wall", 50, 18, 46, 14);
+        AddFixture(facility, "lounge", FixtureType.RecreationConsole, "Game Console", 27, 18, 26, 14);
+        AddFixture(facility, "lounge", FixtureType.Television, "Television", 70, 15, 32, 10);
         AddFixture(facility, "lounge", FixtureType.Sofa, "Sofa West", 25, 62, 28, 20, 25, 62, FixtureUsePose.Sit, 90);
         AddFixture(facility, "lounge", FixtureType.Sofa, "Sofa East", 75, 62, 28, 20, 75, 62, FixtureUsePose.Sit, 270);
         AddFixture(facility, "lounge", FixtureType.Table, "Low Table", 50, 62, 22, 16);

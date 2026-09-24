@@ -364,7 +364,7 @@ public sealed class CrewRoutineSystem
             return new(
                 "lounge",
                 ActionKind.Recreate,
-                null,
+                RecreationActivityRules.FallbackChoice(state, npc, "lounge"),
                 "Heading to the lounge to unwind.",
                 "I need a break.",
                 "Time to switch off for a bit.",

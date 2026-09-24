@@ -538,7 +538,7 @@ public sealed class BrowserMindSystem
             return Create(
                 state,
                 ActionKind.Recreate,
-                null,
+                RecreationActivityRules.FallbackChoice(state, npc, "lounge"),
                 "Take a proper break.",
                 "I need time to unwind instead of working constantly.",
                 55);

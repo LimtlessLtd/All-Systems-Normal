@@ -248,6 +248,11 @@ public sealed class OllamaAiDecisionService(
                     ? diningRoom.Id
                     : null;
         }
+        else if (action == ActionKind.Recreate)
+        {
+            // Owner idea #92: an activity ID from RECREATION, or a generic break.
+            target = RecreationActivityRules.Find(target)?.Id;
+        }
         else if (action == ActionKind.ForceDoor)
         {
             var door = state.Facility.Doors.FirstOrDefault(candidate =>

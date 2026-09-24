@@ -111,6 +111,34 @@ public sealed class AiDecisionServiceTests
         Assert.Equal(expected, intent.TargetId);
     }
 
+    [Theory]
+    [InlineData("watch-tv", "watch-tv")]
+    [InlineData("READ", "read")]
+    [InlineData("dance", null)]
+    [InlineData("lounge", null)]
+    public async Task OllamaRecreate_KeepsOnlyAKnownActivity(string target, string? expected)
+    {
+        // Owner idea #92: an activity ID from RECREATION, or a plain break.
+        using var client = new StubChatClient(
+            $$"""
+            {
+              "Action": "Recreate",
+              "TargetId": "{{target}}",
+              "Goal": "Unwind.",
+              "Reason": "Long shift.",
+              "Urgency": 40
+            }
+            """);
+        var service = new OllamaAiDecisionService(client, new RuleBasedAiDecisionService());
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew.Single(candidate => candidate.Name == "David Hale");
+
+        var intent = await service.DecideAsync(npc, state);
+
+        Assert.Equal(ActionKind.Recreate, intent.Action);
+        Assert.Equal(expected, intent.TargetId);
+    }
+
     [Fact]
     public void Prompt_InvitesAnOptionalInCharacterLineThatIsPresentationOnly()
     {
