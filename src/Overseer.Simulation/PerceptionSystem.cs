@@ -104,8 +104,8 @@ public sealed class PerceptionSystem
         observer.Memories.Add(new Memory(
             $"I can see an active fire in {room.Name} [{room.Id}] at about {room.FireIntensity:0}% intensity.",
             state.Elapsed,
-            0.9));
-        observer.NeedsMindReconsideration = true;
+            0.9,
+            ObservedFireRoomId: room.Id));
     }
 
     public static bool CanSee(GameState state, Npc observer, Npc target) =>
