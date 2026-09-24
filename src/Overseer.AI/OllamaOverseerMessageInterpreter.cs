@@ -17,10 +17,12 @@ namespace Overseer.AI;
 /// </summary>
 public sealed class OllamaOverseerMessageInterpreter(
     IChatClient chatClient,
-    RuleBasedOverseerMessageInterpreter fallback) : IOverseerMessageInterpreter
+    RuleBasedOverseerMessageInterpreter fallback,
+    OllamaRuntimeDiagnostics? runtimeDiagnostics = null) : IOverseerMessageInterpreter
 {
     private readonly IChatClient _chatClient = chatClient;
     private readonly RuleBasedOverseerMessageInterpreter _fallback = fallback;
+    private readonly OllamaRuntimeDiagnostics? _runtimeDiagnostics = runtimeDiagnostics;
 
     public async Task<OverseerMessageIntent> InterpretAsync(
         string text,
@@ -42,6 +44,7 @@ public sealed class OllamaOverseerMessageInterpreter(
 
         try
         {
+            _runtimeDiagnostics?.RecordStarted("Overseer message interpretation");
             var response = await _chatClient.GetResponseAsync<OverseerMessageReading>(
                 BuildPrompt(text, scope, targetNpcName, state),
                 options: new ChatOptions
@@ -51,6 +54,8 @@ public sealed class OllamaOverseerMessageInterpreter(
                 },
                 useJsonSchemaResponseFormat: true,
                 cancellationToken: cancellationToken);
+
+            _runtimeDiagnostics?.RecordResponse("Overseer message interpretation");
 
             if (!response.TryGetResult(out var reading) || reading is null)
             {
@@ -65,12 +70,14 @@ public sealed class OllamaOverseerMessageInterpreter(
 
             return OverseerMessageValidator.Validate(reading, state, "Ollama");
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException exception)
         {
+            _runtimeDiagnostics?.RecordFailure("Overseer message interpretation", exception);
             throw;
         }
-        catch
+        catch (Exception exception)
         {
+            _runtimeDiagnostics?.RecordFailure("Overseer message interpretation", exception);
             return await _fallback.InterpretAsync(
                 text,
                 scope,
