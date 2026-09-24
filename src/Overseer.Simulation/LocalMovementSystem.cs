@@ -8,6 +8,7 @@ public sealed class LocalMovementSystem
     private const double DoorApproachMultiplier = 1.35;
     private const double FixtureClearance = 1.8;
     private const double WaypointMargin = .35;
+    private const double CrewSeparationMapUnits = 1.25;
     private readonly CrewDoorInteractionSystem _crewDoors = new();
 
     public void Tick(GameState state, TimeSpan delta)
@@ -27,6 +28,7 @@ public sealed class LocalMovementSystem
         // station-map distance units and MoveTowards converts local deltas to that metric.
         var maxDistance = WalkingMapUnitsPerMinute * delta.TotalMinutes;
 
+        var settledCrew = new List<Npc>();
         foreach (var npc in state.Crew.Where(npc => npc.IsAlive && npc.IsPresent))
         {
             npc.IsLocallyMoving = false;
@@ -34,12 +36,16 @@ public sealed class LocalMovementSystem
             if (npc.Movement is { } movement)
             {
                 AdvanceDoorMovement(state, npc, npc.Name, movement, crewDistance);
-                continue;
+            }
+            else
+            {
+                var room = state.Facility.Rooms[npc.CurrentRoomId];
+                var destination = GetLocalDestination(state, npc);
+                MoveTowards(room, npc, destination.X, destination.Y, crewDistance);
             }
 
-            var room = state.Facility.Rooms[npc.CurrentRoomId];
-            var destination = GetLocalDestination(state, npc);
-            MoveTowards(room, npc, destination.X, destination.Y, crewDistance);
+            ResolveCrewSeparation(state, npc, settledCrew);
+            settledCrew.Add(npc);
         }
 
         foreach (var robot in state.Robots.Where(robot => !robot.IsDestroyed))
@@ -587,6 +593,102 @@ public sealed class LocalMovementSystem
         return canReachDestinationThisTick
             && Math.Abs(entity.PositionX - destination.X) <= 0.001
             && Math.Abs(entity.PositionY - destination.Y) <= 0.001;
+    }
+
+    /// <summary>
+    /// Crew are authoritative physical occupants, not presentation sprites.
+    /// After ordinary movement (including a hatch crossing), move a later
+    /// occupant to the nearest deterministic free point if two humans would
+    /// otherwise settle on effectively the same floor position. This is only
+    /// short-range separation; it does not become a global pathfinding grid.
+    /// </summary>
+    private static void ResolveCrewSeparation(
+        GameState state,
+        Npc npc,
+        IReadOnlyList<Npc> settledCrew)
+    {
+        var room = state.Facility.Rooms[npc.CurrentRoomId];
+        var occupants = settledCrew
+            .Where(other =>
+                other.CurrentRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (occupants.Count == 0
+            || occupants.All(other =>
+                PhysicalDistance(
+                    room,
+                    npc.PositionX - other.PositionX,
+                    npc.PositionY - other.PositionY) >= CrewSeparationMapUnits))
+        {
+            return;
+        }
+
+        // Search concentric rings around the position this NPC was already
+        // trying to occupy. The starting direction is stable per crew member
+        // so repeated ticks do not make stacked people jitter around each other.
+        var originX = npc.PositionX;
+        var originY = npc.PositionY;
+        var startDirection = StableDirection(npc);
+        const int directionCount = 16;
+
+        for (var ring = 1; ring <= 4; ring++)
+        {
+            var radius = CrewSeparationMapUnits * ring;
+            for (var step = 0; step < directionCount; step++)
+            {
+                var direction = (startDirection + step) % directionCount;
+                var angle = direction * (Math.PI * 2 / directionCount);
+                var candidateX = originX
+                    + (Math.Cos(angle) * radius * 100d / Math.Max(room.MapWidth, 0.001));
+                var candidateY = originY
+                    + (Math.Sin(angle) * radius * 100d / Math.Max(room.MapHeight, 0.001));
+
+                if (!IsWalkable(room, candidateX, candidateY)
+                    || SegmentHitsFixture(
+                        room,
+                        originX,
+                        originY,
+                        candidateX,
+                        candidateY))
+                {
+                    continue;
+                }
+
+                var clearsEveryone = occupants.All(other =>
+                    PhysicalDistance(
+                        room,
+                        candidateX - other.PositionX,
+                        candidateY - other.PositionY) >= CrewSeparationMapUnits);
+
+                if (!clearsEveryone)
+                {
+                    continue;
+                }
+
+                npc.PositionX = candidateX;
+                npc.PositionY = candidateY;
+                return;
+            }
+        }
+    }
+
+    private static int StableDirection(Npc npc)
+    {
+        unchecked
+        {
+            var hash = 17;
+            foreach (var ch in npc.Name)
+            {
+                hash = (hash * 31) + ch;
+            }
+
+            foreach (var value in npc.Id.ToByteArray())
+            {
+                hash = (hash * 31) + value;
+            }
+
+            return (int)((uint)hash % 16u);
+        }
     }
 
     private static double PhysicalDistance(Room room, double localDx, double localDy)
