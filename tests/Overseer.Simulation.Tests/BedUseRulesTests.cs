@@ -8,7 +8,7 @@ public sealed class BedUseRulesTests
     [Fact]
     public void ConcurrentSleepersReceiveDistinctBedsUntilCapacityIsFull()
     {
-        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var state = FacilitySeeder.CreateDefault(SeededCrewRosterGenerator.Generate(4242), stationSeed: 1337);
         var quarters = state.Facility.Rooms["quarters"];
         var sleepers = state.Crew.Take(7).ToList();
 
