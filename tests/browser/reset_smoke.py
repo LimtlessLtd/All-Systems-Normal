@@ -206,6 +206,16 @@ def main():
         if not clock:
             raise AssertionError("Reset did not return the mission clock to T+00:00")
         print("Local reset browser smoke passed.")
+
+        # Owner #102: while the running station awaits a (slow, failing) model
+        # decision, the overview says so in its bottom-left status label.
+        wait_until(
+            lambda: find("//*[contains(@class,'station-processing-status') and contains(.,'AWAITING LLM RESPONSE')]"),
+            timeout=45,
+            interval=0.05,
+            message="awaiting-LLM processing status during cognition",
+        )
+        print("Awaiting-LLM processing status browser smoke passed.")
     finally:
         if session_id is not None:
             try:

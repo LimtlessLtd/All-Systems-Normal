@@ -23,6 +23,12 @@ public sealed class GameSession(
     public override AiRuntimeDiagnosticsSnapshot AiRuntimeDiagnostics =>
         _runtimeDiagnostics?.Snapshot() ?? base.AiRuntimeDiagnostics;
 
+    // The server's decision, crew and message services are the Ollama ones
+    // (with a deterministic fallback inside each), so these awaits genuinely
+    // wait on the model (owner idea #102).
+    protected override string? MessageInterpretationStatus =>
+        "AWAITING LLM RESPONSE — READING OVERSEER MESSAGE";
+
     private int _mindCursor;
     private bool _initialized;
 
@@ -60,7 +66,9 @@ public sealed class GameSession(
         }
         else
         {
-            var generated = await _crewGenerator.GenerateAsync(cancellationToken);
+            var generated = await AwaitWithProcessingStatusAsync(
+                "AWAITING LLM RESPONSE — GENERATING CREW",
+                () => _crewGenerator.GenerateAsync(cancellationToken));
             baseCrew = CrewRosterScalingSystem.FitToSize(
                 generated,
                 scenario.Id,
@@ -372,10 +380,12 @@ public sealed class GameSession(
         bool emergency,
         CancellationToken cancellationToken)
     {
-        var intent = await _aiDecisionService.DecideAsync(
-            npc,
-            State,
-            cancellationToken);
+        var intent = await AwaitWithProcessingStatusAsync(
+            $"AWAITING LLM RESPONSE — {npc.Name.ToUpperInvariant()} IS DECIDING",
+            () => _aiDecisionService.DecideAsync(
+                npc,
+                State,
+                cancellationToken));
 
         npc.Intent = intent;
         npc.MindMode = intent.Source;
