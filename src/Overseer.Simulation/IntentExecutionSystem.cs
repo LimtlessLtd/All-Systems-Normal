@@ -877,7 +877,7 @@ public sealed class IntentExecutionSystem
     }
 
     // Owner idea #90: food is in the galley. A mind that wants to eat in the
-    // recreation room or quarters walks to the galley, collects a portion and
+    // recreation room, quarters or medical bay walks to the galley, collects a portion and
     // carries it there. With no prepared meal to take, it eats in the galley.
     private void ExecuteEatIntent(GameState state, Npc npc, NpcIntent intent)
     {

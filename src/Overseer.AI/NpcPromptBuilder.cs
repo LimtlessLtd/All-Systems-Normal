@@ -459,7 +459,7 @@ public static class NpcPromptBuilder
             builder.AppendLine($"NOISE: loud here ({noiseLevel:0}; restful below {StationNoiseSystem.DisturbingAt:0}). Loudest: {string.Join("; ", loudest)}. Sleep or rest in this noise is much less restorative. What, if anything, to do about it is up to you.");
         }
         // Meals are eaten in the galley, or carried from it to a recreation
-        // room or quarters; chairs at consoles elsewhere are not somewhere to eat.
+        // room, quarters or a free medical bedside; console chairs elsewhere are not dining.
         var foodOnMind = npc.CurrentAction.Kind == ActionKind.Eat || npc.Hunger >= StationProvisionRules.HungryAt;
         var (freeSeats, totalSeats) = DiningSeatRules.Availability(state, room);
         if ((room.Type == RoomType.Kitchen || DiningSeatRules.IsAwayDiningRoom(room))
