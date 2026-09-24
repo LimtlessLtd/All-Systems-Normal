@@ -174,6 +174,41 @@ public sealed class StationUiPresentationPolishTests
     }
 
     [Fact]
+    public void GalleyEquipmentHasItsOwnFurnitureArt()
+    {
+        // Owner idea #105 slice 3: the galley line has a hob that goes cold
+        // when the counter is inert, sinks have a basin and tap, and the
+        // galley's stores cabinets read as a pantry.
+        var root = FindRepositoryRoot();
+        var css = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor.css"));
+
+        Assert.Contains(".station-authority-layer .room-node .fixture.fixture-kitchencounter::before", css);
+        Assert.Contains(".station-authority-layer .room-node .fixture.fixture-kitchencounter.fixture-inert::before", css);
+        Assert.Contains("@keyframes hob-glow", css);
+        Assert.Contains(".station-authority-layer .room-node .fixture.fixture-sink::before", css);
+        Assert.Contains(".station-authority-layer .room-node.room-type-kitchen .fixture.fixture-cabinet::before", css);
+
+        // The status LED moves off the hob; it must follow the shared
+        // appliance rule it repositions.
+        var sharedLed = css.LastIndexOf(".station-authority-layer .fixture-kitchencounter::after", StringComparison.Ordinal);
+        var galleyLed = css.IndexOf(".station-authority-layer .room-node .fixture.fixture-kitchencounter::after", StringComparison.Ordinal);
+        Assert.True(sharedLed >= 0 && galleyLed > sharedLed);
+    }
+
+    [Fact]
+    public void WashroomFixturesHaveTheirOwnFurnitureArt()
+    {
+        // Owner idea #105 cross-room pass: showers, toilets and mirrors no
+        // longer fall back to the generic grey fixture block.
+        var root = FindRepositoryRoot();
+        var css = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor.css"));
+
+        Assert.Contains(".station-authority-layer .room-node .fixture.fixture-shower::before", css);
+        Assert.Contains(".station-authority-layer .room-node .fixture.fixture-toilet::before", css);
+        Assert.Contains(".station-authority-layer .room-node .fixture.fixture-mirror {", css);
+    }
+
+    [Fact]
     public void FirePresentation_DoesNotRenderRadialRingLayers()
     {
         var root = FindRepositoryRoot();
