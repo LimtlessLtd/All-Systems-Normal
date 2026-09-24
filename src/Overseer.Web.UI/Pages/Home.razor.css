@@ -7958,6 +7958,86 @@ button.turret-token {
     box-shadow: 0 2px 3px rgba(40,46,50,.2);
 }
 
+/* Owner idea #105, cross-room pass: beds, benches and crates. A bed has a
+   frame, a pillow at the pillow end (left, or top for bed-portrait, the
+   same end SleeperBedAngle lays the head) and a blanket in the room accent
+   with a turned-down fold. A bench is wooden slats; a crate is a cargo box
+   with a braced frame. */
+.station-authority-layer .room-node .fixture.fixture-bed {
+    border: 2px solid #7d878c;
+    border-radius: 4px;
+    background: linear-gradient(180deg, #f4f6f7, #dfe4e6);
+    box-shadow:
+        inset 0 0 0 2px rgba(255,255,255,.6),
+        0 3px 5px rgba(40,46,50,.25);
+}
+
+.station-authority-layer .room-node .fixture.fixture-bed::before {
+    content: "";
+    position: absolute;
+    left: 5%;
+    top: 16%;
+    bottom: 16%;
+    right: auto;
+    width: 17%;
+    height: auto;
+    border-radius: 4px;
+    background: linear-gradient(180deg, #ffffff, #e6eaec);
+    box-shadow: 0 0 0 1px #c2c9cd, 0 1px 2px rgba(40,46,50,.2);
+    transform: none;
+}
+
+.station-authority-layer .room-node .fixture.fixture-bed::after {
+    left: 28%;
+    right: 3%;
+    top: 6%;
+    bottom: 6%;
+    border-radius: 3px;
+    background:
+        linear-gradient(90deg, rgba(255,255,255,.55) 0 9%, rgba(0,0,0,.12) 9% 11%, transparent 11%),
+        color-mix(in srgb, var(--room-accent, #6f8fa6) 55%, #7d95a8);
+}
+
+.station-authority-layer .room-node .fixture.fixture-bed.bed-portrait::before {
+    left: 16%;
+    right: 16%;
+    top: 5%;
+    bottom: auto;
+    width: auto;
+    height: 17%;
+}
+
+.station-authority-layer .room-node .fixture.fixture-bed.bed-portrait::after {
+    left: 6%;
+    right: 6%;
+    top: 28%;
+    bottom: 3%;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,.55) 0 9%, rgba(0,0,0,.12) 9% 11%, transparent 11%),
+        color-mix(in srgb, var(--room-accent, #6f8fa6) 55%, #7d95a8);
+}
+
+.station-authority-layer .room-node .fixture.fixture-bench {
+    border: 2px solid #7a6149;
+    border-radius: 3px;
+    background:
+        repeating-linear-gradient(180deg, #c9a77f 0 5px, #8a6c4e 5px 6px),
+        #c9a77f;
+    box-shadow: 0 2px 3px rgba(40,30,20,.3);
+}
+
+.station-authority-layer .room-node .fixture.fixture-crate {
+    border: 2px solid #7a6a3c;
+    border-radius: 2px;
+    background:
+        linear-gradient(45deg, transparent 0 46%, #8c7a45 46% 54%, transparent 54%),
+        linear-gradient(-45deg, transparent 0 46%, #8c7a45 46% 54%, transparent 54%),
+        #c9b270;
+    box-shadow:
+        inset 0 0 0 3px #a8925a,
+        0 2px 4px rgba(40,34,20,.3);
+}
+
 @media (prefers-reduced-motion: reduce) {
     .station-authority-layer .room-node .fixture.fixture-television,
     .station-authority-layer .room-node .fixture.fixture-recreationconsole::before,

@@ -2744,10 +2744,18 @@
             ? FixtureClass(fixture)
             : $"{FixtureClass(fixture)} fixture-inert";
 
+        if (fixture.Type == FixtureType.Bed && !BedIsLandscape(room, fixture))
+            classes += " bed-portrait";
+
         return SeatFacingClass(room, fixture) is { } facing
             ? $"{classes} {facing}"
             : classes;
     }
+
+    // The pillow end is the bed's left end when it lies across the map and its
+    // top end otherwise; the bed art and the sleeper's body angle share this.
+    private static bool BedIsLandscape(Room room, RoomFixture bed) =>
+        bed.Width * room.MapWidth >= bed.Height * room.MapHeight;
 
     // Owner idea #105: seats are drawn with the backrest on the far side.
     private static string? SeatFacingClass(Room room, RoomFixture seat) =>
@@ -3069,9 +3077,7 @@
     private double SleeperBedAngle(Npc npc, RoomFixture bed)
     {
         var room = Session.State.Facility.Rooms[npc.CurrentRoomId];
-        var physicalWidth = bed.Width * room.MapWidth;
-        var physicalHeight = bed.Height * room.MapHeight;
-        return physicalWidth >= physicalHeight ? -90 : 0;
+        return BedIsLandscape(room, bed) ? -90 : 0;
     }
 
     private static RoutePoint LocalRoutePoint(
