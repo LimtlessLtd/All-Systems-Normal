@@ -161,4 +161,100 @@ public sealed class BedUseRulesTests
         Assert.True(overflow.Fatigue >= fatigueBefore);
         Assert.True(overflow.SleepDebtMinutes >= debtBefore);
     }
+
+    [Fact]
+    public void SleeperIsAsleepInTheirBedOnlyOnceTheyHaveReachedIt()
+    {
+        // Owner idea #96: the map draws a sleeper lying on the bed from this
+        // state, so it must be true only for a still body at its own bed.
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var quarters = state.Facility.Rooms["quarters"];
+        var sleepers = state.Crew.Take(2).ToList();
+
+        foreach (var npc in sleepers)
+        {
+            npc.CurrentRoomId = quarters.Id;
+            npc.PositionX = 50;
+            npc.PositionY = 50;
+            npc.CurrentAction = new NpcAction(ActionKind.Sleep, quarters.Id, "Sleep in a real bunk.");
+            npc.Intent = null;
+            npc.Movement = null;
+        }
+
+        Assert.All(sleepers, npc => Assert.Null(BedUseRules.BedAsleepIn(state, npc)));
+
+        var movement = new LocalMovementSystem();
+        movement.Tick(state, TimeSpan.FromMinutes(1));
+        Assert.All(sleepers, npc =>
+        {
+            Assert.True(npc.IsLocallyMoving);
+            Assert.Null(BedUseRules.BedAsleepIn(state, npc));
+        });
+
+        for (var minute = 0; minute < 20; minute++)
+        {
+            movement.Tick(state, TimeSpan.FromMinutes(1));
+        }
+
+        var beds = sleepers
+            .Select(npc => Assert.IsType<RoomFixture>(BedUseRules.BedAsleepIn(state, npc)))
+            .ToList();
+        Assert.Equal(BedUseRules.AssignedBed(state, sleepers[0])!.Label, beds[0].Label);
+        Assert.Equal(BedUseRules.AssignedBed(state, sleepers[1])!.Label, beds[1].Label);
+        Assert.NotEqual(beds[0].Label, beds[1].Label);
+
+        sleepers[0].CurrentAction = new NpcAction(ActionKind.Idle, quarters.Id, "Awake.");
+        Assert.Null(BedUseRules.BedAsleepIn(state, sleepers[0]));
+        Assert.NotNull(BedUseRules.BedAsleepIn(state, sleepers[1]));
+    }
+
+    [Fact]
+    public void OverflowSleeperWithoutABedIsNeverDrawnInOne()
+    {
+        var state = FacilitySeeder.CreateDefault(SeededCrewRosterGenerator.Generate(4242), stationSeed: 1337);
+        var quarters = state.Facility.Rooms["quarters"];
+
+        foreach (var npc in state.Crew)
+        {
+            npc.CurrentRoomId = quarters.Id;
+            npc.CurrentAction = new NpcAction(ActionKind.Sleep, quarters.Id, "Sleep capacity regression.");
+            npc.Intent = null;
+            npc.Movement = null;
+        }
+
+        var movement = new LocalMovementSystem();
+        for (var minute = 0; minute < 30; minute++)
+        {
+            movement.Tick(state, TimeSpan.FromMinutes(1));
+        }
+
+        var overflow = state.Crew.Where(npc => BedUseRules.AssignedBed(state, npc) is null).ToList();
+        Assert.NotEmpty(overflow);
+        Assert.All(overflow, npc => Assert.Null(BedUseRules.BedAsleepIn(state, npc)));
+        Assert.All(
+            state.Crew.Where(npc => BedUseRules.BedAsleepIn(state, npc) is not null),
+            npc => Assert.Equal(
+                BedUseRules.AssignedBed(state, npc)!.Label,
+                BedUseRules.BedAsleepIn(state, npc)!.Label));
+    }
+
+    [Fact]
+    public void MapDrawsSleepersInBedFromTheAuthoritativeBedState()
+    {
+        var root = AppContext.BaseDirectory;
+        while (!File.Exists(Path.Combine(root, "Overseer.slnx")))
+        {
+            root = Path.GetDirectoryName(root)!;
+        }
+
+        var home = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor"));
+        var css = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor.css"));
+
+        Assert.Contains("BedUseRules.BedAsleepIn(Session.State, npc)?.X ?? npc.PositionX", home);
+        Assert.Contains("BedUseRules.BedAsleepIn(Session.State, npc)?.Y ?? npc.PositionY", home);
+        Assert.Contains("classes.Add(\"is-asleep-in-bed\")", home);
+        Assert.Contains("--crew-bed-angle", home);
+        Assert.Contains(".crew-token.is-asleep-in-bed .person-icon", css);
+        Assert.Contains("rotate(var(--crew-bed-angle, -90deg))", css);
+    }
 }
