@@ -57,8 +57,10 @@ public sealed class HullRepairTests
         var npc = state.Crew[0];
         npc.CurrentRoomId = room.Id;
         npc.Health = 100;
-        npc.Skills["Engineering"] = 10;
-        npc.Skills["Security"] = 10;
+        npc.Skills["Engineering"] = 0;
+        npc.Skills["Electrical"] = 0;
+        npc.Skills["Operations"] = 0;
+        npc.Skills["Reactor"] = 0;
         room.HasHullBreach = true;
         room.FireIntensity = 0;
 
