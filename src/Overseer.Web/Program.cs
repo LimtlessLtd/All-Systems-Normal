@@ -22,7 +22,10 @@ var ollamaModel =
     ?? "qwen3:4b";
 
 var ollamaUri = new Uri(ollamaEndpoint);
-builder.Services.AddSingleton(new OllamaRuntimeDiagnostics(ollamaUri, ollamaModel));
+builder.Services.AddSingleton(new OllamaRuntimeDiagnostics(
+    ollamaUri,
+    ollamaModel,
+    capturePayloads: builder.Environment.IsDevelopment()));
 builder.Services.AddSingleton<OllamaApiClient>(
     _ => new OllamaApiClient(ollamaUri, ollamaModel));
 builder.Services.AddSingleton<IChatClient>(
@@ -49,13 +52,13 @@ if (app.Environment.IsDevelopment())
 {
     var diagnostics = app.Services.GetRequiredService<OllamaRuntimeDiagnostics>();
     var ollama = app.Services.GetRequiredService<OllamaApiClient>();
-    diagnostics.RecordStarted("startup health probe");
+    var probeSequence = diagnostics.RecordStarted("startup health probe");
 
     try
     {
         if (await ollama.IsRunningAsync())
         {
-            diagnostics.RecordResponse("startup health probe");
+            diagnostics.RecordResponse(probeSequence, "startup health probe");
             app.Logger.LogInformation(
                 "Ollama is reachable at {Endpoint}; configured model: {Model}.",
                 diagnostics.Endpoint,
@@ -64,7 +67,7 @@ if (app.Environment.IsDevelopment())
         else
         {
             const string error = "The configured Ollama endpoint did not report a running server.";
-            diagnostics.RecordFailure("startup health probe", error);
+            diagnostics.RecordFailure(probeSequence, "startup health probe", error);
             app.Logger.LogWarning(
                 "Ollama is not reachable at {Endpoint}; NPC cognition will fall back until it becomes available.",
                 diagnostics.Endpoint);
@@ -72,7 +75,7 @@ if (app.Environment.IsDevelopment())
     }
     catch (Exception exception)
     {
-        diagnostics.RecordFailure("startup health probe", exception);
+        diagnostics.RecordFailure(probeSequence, "startup health probe", exception);
         app.Logger.LogWarning(
             exception,
             "Ollama startup probe failed for {Endpoint}; NPC cognition will fall back until the provider can be reached.",
