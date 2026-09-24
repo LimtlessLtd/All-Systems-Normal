@@ -20,6 +20,12 @@ public sealed class StationDeviceControlSystem
             return false;
         }
 
+        if (!state.ControlNetworkOnline)
+        {
+            message = $"Overseer control network is offline; {device.Label} must be operated locally.";
+            return false;
+        }
+
         if (!device.IsAiControllable)
         {
             message = $"{device.Label} is local/manual control only.";

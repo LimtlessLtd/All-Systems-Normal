@@ -110,6 +110,13 @@ public sealed class CrewCounterplaySystem
             return HasSwitchedOffLifeSupport(state);
         }
 
+        if (state.Devices.TryGetValue(targetId, out var device))
+        {
+            return device.Kind == StationSystemKind.DataNetwork
+                && !device.IsEnabled
+                && !device.IsFailed;
+        }
+
         return state.Facility.Rooms.TryGetValue(targetId, out var room)
             && FindRoomProblem(state, room) is not null;
     }
@@ -143,6 +150,12 @@ public sealed class CrewCounterplaySystem
         if (targetId.Equals(LifeSupportTarget, StringComparison.OrdinalIgnoreCase))
         {
             return "engineering";
+        }
+
+        if (state.Devices.TryGetValue(targetId, out var device)
+            && device.Kind == StationSystemKind.DataNetwork)
+        {
+            return device.RoomId;
         }
 
         return state.Facility.Rooms.ContainsKey(targetId)
@@ -584,6 +597,15 @@ public sealed class CrewCounterplaySystem
             return true;
         }
 
+        if (state.Devices.TryGetValue(targetId, out var device)
+            && device.Kind == StationSystemKind.DataNetwork
+            && !device.IsEnabled
+            && !device.IsFailed)
+        {
+            device.IsEnabled = true;
+            return true;
+        }
+
         if (!state.Facility.Rooms.TryGetValue(targetId, out var room))
         {
             return false;
@@ -625,9 +647,11 @@ public sealed class CrewCounterplaySystem
     private static string DescribeTarget(GameState state, string targetId) =>
         targetId.Equals(LifeSupportTarget, StringComparison.OrdinalIgnoreCase)
             ? "primary life support"
-            : state.Facility.Rooms.TryGetValue(targetId, out var room)
-                ? $"{room.Name} {FindRoomProblem(state, room) ?? "systems"}"
-                : targetId;
+            : state.Devices.TryGetValue(targetId, out var device)
+                ? device.Label
+                : state.Facility.Rooms.TryGetValue(targetId, out var room)
+                    ? $"{room.Name} {FindRoomProblem(state, room) ?? "systems"}"
+                    : targetId;
 
     private static bool ResolveCheck(
         GameState state,
