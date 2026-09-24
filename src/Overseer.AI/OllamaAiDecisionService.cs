@@ -22,9 +22,9 @@ public sealed class OllamaAiDecisionService(
 
     /// <summary>
     /// Output cap for one NPC decision. The owner raised it from 300 because
-    /// replies were being cut short: thinking models such as qwen3 spend
-    /// part of this budget on reasoning before the JSON, so 300 could end
-    /// the decision mid-object and force a retry or the fallback.
+    /// replies were being cut short. The main cause was qwen3's thinking
+    /// channel eating the whole budget before any JSON, which is now switched
+    /// off (see <see cref="DecideAsync"/>); the headroom stays for safety.
     /// </summary>
     public const int DecisionMaxOutputTokens = 750;
 
@@ -52,7 +52,12 @@ public sealed class OllamaAiDecisionService(
             var options = new ChatOptions
             {
                 Temperature = 0.7f,
-                MaxOutputTokens = DecisionMaxOutputTokens
+                MaxOutputTokens = DecisionMaxOutputTokens,
+                // Owner report 2026-09-24: qwen3 spent every output token in
+                // its "thinking" channel, returning empty content with
+                // done_reason "length". The decision is one small JSON object,
+                // so thinking is off; OllamaSharp sends this as "think": false.
+                Reasoning = new ReasoningOptions { Effort = ReasoningEffort.None }
             }.AddOllamaOption(OllamaOption.NumCtx, ContextWindowTokens);
 
             var attempt = await RequestDecisionAsync(
@@ -185,6 +190,7 @@ public sealed class OllamaAiDecisionService(
         temperature: {options.Temperature}
         max_output_tokens: {options.MaxOutputTokens}
         num_ctx: {ContextWindowTokens}
+        think: {(options.Reasoning?.Effort == ReasoningEffort.None ? "false" : "model default")}
         response_format: json-schema (NpcMindDecision)
 
         EXACT PROMPT SENT TO OLLAMA

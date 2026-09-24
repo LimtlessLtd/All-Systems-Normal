@@ -108,6 +108,29 @@ public sealed class OllamaProviderBoundaryTests
         });
     }
 
+    [Fact]
+    public async Task StructuredDecision_TurnsOffModelThinking()
+    {
+        // Owner report (2026-09-24 15:43): qwen3:4b spent all 300 output tokens
+        // in its "thinking" channel, so message.content came back empty with
+        // done_reason "length" and every decision fell to the retry/fallback.
+        // The decision is a small JSON object; thinking must be off on the wire.
+        var handler = new CapturingHandler();
+        var client = new OllamaApiClient(
+            new HttpClient(handler) { BaseAddress = new Uri("http://127.0.0.1:11434/") },
+            "qwen3:4b");
+        var service = new OllamaAiDecisionService(
+            client,
+            new RuleBasedAiDecisionService());
+        var state = FacilitySeeder.CreateDefault(stationSeed: 480043);
+
+        _ = await service.DecideAsync(state.Crew[0], state);
+
+        Assert.NotEmpty(handler.Bodies);
+        Assert.All(handler.Bodies, body =>
+            Assert.Contains("\"think\":false", body.Replace(" ", string.Empty)));
+    }
+
     private sealed class CapturingHandler : HttpMessageHandler
     {
         public List<string> Bodies { get; } = [];
