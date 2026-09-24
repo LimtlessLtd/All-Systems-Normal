@@ -54,7 +54,9 @@ public sealed class OllamaOverseerMessageInterpreter(
                 options: new ChatOptions
                 {
                     Temperature = 0.1f,
-                    MaxOutputTokens = 120
+                    MaxOutputTokens = 120,
+                    // A thinking model would spend all 120 tokens reasoning.
+                    Reasoning = new ReasoningOptions { Effort = ReasoningEffort.None }
                 },
                 useJsonSchemaResponseFormat: true,
                 cancellationToken: cancellationToken);

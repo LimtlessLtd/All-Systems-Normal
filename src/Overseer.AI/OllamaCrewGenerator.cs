@@ -1,5 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.AI;
+using OllamaSharp;
+using OllamaSharp.Models;
 using Overseer.Domain;
 
 namespace Overseer.AI;
@@ -12,6 +14,12 @@ public sealed class OllamaCrewGenerator(
     private readonly IChatClient _chatClient = chatClient;
     private readonly RuleBasedCrewGenerator _fallback = fallback;
     private readonly OllamaRuntimeDiagnostics? _runtimeDiagnostics = runtimeDiagnostics;
+
+    /// <summary>
+    /// Explicit window for the roster prompt plus its 1800-token output, so
+    /// generation does not depend on the Ollama server's default context.
+    /// </summary>
+    public const int ContextWindowTokens = 8192;
 
     private static readonly CrewRole[] RequiredRoles =
         Enum.GetValues<CrewRole>()
@@ -49,8 +57,11 @@ public sealed class OllamaCrewGenerator(
                 options: new ChatOptions
                 {
                     Temperature = 1.0f,
-                    MaxOutputTokens = 1800
-                },
+                    MaxOutputTokens = 1800,
+                    // Same failure as NPC decisions: a thinking model spent
+                    // the output budget reasoning and returned no roster.
+                    Reasoning = new ReasoningOptions { Effort = ReasoningEffort.None }
+                }.AddOllamaOption(OllamaOption.NumCtx, ContextWindowTokens),
                 useJsonSchemaResponseFormat: true,
                 cancellationToken: cancellationToken);
 
