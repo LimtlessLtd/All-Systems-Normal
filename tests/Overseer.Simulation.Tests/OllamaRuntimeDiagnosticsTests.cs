@@ -14,7 +14,8 @@ public sealed class OllamaRuntimeDiagnosticsTests
         diagnostics.RecordStarted("NPC decision", npcDecision: true);
         diagnostics.RecordFailure(
             "NPC decision",
-            new InvalidOperationException("connection refused"));
+            new InvalidOperationException(
+                "connection refused at http://user:super-secret@localhost:11434/private?token=also-secret"));
 
         var snapshot = diagnostics.Snapshot();
 
@@ -27,6 +28,8 @@ public sealed class OllamaRuntimeDiagnosticsTests
         Assert.Contains("InvalidOperationException", snapshot.LastError);
         Assert.DoesNotContain("super-secret", snapshot.Endpoint);
         Assert.DoesNotContain("also-secret", snapshot.Endpoint);
+        Assert.DoesNotContain("super-secret", snapshot.LastError);
+        Assert.DoesNotContain("also-secret", snapshot.LastError);
     }
 
     [Fact]
