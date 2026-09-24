@@ -2057,6 +2057,7 @@ button.sound-toggle.sound-on {
 }
 
 .station-map-viewport {
+    position: relative;
     width: 100%;
     height: clamp(460px, 62vh, 820px);
     min-height: 360px;
@@ -7381,6 +7382,21 @@ button.turret-token {
 @keyframes fire-alarm-armed-pulse {
     0%, 100% { box-shadow: 0 0 0 0 rgba(214, 68, 48, .55); }
     50% { box-shadow: 0 0 0 4px rgba(214, 68, 48, 0); }
+}
+
+.station-processing-status {
+    position: absolute;
+    left: .55rem;
+    bottom: .45rem;
+    z-index: 175;
+    padding: .18rem .35rem;
+    border-radius: 3px;
+    background: rgba(7, 12, 15, .72);
+    color: #f4f6f7;
+    font-size: .56rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    pointer-events: none;
 }
 
 .fire-alarm-arming-hint {
