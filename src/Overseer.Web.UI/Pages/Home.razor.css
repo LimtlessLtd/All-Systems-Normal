@@ -4909,11 +4909,109 @@ button.sound-toggle.sound-on {
         repeating-linear-gradient(90deg, #e5e8e9 0 45%, #a2a8ac 45% 49%, #f4f5f5 49% 94%, #949a9e 94% 100%);
 }
 
-.station-authority-layer .fixture-table,
+/* Owner idea #105: furniture reads as its function at station zoom. A table
+   is a raised top with a lip and cast shadow; seats have a cushion and a
+   backrest on the side away from what they face (seat-faces-*); sofas are
+   split into cushions between arms. */
+.station-authority-layer .fixture-table {
+    border: 2px solid #7f878b;
+    border-radius: 4px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,.55), transparent 22%),
+        repeating-linear-gradient(90deg, transparent 0 18%, rgba(120,128,132,.10) 18% 19%),
+        #cfd4d7;
+    box-shadow:
+        inset 0 0 0 2px rgba(255,255,255,.45),
+        0 3px 0 -1px #737b7f,
+        0 4px 6px rgba(40,46,50,.28);
+}
+
+.room-type-kitchen .fixture-table,
+.room-type-recreation .fixture-table {
+    border-color: #8a6f52;
+    background:
+        linear-gradient(180deg, rgba(255,240,220,.45), transparent 24%),
+        repeating-linear-gradient(90deg, transparent 0 14%, rgba(110,80,50,.16) 14% 15%),
+        #c9a77f;
+    box-shadow:
+        inset 0 0 0 2px rgba(255,236,210,.35),
+        0 3px 0 -1px #6d553d,
+        0 4px 6px rgba(40,30,20,.3);
+}
+
 .station-authority-layer .fixture-chair,
 .station-authority-layer .fixture-sofa {
-    border-color: #9ca2a6;
-    background: #d8dcde;
+    overflow: visible;
+    border: 2px solid #6f787d;
+    border-radius: 30%;
+    background:
+        radial-gradient(ellipse at 50% 45%, rgba(255,255,255,.35), transparent 62%),
+        color-mix(in srgb, var(--room-accent, #7d8a90) 38%, #9aa4a9);
+    box-shadow: 0 2px 3px rgba(40,46,50,.3);
+}
+
+.station-authority-layer .fixture-sofa {
+    border-radius: 22%;
+    background:
+        radial-gradient(ellipse at 50% 45%, rgba(255,255,255,.28), transparent 70%),
+        color-mix(in srgb, var(--room-accent, #7d8a90) 45%, #8f99a0);
+}
+
+.station-authority-layer .fixture-sofa.seat-faces-left,
+.station-authority-layer .fixture-sofa.seat-faces-right {
+    background:
+        repeating-linear-gradient(180deg, transparent 0 32%, rgba(40,46,50,.32) 32% 34%),
+        radial-gradient(ellipse at 50% 45%, rgba(255,255,255,.28), transparent 70%),
+        color-mix(in srgb, var(--room-accent, #7d8a90) 45%, #8f99a0);
+}
+
+.station-authority-layer .fixture-sofa.seat-faces-up,
+.station-authority-layer .fixture-sofa.seat-faces-down {
+    background:
+        repeating-linear-gradient(90deg, transparent 0 32%, rgba(40,46,50,.32) 32% 34%),
+        radial-gradient(ellipse at 50% 45%, rgba(255,255,255,.28), transparent 70%),
+        color-mix(in srgb, var(--room-accent, #7d8a90) 45%, #8f99a0);
+}
+
+.station-authority-layer .fixture-chair::before,
+.station-authority-layer .fixture-sofa::before {
+    content: "";
+    position: absolute;
+    border-radius: 3px;
+    background: #4f585c;
+    box-shadow: 0 1px 2px rgba(20,24,26,.4);
+}
+
+.station-authority-layer .fixture-chair.seat-faces-up::before,
+.station-authority-layer .fixture-sofa.seat-faces-up::before {
+    left: 6%;
+    right: 6%;
+    bottom: -3px;
+    height: 26%;
+}
+
+.station-authority-layer .fixture-chair.seat-faces-down::before,
+.station-authority-layer .fixture-sofa.seat-faces-down::before {
+    left: 6%;
+    right: 6%;
+    top: -3px;
+    height: 26%;
+}
+
+.station-authority-layer .fixture-chair.seat-faces-left::before,
+.station-authority-layer .fixture-sofa.seat-faces-left::before {
+    top: 6%;
+    bottom: 6%;
+    right: -3px;
+    width: 26%;
+}
+
+.station-authority-layer .fixture-chair.seat-faces-right::before,
+.station-authority-layer .fixture-sofa.seat-faces-right::before {
+    top: 6%;
+    bottom: 6%;
+    left: -3px;
+    width: 26%;
 }
 
 .station-authority-layer .fixture-airlockdoor {
