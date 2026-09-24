@@ -7229,17 +7229,23 @@ button.turret-token {
 .station-authority-layer .room-node[data-room-id].has-fire::after {
     content: "🔥";
     position: absolute;
-    inset: 2%;
+    /* Owner idea #76: the burning front grows from the fire's origin
+       (--fire-x/--fire-y, radius --fire-r, set from simulation state) and
+       stops at the room's walls. The defaults fill the room. */
+    top: max(2%, calc(var(--fire-y, 50%) - var(--fire-r, 150%)));
+    bottom: max(2%, calc(100% - var(--fire-y, 50%) - var(--fire-r, 150%)));
+    left: max(2%, calc(var(--fire-x, 50%) - var(--fire-r, 150%)));
+    right: max(2%, calc(100% - var(--fire-x, 50%) - var(--fire-r, 150%)));
     width: auto;
     height: auto;
     opacity: 1;
     box-shadow: none;
     z-index: 20;
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-around;
     padding: 3%;
-    border-radius: 6px;
+    border-radius: 42%;
     pointer-events: none;
     overflow: hidden;
     color: #ffd568;
@@ -7250,7 +7256,7 @@ button.turret-token {
         0 0 20px rgba(255, 185, 51, .9);
     background:
         repeating-radial-gradient(circle at 25% 85%, rgba(255, 199, 65, .18) 0 2px, transparent 3px 15px),
-        radial-gradient(ellipse at 50% 100%, rgba(255, 72, 12, .34), transparent 68%),
+        radial-gradient(ellipse at 50% 55%, rgba(255, 72, 12, .34), transparent 68%),
         linear-gradient(to top, rgba(49, 10, 5, .36), rgba(37, 41, 43, .12) 72%, transparent);
     animation: compartment-fire-flicker .46s steps(2, end) infinite alternate;
 }
@@ -7264,7 +7270,7 @@ button.turret-token {
     font-size: clamp(17px, 1.8vw, 34px);
     background:
         repeating-radial-gradient(circle at 25% 85%, rgba(255, 199, 65, .24) 0 2px, transparent 3px 12px),
-        radial-gradient(ellipse at 50% 100%, rgba(255, 72, 12, .48), transparent 70%),
+        radial-gradient(ellipse at 50% 55%, rgba(255, 72, 12, .48), transparent 70%),
         linear-gradient(to top, rgba(49, 10, 5, .5), rgba(37, 41, 43, .2) 72%, transparent);
 }
 
@@ -7273,18 +7279,17 @@ button.turret-token {
     font-size: clamp(20px, 2.2vw, 40px);
     background:
         repeating-radial-gradient(circle at 25% 82%, rgba(255, 215, 82, .32) 0 3px, transparent 4px 10px),
-        radial-gradient(ellipse at 50% 100%, rgba(255, 62, 8, .65), transparent 74%),
+        radial-gradient(ellipse at 50% 55%, rgba(255, 62, 8, .65), transparent 74%),
         linear-gradient(to top, rgba(58, 8, 3, .68), rgba(40, 34, 34, .32) 78%, transparent);
     animation-duration: .3s;
 }
 
 .station-authority-layer .room-node[data-room-id].fire-inferno::after {
     content: "🔥  🔥  🔥  🔥";
-    inset: 0;
     font-size: clamp(24px, 2.8vw, 48px);
     background:
         repeating-radial-gradient(circle at 18% 80%, rgba(255, 225, 101, .4) 0 4px, transparent 5px 9px),
-        radial-gradient(ellipse at 50% 100%, rgba(255, 52, 0, .78), transparent 80%),
+        radial-gradient(ellipse at 50% 55%, rgba(255, 52, 0, .78), transparent 80%),
         linear-gradient(to top, rgba(68, 5, 1, .8), rgba(51, 27, 25, .46) 82%, rgba(60, 60, 60, .12));
     box-shadow: inset 0 0 38px rgba(255, 83, 8, .72);
     animation-duration: .2s;

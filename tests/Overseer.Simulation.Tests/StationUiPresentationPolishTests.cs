@@ -187,7 +187,12 @@ public sealed class StationUiPresentationPolishTests
         var css = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor.css"));
 
         var fire = DeclarationsOf(css, ".station-authority-layer .room-node[data-room-id].has-fire::after");
-        Assert.Equal("2%", fire["inset"]);
+        foreach (var side in new[] { "top", "right", "bottom", "left" })
+        {
+            // Owner idea #76: the front grows from its origin but never past the walls.
+            Assert.StartsWith("max(2%, calc(", fire[side]);
+        }
+
         Assert.Equal("auto", fire["width"]);
         Assert.Equal("auto", fire["height"]);
         Assert.Equal("1", fire["opacity"]);
@@ -205,8 +210,8 @@ public sealed class StationUiPresentationPolishTests
             foreach (var property in stripe.Keys.Intersect(geometry))
             {
                 Assert.True(
-                    property is "top" or "right" or "bottom" or "left"
-                        ? fire.ContainsKey("inset") || fire.ContainsKey(property)
+                    property == "inset"
+                        ? new[] { "top", "right", "bottom", "left" }.All(fire.ContainsKey)
                         : fire.ContainsKey(property),
                     $"The fire overlay must reset '{property}', which {stripeSelector} sets.");
             }
@@ -221,7 +226,12 @@ public sealed class StationUiPresentationPolishTests
         var open = css.IndexOf('{', start);
         var close = css.IndexOf('}', open);
         var declarations = new Dictionary<string, string>();
-        foreach (var declaration in css[(open + 1)..close].Split(';'))
+        var body = System.Text.RegularExpressions.Regex.Replace(
+            css[(open + 1)..close],
+            @"/\*.*?\*/",
+            string.Empty,
+            System.Text.RegularExpressions.RegexOptions.Singleline);
+        foreach (var declaration in body.Split(';'))
         {
             var colon = declaration.IndexOf(':');
             if (colon > 0)

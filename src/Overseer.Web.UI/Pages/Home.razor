@@ -2832,7 +2832,16 @@
 
     private static string RoomStyle(Room room) =>
         FormattableString.Invariant(
-            $"left:{room.MapX}%;top:{room.MapY}%;width:{room.MapWidth}%;height:{room.MapHeight}%;");
+            $"left:{room.MapX}%;top:{room.MapY}%;width:{room.MapWidth}%;height:{room.MapHeight}%;{FireFrontStyle(room)}");
+
+    // Owner idea #76: the fire overlay is the authoritative front, centred on
+    // where the fire started and sized by FireFrontRules. A fire with no
+    // recorded origin keeps the CSS defaults, which fill the room.
+    private static string FireFrontStyle(Room room) =>
+        room.FireIntensity > 0 && room.FireOriginX is { } x && room.FireOriginY is { } y
+            ? FormattableString.Invariant(
+                $"--fire-x:{x:0.##}%;--fire-y:{y:0.##}%;--fire-r:{FireFrontRules.FrontRadius(room.FireIntensity):0.##}%;")
+            : string.Empty;
 
     private readonly record struct RoutePoint(double X, double Y);
 
