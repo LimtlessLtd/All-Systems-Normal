@@ -648,14 +648,14 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
   **Proposed 4B prompt/response shape for the next slices:** (1) identity + compact stats/personality; (2) `WHAT YOU CAN SEE NOW` as a labelled relational list first, not ASCII by default — e.g. `R0 current room: Engineering; exits H1→R1(open); people P1; fixtures F1 generator, F2 tool cabinet; hazards fire X1 near F1`; benchmark ASCII against this list before choosing it, because labels are what actions must ground to; (3) 3–6 retrieved recent memories/claims, with source/age and no omniscient distant state; (4) one compact action table containing only currently targetable action families plus closed resolvers; (5) output `{"goal":"…","steps":[...]}` with at most `NpcPlan.MaxSteps` steps, each step containing only `action`, `targetLabelOrResolver`, optional closed-catalogue `condition`, and an optional short `say`. No free-form coordinates, code, or hidden world IDs. The next implementation slice is the labelled local view; plan-array production remains shared with owner idea #5.
 
 ### 99. Remove radial fire rings
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790262157487449 (2026-09-24)
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790262157487449 and follow-up screenshot https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790263414372619 (2026-09-24)
 - Idea: "Remove the circles which radiate out from a fire source."
 - Outcome: the station overview no longer renders decorative/diagnostic concentric circles around fires; fire presentation is limited to visuals grounded in the deterministic fire state.
 - Size: small (one PR)
 - Status: **ready**.
 
 ### 100. Fire sprites must match physical spread and intensity
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790262157487449 (2026-09-24)
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790262157487449 and follow-up screenshot https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790263414372619 (2026-09-24)
 - Idea: "Increase the number of fire sprites when the fire is spreading, and place them where the fires are physically located. The number of fire sprites and where they are placed should reflect exactly how the fire is spreading, where it is located, and how intense it is. For more information lookup Rimworld fire mechanics."
 - Outcome: fire sprites are a presentation of deterministic fire geometry/intensity, not decorative random effects: every sprite is anchored to an actual burning location/cell/fixture represented by C# fire state, sprite density/intensity scales monotonically with that state, and no sprite suggests fire where the simulation has none. Research RimWorld's readable fire presentation for UI inspiration without importing its mechanics as simulation authority.
 - Size: large (slices: map current deterministic fire geometry/intensity to render data; replace random/decorative placement with grounded positions; scale sprite count/animation by intensity; browser visual regression/playtest)
@@ -688,7 +688,16 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Idea: "You cannot reset the run when running it locally, clicking the reset confirmation button does nothing."
 - Outcome: in the server/local build, confirming RESET from the menu reliably starts a fresh run/session with fresh scenario state and returns to the normal station view; cancelling remains a no-op. Add regression coverage for the local host reset path and a browser check of the confirmation flow so this cannot silently regress.
 - Size: small (one PR)
-- Status: **ready; health bug**.
+- Status: **in progress (#214, ChatGPT); health bug**.
+
+
+
+### 105. Raise furniture/interior art quality toward the RimWorld readability bar
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790263312650189 (2026-09-24)
+- Idea: "iterate on the quality of the furniture like chairs, tables and televisions and kitchen galley equipment ... refer to Rimworld for more detail ... in order to get to a releasable version we should have most of the rimworld functionality implemented too"
+- Outcome: chairs, tables, televisions and galley/kitchen fixtures get a focused presentation pass so each reads immediately as its function at normal station zoom, with room-appropriate material/shape variation and the same visual polish already achieved by machinery. Treat RimWorld as a reference bar for simulation readability and breadth, not as a requirement to copy assets or literally reproduce every mechanic; concrete functionality gaps remain separate owner/backlog items so the core LLM/deterministic-C# architecture is preserved.
+- Size: large (slices: furniture visual-language audit/reference sheet; chairs/tables; television/recreation fixtures; galley equipment; cross-room consistency/browser visual pass)
+- Status: **ready**.
 
 
 ## Deliberate decisions (do not "fix")
