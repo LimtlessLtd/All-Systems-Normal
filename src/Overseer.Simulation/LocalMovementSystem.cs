@@ -9,7 +9,7 @@ public sealed class LocalMovementSystem
     private const double FixtureClearance = 1.8;
     private const double WaypointMargin = .35;
     private const double CrewOverlapEpsilonMapUnits = 0.02;
-    private const double CrewSeparationMapUnits = 1.25;
+    private const double CrewSeparationMapUnits = 0.70;
     private readonly CrewDoorInteractionSystem _crewDoors = new();
 
     public void Tick(GameState state, TimeSpan delta)
@@ -34,22 +34,25 @@ public sealed class LocalMovementSystem
         {
             npc.IsLocallyMoving = false;
             var crewDistance = maxDistance * CrewConditionRules.MovementMultiplier(npc);
+            bool reachedDestination;
             if (npc.Movement is { } movement)
             {
                 AdvanceDoorMovement(state, npc, npc.Name, movement, crewDistance);
+                reachedDestination = npc.Movement is null;
             }
             else
             {
                 var room = state.Facility.Rooms[npc.CurrentRoomId];
                 var destination = GetLocalDestination(state, npc);
-                MoveTowards(room, npc, destination.X, destination.Y, crewDistance);
+                reachedDestination = MoveTowards(room, npc, destination.X, destination.Y, crewDistance);
             }
 
-            // Do not turn nearby moving people into dynamic obstacles: that
-            // changes route timing and can create emergent door queues. This
-            // rule is deliberately about people who have actually settled on
-            // the same authoritative point.
-            if (!npc.IsLocallyMoving)
+            // Do not turn nearby people into dynamic pathfinding obstacles.
+            // Separate only when this actor has actually reached the point it
+            // was trying to occupy. This also resolves the overlap on the same
+            // tick as arrival instead of allowing a shared fixture target to
+            // re-stack everyone for a full frame/tick.
+            if (reachedDestination)
             {
                 ResolveCrewSeparation(state, npc, settledCrew);
             }
@@ -683,20 +686,21 @@ public sealed class LocalMovementSystem
 
     private static int StableDirection(Npc npc)
     {
+        // Npc.Id is a runtime Guid (Guid.NewGuid), so it must never influence
+        // simulation outcomes. Name + role come from the seeded roster and keep
+        // identical seeded runs deterministic.
         unchecked
         {
-            var hash = 17;
+            uint hash = 2166136261;
             foreach (var ch in npc.Name)
             {
-                hash = (hash * 31) + ch;
+                hash ^= ch;
+                hash *= 16777619;
             }
 
-            foreach (var value in npc.Id.ToByteArray())
-            {
-                hash = (hash * 31) + value;
-            }
-
-            return (int)((uint)hash % 16u);
+            hash ^= (uint)npc.Role;
+            hash *= 16777619;
+            return (int)(hash % 16u);
         }
     }
 
