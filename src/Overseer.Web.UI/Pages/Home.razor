@@ -2874,6 +2874,7 @@
     private IReadOnlyList<RoutePoint> SelectedRoutePoints()
     {
         IReadOnlyList<string> path;
+        IStationMobileEntity? selectedMover = null;
         var points = new List<RoutePoint>();
 
         if (SelectedCrew is { IsAlive: true, PlannedDestinationRoomId: { } crewDestination } crew
@@ -2887,6 +2888,7 @@
             if (path.Count < 2)
                 return [];
 
+            selectedMover = crew;
             points.Add(new(CrewMapX(crew), CrewMapY(crew)));
         }
         else if (SelectedRobot is { TargetRoomId: { } robotDestination } robot
@@ -2899,11 +2901,27 @@
             if (path.Count < 2)
                 return [];
 
+            selectedMover = robot;
             points.Add(new(RobotMapX(robot), RobotMapY(robot)));
         }
         else
         {
             return [];
+        }
+
+        if (selectedMover is not null
+            && Session.State.Facility.Rooms.TryGetValue(
+                selectedMover.CurrentRoomId,
+                out var currentRoom))
+        {
+            foreach (var local in LocalMovementSystem.PreviewDoorRoute(
+                         Session.State,
+                         selectedMover,
+                         TimeSpan.FromMinutes(1),
+                         maxSteps: 24))
+            {
+                points.Add(LocalRoutePoint(currentRoom, local));
+            }
         }
 
         for (var index = 0; index < path.Count - 1; index++)
