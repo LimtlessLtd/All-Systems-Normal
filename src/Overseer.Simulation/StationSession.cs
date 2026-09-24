@@ -73,6 +73,14 @@ public abstract class StationSession
 
     public GameState State { get; protected set; }
 
+    /// <summary>
+    /// Operational status for the runtime supplying cognition. The browser demo
+    /// has no external provider; the local server overrides this with its
+    /// payload-free Ollama diagnostics.
+    /// </summary>
+    public virtual AiRuntimeDiagnosticsSnapshot AiRuntimeDiagnostics =>
+        AiRuntimeDiagnosticsSnapshot.None;
+
     public CampaignState Campaign { get; protected set; } = new();
 
     public bool IsRunning => _clock.IsRunning;
