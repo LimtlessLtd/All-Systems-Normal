@@ -3003,6 +3003,13 @@
         return physicalWidth >= physicalHeight ? -90 : 0;
     }
 
+    private static RoutePoint LocalRoutePoint(
+        Room room,
+        (double X, double Y) local) =>
+        new(
+            room.MapX + (((local.X - 50) / 100) * room.MapWidth),
+            room.MapY + (((local.Y - 50) / 100) * room.MapHeight));
+
     private RoutePoint CrewNextMapPoint(Npc npc)
     {
         var room = Session.State.Facility.Rooms[npc.CurrentRoomId];
