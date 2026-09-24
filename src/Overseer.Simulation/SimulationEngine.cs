@@ -144,13 +144,19 @@ public sealed class SimulationEngine
                     minutes);
             }
 
+            // Owner idea #65: a noisy room (running or worn machinery here or
+            // through an open hatch) makes the same time in bed less restful.
+            var restRecovery = sleeping
+                ? StationNoiseSystem.RestRecoveryFactor(StationNoiseSystem.RoomLevel(state, npc.CurrentRoomId))
+                : 1;
+
             if (scheduledSleep && !sleeping)
                 npc.SleepDebtMinutes = Math.Clamp(npc.SleepDebtMinutes + minutes, 0, 16 * 60);
             else if (sleeping)
-                npc.SleepDebtMinutes = Math.Clamp(npc.SleepDebtMinutes - (2.2 * minutes), 0, 16 * 60);
+                npc.SleepDebtMinutes = Math.Clamp(npc.SleepDebtMinutes - (2.2 * restRecovery * minutes), 0, 16 * 60);
 
             var fatigueRate = sleeping
-                ? -0.9
+                ? -0.9 * restRecovery
                 : 0.065
                     + (scheduledSleep ? 0.055 : 0)
                     + (Math.Min(360, npc.SleepDebtMinutes) / 12000d);

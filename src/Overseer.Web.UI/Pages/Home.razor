@@ -1266,6 +1266,7 @@
                     <div><span>FIRE</span><strong>@selectedRoom.FireIntensity.ToString("0")%</strong></div>
                     <div><span>SMOKE</span><strong>@selectedRoom.SmokePercent.ToString("0")%</strong></div>
                     <div><span>OCCUPANTS</span><strong>@VisibleOccupantLabel(selectedRoom)</strong></div>
+                    <div><span>NOISE</span><strong>@RoomNoiseLabel(selectedRoom)</strong></div>
                 </div>
 
                 <div class="belief-card">
@@ -2629,6 +2630,18 @@
     /// shedding clears <see cref="Room.IsPowered"/> too). Generators and the
     /// reactor are sources, so their own room's feed does not stop them.
     /// </summary>
+    /// <summary>
+    /// Owner idea #65: the room's authoritative machinery noise, graded so a
+    /// level that disturbs sleep is called out.
+    /// </summary>
+    private string RoomNoiseLabel(Room room)
+    {
+        var level = StationNoiseSystem.RoomLevel(Session.State, room.Id);
+        return StationNoiseSystem.IsDisturbing(level)
+            ? $"LOUD {level:0}"
+            : level > 0 ? $"{level:0}" : "QUIET";
+    }
+
     private string MachineFixtureClass(Room room, RoomFixture fixture) =>
         FixtureIsRunning(room, fixture)
             ? FixtureClass(fixture)
