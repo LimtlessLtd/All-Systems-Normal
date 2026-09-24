@@ -86,6 +86,32 @@ public sealed class FireReflexTests
     }
 
     [Fact]
+    public async Task EveryoneInADangerousRoom_GetsOut_AndTheModelIsAskedForEachInTurn()
+    {
+        var (session, decisions) = await CreateSessionAsync();
+        var (first, second) = KeepFirstTwoCrewPresent(session);
+        var control = session.State.Facility.Rooms["control"];
+        control.OxygenPercent = 8;
+        Assert.True(CrewEnvironmentSafety.IsDangerous(control));
+
+        await session.AdvanceOneMinuteAsync();
+
+        // One emergency mind per tick: the second reacts on reflex meanwhile.
+        Assert.Equal([first.Id], decisions.Calls);
+        Assert.NotNull(second.Intent);
+        Assert.Equal(GameSession.ReflexSource, second.Intent!.Source);
+        Assert.Equal(ActionKind.Move, second.Intent.Action);
+        Assert.NotEqual("control", second.Intent.TargetId);
+
+        await session.AdvanceOneMinuteAsync();
+
+        // The model already answered the first; the reflexed person is heard
+        // next even though the first is still in danger and not leaving.
+        Assert.Equal([first.Id, second.Id], decisions.Calls);
+        AssertModelDecided(second);
+    }
+
+    [Fact]
     public async Task NoFire_NoReflex()
     {
         var (session, decisions) = await CreateSessionAsync();
