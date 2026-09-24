@@ -12,8 +12,8 @@ public enum SeatFacing
 
 /// <summary>
 /// Owner idea #105: which way a chair or sofa is drawn facing, so its backrest
-/// sits on the far side. A sofa faces the room's screen or television when it
-/// has one; otherwise a seat faces the nearest table, console or workbench.
+/// sits on the far side. A sofa faces the room's television, else a screen,
+/// when it has one; otherwise a seat faces the nearest table, console or workbench.
 /// The seed's facing angle is the fallback when the room has nothing to face.
 /// Presentation only, derived from the room's own fixture geometry.
 /// </summary>
@@ -27,7 +27,12 @@ public static class SeatFacingRules
         if (seat.Type is not (FixtureType.Chair or FixtureType.Sofa))
             return null;
 
-        var faced = (seat.Type == FixtureType.Sofa ? Nearest(room, seat, IsViewingTarget) : null)
+        // A sofa watches the television before any wall display: generated
+        // rooms scatter status screens that can sit nearer than the set.
+        var faced = (seat.Type == FixtureType.Sofa
+                ? Nearest(room, seat, fixture => fixture.Type == FixtureType.Television)
+                    ?? Nearest(room, seat, IsViewingTarget)
+                : null)
             ?? Nearest(room, seat, IsWorkSurface)
             ?? Nearest(room, seat, IsViewingTarget);
 

@@ -36,6 +36,20 @@ public sealed class SeatFacingRulesTests
     }
 
     [Fact]
+    public void ASofaFacesTheTelevisionRatherThanANearerWallScreen()
+    {
+        // Seen on a generated lounge: a status screen on the wall behind the
+        // sofa was nearer than the set, so the sofa faced the wall.
+        var sofa = new RoomFixture(FixtureType.Sofa, "Sofa", 30, 70, 26, 18);
+        var room = Room(
+            new RoomFixture(FixtureType.Television, "TV", 50, 8, 30, 6),
+            new RoomFixture(FixtureType.Screen, "Screen 2", 30, 94, 20, 6),
+            sofa);
+
+        Assert.Equal(SeatFacing.Up, SeatFacingRules.Facing(room, sofa));
+    }
+
+    [Fact]
     public void AChairFacesItsDeskRatherThanTheTelevision()
     {
         var chair = Chair(50, 70);

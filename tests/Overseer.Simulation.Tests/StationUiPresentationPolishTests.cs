@@ -154,6 +154,26 @@ public sealed class StationUiPresentationPolishTests
     }
 
     [Fact]
+    public void TelevisionAndGameConsoleHaveTheirOwnFurnitureArt()
+    {
+        // Owner idea #105 slice 2: the game console no longer shares the work
+        // console's art, and an unpowered television shows a dark screen.
+        var root = FindRepositoryRoot();
+        var css = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor.css"));
+
+        Assert.Contains(".station-authority-layer .room-node .fixture.fixture-recreationconsole::before", css);
+        Assert.Contains(".station-authority-layer .room-node .fixture.fixture-recreationconsole::after", css);
+        Assert.Contains(".station-authority-layer .room-node .fixture.fixture-television.fixture-inert", css);
+        Assert.Contains("@keyframes arcade-screen", css);
+
+        // The arcade rules must come after the shared console rules they
+        // override, or the work-console status strip wins on equal terms.
+        var sharedConsole = css.LastIndexOf(".station-authority-layer .fixture-recreationconsole::after", StringComparison.Ordinal);
+        var arcade = css.IndexOf(".station-authority-layer .room-node .fixture.fixture-recreationconsole::after", StringComparison.Ordinal);
+        Assert.True(sharedConsole >= 0 && arcade > sharedConsole);
+    }
+
+    [Fact]
     public void FirePresentation_DoesNotRenderRadialRingLayers()
     {
         var root = FindRepositoryRoot();
