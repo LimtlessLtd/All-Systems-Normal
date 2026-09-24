@@ -41,7 +41,7 @@ public sealed class OllamaAiDecisionService(
             var options = new ChatOptions
             {
                 Temperature = 0.7f,
-                MaxOutputTokens = 300
+                MaxOutputTokens = 750
             }.AddOllamaOption(OllamaOption.NumCtx, ContextWindowTokens);
 
             var attempt = await RequestDecisionAsync(
