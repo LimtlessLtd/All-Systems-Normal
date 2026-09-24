@@ -338,9 +338,9 @@
             }
 
             <div class="station-map-viewport" data-map-camera tabindex="0" aria-label="Station map. Drag to pan; use WASD or arrow keys to move the camera.">
-                @if (_resetInProgress)
+                @if (StationProcessingLabel is { } processingLabel)
                 {
-                    <span class="station-processing-status" role="status" aria-live="polite">PROCESSING — RESETTING RUN</span>
+                    <span class="station-processing-status" role="status" aria-live="polite">@processingLabel</span>
                 }
                 <div class="@StationMapClass" style="@StationMapStyle">
                 @if (_fireAlarmArming)
@@ -2258,8 +2258,19 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Session.ProcessingStatusChanged += OnProcessingStatusChanged;
         await Session.InitializeAsync();
     }
+
+    // Owner idea #102: the reset acknowledgement wins while a reset runs;
+    // otherwise show whatever model call the session is awaiting.
+    private string? StationProcessingLabel =>
+        _resetInProgress ? "PROCESSING — RESETTING RUN" : Session.ProcessingStatus;
+
+    // Rendered mid-await so the label is visible while the model call holds
+    // the turn, not only after it returns.
+    private void OnProcessingStatusChanged() =>
+        _ = InvokeAsync(StateHasChanged);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -3229,6 +3240,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        Session.ProcessingStatusChanged -= OnProcessingStatusChanged;
         var task = _clockTask;
         StopClock();
 

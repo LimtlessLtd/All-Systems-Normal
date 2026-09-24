@@ -85,6 +85,63 @@ public abstract class StationSession
 
     public bool IsRunning => _clock.IsRunning;
 
+    /// <summary>
+    /// What the session is waiting on while an awaited model call holds up the
+    /// turn (owner idea #102), e.g. "AWAITING LLM RESPONSE — Ada is deciding".
+    /// Null when nothing is pending. Only a runtime that really awaits a model
+    /// sets it, so the Pages build (deterministic browser minds) never claims
+    /// LLM activity.
+    /// </summary>
+    public string? ProcessingStatus { get; private set; }
+
+    /// <summary>Raised whenever <see cref="ProcessingStatus"/> changes, so the console can render it mid-await.</summary>
+    public event Action? ProcessingStatusChanged;
+
+    /// <summary>
+    /// Wording for <see cref="ProcessingStatus"/> while an Overseer message is
+    /// interpreted, or null when interpretation isn't model-backed.
+    /// </summary>
+    protected virtual string? MessageInterpretationStatus => null;
+
+    /// <summary>
+    /// Runs <paramref name="operation"/> with <see cref="ProcessingStatus"/> set,
+    /// and restores the previous status on success, failure or cancellation.
+    /// </summary>
+    protected async Task<T> AwaitWithProcessingStatusAsync<T>(
+        string? status,
+        Func<Task<T>> operation)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+
+        if (status is null)
+        {
+            return await operation();
+        }
+
+        var previous = ProcessingStatus;
+        SetProcessingStatus(status);
+
+        try
+        {
+            return await operation();
+        }
+        finally
+        {
+            SetProcessingStatus(previous);
+        }
+    }
+
+    private void SetProcessingStatus(string? status)
+    {
+        if (ProcessingStatus == status)
+        {
+            return;
+        }
+
+        ProcessingStatus = status;
+        ProcessingStatusChanged?.Invoke();
+    }
+
     public int PoweredRoomCount =>
         State.Facility.Rooms.Values.Count(room => room.IsPowered);
 
@@ -633,12 +690,14 @@ public abstract class StationSession
             return false;
         }
 
-        var intent = await _messageInterpreter.InterpretAsync(
-            text,
-            scope,
-            targetNpcName,
-            State,
-            cancellationToken);
+        var intent = await AwaitWithProcessingStatusAsync(
+            MessageInterpretationStatus,
+            () => _messageInterpreter.InterpretAsync(
+                text,
+                scope,
+                targetNpcName,
+                State,
+                cancellationToken));
 
         OverseerCommsSystem.Send(
             State,

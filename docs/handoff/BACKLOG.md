@@ -661,13 +661,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Size: large (slices: instrumentation/benchmark; diagnose cadence vs provider latency vs prompt/fallback causes; expand model-visible social/composable affordances where evidence shows rigidity; long playtest/A-B)
 - Status: **ready**, but implement through/after #98 so prompt/plan architecture is not duplicated.
 
-### 102. Show a processing / awaiting-LLM indicator
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790262759659339 (2026-09-24)
-- Idea: show "some small white text in the very bottom left handcorner of the space station overview window" such as "processing", "awaiting LLM response" or "determining appropriate course of action" when the simulation appears paused doing background work.
-- Outcome: the station overview exposes a small unobtrusive bottom-left busy-status label whenever an awaited operation is blocking visible progression, using truthful operation-specific state (at minimum `Awaiting LLM response` around provider calls) and clearing it reliably on success, failure or cancellation. It must not claim LLM activity on the static Pages/browser-mind build.
-- Size: small (one PR)
-- Status: **ready**. Reset now has a truthful generic `PROCESSING — RESETTING RUN` acknowledgement in #214; this item remains open for ordinary awaited NPC/Overseer LLM calls and operation-specific wording.
-
 ### 105. Raise furniture/interior art quality toward the RimWorld readability bar
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790263312650189 (2026-09-24)
 - Idea: "iterate on the quality of the furniture like chairs, tables and televisions and kitchen galley equipment ... refer to Rimworld for more detail ... in order to get to a releasable version we should have most of the rimworld functionality implemented too"
