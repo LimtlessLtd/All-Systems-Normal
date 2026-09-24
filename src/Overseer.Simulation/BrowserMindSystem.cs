@@ -113,6 +113,33 @@ public sealed class BrowserMindSystem
                              state.Facility.Rooms[npc.CurrentRoomId])))
         {
             var currentRoom = state.Facility.Rooms[npc.CurrentRoomId];
+            var repairableLocalBreach =
+                StationHazardSystem.HullRepairRules.CanAttempt(npc, currentRoom);
+
+            if (repairableLocalBreach)
+            {
+                if (npc.Intent is { Action: ActionKind.PatchHull, TargetId: { } patchTarget }
+                    && patchTarget.Equals(currentRoom.Id, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                npc.Intent = null;
+                npc.Movement = null;
+                npc.RoutineUntil = TimeSpan.Zero;
+                SetIntent(
+                    state,
+                    npc,
+                    Create(
+                        state,
+                        ActionKind.PatchHull,
+                        currentRoom.Id,
+                        $"Patch the hull breach in {currentRoom.Name}.",
+                        "The fire is out, this compartment is open to space, and I have the repair skill to seal it using emergency EVA gear.",
+                        100),
+                    NpcBubbleKind.Alert);
+                continue;
+            }
 
             if (!CrewEnvironmentSafety.IsDangerous(currentRoom)
                 || IsAlreadyEscapingToSaferRoom(state, npc, currentRoom)
@@ -247,6 +274,20 @@ public sealed class BrowserMindSystem
         if (DecompressionContainmentRules.FindHatchTowardBreach(state, npc) is { } hatch)
         {
             return CloseHatchTowardBreach(state, npc, hatch, 99);
+        }
+
+        if (StationHazardSystem.FindRepairableBreachForResponder(
+                state,
+                npc,
+                _navigation) is { } breachedRoom)
+        {
+            return Create(
+                state,
+                ActionKind.PatchHull,
+                breachedRoom.Id,
+                $"Patch the hull breach in {breachedRoom.Name}.",
+                "The fire is out, the compartment is open to space, and I have the repair skill to seal it using emergency EVA gear.",
+                99);
         }
 
         if (CrewEnvironmentSafety.IsDangerous(currentRoom))

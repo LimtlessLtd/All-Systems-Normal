@@ -344,6 +344,29 @@ public sealed class StationHazardSystem
                 return true;
             }
 
+            case ActionKind.PatchHull:
+            {
+                if (!HullRepairRules.CanAttempt(npc, room))
+                {
+                    message = !room.HasHullBreach
+                        ? $"{room.Name} no longer has a hull breach to patch."
+                        : room.FireIntensity > 0
+                            ? $"{room.Name} is still burning; the hull cannot be patched yet."
+                            : $"{npc.Name} is not fit or skilled enough for emergency hull repair.";
+                    return false;
+                }
+
+                room.HasHullBreach = false;
+                room.HullIntegrityPercent = Math.Max(
+                    room.HullIntegrityPercent,
+                    HullRepairRules.RestoredHullIntegrityPercent);
+                room.VentilationEnabled = true;
+                message = $"{npc.Name} seals the hull breach in {room.Name}; the air loop can repressurise the compartment.";
+                Log(state, message);
+                AudioCueSystem.Emit(state, AudioCueKind.Important, roomId: room.Id);
+                return true;
+            }
+
             case ActionKind.SealHazardRoom:
             {
                 var closable = state.Facility.Doors
@@ -437,6 +460,106 @@ public sealed class StationHazardSystem
     /// than flee, gated on fire intensity still being survivable and the
     /// person having either the practical skill or the courage for it.
     /// </summary>
+    /// <summary>
+    /// Emergency hull repair is a cognition-visible capability, not an automatic
+    /// rescue script. The worker must be healthy enough for the exposure, have
+    /// real repair skill, and wait until the fire that caused the breach is out.
+    /// </summary>
+    public static class HullRepairRules
+    {
+        public const int MinimumRepairSkill = 55;
+        public const double MinimumHealth = 55;
+        public const double RestoredHullIntegrityPercent = 35;
+        public static readonly TimeSpan PatchDuration = TimeSpan.FromMinutes(4);
+
+        public static bool CanAttempt(Npc npc, Room room)
+        {
+            ArgumentNullException.ThrowIfNull(npc);
+            ArgumentNullException.ThrowIfNull(room);
+
+            return npc.IsAlive
+                && npc.IsPresent
+                && npc.Health >= MinimumHealth
+                && CrewCounterplaySystem.BestRepairSkill(npc) >= MinimumRepairSkill
+                && room.HasHullBreach
+                && room.FireIntensity <= 0;
+        }
+
+        /// <summary>
+        /// Choosing PatchHull includes donning the station's standard emergency
+        /// pressure suit and tether before entering the target compartment.
+        /// This deterministic execution gear protects only while that patch
+        /// intent/task is live; it does not choose the NPC's motive.
+        /// </summary>
+        public static bool HasEmergencyPressureProtection(Npc npc, string roomId)
+        {
+            ArgumentNullException.ThrowIfNull(npc);
+            ArgumentException.ThrowIfNullOrWhiteSpace(roomId);
+
+            return (npc.Intent is { Action: ActionKind.PatchHull, TargetId: { } intentTarget }
+                        && intentTarget.Equals(roomId, StringComparison.OrdinalIgnoreCase))
+                || (npc.ActiveTask is
+                    {
+                        Status: CrewTaskStatus.InProgress,
+                        Action: ActionKind.PatchHull,
+                        TargetId: { } taskTarget
+                    }
+                    && taskTarget.Equals(roomId, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    /// <summary>
+    /// One grounded breach a deterministic fallback mind could choose to patch.
+    /// C# exposes the opportunity and avoids duplicate responders; the mind still
+    /// chooses the PatchHull intention.
+    /// </summary>
+    public static Room? FindRepairableBreachForResponder(
+        GameState state,
+        Npc npc,
+        NavigationSystem navigation)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(npc);
+        ArgumentNullException.ThrowIfNull(navigation);
+
+        if (!npc.IsAlive || !npc.IsPresent || npc.IsContainmentBreachInProgress)
+            return null;
+
+        return state.Facility.Rooms.Values
+            .Where(room => HullRepairRules.CanAttempt(npc, room))
+            .Where(room => !state.Crew.Any(other =>
+                other.Id != npc.Id
+                && other.IsAlive
+                && other.IsPresent
+                && ((other.Intent is
+                        {
+                            Action: ActionKind.PatchHull,
+                            TargetId: { } intentTarget
+                        }
+                        && intentTarget.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+                    || (other.ActiveTask is
+                        {
+                            Status: CrewTaskStatus.InProgress,
+                            Action: ActionKind.PatchHull,
+                            TargetId: { } taskTarget
+                        }
+                        && taskTarget.Equals(room.Id, StringComparison.OrdinalIgnoreCase)))))
+            .Select(room => new
+            {
+                Room = room,
+                IsCurrent = room.Id.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase),
+                Path = room.Id.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
+                    ? new[] { npc.CurrentRoomId }
+                    : navigation.FindPathForCrew(state, npc, npc.CurrentRoomId, room.Id).ToArray()
+            })
+            .Where(candidate => candidate.IsCurrent || candidate.Path.Length >= 2)
+            .OrderByDescending(candidate => candidate.IsCurrent)
+            .ThenBy(candidate => candidate.Path.Length)
+            .ThenBy(candidate => candidate.Room.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(candidate => candidate.Room)
+            .FirstOrDefault();
+    }
+
     public static bool ShouldFightFire(Npc npc, Room room)
     {
         ArgumentNullException.ThrowIfNull(npc);

@@ -49,6 +49,18 @@ public static class CrewTaskSystem
             npc.Health <= 40
             || npc.LastHealthSnapshot - npc.Health >= 8;
 
+        var remoteHullRepair =
+            intent.Action == ActionKind.PatchHull
+            && intent.TargetId is { } breachRoomId
+            && state.Facility.Rooms.TryGetValue(breachRoomId, out var breachedRoom)
+            && StationHazardSystem.HullRepairRules.CanAttempt(npc, breachedRoom)
+            && (breachRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase)
+                || new NavigationSystem().FindPathForCrew(
+                    state,
+                    npc,
+                    npc.CurrentRoomId,
+                    breachedRoom.Id).Count >= 2);
+
         var remoteFireResponse =
             intent.Action == ActionKind.FightFire
             && intent.TargetId is { } fireRoomId
@@ -72,6 +84,7 @@ public static class CrewTaskSystem
             || decompressing
             || hostileMachineHere
             || acuteInjury
+            || remoteHullRepair
             || remoteFireResponse;
         if (!genuineThreat)
             return false;
@@ -81,6 +94,7 @@ public static class CrewTaskSystem
             or ActionKind.SeekSafety
             or ActionKind.EvacuateHazard
             or ActionKind.FightFire
+            or ActionKind.PatchHull
             or ActionKind.SealHazardRoom
             or ActionKind.VentHazardRoom
             or ActionKind.CloseDoor

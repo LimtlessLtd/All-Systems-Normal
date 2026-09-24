@@ -26,6 +26,20 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                 DecompressionContainmentRules.Reason(state, npc, hatch),
                 99);
         }
+        else if (StationHazardSystem.FindRepairableBreachForResponder(
+                     state,
+                     npc,
+                     new NavigationSystem()) is { } breachedRoom)
+        {
+            intent = Create(
+                npc,
+                state,
+                ActionKind.PatchHull,
+                breachedRoom.Id,
+                $"Patch the hull breach in {breachedRoom.Name}.",
+                "The fire is out, the compartment is open to space, and I have the repair skill to seal it using emergency EVA gear.",
+                99);
+        }
         else if (CrewEnvironmentSafety.IsDangerous(room))
         {
             var fightFire = room.FireIntensity > 0 && StationHazardSystem.ShouldFightFire(npc, room);

@@ -53,7 +53,7 @@ Shared mechanics belong in Domain/Simulation and must not be independently reimp
 - The server tick awaits the Ollama decision (`StationSession.AdvanceCoreAsync` → `GameSession.ThinkAsync`), so the station pauses while a mind thinks. This is deliberate (see `BACKLOG.md` → Deliberate decisions).
 - `Components/App.razor` disables prerender (`new InteractiveServerRenderMode(prerender: false)`) so crew is generated once, by the real circuit. Tradeoff: first paint is blank until the SignalR circuit connects and generation finishes. Guarded by `StationSessionTests.ServerHostDoesNotPrerenderTheInteractiveRoute`.
 - `GameSession` is scoped per circuit: opening `/debug` in a new tab shows a fresh session; in-app navigation keeps the same circuit.
-- `OllamaAiDecisionService` sets `num_ctx` 8192 (the decision prompt is ~3.9k tokens; Ollama's 2048 default truncates silently) and retries once with a corrective instruction on unparseable output before falling back to `RuleBasedAiDecisionService`. Covered by `AiDecisionServiceTests`.
+- `OllamaAiDecisionService` sets `num_ctx` 16384 (the decision prompt is ~3.9k tokens; Ollama's 2048 default truncates silently) and retries once with a corrective instruction on unparseable output before falling back to `RuleBasedAiDecisionService`. Covered by `AiDecisionServiceTests`.
 - `dotnet run` in Production mode serves no static assets (no static-web-assets manifest). Use Development locally, or `dotnet publish` for Production.
 
 ---

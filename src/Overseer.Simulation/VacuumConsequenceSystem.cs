@@ -39,6 +39,13 @@ public sealed class VacuumConsequenceSystem
 
             var room = state.Facility.Rooms[npc.CurrentRoomId];
 
+            if (StationHazardSystem.HullRepairRules.HasEmergencyPressureProtection(npc, room.Id))
+            {
+                StatLogSystem.Set(state, npc, CrewStat.Fear, Math.Clamp(npc.Fear + 18, 0, 100), "decompression");
+                StatLogSystem.Set(state, npc, CrewStat.Stress, Math.Clamp(npc.Stress + 15, 0, 100), "decompression");
+                continue;
+            }
+
             if (room.PressureKpa >= EjectionPressureKpa || depth > MaxEjectionDepth)
             {
                 StatLogSystem.Set(state, npc, CrewStat.Fear, Math.Clamp(npc.Fear + 18, 0, 100), "decompression");

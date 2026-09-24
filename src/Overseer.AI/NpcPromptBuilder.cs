@@ -428,11 +428,21 @@ public static class NpcPromptBuilder
         // Owner idea #74: only posts this person could really take, so the
         // skill floor itself never reaches the prompt.
         var openPosts = RoleSuccessionRules.OpenPostsFor(state, npc);
+        var reachableHullRooms = ReachableRooms(state, npc, npc.CurrentRoomId);
+        var patchableHullRooms = state.Facility.Rooms.Values
+            .Where(candidate =>
+                reachableHullRooms.Contains(candidate.Id)
+                && StationHazardSystem.HullRepairRules.CanAttempt(npc, candidate))
+            .OrderBy(candidate => candidate.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(candidate =>
+                $"- {candidate.Id} = {candidate.Name} | pressure {candidate.PressureKpa:0.0} kPa | hull breached")
+            .ToArray();
         // Owner idea #97: an action whose target list is empty for this person
         // right now is left out, with its target contract, to keep the prompt
         // inside the model's context. Validation of any action is unchanged.
         var emptyTargetTypes = new HashSet<string>(StringComparer.Ordinal);
         if (disconnectableLocalDevices.Length == 0) emptyTargetTypes.Add("local-device");
+        if (patchableHullRooms.Length == 0) emptyTargetTypes.Add("breached-room");
         if (disabledSystems.Count == 0) emptyTargetTypes.Add("system");
         if (!state.Facility.Rooms.Values.Any(candidate =>
                 candidate.Type == RoomType.Airlock
@@ -492,7 +502,7 @@ public static class NpcPromptBuilder
         if (npc.IsPrisoner)
             builder.AppendLine($"CONTAINMENT STATUS: prisoner; danger {npc.PrisonerDangerLevel}; violence bias {npc.PrisonerViolenceBias:0}. This is context, not permission to ignore physical constraints.");
         builder.AppendLine($"CURRENT ROOM: {room.Id} ({room.Name})");
-        builder.AppendLine($"ROOM STATE: power {(room.IsPowered ? "on" : "off")}, lights {(room.LightsOn ? "on" : "off")}, oxygen {room.OxygenPercent:0.00}%, CO2 {room.CarbonDioxidePercent:0.00}%, pressure {room.PressureKpa:0.0} kPa, temperature {room.TemperatureC:0.0}C, ventilation {(room.VentilationEnabled ? "open" : "isolated")}, fire {room.FireIntensity:0}%, smoke {room.SmokePercent:0}%");
+        builder.AppendLine($"ROOM STATE: power {(room.IsPowered ? "on" : "off")}, lights {(room.LightsOn ? "on" : "off")}, oxygen {room.OxygenPercent:0.00}%, CO2 {room.CarbonDioxidePercent:0.00}%, pressure {room.PressureKpa:0.0} kPa, temperature {room.TemperatureC:0.0}C, ventilation {(room.VentilationEnabled ? "open" : "isolated")}, hull {(room.HasHullBreach ? "BREACHED" : $"{room.HullIntegrityPercent:0}%")}, fire {room.FireIntensity:0}%, smoke {room.SmokePercent:0}%");
         var noiseSources = StationNoiseSystem.Sources(state, room.Id);
         var noiseLevel = noiseSources.Sum(source => source.Level);
         if (StationNoiseSystem.IsDisturbing(noiseLevel))
@@ -736,10 +746,16 @@ public static class NpcPromptBuilder
             : string.Join(", ", disabledSystems));
         builder.AppendLine("KNOWN CREW ROSTER / VALID PERSON TARGETS:");
         builder.AppendLine(string.Join(", ", knownPersonTargets));
+        if (patchableHullRooms.Length > 0)
+        {
+            builder.AppendLine("BREACHED HULL ROOMS YOU COULD PATCH:");
+            foreach (var breached in patchableHullRooms) builder.AppendLine(breached);
+        }
         builder.AppendLine();
         builder.AppendLine("AVAILABLE CAPABILITIES / TARGET CONTRACTS:");
         builder.AppendLine(CrewAffordanceSystem.PromptCatalog(entry => Offered(entry.TargetType)));
         builder.AppendLine("For room-target actions (including Move, SeekSafety, FightFire, EvacuateHazard, SealHazardRoom, VentHazardRoom, Investigate, VerifyClaim, InspectEquipment, Work, Repair and StandGuard), TargetId must be a valid room ID.");
+        if (Offered("breached-room")) builder.AppendLine("For PatchHull, TargetId must be an exact room ID from BREACHED HULL ROOMS YOU COULD PATCH. Choosing it means committing to local emergency EVA repair work; C# validates the skill, fire state, travel, timing and seal.");
         builder.AppendLine("Hazards are not scripted for you: decide what you WANT to do from the available affordances. The simulation will validate reachability, door state, pressure, equipment and consequences.");
         builder.AppendLine("For ForceDoor, TargetId must be the exact ID of a currently connected blocked hatch listed above.");
         if (Offered("local-device")) builder.AppendLine("For DisconnectDevice, TargetId must be an exact device ID from LOCAL MACHINES YOU CAN PHYSICALLY DISCONNECT. You will walk to its hardware before the physical disconnect happens.");
