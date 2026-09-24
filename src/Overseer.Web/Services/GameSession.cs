@@ -306,7 +306,8 @@ public sealed class GameSession(
                     // C# only re-opens cognition; the mind still decides whether
                     // to fight, flee, verify, finish the old job or do anything else.
                     || State.Facility.Rooms[npc.CurrentRoomId].FireIntensity > 0
-                    || npc.ReceivedMessages.FirstOrDefault()?.Claim == OverseerClaimKind.FireAlarm))
+                    || (npc.ReceivedMessages.FirstOrDefault() is { Claim: OverseerClaimKind.FireAlarm } latestAlarm
+                        && npc.LastThoughtAt <= latestAlarm.SentAt)))
             .OrderByDescending(npc =>
                 npc.MissingPersonConcerns.Values.Any(concern =>
                     concern.Stage == MissingPersonConcernStage.Escalated))
