@@ -242,18 +242,26 @@ public sealed class ScheduledSleepContinuityTests
         var sleepers = state.Crew.Where(npc => !npc.IsPrisoner).Take(8).ToList();
         Assert.Equal(8, sleepers.Count);
 
+        var sleepingCapacity = asleep ? Math.Min(beds.Count, sleepers.Count) : 0;
         for (var i = 0; i < sleepers.Count; i++)
         {
             sleepers[i].CurrentRoomId = quarters.Id;
             sleepers[i].PositionX = beds[i % beds.Count].X;
             sleepers[i].PositionY = beds[i % beds.Count].Y;
-            sleepers[i].CurrentAction = new NpcAction(asleep ? ActionKind.Sleep : ActionKind.Idle, null, "Test.");
+            sleepers[i].CurrentAction = new NpcAction(
+                i < sleepingCapacity ? ActionKind.Sleep : ActionKind.Idle,
+                null,
+                "Test.");
         }
 
         foreach (var other in state.Crew.Except(sleepers))
             other.CurrentRoomId = "control";
 
-        Assert.All(sleepers, npc => Assert.Equal(asleep, SimulationEngine.IsPhysicallyAsleep(state, npc)));
+        // Keep all eight occupants for the atmosphere stress test, while
+        // respecting the quarters' six-bed restorative-sleep capacity.
+        Assert.Equal(
+            sleepingCapacity,
+            sleepers.Count(npc => SimulationEngine.IsPhysicallyAsleep(state, npc)));
         return (state, quarters);
     }
 }
