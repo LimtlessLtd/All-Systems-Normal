@@ -91,6 +91,21 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                     98);
             }
         }
+        // Same order as BrowserMindSystem: a small fire in this person's own
+        // compartment is not yet dangerous and the remote-fire search skips
+        // the current room, so putting it out while it is small needs its own
+        // branch (owner, 2026-09-24).
+        else if (room.FireIntensity > 0 && StationHazardSystem.ShouldFightFire(npc, room))
+        {
+            intent = Create(
+                npc,
+                state,
+                ActionKind.FightFire,
+                room.Id,
+                $"Put out the fire in {room.Name}.",
+                "There is a fire right here and it is still small enough to put out.",
+                95);
+        }
         // A viable station fire is an immediate survival emergency. The
         // fallback mind still chooses FightFire; deterministic systems only
         // expose and validate the grounded response.
