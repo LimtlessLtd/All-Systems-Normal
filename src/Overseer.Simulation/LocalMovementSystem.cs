@@ -195,6 +195,13 @@ public sealed class LocalMovementSystem
             }
         }
 
+        // Owner idea #76: a fire-fighter walks to the edge of the flames.
+        if (npc.CurrentAction.Kind == ActionKind.FightFire
+            && FireFrontRules.AttackPoint(room, npc.PositionX, npc.PositionY) is { } attackPoint)
+        {
+            return attackPoint;
+        }
+
         RoomFixture? preferredFixture = null;
 
         if (npc.ServicingDeviceId is { } deviceId

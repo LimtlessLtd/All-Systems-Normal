@@ -845,6 +845,19 @@ public sealed class IntentExecutionSystem
             return;
         }
 
+        // Owner idea #76: suppression starts once the fire-fighter has walked
+        // close enough to the front to reach it.
+        if (intent.Action == ActionKind.FightFire
+            && room.FireIntensity > 0
+            && !FireFrontRules.CanReachFront(room, npc.PositionX, npc.PositionY))
+        {
+            npc.CurrentAction = new NpcAction(
+                ActionKind.FightFire,
+                room.Id,
+                $"Moving up to the flames in {room.Name}.");
+            return;
+        }
+
         var duration = intent.Action switch
         {
             ActionKind.FightFire => TimeSpan.FromMinutes(3),
