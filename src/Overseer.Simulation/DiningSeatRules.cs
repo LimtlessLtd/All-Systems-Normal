@@ -3,11 +3,13 @@ using Overseer.Domain;
 namespace Overseer.Simulation;
 
 /// <summary>
-/// Owner idea #90: where a person who has chosen to eat actually sits. Chairs
-/// are capacity-1. Whoever already sits in one keeps it, and other eaters in
-/// the room take the free chairs in a deterministic order. C# never decides
-/// whether someone eats, only where their body goes and what eating there
-/// costs.
+/// Owner idea #90: where a person who has chosen to eat actually sits. Seats
+/// (chairs, and sofa places in the recreation room) are capacity-1. Whoever
+/// already sits in one keeps it, and other eaters in the room take the free
+/// seats in a deterministic order. Food lives in the galley, so eating
+/// anywhere else means collecting a portion there first and carrying it. C#
+/// never decides whether or where someone eats, only where their body goes,
+/// what they carry and what eating there costs.
 /// </summary>
 public static class DiningSeatRules
 {
@@ -17,10 +19,104 @@ public static class DiningSeatRules
     /// <summary>Stress per minute for eating on your feet because every chair is taken.</summary>
     public const double StandingStressPerMinute = 0.04;
 
+    /// <summary>
+    /// Galley stock a person collects to eat elsewhere: one meal, the same
+    /// unit <see cref="StationStores.HasMeal"/> requires. Taking only what one
+    /// sitting eats keeps food in the galley for everyone else.
+    /// </summary>
+    public const double CarriedMealSize = 1;
+
+    /// <summary>Rooms a carried meal may be eaten in besides the galley.</summary>
+    public static bool IsAwayDiningRoom(Room room) =>
+        room.Type is RoomType.Recreation or RoomType.CrewQuarters;
+
+    /// <summary>
+    /// Where an <c>Eat</c> intent is eaten: its target when that names a
+    /// recreation room or crew quarters, otherwise the galley.
+    /// </summary>
+    public static string DiningRoomFor(GameState state, string? targetId) =>
+        targetId is not null
+        && state.Facility.Rooms.TryGetValue(targetId, out var room)
+        && IsAwayDiningRoom(room)
+            ? room.Id
+            : GalleyId(state);
+
+    public static string GalleyId(GameState state) =>
+        state.Facility.Rooms.Values
+            .Where(room => room.Type == RoomType.Kitchen)
+            .Select(room => room.Id)
+            .OrderBy(id => id.Equals("kitchen", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenBy(id => id, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault()
+            ?? "kitchen";
+
+    /// <summary>
+    /// A person in the galley collects one meal to carry elsewhere. Fails when
+    /// there is no prepared meal to take, they already carry one, or they are
+    /// not in the galley.
+    /// </summary>
+    public static bool TryCollectMeal(GameState state, Npc npc)
+    {
+        if (npc.CarriedMealPortion > 0
+            || !state.Stores.HasMeal
+            || !state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var room)
+            || room.Type != RoomType.Kitchen)
+        {
+            return false;
+        }
+
+        state.Stores.Meals -= CarriedMealSize;
+        npc.CarriedMealPortion = CarriedMealSize;
+        return true;
+    }
+
+    /// <summary>
+    /// The shared fallback-mind choice of where to eat: carry the meal to the
+    /// recreation room when every galley seat is taken and it has a free one.
+    /// A person already seated in the galley stays. Null means the galley.
+    /// </summary>
+    public static string? FallbackDiningTarget(GameState state, Npc npc)
+    {
+        // Already eating a carried meal away from the galley: stay put.
+        if (IsEating(npc)
+            && npc.CarriedMealPortion > 0
+            && state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var current)
+            && IsAwayDiningRoom(current))
+        {
+            return current.Id;
+        }
+
+        if (npc.CarriedMealPortion <= 0 && !state.Stores.HasMeal)
+        {
+            return null;
+        }
+
+        if (!state.Facility.Rooms.TryGetValue(GalleyId(state), out var galley)
+            || SeatedAt(state, npc) is not null)
+        {
+            return null;
+        }
+
+        var (galleyFree, galleyTotal) = Availability(state, galley);
+        if (galleyTotal == 0 || galleyFree > 0)
+        {
+            return null;
+        }
+
+        var reachable = new NavigationSystem().ReachableRoomsForCrew(state, npc, npc.CurrentRoomId);
+        return state.Facility.Rooms.Values
+            .Where(room => room.Type == RoomType.Recreation
+                && reachable.Contains(room.Id)
+                && Availability(state, room).Free > 0)
+            .OrderBy(room => room.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(room => room.Id)
+            .FirstOrDefault();
+    }
+
     public static bool IsEating(Npc npc) =>
         npc.IsAlive && npc.IsPresent && npc.CurrentAction.Kind == ActionKind.Eat;
 
-    /// <summary>The chair this eater is sitting in, or null.</summary>
+    /// <summary>The seat this eater is sitting in, or null.</summary>
     public static RoomFixture? SeatedAt(GameState state, Npc npc)
     {
         if (!IsEating(npc)
@@ -29,7 +125,7 @@ public static class DiningSeatRules
             return null;
         }
 
-        return Chairs(room).FirstOrDefault(chair => OccupantOf(state, room, chair)?.Id == npc.Id);
+        return Seats(room).FirstOrDefault(chair => OccupantOf(state, room, chair)?.Id == npc.Id);
     }
 
     /// <summary>
@@ -45,7 +141,7 @@ public static class DiningSeatRules
             return null;
         }
 
-        var chairs = Chairs(room);
+        var chairs = Seats(room);
         if (chairs.Count == 0)
         {
             return null;
@@ -72,18 +168,18 @@ public static class DiningSeatRules
     public static bool IsEatingStanding(GameState state, Npc npc) =>
         IsEating(npc)
         && state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var room)
-        && Chairs(room).Count > 0
+        && Seats(room).Count > 0
         && SeatFor(state, npc) is null;
 
-    /// <summary>Chairs in the room, and how many of them nobody is eating in.</summary>
+    /// <summary>Seats in the room, and how many of them nobody is eating in.</summary>
     public static (int Free, int Total) Availability(GameState state, Room room)
     {
-        var chairs = Chairs(room);
-        return (chairs.Count(chair => OccupantOf(state, room, chair) is null), chairs.Count);
+        var seats = Seats(room);
+        return (seats.Count(seat => OccupantOf(state, room, seat) is null), seats.Count);
     }
 
-    private static List<RoomFixture> Chairs(Room room) =>
-        room.Fixtures.Where(fixture => fixture.Type == FixtureType.Chair).ToList();
+    private static List<RoomFixture> Seats(Room room) =>
+        room.Fixtures.Where(fixture => fixture.Type is FixtureType.Chair or FixtureType.Sofa).ToList();
 
     private static IEnumerable<Npc> EatersIn(GameState state, Room room) =>
         state.Crew

@@ -30,8 +30,7 @@ public sealed class ActionResolver
         return action.Kind switch
         {
             ActionKind.Move => TryMove(state, npc, action, out message),
-            ActionKind.Eat => TryInRoomType(
-                state, npc, action, RoomType.Kitchen, "eat", "starts eating", out message),
+            ActionKind.Eat => TryEat(state, npc, action, out message),
             ActionKind.Rest => TryInRoomType(
                 state, npc, action, RoomType.CrewQuarters, "rest", "starts resting", out message),
             ActionKind.Sleep => TryInRoomType(
@@ -414,6 +413,19 @@ public sealed class ActionResolver
             $"{npc.Name} heads for {door.Id} en route to {targetRoom.Name}.";
         Log(state, message);
         return true;
+    }
+
+    // Owner idea #90: the galley, or a recreation room/quarters with a meal
+    // the person carried there from the galley.
+    private static bool TryEat(GameState state, Npc npc, NpcAction action, out string message)
+    {
+        var room = state.Facility.Rooms[npc.CurrentRoomId];
+        if (npc.CarriedMealPortion > 0 && DiningSeatRules.IsAwayDiningRoom(room))
+        {
+            return SetAction(state, npc, action, "sits down with the meal they brought", out message);
+        }
+
+        return TryInRoomType(state, npc, action, RoomType.Kitchen, "eat", "starts eating", out message);
     }
 
     private static bool TryInRoomType(

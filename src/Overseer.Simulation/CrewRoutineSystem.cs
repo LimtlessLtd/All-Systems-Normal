@@ -275,8 +275,14 @@ public sealed class CrewRoutineSystem
         var sleepWindow = CrewDutySchedule.IsSleepWindow(npc, state.Elapsed);
         if (npc.Hunger >= (ScheduledSleepRules.IsOffShift(npc, state.Elapsed) ? CrewNeedThresholds.HungerCritical : 55))
         {
+            // Owner idea #90: someone who carried a meal to the lounge or
+            // quarters eats it there rather than walking back to the galley.
+            var diningRoomId = npc.CarriedMealPortion > 0
+                && DiningSeatRules.IsAwayDiningRoom(state.Facility.Rooms[npc.CurrentRoomId])
+                    ? npc.CurrentRoomId
+                    : "kitchen";
             return new(
-                "kitchen",
+                diningRoomId,
                 ActionKind.Eat,
                 null,
                 "Going to get something to eat.",

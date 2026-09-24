@@ -98,7 +98,7 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
         // not a viable station emergency that this person can safely address.
         else if (npc.Hunger >= CrewNeedThresholds.HungerCritical)
         {
-            intent = Create(npc, state, ActionKind.Eat, null,
+            intent = Create(npc, state, ActionKind.Eat, DiningSeatRules.FallbackDiningTarget(state, npc),
                 "Find food now.",
                 "I am hungry enough that continuing to ignore it is dangerous.",
                 92);
@@ -167,7 +167,7 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
         }
         else if (npc.Hunger >= CrewNeedThresholds.HungerElevated)
         {
-            intent = Create(npc, state, ActionKind.Eat, null,
+            intent = Create(npc, state, ActionKind.Eat, DiningSeatRules.FallbackDiningTarget(state, npc),
                 "Get something to eat.",
                 "I am hungry enough that food is becoming difficult to ignore.",
                 75);

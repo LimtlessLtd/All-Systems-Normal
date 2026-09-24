@@ -238,6 +238,16 @@ public sealed class OllamaAiDecisionService(
                 target = null;
             }
         }
+        else if (action == ActionKind.Eat)
+        {
+            // Owner idea #90: a named recreation room or crew quarters means
+            // "carry a meal there"; anything else eats in the galley.
+            target = target is not null
+                && state.Facility.Rooms.TryGetValue(target, out var diningRoom)
+                && DiningSeatRules.IsAwayDiningRoom(diningRoom)
+                    ? diningRoom.Id
+                    : null;
+        }
         else if (action == ActionKind.ForceDoor)
         {
             var door = state.Facility.Doors.FirstOrDefault(candidate =>
