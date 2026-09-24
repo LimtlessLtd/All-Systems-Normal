@@ -138,6 +138,84 @@ public sealed class RemoteFireResponderTests
     }
 
     [Fact]
+    public void RemoteFire_WakesCrewWhoseCriticalNeedIntentWouldOtherwiseMaskFirePriority()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 480043);
+        state.Elapsed = TimeSpan.FromMinutes(1);
+        var responder = state.Crew.First(npc => npc.Role == CrewRole.Engineer);
+        PrepareSafeRemoteFireScenario(state, responder);
+
+        // #156 deliberately made a viable remote fire outrank critical hunger
+        // in both fallback minds. The hazard wake filter still excluded any
+        // existing urgency >=85 intent, so the mind never got a chance to apply
+        // that ordering once an Eat intent already existed.
+        responder.Hunger = CrewNeedThresholds.HungerCritical;
+        responder.Intent = new NpcIntent(
+            ActionKind.Eat,
+            null,
+            "Find food now.",
+            "I am critically hungry.",
+            92,
+            "Test",
+            state.Elapsed);
+
+        // Make every other person physically incapable of safe firefighting so
+        // the nomination is deterministic and specifically exercises the
+        // critical-need responder.
+        foreach (var other in state.Crew.Where(npc => npc.Id != responder.Id))
+        {
+            other.Health = 30;
+        }
+
+        new StationHazardSystem().Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.True(responder.NeedsMindReconsideration);
+        Assert.Equal(ActionKind.Eat, responder.Intent?.Action);
+
+        new BrowserMindSystem().Tick(state);
+
+        Assert.Equal(ActionKind.FightFire, responder.Intent?.Action);
+        Assert.Equal("engineering", responder.Intent?.TargetId);
+        Assert.False(responder.NeedsMindReconsideration);
+    }
+
+    [Fact]
+    public void RemoteFire_DoesNotRewakeCriticalNeedResponderAlreadyTravellingToFightIt()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 480043);
+        state.Elapsed = TimeSpan.FromMinutes(1);
+        var responder = state.Crew.First(npc => npc.Role == CrewRole.Engineer);
+        PrepareSafeRemoteFireScenario(state, responder);
+        responder.Hunger = CrewNeedThresholds.HungerCritical;
+        responder.Intent = new NpcIntent(
+            ActionKind.Eat,
+            null,
+            "Find food now.",
+            "I am critically hungry.",
+            92,
+            "Test",
+            state.Elapsed);
+
+        foreach (var other in state.Crew.Where(npc => npc.Id != responder.Id))
+        {
+            other.Health = 30;
+        }
+
+        new StationHazardSystem().Tick(state, TimeSpan.FromMinutes(1));
+        new BrowserMindSystem().Tick(state);
+        var chosenFireIntent = responder.Intent;
+
+        Assert.Equal(ActionKind.FightFire, chosenFireIntent?.Action);
+        Assert.False(responder.NeedsMindReconsideration);
+
+        state.Elapsed += TimeSpan.FromMinutes(1);
+        new StationHazardSystem().Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.False(responder.NeedsMindReconsideration);
+        Assert.Same(chosenFireIntent, responder.Intent);
+    }
+
+    [Fact]
     public void RemoteFire_PrefersIdleCapableResponderOverMoreSkilledCommittedWorker()
     {
         var state = FacilitySeeder.CreateDefault(stationSeed: 480043);
