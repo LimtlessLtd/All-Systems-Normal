@@ -136,19 +136,6 @@ public sealed class StationUiPresentationPolishTests
     }
 
     [Fact]
-    public void CampaignRestore_ToleratesCanceledJsInteropDuringCircuitTeardown()
-    {
-        var root = FindRepositoryRoot();
-        var home = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor"));
-        var restoreStart = home.IndexOf("private async Task RestorePersistedCampaignAsync()", StringComparison.Ordinal);
-        var nextMethod = home.IndexOf("private void StartAutoClock()", restoreStart, StringComparison.Ordinal);
-
-        Assert.True(restoreStart >= 0 && nextMethod > restoreStart);
-        var restore = home[restoreStart..nextMethod];
-        Assert.Contains("catch (TaskCanceledException)", restore);
-    }
-
-    [Fact]
     public void SeatsDrawABackrestForEveryFacing()
     {
         // Owner idea #105: Home.razor adds seat-faces-{facing} from

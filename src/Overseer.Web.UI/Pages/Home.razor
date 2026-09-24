@@ -2251,7 +2251,7 @@
         StopClock();
         await Session.ResetAsync();
         _runEndDismissed = false;
-        await JS.InvokeVoidAsync("localStorage.removeItem", CampaignStorageKey);
+        await BrowserInterop.TryInvokeVoidAsync(JS, "localStorage.removeItem", CampaignStorageKey);
         _selection = new(StationSelectionKind.Room, "control");
         _lastAudioSequence = 0;
         StartAutoClock();
@@ -2311,28 +2311,20 @@
     {
         if (Session.Campaign.MissionHistory.Count == 0 && Session.Campaign.Ending is null)
         {
-            await JS.InvokeVoidAsync("localStorage.removeItem", CampaignStorageKey);
+            await BrowserInterop.TryInvokeVoidAsync(JS, "localStorage.removeItem", CampaignStorageKey);
             return;
         }
 
         var json = CampaignStateSerializer.Serialize(Session.Campaign);
-        await JS.InvokeVoidAsync("localStorage.setItem", CampaignStorageKey, json);
+        await BrowserInterop.TryInvokeVoidAsync(JS, "localStorage.setItem", CampaignStorageKey, json);
     }
 
     private async Task RestorePersistedCampaignAsync()
     {
-        string? json;
-        try
-        {
-            json = await JS.InvokeAsync<string?>(
-                "localStorage.getItem",
-                CampaignStorageKey);
-        }
-        catch (TaskCanceledException)
-        {
-            return;
-        }
-
+        var json = await BrowserInterop.TryInvokeAsync<string?>(
+            JS,
+            "localStorage.getItem",
+            CampaignStorageKey);
         var campaign = CampaignStateSerializer.Deserialize(json);
 
         if (campaign is null
@@ -2411,7 +2403,10 @@
 
         foreach (var cue in pending)
         {
-            await JS.InvokeVoidAsync(
+            // Skipped, not retried, if the browser is unavailable: a cue
+            // replayed later would be out of date.
+            await BrowserInterop.TryInvokeVoidAsync(
+                JS,
                 "overseerAudio.play",
                 cue.Kind.ToString(),
                 cue.SourceId);
@@ -2458,9 +2453,18 @@
                 }
             }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // Normal pause/dispose path.
+        }
+        catch (Exception)
+        {
+            // A turn failed without a pause being asked for. Leaving the loop
+            // with the clock still marked running froze the station until the
+            // player happened to toggle pause; show it paused so Play resumes.
+            _paused = true;
+            Session.PauseClock();
+            await InvokeAsync(StateHasChanged);
         }
     }
 

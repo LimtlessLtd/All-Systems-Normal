@@ -88,7 +88,7 @@ public sealed class OllamaCrewGenerator(
 
             return Validate(roster);
         }
-        catch (OperationCanceledException exception)
+        catch (OperationCanceledException exception) when (cancellationToken.IsCancellationRequested)
         {
             if (sequence is { } requestSequence)
                 _runtimeDiagnostics?.RecordFailure(requestSequence, "crew generation", exception);

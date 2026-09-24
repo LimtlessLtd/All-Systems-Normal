@@ -101,7 +101,10 @@ public sealed class OllamaAiDecisionService(
 
             return intent;
         }
-        catch (OperationCanceledException)
+        // Only the caller's cancellation propagates. An HTTP timeout is also a
+        // TaskCanceledException; rethrowing it ended the UI clock loop as if
+        // the player had paused, so it falls back like any failed call.
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }
