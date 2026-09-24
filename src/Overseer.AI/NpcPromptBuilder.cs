@@ -99,6 +99,14 @@ public static class NpcPromptBuilder
             disabledSystems.Add("life-support");
         }
 
+        var disconnectedNetwork = state.Devices.Values.FirstOrDefault(device =>
+            device.Kind == StationSystemKind.DataNetwork
+            && CrewCounterplaySystem.HasRestorableProblem(state, device.Id));
+        if (disconnectedNetwork is not null)
+        {
+            disabledSystems.Add(disconnectedNetwork.Id);
+        }
+
         var disconnectableLocalDevices = PhysicalInteractionRules
             .AvailableTargets(state, npc, ActionKind.DisconnectDevice)
             .Select(device =>
