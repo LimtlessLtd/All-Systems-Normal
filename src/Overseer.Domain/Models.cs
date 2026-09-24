@@ -414,6 +414,14 @@ public enum ActionKind
     StandGuard,
     SeekSafety,
     FightFire,
+
+    /// <summary>
+    /// Emergency physical repair of a fire-driven pressure-hull breach.
+    /// Cognition chooses whether to attempt it; deterministic simulation owns
+    /// skill, local EVA protection, timing and the actual seal.
+    /// </summary>
+    PatchHull,
+
     EvacuateHazard,
     SealHazardRoom,
     VentHazardRoom,

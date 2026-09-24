@@ -249,6 +249,20 @@ public sealed class BrowserMindSystem
             return CloseHatchTowardBreach(state, npc, hatch, 99);
         }
 
+        if (StationHazardSystem.FindRepairableBreachForResponder(
+                state,
+                npc,
+                _navigation) is { } breachedRoom)
+        {
+            return Create(
+                state,
+                ActionKind.PatchHull,
+                breachedRoom.Id,
+                $"Patch the hull breach in {breachedRoom.Name}.",
+                "The fire is out, the compartment is open to space, and I have the repair skill to seal it using emergency EVA gear.",
+                99);
+        }
+
         if (CrewEnvironmentSafety.IsDangerous(currentRoom))
         {
             if (currentRoom.FireIntensity > 0 && StationHazardSystem.ShouldFightFire(npc, currentRoom))
