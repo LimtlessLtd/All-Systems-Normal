@@ -7896,6 +7896,68 @@ button.turret-token {
     box-shadow: 0 0 3px #4db8ff;
 }
 
+/* Owner idea #105, cross-room pass: washroom fixtures. A shower is a tiled
+   tray with a drain, a round head at the back and a glass screen edge; a
+   toilet is a bowl in front of a cistern; a mirror is framed glass with a
+   glint. */
+.station-authority-layer .room-node .fixture.fixture-shower {
+    border: 2px solid #8fa6b3;
+    border-radius: 4px;
+    background:
+        radial-gradient(circle at 50% 60%, #4f6470 0 2px, #9fb2bc 2px 3px, transparent 3.5px),
+        repeating-linear-gradient(0deg, rgba(120,150,165,.35) 0 1px, transparent 1px 7px),
+        repeating-linear-gradient(90deg, rgba(120,150,165,.35) 0 1px, transparent 1px 7px),
+        #e3eef3;
+    box-shadow:
+        inset -3px 0 0 rgba(150,210,235,.55),
+        inset 0 0 0 1px rgba(255,255,255,.7),
+        0 2px 4px rgba(40,46,50,.22);
+}
+
+.station-authority-layer .room-node .fixture.fixture-shower::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 5px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: repeating-radial-gradient(circle, #5d6c74 0 1px, #b8c4ca 1px 2px);
+    box-shadow: 0 0 0 1px #6b7a82;
+    transform: translateX(-50%);
+}
+
+.station-authority-layer .room-node .fixture.fixture-toilet {
+    border: 2px solid #9aa3a8;
+    border-radius: 6px 6px 45% 45%;
+    background:
+        radial-gradient(ellipse 30% 26% at 50% 62%, #7fa9bd 0 60%, #5c7f90 85%, transparent 100%),
+        radial-gradient(ellipse 44% 38% at 50% 62%, #ffffff 0 88%, #c5ccd0 100%, transparent 101%),
+        #e9eced;
+    box-shadow: 0 2px 4px rgba(40,46,50,.22);
+}
+
+.station-authority-layer .room-node .fixture.fixture-toilet::before {
+    content: "";
+    position: absolute;
+    left: 14%;
+    right: 14%;
+    top: 3px;
+    height: 24%;
+    border-radius: 3px;
+    background: linear-gradient(180deg, #f6f8f8, #d2d8db);
+    box-shadow: 0 0 0 1px #a4adb2;
+}
+
+.station-authority-layer .room-node .fixture.fixture-mirror {
+    border: 2px solid #8a9296;
+    border-radius: 3px;
+    background:
+        linear-gradient(120deg, transparent 0 30%, rgba(255,255,255,.75) 31% 37%, transparent 38% 52%, rgba(255,255,255,.5) 53% 56%, transparent 57%),
+        linear-gradient(180deg, #c9e2ec, #9fbfcc);
+    box-shadow: 0 2px 3px rgba(40,46,50,.2);
+}
+
 @media (prefers-reduced-motion: reduce) {
     .station-authority-layer .room-node .fixture.fixture-television,
     .station-authority-layer .room-node .fixture.fixture-recreationconsole::before,

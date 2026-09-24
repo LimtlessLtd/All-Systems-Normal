@@ -196,6 +196,19 @@ public sealed class StationUiPresentationPolishTests
     }
 
     [Fact]
+    public void WashroomFixturesHaveTheirOwnFurnitureArt()
+    {
+        // Owner idea #105 cross-room pass: showers, toilets and mirrors no
+        // longer fall back to the generic grey fixture block.
+        var root = FindRepositoryRoot();
+        var css = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor.css"));
+
+        Assert.Contains(".station-authority-layer .room-node .fixture.fixture-shower::before", css);
+        Assert.Contains(".station-authority-layer .room-node .fixture.fixture-toilet::before", css);
+        Assert.Contains(".station-authority-layer .room-node .fixture.fixture-mirror {", css);
+    }
+
+    [Fact]
     public void FirePresentation_DoesNotRenderRadialRingLayers()
     {
         var root = FindRepositoryRoot();
