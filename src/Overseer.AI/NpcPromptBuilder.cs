@@ -458,15 +458,36 @@ public static class NpcPromptBuilder
                 + (source.Device.IsDegraded ? $", worn and rattling at {source.Device.Condition:0}% condition" : string.Empty));
             builder.AppendLine($"NOISE: loud here ({noiseLevel:0}; restful below {StationNoiseSystem.DisturbingAt:0}). Loudest: {string.Join("; ", loudest)}. Sleep or rest in this noise is much less restorative. What, if anything, to do about it is up to you.");
         }
-        // Meals are eaten in the galley; chairs at consoles or desks elsewhere
-        // are not somewhere to eat.
+        // Meals are eaten in the galley, or carried from it to a recreation
+        // room or quarters; chairs at consoles elsewhere are not somewhere to eat.
+        var foodOnMind = npc.CurrentAction.Kind == ActionKind.Eat || npc.Hunger >= StationProvisionRules.HungryAt;
         var (freeSeats, totalSeats) = DiningSeatRules.Availability(state, room);
-        if (room.Type == RoomType.Kitchen
+        if ((room.Type == RoomType.Kitchen || DiningSeatRules.IsAwayDiningRoom(room))
             && totalSeats > 0
-            && (npc.CurrentAction.Kind == ActionKind.Eat || npc.Hunger >= StationProvisionRules.HungryAt))
+            && foodOnMind)
         {
             var seatedHere = DiningSeatRules.SeatedAt(state, npc) is not null ? " You are sitting in one." : string.Empty;
-            builder.AppendLine($"SEATS: {freeSeats} of {totalSeats} chairs here are free.{seatedHere} A meal eaten sitting down is a small comfort; eating on your feet because every chair is taken is a small irritation. Whether to eat now or wait for a seat is up to you.");
+            builder.AppendLine($"SEATS: {freeSeats} of {totalSeats} seats here are free.{seatedHere} A meal eaten sitting down is a small comfort; eating on your feet because every seat is taken is a small irritation. Whether to eat now or wait for a seat is up to you.");
+        }
+        if (foodOnMind)
+        {
+            var reachableDining = ReachableRooms(state, npc, npc.CurrentRoomId);
+            var elsewhere = state.Facility.Rooms.Values
+                .Where(candidate => DiningSeatRules.IsAwayDiningRoom(candidate) && reachableDining.Contains(candidate.Id))
+                .OrderBy(candidate => candidate.Id, StringComparer.OrdinalIgnoreCase)
+                .Select(candidate =>
+                {
+                    var (free, total) = DiningSeatRules.Availability(state, candidate);
+                    return $"{candidate.Name} [{candidate.Id}] {free} of {total} seats free";
+                })
+                .ToList();
+            var carrying = npc.CarriedMealPortion > 0
+                ? $" You are carrying a meal from the galley ({npc.CarriedMealPortion / DiningSeatRules.CarriedMealSize:P0} of it left)."
+                : string.Empty;
+            if (elsewhere.Count > 0)
+            {
+                builder.AppendLine($"DINING: food is kept in the galley ({state.Stores.Meals:0.#} prepared meals).{carrying} You can eat there, or collect a meal there and carry it to eat in: {string.Join("; ", elsewhere)} (Eat with that room ID as TargetId).");
+            }
         }
         if (DecompressionContainmentRules.FindHatchTowardBreach(state, npc) is { } breachHatch)
         {
@@ -641,7 +662,8 @@ public static class NpcPromptBuilder
         builder.AppendLine("For IsolateRobotNetwork/DisableRobotCharging, TargetId must be the exact robot ID from ROBOTS YOU PERSONALLY HAVE HOSTILE/ATTACK EVIDENCE ABOUT; you will physically travel to Engineering before the action can occur.");
         builder.AppendLine("For DisarmTurret/DamageTurret/ReprogramTurret, TargetId must be the exact turret ID from FIXED SECURITY TURRETS PHYSICALLY IN YOUR CURRENT ROOM.");
         builder.AppendLine("For IsolateTurretNetwork/DisableTurretPower, TargetId must be the exact turret ID from TURRETS YOU PERSONALLY HAVE HOSTILE WEAPON EVIDENCE ABOUT; you will physically travel to Engineering before the action can occur.");
-        builder.AppendLine("For Eat/Rest/Sleep/Recreate/Groom/Shower/UseToilet/Idle, TargetId should be null.");
+        builder.AppendLine("For Eat, TargetId is null to eat in the galley, or a room ID from DINING to collect a meal in the galley and carry it there to eat.");
+        builder.AppendLine("For Rest/Sleep/Recreate/Groom/Shower/UseToilet/Idle, TargetId should be null.");
         builder.AppendLine("Do not choose Intimacy directly. Attraction may inform social choices, but mutual consent is resolved by deterministic simulation.");
         builder.AppendLine("Urgency must be 0-100.");
         builder.AppendLine("Goal and Reason should each be one short sentence.");

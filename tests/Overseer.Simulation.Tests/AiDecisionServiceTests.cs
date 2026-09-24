@@ -82,6 +82,35 @@ public sealed class AiDecisionServiceTests
         Assert.EndsWith("…", intent.BubbleText);
     }
 
+    [Theory]
+    [InlineData("lounge", "lounge")]
+    [InlineData("Quarters", "quarters")]
+    [InlineData("reactor", null)]
+    [InlineData("nowhere", null)]
+    public async Task OllamaEat_KeepsOnlyADiningRoomTarget(string target, string? expected)
+    {
+        // Owner idea #90: a recreation room or quarters means "carry a meal
+        // there"; any other target eats in the galley.
+        using var client = new StubChatClient(
+            $$"""
+            {
+              "Action": "Eat",
+              "TargetId": "{{target}}",
+              "Goal": "Eat somewhere quieter.",
+              "Reason": "The galley is packed.",
+              "Urgency": 60
+            }
+            """);
+        var service = new OllamaAiDecisionService(client, new RuleBasedAiDecisionService());
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew.Single(candidate => candidate.Name == "David Hale");
+
+        var intent = await service.DecideAsync(npc, state);
+
+        Assert.Equal(ActionKind.Eat, intent.Action);
+        Assert.Equal(expected, intent.TargetId);
+    }
+
     [Fact]
     public void Prompt_InvitesAnOptionalInCharacterLineThatIsPresentationOnly()
     {

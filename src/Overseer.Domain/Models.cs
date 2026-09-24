@@ -1090,6 +1090,13 @@ public sealed class Npc : IStationMobileEntity
     /// </summary>
     public List<StatLogEntry> StatLog { get; } = [];
 
+    /// <summary>
+    /// Owner idea #90: meal units this person collected from the galley stores
+    /// and is carrying to eat somewhere else. Eaten before any galley stock.
+    /// Transient; not persisted in campaign saves.
+    /// </summary>
+    public double CarriedMealPortion { get; set; }
+
     // Everyday human needs use the same 0..100 "pressure" convention as
     // Hunger/Fatigue: higher values mean the need is becoming more pressing.
     public double HygieneNeed { get; set; } = 12;

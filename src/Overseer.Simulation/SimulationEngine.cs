@@ -9,6 +9,17 @@ public sealed class SimulationEngine
     public const double AwakeBladderPerMinute = 0.085;
     public const double SleepingBladderPerMinute = 0.035;
 
+    private static void ConsumeMeal(GameState state, Npc npc, double amount, bool awayFromGalley)
+    {
+        if (npc.CarriedMealPortion > 0 || awayFromGalley)
+        {
+            npc.CarriedMealPortion = Math.Max(0, npc.CarriedMealPortion - amount);
+            return;
+        }
+
+        state.Stores.Meals = Math.Max(0, state.Stores.Meals - amount);
+    }
+
     public void Tick(GameState state, TimeSpan delta)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -42,15 +53,20 @@ public sealed class SimulationEngine
             // Eating only helps if food physically exists. Prepared meals are
             // efficient; raw hydroponic crops are an emergency fallback with
             // substantially weaker hunger relief and a morale/stress cost.
-            var eatingPrepared = npc.CurrentAction.Kind == ActionKind.Eat && state.Stores.HasMeal;
-            var rawCrop = eatingPrepared || npc.CurrentAction.Kind != ActionKind.Eat
+            // Owner idea #90: a meal carried from the galley is eaten first,
+            // and away from the galley it is the only food there is.
+            var eating = npc.CurrentAction.Kind == ActionKind.Eat;
+            var awayFromGalley = DiningSeatRules.IsAwayDiningRoom(room);
+            var eatingPrepared = eating
+                && (npc.CarriedMealPortion > 0 || (!awayFromGalley && state.Stores.HasMeal));
+            var rawCrop = eatingPrepared || !eating || awayFromGalley
                 ? null
                 : ChooseRawCrop(state.Stores, npc);
             var eatingRaw = rawCrop is not null;
 
             if (eatingPrepared)
             {
-                state.Stores.Meals = Math.Max(0, state.Stores.Meals - (0.07 * minutes));
+                ConsumeMeal(state, npc, 0.07 * minutes, awayFromGalley);
 
                 // Owner idea #9 (private coping behaviours under stress): eating a
                 // prepared meal while not actually hungry is cognition choosing to
@@ -60,9 +76,7 @@ public sealed class SimulationEngine
                 if (npc.Hunger < StationProvisionRules.HungryAt
                     && npc.Stress >= StationProvisionRules.ComfortEatingStressThreshold)
                 {
-                    state.Stores.Meals = Math.Max(
-                        0,
-                        state.Stores.Meals - (StationProvisionRules.ComfortEatingExtraMealsPerMinute * minutes));
+                    ConsumeMeal(state, npc, StationProvisionRules.ComfortEatingExtraMealsPerMinute * minutes, awayFromGalley);
                     StatLogSystem.Set(
                         state,
                         npc,
@@ -162,6 +176,16 @@ public sealed class SimulationEngine
                         : asleep
                             ? "metabolism while asleep"
                             : "metabolism");
+
+            // The meal they brought is finished; there is nothing else to eat
+            // here, so they stop. What next is the mind's choice.
+            if (eating && awayFromGalley && npc.CarriedMealPortion <= 0)
+            {
+                npc.CurrentAction = new NpcAction(
+                    ActionKind.Idle,
+                    null,
+                    "Finished the meal I brought.");
+            }
 
             // Crossing into a serious physiological need requests fresh
             // cognition; it does not choose the response. Browser/LLM minds

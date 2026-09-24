@@ -100,12 +100,12 @@ public sealed class DiningSeatTests
         var hungryArrival = eaters[0];
 
         var before = NpcPromptBuilder.Build(hungryArrival, state);
-        Assert.Contains("SEATS: 4 of 4 chairs here are free.", before);
+        Assert.Contains("SEATS: 4 of 4 seats here are free.", before);
 
         Walk(state, eaters, minutes: 6);
         var seated = eaters.First(npc => DiningSeatRules.SeatedAt(state, npc) is not null);
         var prompt = NpcPromptBuilder.Build(seated, state);
-        Assert.Contains("SEATS: 0 of 4 chairs here are free. You are sitting in one.", prompt);
+        Assert.Contains("SEATS: 0 of 4 seats here are free. You are sitting in one.", prompt);
         Assert.Contains("Whether to eat now or wait for a seat is up to you.", prompt);
 
         // Not eating and not hungry: no seat line.
@@ -119,6 +119,198 @@ public sealed class DiningSeatTests
         other.CurrentRoomId = "control";
         other.Hunger = 80;
         Assert.DoesNotContain("SEATS:", NpcPromptBuilder.Build(other, state));
+    }
+
+    [Fact]
+    public void AMealChosenForTheLounge_IsCollectedInTheGalley_CarriedThere_AndEatenSeated()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        state.Stores.Meals = 20;
+        var npc = state.Crew.First(candidate => candidate.IsAlive);
+        npc.CurrentRoomId = "control";
+        npc.Movement = null;
+        npc.Hunger = 70;
+        npc.Stress = 40;
+        npc.CurrentAction = new NpcAction(ActionKind.Idle, null, "Idle.");
+        npc.Intent = EatIntent(state, "lounge");
+
+        var galleyMealsBefore = state.Stores.Meals;
+        var collected = false;
+        RunUntil(state, npc, () =>
+        {
+            collected |= npc.CarriedMealPortion > 0;
+            return npc.CurrentRoomId == "lounge" && DiningSeatRules.SeatedAt(state, npc) is not null;
+        });
+
+        Assert.True(collected, "the meal was physically collected on the way");
+        Assert.Contains(state.EventLog, line => line.Contains($"{npc.Name} takes a meal from the galley to eat in"));
+        var portion = galleyMealsBefore - state.Stores.Meals;
+        Assert.Equal(DiningSeatRules.CarriedMealSize, portion, 6);
+
+        // Eating in the lounge draws only on what they carried.
+        var galleyMeals = state.Stores.Meals;
+        var hunger = npc.Hunger;
+        new SimulationEngine().Tick(state, TimeSpan.FromMinutes(1));
+        Assert.Equal(galleyMeals, state.Stores.Meals);
+        Assert.True(npc.Hunger < hunger);
+        Assert.Contains(npc.StatLog, e => e.Cause == "eating seated");
+
+        // When the carried meal is gone they stop; the galley is not raided remotely.
+        for (var i = 0; i < 60 && npc.CurrentAction.Kind == ActionKind.Eat; i++)
+        {
+            new SimulationEngine().Tick(state, TimeSpan.FromMinutes(1));
+        }
+
+        Assert.Equal(0, npc.CarriedMealPortion);
+        Assert.Equal(ActionKind.Idle, npc.CurrentAction.Kind);
+        Assert.Equal(galleyMeals, state.Stores.Meals);
+    }
+
+    [Fact]
+    public void TheRoutineLetsSomeoneFinishTheMealTheyCarried_InsteadOfSendingThemToTheGalley()
+    {
+        // Soak regression: a take-away eater in the lounge had no intent left,
+        // so the hunger routine walked them straight back to the galley.
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        state.Elapsed = TimeSpan.FromHours(4);
+        var npc = state.Crew.First(candidate => candidate.IsAlive);
+        Place(npc, "lounge", 50, 50);
+        npc.Hunger = 60;
+        npc.Intent = null;
+        npc.RoutineUntil = TimeSpan.Zero;
+        npc.CarriedMealPortion = DiningSeatRules.CarriedMealSize;
+
+        new CrewRoutineSystem().Tick(state);
+
+        Assert.Equal("lounge", npc.CurrentRoomId);
+        Assert.Equal(ActionKind.Eat, npc.CurrentAction.Kind);
+        Assert.Null(npc.PlannedDestinationRoomId);
+
+        // With nothing carried, the routine still heads for the galley.
+        npc.CarriedMealPortion = 0;
+        npc.CurrentAction = new NpcAction(ActionKind.Idle, null, "Idle.");
+        npc.RoutineUntil = TimeSpan.Zero;
+        new CrewRoutineSystem().Tick(state);
+        Assert.Equal("kitchen", npc.PlannedDestinationRoomId);
+    }
+
+    [Fact]
+    public void WithNoPreparedMealToTake_TheyEatInTheGalleyInstead()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        state.Stores.Meals = 0;
+        var npc = state.Crew.First(candidate => candidate.IsAlive);
+        Place(npc, "kitchen", 50, 30);
+        npc.CurrentAction = new NpcAction(ActionKind.Idle, null, "Idle.");
+        npc.Intent = EatIntent(state, "lounge");
+
+        new IntentExecutionSystem().Tick(state);
+
+        Assert.Equal(0, npc.CarriedMealPortion);
+        Assert.Equal("kitchen", npc.CurrentRoomId);
+        Assert.Equal(ActionKind.Eat, npc.CurrentAction.Kind);
+    }
+
+    [Fact]
+    public void EatingAwayFromTheGalleyNeedsACarriedMeal()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var npc = state.Crew.First(candidate => candidate.IsAlive);
+        npc.CurrentRoomId = "lounge";
+        var resolver = new ActionResolver();
+
+        Assert.False(resolver.TryApply(state, npc.Id, new NpcAction(ActionKind.Eat, "lounge", "Eat."), out _));
+
+        npc.CarriedMealPortion = 1;
+        Assert.True(resolver.TryApply(state, npc.Id, new NpcAction(ActionKind.Eat, "lounge", "Eat."), out _));
+
+        // Not every room with a chair is somewhere to eat.
+        npc.CurrentRoomId = "control";
+        Assert.False(resolver.TryApply(state, npc.Id, new NpcAction(ActionKind.Eat, "control", "Eat."), out _));
+    }
+
+    [Fact]
+    public void AnUnsuitableEatTargetMeansTheGalley()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+
+        Assert.Equal("kitchen", DiningSeatRules.DiningRoomFor(state, null));
+        Assert.Equal("kitchen", DiningSeatRules.DiningRoomFor(state, "reactor"));
+        Assert.Equal("kitchen", DiningSeatRules.DiningRoomFor(state, "no-such-room"));
+        Assert.Equal("lounge", DiningSeatRules.DiningRoomFor(state, "LOUNGE"));
+        Assert.Equal("quarters", DiningSeatRules.DiningRoomFor(state, "quarters"));
+    }
+
+    [Fact]
+    public async Task BothFallbackMinds_TakeTheirMealToTheLounge_OnlyWhenTheGalleyIsFull()
+    {
+        var (state, eaters) = KitchenWithEaters(4);
+        state.Stores.Meals = 50;
+        var hungry = state.Crew.First(npc => !eaters.Contains(npc) && npc.IsAlive);
+        hungry.CurrentRoomId = "control";
+        hungry.Hunger = 80;
+
+        // Galley chairs are free: both minds eat in the galley.
+        Assert.Null(DiningSeatRules.FallbackDiningTarget(state, hungry));
+
+        Walk(state, eaters, minutes: 6);
+        Assert.All(eaters, npc => Assert.NotNull(DiningSeatRules.SeatedAt(state, npc)));
+
+        // Every galley chair is taken: both minds carry it to the lounge.
+        Assert.Equal("lounge", DiningSeatRules.FallbackDiningTarget(state, hungry));
+        hungry.NeedsMindReconsideration = true;
+        new BrowserMindSystem().Tick(state);
+        var browser = hungry.Intent;
+        var server = await new RuleBasedAiDecisionService().DecideAsync(hungry, state);
+        Assert.NotNull(browser);
+        Assert.Equal(ActionKind.Eat, browser.Action);
+        Assert.Equal(ActionKind.Eat, server.Action);
+        Assert.Equal("lounge", browser.TargetId);
+        Assert.Equal("lounge", server.TargetId);
+
+        // Someone already seated in the galley stays in their chair.
+        Assert.Null(DiningSeatRules.FallbackDiningTarget(state, eaters[0]));
+
+        // No prepared meals to carry: the galley it is.
+        state.Stores.Meals = 0.5;
+        Assert.Null(DiningSeatRules.FallbackDiningTarget(state, hungry));
+    }
+
+    [Fact]
+    public void CognitionIsToldWhereElseItCouldEat()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        state.Stores.Meals = 12;
+        var npc = state.Crew.First(candidate => candidate.IsAlive);
+        npc.CurrentRoomId = "control";
+        npc.Hunger = 60;
+
+        var prompt = NpcPromptBuilder.Build(npc, state);
+        Assert.Contains("DINING: food is kept in the galley (12 prepared meals).", prompt);
+        Assert.Contains("[lounge] 3 of 3 seats free", prompt);
+        Assert.Contains("Crew Quarters [quarters] ", prompt);
+        Assert.Contains("For Eat, TargetId is null to eat in the galley", prompt);
+
+        npc.Hunger = 5;
+        Assert.DoesNotContain("DINING:", NpcPromptBuilder.Build(npc, state));
+    }
+
+    private static NpcIntent EatIntent(GameState state, string? target) =>
+        new(ActionKind.Eat, target, "Eat.", "Hungry.", 75, "Test", state.Elapsed);
+
+    private static void RunUntil(GameState state, Npc npc, Func<bool> done)
+    {
+        var intents = new IntentExecutionSystem();
+        var movement = new LocalMovementSystem();
+        var engine = new SimulationEngine();
+        for (var i = 0; i < 3 * 60 && !done(); i++)
+        {
+            intents.Tick(state);
+            movement.Tick(state, Tick);
+            engine.Tick(state, Tick);
+        }
+
+        Assert.True(done(), $"{npc.Name} is {npc.CurrentAction.Kind} in {npc.CurrentRoomId}");
     }
 
     private static (GameState State, List<Npc> Eaters) KitchenWithEaters(int count)

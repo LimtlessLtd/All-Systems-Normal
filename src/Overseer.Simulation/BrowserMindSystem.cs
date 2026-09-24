@@ -324,7 +324,7 @@ public sealed class BrowserMindSystem
             return Create(
                 state,
                 ActionKind.Eat,
-                null,
+                DiningSeatRules.FallbackDiningTarget(state, npc),
                 "Find food now.",
                 "I am hungry enough that continuing to ignore it is dangerous.",
                 92);
@@ -414,7 +414,7 @@ public sealed class BrowserMindSystem
             return Create(
                 state,
                 ActionKind.Eat,
-                null,
+                DiningSeatRules.FallbackDiningTarget(state, npc),
                 "Find something to eat.",
                 "I am getting hungry and want a proper meal.",
                 75);

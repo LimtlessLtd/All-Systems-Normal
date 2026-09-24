@@ -49,7 +49,7 @@ public sealed class IntentExecutionSystem
             switch (intent.Action)
             {
                 case ActionKind.Eat:
-                    MoveOrActInRoom(state, npc, intent, "kitchen", ActionKind.Eat);
+                    ExecuteEatIntent(state, npc, intent);
                     break;
 
                 case ActionKind.Rest:
@@ -863,6 +863,39 @@ public sealed class IntentExecutionSystem
         }
 
         MoveOrActInRoom(state, npc, intent, room.Id, intent.Action);
+    }
+
+    // Owner idea #90: food is in the galley. A mind that wants to eat in the
+    // recreation room or quarters walks to the galley, collects a portion and
+    // carries it there. With no prepared meal to take, it eats in the galley.
+    private void ExecuteEatIntent(GameState state, Npc npc, NpcIntent intent)
+    {
+        var galleyId = DiningSeatRules.GalleyId(state);
+        var diningRoomId = DiningSeatRules.DiningRoomFor(state, intent.TargetId);
+        if (diningRoomId.Equals(galleyId, StringComparison.OrdinalIgnoreCase)
+            || npc.CarriedMealPortion > 0)
+        {
+            MoveOrActInRoom(state, npc, intent, diningRoomId, ActionKind.Eat);
+            return;
+        }
+
+        if (!npc.CurrentRoomId.Equals(galleyId, StringComparison.OrdinalIgnoreCase))
+        {
+            MoveOrActInRoom(state, npc, intent, galleyId, ActionKind.Eat);
+            return;
+        }
+
+        if (!DiningSeatRules.TryCollectMeal(state, npc))
+        {
+            MoveOrActInRoom(state, npc, intent, galleyId, ActionKind.Eat);
+            return;
+        }
+
+        var diningRoom = state.Facility.Rooms[diningRoomId];
+        state.EventLog.Insert(
+            0,
+            $"T+{state.Elapsed:hh\\:mm}: {npc.Name} takes a meal from the galley to eat in {diningRoom.Name}.");
+        MoveOrActInRoom(state, npc, intent, diningRoomId, ActionKind.Eat);
     }
 
     private void MoveOrActInRoom(
