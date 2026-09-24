@@ -546,8 +546,9 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Status: ready — sequence the health-damage details with #54's researched body-part health model rather than inventing a competing health stat.
 
 ### 76. Fire should spread visibly from its source
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790171325613139 (2026-09-23)
-- Idea: "Fire doesnt spread visually like it should, instead theres these weird radius things ... fire spreads outward from the source ... It can spread through open doors."
+- Sources: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790171325613139 (2026-09-23) and https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790242588232969 (2026-09-24)
+- Idea: "Fire doesnt spread visually like it should" and latest playtest: room fire renders as a long east-west rectangle with only ~50px north-south spread.
+- Evidence: the 2026-09-24 report confirms the current room-level/radius presentation is not merely stylistically weak but geometrically broken in real play; reproduce the elongated rectangle in a browser before changing authoritative spread state.
 - Outcome: replace the room-level radius-looking fire presentation with a visible deterministic fire-front/patch representation that expands outward from ignition points and can seed adjacent compartments only through physically open connections; presentation must reflect authoritative spread state rather than imply a fake radius.
 - Size: large (slices: inspect current authoritative fire state/presentation mismatch in browser; represent one or more room-local fire patches/fronts; render patch growth; seed adjacent-room patches through open doors)
 - Status: ready — owner-reported bug; requires real-browser validation.
@@ -615,6 +616,20 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Outcome: some generated crew have a smoking habit (a craving need that grows over time, composing with #75's addiction model); cognition may choose to smoke anywhere, but smoking outside the recreation room's marked smoking area gives a small relationship/annoyance debuff with non-smokers who perceive it (and a trace smoke contribution to the room), while smoking inside the area carries no social penalty. Relief of the craving and stress are deterministic consequences.
 - Size: medium (slices: smoking trait + craving need + Smoke activity/consequences; smoking-area fixture + social-debuff-by-location rule; cognition context)
 - Status: ready — implies smoking outside the area *does* carry a social debuff; implemented that way unless the owner says otherwise. Sequence with #75's addiction model.
+
+### 95. Crew must not occupy the same physical floor position
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790242588232969 (2026-09-24)
+- Idea: "Humans shouldnt be able to stand directly on top of each other."
+- Outcome: local movement treats other present mobile humans as short-range dynamic occupancy, so two people cannot settle on the same floor point; routing/door crossing must remain deadlock-safe and this must not create a hard global collision grid or let presentation offsets lie about authoritative position.
+- Size: small-to-medium (dynamic local occupancy/separation + crossing/queue regressions).
+- Status: ready — physical-simulation bug; coordinate with #20 bed/toilet contention so fixture users have deterministic distinct standing/lying points.
+
+### 96. Sleeping crew should visibly use distinct beds
+- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790242597079429 (2026-09-24)
+- Idea: "humans dont actually sleep on their beds they just stand there doing nothing, and they keep standing on top of each other too."
+- Outcome: a sleeping NPC physically occupies a specific available bed interaction/pose point and presentation shows a lying/sleeping pose instead of an upright idle token; unrelated sleepers cannot share the same bed/point. Any relationship-based co-sleep exception composes with #20 rather than bypassing bed capacity.
+- Size: medium (bed occupancy assignment + sleep pose/presentation + browser/regression coverage).
+- Status: ready — merge implementation with #20's bed-contention slice where practical.
 
 ## Deliberate decisions (do not "fix")
 
