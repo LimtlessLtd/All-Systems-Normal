@@ -11,12 +11,17 @@ namespace Overseer.Web.Services;
 public sealed class GameSession(
     IAiDecisionService aiDecisionService,
     IAiCrewGenerator crewGenerator,
-    IOverseerMessageInterpreter messageInterpreter)
+    IOverseerMessageInterpreter messageInterpreter,
+    OllamaRuntimeDiagnostics? runtimeDiagnostics = null)
     : StationSession(messageInterpreter, FacilitySeeder.CreateDefault())
 {
     private readonly IAiDecisionService _aiDecisionService = aiDecisionService;
     private readonly IAiCrewGenerator _crewGenerator = crewGenerator;
+    private readonly OllamaRuntimeDiagnostics? _runtimeDiagnostics = runtimeDiagnostics;
     private readonly NavigationSystem _navigation = new();
+
+    public override AiRuntimeDiagnosticsSnapshot AiRuntimeDiagnostics =>
+        _runtimeDiagnostics?.Snapshot() ?? base.AiRuntimeDiagnostics;
 
     private int _mindCursor;
     private bool _initialized;

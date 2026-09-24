@@ -6,10 +6,12 @@ namespace Overseer.AI;
 
 public sealed class OllamaCrewGenerator(
     IChatClient chatClient,
-    RuleBasedCrewGenerator fallback) : IAiCrewGenerator
+    RuleBasedCrewGenerator fallback,
+    OllamaRuntimeDiagnostics? runtimeDiagnostics = null) : IAiCrewGenerator
 {
     private readonly IChatClient _chatClient = chatClient;
     private readonly RuleBasedCrewGenerator _fallback = fallback;
+    private readonly OllamaRuntimeDiagnostics? _runtimeDiagnostics = runtimeDiagnostics;
 
     private static readonly CrewRole[] RequiredRoles =
         Enum.GetValues<CrewRole>()
@@ -35,10 +37,15 @@ public sealed class OllamaCrewGenerator(
     public async Task<IReadOnlyList<Npc>> GenerateAsync(
         CancellationToken cancellationToken = default)
     {
+        var prompt = BuildPrompt();
+        var sequence = _runtimeDiagnostics?.RecordStarted(
+            "crew generation",
+            prompt: prompt);
+
         try
         {
             var response = await _chatClient.GetResponseAsync<AiCrewRoster>(
-                BuildPrompt(),
+                prompt,
                 options: new ChatOptions
                 {
                     Temperature = 1.0f,
@@ -46,6 +53,14 @@ public sealed class OllamaCrewGenerator(
                 },
                 useJsonSchemaResponseFormat: true,
                 cancellationToken: cancellationToken);
+
+            if (sequence is { } requestSequence)
+            {
+                _runtimeDiagnostics?.RecordResponse(
+                    requestSequence,
+                    "crew generation",
+                    response.Text);
+            }
 
             AiCrewRoster? roster = null;
 
@@ -62,12 +77,16 @@ public sealed class OllamaCrewGenerator(
 
             return Validate(roster);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException exception)
         {
+            if (sequence is { } requestSequence)
+                _runtimeDiagnostics?.RecordFailure(requestSequence, "crew generation", exception);
             throw;
         }
-        catch
+        catch (Exception exception)
         {
+            if (sequence is { } requestSequence)
+                _runtimeDiagnostics?.RecordFailure(requestSequence, "crew generation", exception);
             return await _fallback.GenerateAsync(cancellationToken);
         }
     }
