@@ -58,7 +58,14 @@ public sealed class IntentExecutionSystem
                     break;
 
                 case ActionKind.Recreate:
-                    MoveOrActInRoom(state, npc, intent, "lounge", ActionKind.Recreate);
+                    // Owner idea #92: a named activity travels with the action.
+                    MoveOrActInRoom(
+                        state,
+                        npc,
+                        intent,
+                        "lounge",
+                        ActionKind.Recreate,
+                        RecreationActivityRules.Find(intent.TargetId)?.Id);
                     break;
 
                 case ActionKind.Groom:
@@ -903,7 +910,8 @@ public sealed class IntentExecutionSystem
         Npc npc,
         NpcIntent intent,
         string targetRoomId,
-        ActionKind arrivalAction)
+        ActionKind arrivalAction,
+        string? arrivalTargetId = null)
     {
         if (npc.CurrentRoomId.Equals(targetRoomId, StringComparison.OrdinalIgnoreCase))
         {
@@ -911,7 +919,7 @@ public sealed class IntentExecutionSystem
             _actions.TryApply(
                 state,
                 npc.Id,
-                new NpcAction(arrivalAction, targetRoomId, intent.Reason),
+                new NpcAction(arrivalAction, arrivalTargetId ?? targetRoomId, intent.Reason),
                 out _);
 
             if (arrivalAction is not (ActionKind.Rest or ActionKind.Sleep))

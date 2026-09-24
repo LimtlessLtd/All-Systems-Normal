@@ -36,7 +36,15 @@ public sealed class ActionResolver
             ActionKind.Sleep => TryInRoomType(
                 state, npc, action, RoomType.CrewQuarters, "sleep", "settles down to sleep", out message),
             ActionKind.Recreate => TryInRoomType(
-                state, npc, action, RoomType.Recreation, "relax", "starts relaxing", out message),
+                state,
+                npc,
+                action,
+                RoomType.Recreation,
+                "relax",
+                RecreationActivityRules.Find(action.TargetId) is { } activity
+                    ? $"starts {activity.Doing}"
+                    : "starts relaxing",
+                out message),
             ActionKind.Groom => TryInRoomType(
                 state, npc, action, RoomType.Washroom, "groom", "starts grooming", out message),
             ActionKind.Shower => TryInRoomType(

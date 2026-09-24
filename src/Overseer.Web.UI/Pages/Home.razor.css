@@ -7499,6 +7499,37 @@ button.turret-token {
     opacity: .45;
 }
 
+/* Owner idea #92: the lounge television. A dark bezel around a picture
+   that shifts colour while powered; fixture-inert stops and dims it. */
+.station-authority-layer .room-node .fixture.fixture-television {
+    overflow: hidden;
+    border: 2px solid #11181b;
+    border-radius: 3px;
+    background:
+        linear-gradient(135deg, rgba(255,255,255,.14), transparent 38%),
+        linear-gradient(90deg, #3f78c9, #b2537d 45%, #e2a24b 75%, #57b88a);
+    background-size: 100% 100%, 300% 100%;
+    box-shadow: 0 0 10px rgba(143,178,255,.32), 0 3px 0 -1px #0b1114;
+    animation: television-picture 7s ease-in-out infinite alternate;
+}
+
+.station-authority-layer .room-node .fixture.fixture-television::after {
+    content: "";
+    position: absolute;
+    left: 42%;
+    right: 42%;
+    bottom: -5px;
+    height: 3px;
+    border-radius: 1px;
+    background: #11181b;
+}
+
+@keyframes television-picture {
+    0% { background-position: 0 0, 0% 0; }
+    50% { background-position: 0 0, 60% 0; }
+    100% { background-position: 0 0, 100% 0; }
+}
+
 /* Owner idea #87: the selected unit's real field of view, clipped by walls
    and closed doors exactly like PerceptionSystem's sightlines. */
 .vision-arc-layer {

@@ -268,9 +268,12 @@ public sealed class SimulationEngine
                     : asleep ? SleepingBladderPerMinute
                     : AwakeBladderPerMinute) * minutes));
 
+            // Owner idea #92: each recreation activity is worth what its
+            // fixture offers; a dead TV or console offers nothing.
+            var recreationRelief = RecreationActivityRules.ReliefPerMinute(state, npc);
             npc.RecreationNeed = Clamp(
                 npc.RecreationNeed
-                + ((npc.CurrentAction.Kind == ActionKind.Recreate ? -1.45 : 0.045) * minutes));
+                + ((recreationRelief > 0 ? -recreationRelief : 0.045) * minutes));
 
             npc.SocialNeed = Clamp(
                 npc.SocialNeed
@@ -278,7 +281,20 @@ public sealed class SimulationEngine
                     or ActionKind.Socialize
                     or ActionKind.Intimacy
                         ? -1.15
-                        : 0.04) * minutes));
+                        : RecreationActivityRules.IsWatchingWithOthers(state, npc)
+                            ? -RecreationActivityRules.SharedViewingSocialReliefPerMinute
+                            : 0.04) * minutes));
+
+            if (RecreationActivityRules.Current(npc) is { StressReliefPerMinute: > 0 } calming
+                && recreationRelief > 0)
+            {
+                StatLogSystem.Set(
+                    state,
+                    npc,
+                    CrewStat.Stress,
+                    Clamp(npc.Stress - (calming.StressReliefPerMinute * minutes)),
+                    calming.Doing);
+            }
 
             npc.IntimacyNeed = Clamp(
                 npc.IntimacyNeed
