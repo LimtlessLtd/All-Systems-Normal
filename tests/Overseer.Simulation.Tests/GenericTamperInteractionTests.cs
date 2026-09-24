@@ -164,6 +164,69 @@ public sealed class GenericTamperInteractionTests
     }
 
     [Fact]
+    public void DisconnectDevice_LeavesPerceivedPhysicalEvidenceWithoutInventingAMotive()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var actor = state.Crew[0];
+        var witness = state.Crew[1];
+        var elsewhere = state.Crew[2];
+        var device = state.Devices.Values.First(candidate =>
+            candidate.Kind == StationSystemKind.PowerGenerator);
+
+        actor.CurrentRoomId = device.RoomId;
+        actor.PositionX = 50;
+        actor.PositionY = 50;
+        actor.Memories.Clear();
+        actor.Intent = new NpcIntent(
+            ActionKind.DisconnectDevice,
+            device.Id,
+            "Stop this machine.",
+            "I have my own reasons.",
+            60,
+            "Test",
+            state.Elapsed);
+
+        witness.CurrentRoomId = device.RoomId;
+        witness.PositionX = 50;
+        witness.PositionY = 50;
+        witness.Memories.Clear();
+        witness.NeedsMindReconsideration = false;
+
+        elsewhere.CurrentRoomId = state.Facility.Rooms.Values
+            .First(room => !room.Id.Equals(device.RoomId, StringComparison.OrdinalIgnoreCase))
+            .Id;
+        elsewhere.Memories.Clear();
+
+        var intents = new IntentExecutionSystem();
+        var movement = new LocalMovementSystem();
+
+        for (var i = 0; i < 120 && device.IsEnabled; i++)
+        {
+            intents.Tick(state);
+            movement.Tick(state, TimeSpan.FromMinutes(1));
+        }
+
+        Assert.False(device.IsEnabled);
+
+        var actorMemory = Assert.Single(actor.Memories.Where(memory =>
+            memory.Description.Contains("physically disconnected", StringComparison.OrdinalIgnoreCase)));
+        Assert.Contains(device.Label, actorMemory.Description);
+        Assert.DoesNotContain("sabot", actorMemory.Description, StringComparison.OrdinalIgnoreCase);
+
+        var witnessMemory = Assert.Single(witness.Memories.Where(memory =>
+            memory.Description.Contains("physically disconnect", StringComparison.OrdinalIgnoreCase)));
+        Assert.Contains(actor.Name, witnessMemory.Description);
+        Assert.Contains(device.Label, witnessMemory.Description);
+        Assert.Null(witnessMemory.MoralActorName);
+        Assert.DoesNotContain("sabot", witnessMemory.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.True(witness.NeedsMindReconsideration);
+
+        Assert.DoesNotContain(
+            elsewhere.Memories,
+            memory => memory.Description.Contains("physically disconnect", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void ActionResolver_RejectsDisconnectWhenActorHasNotReachedDeviceHardware()
     {
         var state = FacilitySeeder.CreateDefault();
