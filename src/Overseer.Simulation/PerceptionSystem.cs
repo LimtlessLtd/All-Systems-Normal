@@ -35,6 +35,8 @@ public sealed class PerceptionSystem
 
         foreach (var observer in state.Crew.Where(npc => npc.IsAlive && npc.IsPresent))
         {
+            ObserveCurrentRoomFire(state, observer);
+
             foreach (var target in state.Crew.Where(npc => npc.Id != observer.Id && npc.IsPresent))
             {
                 if (!CanSee(state, observer, target))
@@ -54,6 +56,56 @@ public sealed class PerceptionSystem
                 }
             }
         }
+    }
+
+    private static void ObserveCurrentRoomFire(GameState state, Npc observer)
+    {
+        // A fire observation is an episode, like the other entries in ObservedFaults:
+        // once noticed it does not wake cognition every minute, but extinguishing it
+        // clears the marker so a later re-ignition can be noticed again.
+        foreach (var extinguished in state.Facility.Rooms.Values.Where(room => room.FireIntensity <= 0))
+        {
+            observer.ObservedFaults.Remove($"{extinguished.Id}:fire");
+        }
+
+        if (!state.Facility.Rooms.TryGetValue(observer.CurrentRoomId, out var room)
+            || room.FireIntensity <= 0)
+        {
+            return;
+        }
+
+        var fireX = room.FireOriginX ?? 50;
+        var fireY = room.FireOriginY ?? 50;
+
+        // Fire is a salient visual/thermal source, so facing is not used as a
+        // gate once it is in the same compartment; walls and human sight range
+        // still apply through the ordinary ray test.
+        if (!CanSeePoint(
+                state,
+                observer.CurrentRoomId,
+                observer.PositionX,
+                observer.PositionY,
+                observer.FacingDegrees,
+                HumanRange,
+                forwardCone: false,
+                room.Id,
+                fireX,
+                fireY))
+        {
+            return;
+        }
+
+        var key = $"{room.Id}:fire";
+        if (!observer.ObservedFaults.Add(key))
+        {
+            return;
+        }
+
+        observer.Memories.Add(new Memory(
+            $"I can see an active fire in {room.Name} [{room.Id}] at about {room.FireIntensity:0}% intensity.",
+            state.Elapsed,
+            0.9,
+            ObservedFireRoomId: room.Id));
     }
 
     public static bool CanSee(GameState state, Npc observer, Npc target) =>

@@ -295,11 +295,31 @@ public sealed class GameSession(
 
         var eventNpc = living
             .Where(npc =>
-                npc.NeedsMindReconsideration
-                && (npc.Intent is null
-                    || npc.Intent.Urgency < 85
-                    || npc.Hunger >= 72
-                    || npc.Fatigue >= 86))
+            {
+                var currentRoom = State.Facility.Rooms[npc.CurrentRoomId];
+                var freshFireObservation = currentRoom.FireIntensity > 0
+                    && npc.Memories.Any(memory =>
+                        memory.ObservedFireRoomId?.Equals(
+                            currentRoom.Id,
+                            StringComparison.OrdinalIgnoreCase) == true
+                        && memory.OccurredAt > npc.LastThoughtAt);
+                var freshFireAlarm =
+                    npc.ReceivedMessages.FirstOrDefault() is { Claim: OverseerClaimKind.FireAlarm } latestAlarm
+                    && npc.LastThoughtAt <= latestAlarm.SentAt;
+
+                // These are information updates, not deterministic decisions.
+                // Only the local model runtime gets this extra wake-up; the
+                // static fallback keeps its established decision cadence.
+                return (npc.NeedsMindReconsideration
+                        || freshFireObservation
+                        || freshFireAlarm)
+                    && (npc.Intent is null
+                        || npc.Intent.Urgency < 85
+                        || npc.Hunger >= 72
+                        || npc.Fatigue >= 86
+                        || freshFireObservation
+                        || freshFireAlarm);
+            })
             .OrderByDescending(npc =>
                 npc.MissingPersonConcerns.Values.Any(concern =>
                     concern.Stage == MissingPersonConcernStage.Escalated))
