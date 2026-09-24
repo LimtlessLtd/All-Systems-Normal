@@ -1364,13 +1364,39 @@ public sealed class Room
     public bool CameraOnline { get; set; } = true;
     public bool CameraNetworkReachable { get; set; } = true;
 
+    /// <summary>Authoritative physical room temperature used by simulation consequences.</summary>
     public double TemperatureC { get; set; } = 21;
+
+    /// <summary>
+    /// Optional deterministic sensor-channel override. Null means the sensor
+    /// truthfully reports <see cref="TemperatureC"/>; later physical tamper
+    /// interactions can change this without changing the room itself.
+    /// </summary>
+    public double? TemperatureSensorReadingOverrideC { get; set; }
+
+    /// <summary>What Overseer's temperature telemetry currently reports.</summary>
+    public double ReportedTemperatureC =>
+        TemperatureSensorReadingOverrideC ?? TemperatureC;
+
     public double TemperatureSetpointC { get; set; } = 21;
     public bool HasTemperatureControl { get; set; } = true;
     public bool TemperatureControlOnline { get; set; } = true;
     public bool IsTemperatureAiControllable { get; set; } = true;
 
+    /// <summary>Authoritative physical oxygen concentration used by simulation consequences.</summary>
     public double OxygenPercent { get; set; } = 20.9;
+
+    /// <summary>
+    /// Optional deterministic sensor-channel override. Null means the sensor
+    /// truthfully reports <see cref="OxygenPercent"/>; later physical tamper
+    /// interactions can change this without changing the atmosphere itself.
+    /// </summary>
+    public double? OxygenSensorReadingOverridePercent { get; set; }
+
+    /// <summary>What Overseer's oxygen telemetry currently reports.</summary>
+    public double ReportedOxygenPercent =>
+        OxygenSensorReadingOverridePercent ?? OxygenPercent;
+
     public double CarbonDioxidePercent { get; set; } = 0.04;
     public double PressureKpa { get; set; } = 101.3;
 
