@@ -274,24 +274,35 @@ public sealed class EnvironmentSystem
                 _ => 11
             };
 
-            room.TemperatureC = MoveToward(
-                room.TemperatureC,
-                passiveTarget,
-                0.055 * minutes);
-        }
-
-        // The central air loop passively moderates spaces even when they do not
-        // expose a local thermostat to Overseer.
-        if (!activeClimate
-            && state.LifeSupport.IsOnline
-            && room.IsPowered
-            && room.VentilationEnabled)
-        {
-            var airLoopTarget = room.Type == RoomType.Hydroponics ? 24 : 21;
-            room.TemperatureC = MoveToward(
-                room.TemperatureC,
-                airLoopTarget,
-                0.045 * minutes);
+            // The central air loop passively moderates spaces even when they
+            // do not expose a local thermostat to Overseer. Heat loss and the
+            // loop act together, so such a space settles between the two.
+            // Applying them as two fixed steps let the larger one win
+            // outright, so every corridor and airlock slid to 11C after ~18h,
+            // and crew crossing them took "cold room" stress all day
+            // (2026-09-24 36h soak). Lose the loop and heat loss wins again.
+            var airLooped =
+                state.LifeSupport.IsOnline
+                && room.IsPowered
+                && room.VentilationEnabled;
+            if (airLooped)
+            {
+                var airLoopTarget = room.Type == RoomType.Hydroponics ? 24 : 21;
+                var moderated =
+                    (PassiveHeatLossWeight * passiveTarget + AirLoopWeight * airLoopTarget)
+                    / (PassiveHeatLossWeight + AirLoopWeight);
+                room.TemperatureC = MoveToward(
+                    room.TemperatureC,
+                    moderated,
+                    0.1 * minutes);
+            }
+            else
+            {
+                room.TemperatureC = MoveToward(
+                    room.TemperatureC,
+                    passiveTarget,
+                    0.055 * minutes);
+            }
         }
 
         if (occupants > 0)
@@ -301,6 +312,12 @@ public sealed class EnvironmentSystem
 
         room.TemperatureC = Math.Clamp(room.TemperatureC, -20, 60);
     }
+
+    /// <summary>Relative pull of hull heat loss on a space without its own climate control.</summary>
+    private const double PassiveHeatLossWeight = 1;
+
+    /// <summary>Relative pull of the central air loop on the same space (18.5C for a corridor).</summary>
+    private const double AirLoopWeight = 3;
 
     private static double MoveToward(double current, double target, double maximumDelta)
     {
