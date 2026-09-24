@@ -354,7 +354,7 @@ public sealed class RobotSystem
         GameState state,
         StationRobot robot)
     {
-        if (!state.LifeSupport.IsOnline)
+        if (CrewCounterplaySystem.HasSwitchedOffLifeSupport(state))
         {
             var path = _navigation.FindPath(state.Facility, robot.CurrentRoomId, ChargingRoomId);
             if (robot.CurrentRoomId.Equals(ChargingRoomId, StringComparison.OrdinalIgnoreCase)

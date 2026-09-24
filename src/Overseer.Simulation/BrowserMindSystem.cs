@@ -369,7 +369,7 @@ public sealed class BrowserMindSystem
                 94);
         }
 
-        if (!state.LifeSupport.IsOnline && repairSkill >= 55)
+        if (CrewCounterplaySystem.HasSwitchedOffLifeSupport(state) && repairSkill >= 55)
         {
             return Create(
                 state,
