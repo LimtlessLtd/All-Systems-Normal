@@ -182,6 +182,27 @@ public sealed class PlaytestUiPolishTests
         }
     }
 
+    [Fact]
+    public void PagesHostPadsExactlyWhatTheGameShellsNegativeMarginCancels()
+    {
+        // The shell's negative margin assumed a padded host layout. The Pages
+        // client's bare <main> had none, so the shell spilled 12px past each
+        // side of the window and the page scrolled horizontally.
+        var root = FindRepositoryRoot();
+        var shell = ReadMirroredCss().Single();
+        var host = File.ReadAllText(Path.Combine(root, "src/Overseer.Web.Client/wwwroot/css/app.css"));
+
+        Assert.Contains("margin: -1.1rem -.75rem 0;", shell);
+        Assert.Contains("main{padding:1.1rem .75rem 0}", host);
+
+        // min-height: 100vh must include the shell's own padding, or the
+        // page scrolls vertically by that padding.
+        var rule = shell[shell.IndexOf(".game-shell {", StringComparison.Ordinal)..];
+        rule = rule[..rule.IndexOf('}')];
+        Assert.Contains("box-sizing: border-box;", rule);
+        Assert.Contains("min-height: 100vh;", rule);
+    }
+
     private static IEnumerable<string> ReadMirroredHomes()
     {
         var root = FindRepositoryRoot();
