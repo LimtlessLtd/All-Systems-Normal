@@ -198,6 +198,19 @@ public static class DiningSeatRules
             // order. Runtime Guid IDs must never arbitrate simulation outcomes.
             .OrderBy(other => other.Name, StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// The eater who holds this medical bed as a bedside meal place right
+    /// now, or null. Bed assignment reads this, so the medical bed has one
+    /// occupancy answer for sleepers and eaters.
+    /// </summary>
+    internal static Npc? BedsideEaterAt(GameState state, Room room, RoomFixture bed) =>
+        room.Type == RoomType.Medical
+        && bed.Type == FixtureType.MedicalBed
+        && OccupantOf(state, room, bed) is { } occupant
+        && IsEating(occupant)
+            ? occupant
+            : null;
+
     private static Npc? OccupantOf(GameState state, Room room, RoomFixture seat)
     {
         // A medical bed is a real scarce physical resource even when the person

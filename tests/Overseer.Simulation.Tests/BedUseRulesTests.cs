@@ -239,6 +239,106 @@ public sealed class BedUseRulesTests
     }
 
     [Fact]
+    public void ASleeperIsNotSentOntoAMedicalBedSomeoneIsEatingAt()
+    {
+        // #95 edge from the #190 review: bed assignment ignored a seated
+        // bedside eater, so a sleeper walked onto the bed they were eating at.
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var medical = state.Facility.Rooms["medical"];
+        var firstBed = FirstMedicalBedInAssignmentOrder(medical);
+        var (eater, sleeper) = EaterAndSleeperIn(state, medical, firstBed);
+
+        Assert.Same(firstBed, DiningSeatRules.SeatedAt(state, eater));
+        var assigned = Assert.IsType<RoomFixture>(BedUseRules.AssignedBed(state, sleeper));
+        Assert.NotSame(firstBed, assigned);
+        Assert.Equal(FixtureType.MedicalBed, assigned.Type);
+
+        var movement = new LocalMovementSystem();
+        for (var minute = 0; minute < 10; minute++)
+        {
+            movement.Tick(state, TimeSpan.FromMinutes(1));
+            Assert.False(
+                Math.Abs(sleeper.PositionX - firstBed.X) <= firstBed.Width / 2
+                    && Math.Abs(sleeper.PositionY - firstBed.Y) <= firstBed.Height / 2,
+                "the sleeper must not walk onto the bed the eater is using");
+        }
+
+        Assert.Same(assigned, BedUseRules.BedAsleepIn(state, sleeper));
+        Assert.Same(firstBed, DiningSeatRules.SeatedAt(state, eater));
+    }
+
+    [Fact]
+    public void AMedicalBedFreesForSleepersOnceTheBedsideMealEnds()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var medical = state.Facility.Rooms["medical"];
+        var firstBed = FirstMedicalBedInAssignmentOrder(medical);
+        var (eater, sleeper) = EaterAndSleeperIn(state, medical, firstBed);
+        Assert.NotSame(firstBed, BedUseRules.AssignedBed(state, sleeper));
+
+        eater.CurrentAction = new NpcAction(ActionKind.Idle, medical.Id, "Finished eating.");
+
+        Assert.Same(firstBed, BedUseRules.AssignedBed(state, sleeper));
+    }
+
+    [Fact]
+    public void WithEveryMedicalBedHoldingAnEater_ASleeperThereHasNoBed()
+    {
+        var state = FacilitySeeder.CreateDefault(SeededCrewRosterGenerator.Generate(4242), stationSeed: 1337);
+        var medical = state.Facility.Rooms["medical"];
+        var beds = medical.Fixtures.Where(fixture => fixture.Type == FixtureType.MedicalBed).ToList();
+        Assert.True(state.Crew.Count > beds.Count, "Regression roster must exceed the medical beds.");
+
+        foreach (var (bed, eater) in beds.Zip(state.Crew))
+        {
+            Place(eater, medical, bed.X, bed.Y);
+            eater.CarriedMealPortion = DiningSeatRules.CarriedMealSize;
+            eater.CurrentAction = new NpcAction(ActionKind.Eat, medical.Id, "Eating at bedside.");
+        }
+
+        var sleeper = state.Crew[beds.Count];
+        Place(sleeper, medical, 50, 85);
+        sleeper.CurrentAction = new NpcAction(ActionKind.Sleep, medical.Id, "Sleeping in medical.");
+
+        Assert.All(state.Crew.Take(beds.Count), eater => Assert.NotNull(DiningSeatRules.SeatedAt(state, eater)));
+        Assert.Null(BedUseRules.AssignedBed(state, sleeper));
+    }
+
+    private static RoomFixture FirstMedicalBedInAssignmentOrder(Room medical)
+    {
+        var beds = medical.Fixtures
+            .Where(fixture => fixture.Type == FixtureType.MedicalBed)
+            .OrderBy(fixture => fixture.Label, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(fixture => fixture.X)
+            .ThenBy(fixture => fixture.Y)
+            .ToList();
+        Assert.True(beds.Count >= 2, "Regression needs at least two medical beds.");
+        return beds[0];
+    }
+
+    private static (Npc Eater, Npc Sleeper) EaterAndSleeperIn(GameState state, Room medical, RoomFixture bed)
+    {
+        var eater = state.Crew[0];
+        Place(eater, medical, bed.X, bed.Y);
+        eater.CarriedMealPortion = DiningSeatRules.CarriedMealSize;
+        eater.CurrentAction = new NpcAction(ActionKind.Eat, medical.Id, "Eating at bedside.");
+
+        var sleeper = state.Crew[1];
+        Place(sleeper, medical, 50, 85);
+        sleeper.CurrentAction = new NpcAction(ActionKind.Sleep, medical.Id, "Sleeping in medical.");
+        return (eater, sleeper);
+    }
+
+    private static void Place(Npc npc, Room room, double x, double y)
+    {
+        npc.CurrentRoomId = room.Id;
+        npc.PositionX = x;
+        npc.PositionY = y;
+        npc.Intent = null;
+        npc.Movement = null;
+    }
+
+    [Fact]
     public void MapDrawsSleepersInBedFromTheAuthoritativeBedState()
     {
         var root = AppContext.BaseDirectory;
