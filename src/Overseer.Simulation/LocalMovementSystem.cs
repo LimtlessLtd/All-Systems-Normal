@@ -8,6 +8,7 @@ public sealed class LocalMovementSystem
     private const double DoorApproachMultiplier = 1.35;
     private const double FixtureClearance = 1.8;
     private const double WaypointMargin = .35;
+    private const double CrewOverlapEpsilonMapUnits = 0.02;
     private const double CrewSeparationMapUnits = 1.25;
     private readonly CrewDoorInteractionSystem _crewDoors = new();
 
@@ -44,7 +45,15 @@ public sealed class LocalMovementSystem
                 MoveTowards(room, npc, destination.X, destination.Y, crewDistance);
             }
 
-            ResolveCrewSeparation(state, npc, settledCrew);
+            // Do not turn nearby moving people into dynamic obstacles: that
+            // changes route timing and can create emergent door queues. This
+            // rule is deliberately about people who have actually settled on
+            // the same authoritative point.
+            if (!npc.IsLocallyMoving)
+            {
+                ResolveCrewSeparation(state, npc, settledCrew);
+            }
+
             settledCrew.Add(npc);
         }
 
@@ -618,7 +627,7 @@ public sealed class LocalMovementSystem
                 PhysicalDistance(
                     room,
                     npc.PositionX - other.PositionX,
-                    npc.PositionY - other.PositionY) >= CrewSeparationMapUnits))
+                    npc.PositionY - other.PositionY) >= CrewOverlapEpsilonMapUnits))
         {
             return;
         }
