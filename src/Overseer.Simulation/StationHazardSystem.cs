@@ -323,6 +323,12 @@ public sealed class StationHazardSystem
                     return false;
                 }
 
+                if (!FireFrontRules.CanReachFront(room, npc.PositionX, npc.PositionY))
+                {
+                    message = $"{npc.Name} is too far from the flames in {room.Name} to reach them.";
+                    return false;
+                }
+
                 var skill = Math.Max(
                     npc.Skills.GetValueOrDefault("Engineering"),
                     npc.Skills.GetValueOrDefault("Security"));
