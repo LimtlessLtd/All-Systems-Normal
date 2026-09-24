@@ -204,7 +204,8 @@ public static class StationLogPresentation
     }
 
     public static bool IsNotable(string entry) =>
-        !RoutineMarkers.Any(marker => entry.Contains(marker, StringComparison.Ordinal));
+        !OverseerSightSystem.IsUnseen(entry)
+        && !RoutineMarkers.Any(marker => entry.Contains(marker, StringComparison.Ordinal));
 
     /// <summary>CSS severity class: critical, warning or info.</summary>
     public static string Severity(string entry) =>

@@ -21,6 +21,26 @@ public readonly record struct FireSighting(double Intensity, TimeSpan? SeenAt, b
 /// </summary>
 public static class OverseerSightSystem
 {
+    /// <summary>
+    /// Prefix for an event-log line that happened where no camera could see.
+    /// Debug telemetry keeps the line; the player's station log hides it.
+    /// </summary>
+    public const string UnseenMarker = "[UNSEEN] ";
+
+    /// <summary>
+    /// The event-log text for something only a camera in <paramref name="room"/>
+    /// would reveal: the message as is while the room has a visual feed,
+    /// otherwise tagged <see cref="UnseenMarker"/>.
+    /// </summary>
+    public static string Witnessed(Room room, string message)
+    {
+        ArgumentNullException.ThrowIfNull(room);
+        return room.HasVisualFeed ? message : UnseenMarker + message;
+    }
+
+    public static bool IsUnseen(string entry) =>
+        entry.Contains(UnseenMarker, StringComparison.Ordinal);
+
     /// <summary>Records what every room with a visual feed shows right now.</summary>
     public static void Tick(GameState state)
     {
