@@ -6,6 +6,21 @@ namespace Overseer.AI;
 
 public static class NpcPromptBuilder
 {
+    /// <summary>What "nominal" means in STATION STATUS-PANEL ROOM READINGS.</summary>
+    public const string NominalLegend =
+        "\"nominal\" means O2 at least 19.5%, CO2 under 0.5%, pressure at least 95 kPa, 18-26C, no fire or smoke, full visibility, ventilation on and HABITABLE; any other room shows its full readings.";
+
+    private static bool IsNominal(Room room) =>
+        room.OxygenPercent >= 19.5
+        && room.CarbonDioxidePercent < 0.5
+        && room.PressureKpa >= 95
+        && room.TemperatureC is >= 18 and <= 26
+        && room.FireIntensity <= 0
+        && room.SmokePercent < 0.5
+        && room.VisibilityPercent >= 99.5
+        && room.VentilationEnabled
+        && CrewEnvironmentSafety.Label(room) == "HABITABLE";
+
     private static readonly TimeSpan RecentFailedAttemptWindow = TimeSpan.FromHours(2);
     private static readonly TimeSpan PanicClaimWindow = TimeSpan.FromMinutes(15);
 
@@ -171,17 +186,23 @@ public static class NpcPromptBuilder
 
         var reachableRoomIds = ReachableRooms(state, npc, room.Id);
 
+        // Owner idea #97: a room whose readings are all ordinary is one word
+        // ("nominal", defined in the section header) instead of ten numbers.
         var rooms = state.Facility.Rooms.Values
             .OrderBy(r => r.Id)
             .Select(r =>
                 $"{r.Id} = {r.Name} | "
                 + $"{(reachableRoomIds.Contains(r.Id) ? "reachable" : "route sealed")} | "
-                + $"O2 {r.OxygenPercent:0.0}% | CO2 {r.CarbonDioxidePercent:0.00}% | "
-                + $"pressure {r.PressureKpa:0.0} kPa | temp {r.TemperatureC:0.0}C | "
-                + $"fire {r.FireIntensity:0}% | smoke {r.SmokePercent:0}% | "
-                + $"visibility {r.VisibilityPercent:0}% | ventilation {(r.VentilationEnabled ? "on" : "isolated")} | "
-                + $"{CrewEnvironmentSafety.Label(r)}");
+                + (IsNominal(r)
+                    ? "nominal"
+                    : $"O2 {r.OxygenPercent:0.0}% | CO2 {r.CarbonDioxidePercent:0.00}% | "
+                        + $"pressure {r.PressureKpa:0.0} kPa | temp {r.TemperatureC:0.0}C | "
+                        + $"fire {r.FireIntensity:0}% | smoke {r.SmokePercent:0}% | "
+                        + $"visibility {r.VisibilityPercent:0}% | ventilation {(r.VentilationEnabled ? "on" : "isolated")} | "
+                        + $"{CrewEnvironmentSafety.Label(r)}"));
 
+        // Owner idea #97: the atmosphere link follows from the hatch state and
+        // most hatches are traversable, so only the exception is spelled out.
         var stationTopology = state.Facility.Doors
             .OrderBy(door => door.Id, StringComparer.OrdinalIgnoreCase)
             .Select(door =>
@@ -195,15 +216,12 @@ public static class NpcPromptBuilder
                         : door.IsOpen
                             ? "open"
                             : "closed";
-                var atmosphericLink = door.IsOpen || door.IsManuallyOverridden
-                    ? "atmosphere connected"
-                    : "atmosphere isolated";
                 var traversable = CrewDoorInteractionSystem.CanTraverseWhenReached(state, npc, door)
-                    ? "you can traverse when reached"
-                    : "blocked for you";
+                    ? string.Empty
+                    : " | blocked for you";
 
                 return $"- {door.Id}: {a.Id} ({a.Name}) <-> {b.Id} ({b.Name}) | "
-                    + $"{stateLabel} | {atmosphericLink} | {traversable}";
+                    + $"{stateLabel}{traversable}";
             })
             .ToArray();
 
@@ -674,10 +692,12 @@ public static class NpcPromptBuilder
         builder.AppendLine();
         builder.AppendLine("STATION STATUS-PANEL ROOM READINGS:");
         builder.AppendLine("These are the compartment readings currently available to this crew member; route status reflects passable hatches.");
+        builder.AppendLine(NominalLegend);
         foreach (var knownRoom in rooms) builder.AppendLine($"- {knownRoom}");
         builder.AppendLine();
         builder.AppendLine("STATION TOPOLOGY / COMPARTMENT CONNECTIONS:");
         builder.AppendLine("Use this known layout to invent emergency plans such as evacuation routes, sealing a fire, isolating smoke, or deliberately venting a compartment. These are connections and live hatch states, not permission to control them remotely.");
+        builder.AppendLine("Open or overridden hatches connect the two rooms' atmosphere; closed or locked ones isolate it. You can pass any hatch once you reach it unless it is marked \"blocked for you\".");
         foreach (var connection in stationTopology) builder.AppendLine(connection);
         builder.AppendLine();
         builder.AppendLine("DISABLED SYSTEM TARGET IDS:");

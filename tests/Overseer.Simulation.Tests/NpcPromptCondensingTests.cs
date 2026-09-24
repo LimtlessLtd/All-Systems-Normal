@@ -96,4 +96,45 @@ public sealed class NpcPromptCondensingTests
             Assert.Contains($"- {entry.Action} [{entry.TargetType}]", catalog);
         }
     }
+
+    [Fact]
+    public void StatusPanel_ShowsOrdinaryRoomsAsNominalAndTroubledRoomsInFull()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew[0];
+        var burning = state.Facility.Rooms.Values.First(room => room.Id != npc.CurrentRoomId);
+        burning.FireIntensity = 40;
+        burning.SmokePercent = 30;
+
+        var prompt = NpcPromptBuilder.Build(npc, state);
+        var lines = prompt.Split('\n').Select(line => line.TrimEnd('\r')).ToArray();
+
+        Assert.Contains(NpcPromptBuilder.NominalLegend, prompt);
+        var quiet = state.Facility.Rooms.Values.First(room =>
+            room.Id != burning.Id && room.Id != npc.CurrentRoomId);
+        Assert.Contains(lines, line =>
+            line.StartsWith($"- {quiet.Id} = {quiet.Name} | ")
+            && line.EndsWith("| nominal"));
+        var burningLine = Assert.Single(lines, line => line.StartsWith($"- {burning.Id} = "));
+        Assert.Contains("fire 40%", burningLine);
+        Assert.Contains("smoke 30%", burningLine);
+    }
+
+    [Fact]
+    public void Topology_SpellsOutOnlyTheHatchStateAndExceptions()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew[0];
+        var door = state.Facility.Doors.First(candidate =>
+            candidate.IsOpen && !candidate.IsLocked && !candidate.IsManuallyOverridden);
+
+        var prompt = NpcPromptBuilder.Build(npc, state);
+        var lines = prompt.Split('\n').Select(line => line.TrimEnd('\r')).ToArray();
+
+        var doorLine = Assert.Single(lines, line => line.StartsWith($"- {door.Id}: "));
+        Assert.EndsWith("| open", doorLine);
+        Assert.DoesNotContain("atmosphere connected", prompt);
+        Assert.DoesNotContain("you can traverse when reached", prompt);
+        Assert.Contains("Open or overridden hatches connect the two rooms' atmosphere", prompt);
+    }
 }
