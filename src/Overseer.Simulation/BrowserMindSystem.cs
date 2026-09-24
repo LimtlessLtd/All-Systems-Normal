@@ -380,6 +380,19 @@ public sealed class BrowserMindSystem
                 90);
         }
 
+        // Owner idea #74: the model-citizen baseline covers an empty post it can
+        // be spared for. It takes no travel, so it sits ahead of routine needs.
+        if (RoleSuccessionRules.FallbackPostToTake(state, npc) is { } post)
+        {
+            return Create(
+                state,
+                ActionKind.AssumeRole,
+                post.ToString(),
+                $"Take over as {post}.",
+                "Nobody is left in that post, I can do the job and my own post is still covered.",
+                70);
+        }
+
         // Basic survival comes before curiosity. These used to sit below the
         // investigation and suspicion branches, so a crew member who suspected
         // Overseer would investigate indefinitely while starving — and, because

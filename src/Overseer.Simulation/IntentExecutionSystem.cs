@@ -221,6 +221,10 @@ public sealed class IntentExecutionSystem
                     ExecuteRecapturePrisonerIntent(state, npc, intent);
                     break;
 
+                case ActionKind.AssumeRole:
+                    ExecuteAssumeRoleIntent(state, npc, intent);
+                    break;
+
                 case ActionKind.Idle:
                     npc.CurrentAction = new NpcAction(
                         ActionKind.Idle,
@@ -1086,6 +1090,31 @@ public sealed class IntentExecutionSystem
                 ActionKind.AcceptPact,
                 proposal.FromNpcName,
                 intent.Reason),
+            out _);
+
+        npc.Intent = null;
+    }
+
+    // Owner idea #74: taking over a post needs no travel. A post that turned
+    // out to be taken or not open becomes a failed-attempt memory.
+    private void ExecuteAssumeRoleIntent(GameState state, Npc npc, NpcIntent intent)
+    {
+        if (!RoleSuccessionRules.TryParseRole(intent.TargetId, out var role))
+        {
+            FailIntent(state, npc, "I never settled on which post to take over.");
+            return;
+        }
+
+        if (!RoleSuccessionRules.CanAssume(state, npc, role, out var reason))
+        {
+            FailIntent(state, npc, reason);
+            return;
+        }
+
+        _actions.TryApply(
+            state,
+            npc.Id,
+            new NpcAction(ActionKind.AssumeRole, role.ToString(), intent.Reason),
             out _);
 
         npc.Intent = null;

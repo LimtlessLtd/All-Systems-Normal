@@ -114,6 +114,7 @@ public sealed class ActionResolver
             ActionKind.BorrowItem => TryBorrowPossession(state, npc, action, out message),
             ActionKind.StealItem => TryStealPossession(state, npc, action, out message),
             ActionKind.DestroyItem => TryDestroyPossession(state, npc, action, out message),
+            ActionKind.AssumeRole => TryAssumeRole(state, npc, action, out message),
             ActionKind.Idle => SetAction(state, npc, action, "waits", out message),
             _ => Fail("Unsupported action.", out message)
         };
@@ -880,6 +881,49 @@ public sealed class ActionResolver
         npc.CurrentAction = action;
         npc.RoutineUntil = TimeSpan.Zero;
         message = $"{npc.Name} {verb} their promise: {pact.PromiseText}";
+        Log(state, message);
+        return true;
+    }
+
+    // Owner idea #74, slice 1: the person takes the post at once; duty room,
+    // shift and role-gated work (a Doctor treating patients) follow from Role.
+    private static bool TryAssumeRole(
+        GameState state,
+        Npc npc,
+        NpcAction action,
+        out string message)
+    {
+        if (!RoleSuccessionRules.TryParseRole(action.TargetId, out var role))
+            return Fail($"{npc.Name} names no station post to take over.", out message);
+
+        if (!RoleSuccessionRules.CanAssume(state, npc, role, out var reason))
+            return Fail($"{npc.Name} cannot take over as {role}: {reason}", out message);
+
+        var fallen = RoleSuccessionRules.KnownFallenHolder(state, npc, role)!;
+        var previous = npc.Role;
+        npc.Role = role;
+        npc.CurrentAction = new NpcAction(ActionKind.Idle, null, $"Took over as {role}.");
+        npc.RoutineUntil = TimeSpan.Zero;
+        npc.Memories.Add(new Memory(
+            $"I stepped up from {previous} to take over as {role} after finding {fallen.Name}'s body.",
+            state.Elapsed,
+            0.6));
+
+        foreach (var witness in state.Crew.Where(candidate =>
+                     candidate.IsAlive
+                     && candidate.IsPresent
+                     && candidate.Id != npc.Id
+                     && candidate.CurrentRoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
+                     && PerceptionSystem.CanMakeOut(state, candidate, npc)))
+        {
+            witness.Memories.Add(new Memory(
+                $"Witnessed {npc.Name} step up from {previous} to take over as {role} after {fallen.Name}'s death.",
+                state.Elapsed,
+                0.45,
+                MoralActorName: npc.Name));
+        }
+
+        message = $"{npc.Name} steps up from {previous} to take over as {role} after {fallen.Name}'s death.";
         Log(state, message);
         return true;
     }

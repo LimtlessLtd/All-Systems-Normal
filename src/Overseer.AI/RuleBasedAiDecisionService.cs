@@ -150,6 +150,15 @@ public sealed class RuleBasedAiDecisionService : IAiDecisionService
                 "The crew need life support and I have enough technical ability to try.",
                 88);
         }
+        // Owner idea #74: the model-citizen baseline covers an empty post it can
+        // be spared for. It takes no travel, so it sits ahead of routine needs.
+        else if (RoleSuccessionRules.FallbackPostToTake(state, npc) is { } post)
+        {
+            intent = Create(npc, state, ActionKind.AssumeRole, post.ToString(),
+                $"Take over as {post}.",
+                "Nobody is left in that post, I can do the job and my own post is still covered.",
+                70);
+        }
         // Basic survival comes before curiosity, matching BrowserMindSystem.
         // With investigation first, a suspicious crew member would investigate
         // while starving and oscillate against the routine steering them to food.

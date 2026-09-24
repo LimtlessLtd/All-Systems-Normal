@@ -452,7 +452,15 @@ public enum ActionKind
     /// Physically restrain an escaped prisoner and return them to containment.
     /// Always resolved deterministically by simulation, never by the mind.
     /// </summary>
-    RecapturePrisoner
+    RecapturePrisoner,
+
+    /// <summary>
+    /// Owner idea #74, slice 1: step into a post whose holder you know has
+    /// died. The target is the post's name. C# only checks the post is really
+    /// empty, that you found the body and that you have the core skill
+    /// (<c>RoleSuccessionRules</c>); whether to is the mind's choice.
+    /// </summary>
+    AssumeRole
 }
 
 
@@ -1017,7 +1025,13 @@ public sealed class Npc : IStationMobileEntity
 {
     public Guid Id { get; init; } = Guid.NewGuid();
     public required string Name { get; init; }
-    public required CrewRole Role { get; init; }
+
+    /// <summary>
+    /// The post this person currently holds. Settable because a person can
+    /// step into a dead colleague's post (owner idea #74); only
+    /// <c>ActionResolver</c>'s AssumeRole path changes it during a run.
+    /// </summary>
+    public required CrewRole Role { get; set; }
     public required string CurrentRoomId { get; set; }
     public required Personality Personality { get; init; }
     public string GenerationSource { get; set; } = "Seeded";
