@@ -106,13 +106,18 @@ public sealed class DiningSeatTests
         var seated = eaters.First(npc => DiningSeatRules.SeatedAt(state, npc) is not null);
         var prompt = NpcPromptBuilder.Build(seated, state);
         Assert.Contains("SEATS: 0 of 4 chairs here are free. You are sitting in one.", prompt);
-        Assert.Contains("Whether to eat now, wait or eat elsewhere is up to you.", prompt);
+        Assert.Contains("Whether to eat now or wait for a seat is up to you.", prompt);
 
         // Not eating and not hungry: no seat line.
         var other = state.Crew.First(npc => !eaters.Contains(npc));
         other.CurrentRoomId = "kitchen";
         other.Hunger = 5;
         other.CurrentAction = new NpcAction(ActionKind.Idle, null, "Idle.");
+        Assert.DoesNotContain("SEATS:", NpcPromptBuilder.Build(other, state));
+
+        // Hungry in the Control Room: its console chairs are not a place to eat.
+        other.CurrentRoomId = "control";
+        other.Hunger = 80;
         Assert.DoesNotContain("SEATS:", NpcPromptBuilder.Build(other, state));
     }
 
