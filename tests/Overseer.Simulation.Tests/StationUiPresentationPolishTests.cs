@@ -209,6 +209,24 @@ public sealed class StationUiPresentationPolishTests
     }
 
     [Fact]
+    public void BedsDrawTheirPillowWhereTheSleepersHeadLies()
+    {
+        // Owner idea #105 cross-room pass: the bed art's pillow end and the
+        // sleeper's body angle come from one geometry helper, so a sleeper's
+        // head is always drawn on the pillow.
+        var root = FindRepositoryRoot();
+        var home = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor"));
+        var css = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor.css"));
+
+        Assert.Contains("return BedIsLandscape(room, bed) ? -90 : 0;", home);
+        Assert.Contains("!BedIsLandscape(room, fixture)", home);
+        Assert.Contains(".station-authority-layer .room-node .fixture.fixture-bed::before", css);
+        Assert.Contains(".station-authority-layer .room-node .fixture.fixture-bed.bed-portrait::before", css);
+        Assert.Contains(".station-authority-layer .room-node .fixture.fixture-crate {", css);
+        Assert.Contains(".station-authority-layer .room-node .fixture.fixture-bench {", css);
+    }
+
+    [Fact]
     public void FirePresentation_DoesNotRenderRadialRingLayers()
     {
         var root = FindRepositoryRoot();
