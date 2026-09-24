@@ -1005,6 +1005,13 @@ public sealed class PersonalPossession
 /// item's live global state. A belief only updates through ambient co-located
 /// perception of a held item, or by witnessing a hide/borrow/steal act.
 /// </summary>
+/// <summary>One Overseer alarm (a Warning or FIRE ALARM about a room) that a person checked in person.</summary>
+public sealed record AlarmOutcome(
+    OverseerClaimKind Kind,
+    string RoomId,
+    TimeSpan SettledAt,
+    bool WasFalse);
+
 public sealed record PossessionSighting(
     string PossessionId,
     Guid? HolderId,
@@ -1153,6 +1160,13 @@ public sealed class Npc : IStationMobileEntity
 
     /// <summary>Messages this person has received, newest first, for prompt context.</summary>
     public List<OverseerMessage> ReceivedMessages { get; } = [];
+
+    /// <summary>
+    /// Owner idea #29 (alarm fatigue): Overseer warnings and fire alarms this
+    /// person has checked for themselves by seeing the room, newest first and
+    /// bounded. Only their own settlements count, never hearsay.
+    /// </summary>
+    public List<AlarmOutcome> AlarmOutcomes { get; } = [];
 
     /// <summary>
     /// Accounts already compared with a colleague, so one conversation is not

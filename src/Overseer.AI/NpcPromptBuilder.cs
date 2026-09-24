@@ -615,6 +615,19 @@ public static class NpcPromptBuilder
                     + $"\"{received.Text.Replace("\"", "'")}\"");
             }
         }
+        // Owner idea #29: only this person's own checks, reported as a track
+        // record. How much to discount the next alarm is their call.
+        var falseAlarmStreaks = AlarmFatigueRules.FalseStreaks(state, npc);
+        if (falseAlarmStreaks.Count > 0)
+        {
+            builder.AppendLine("OVERSEER ALARMS YOU CHECKED YOURSELF AND FOUND FALSE (a track record, not proof about the next one):");
+            foreach (var (kind, roomId, falseInARow, latestAt) in falseAlarmStreaks)
+            {
+                var roomName = state.Facility.Rooms.TryGetValue(roomId, out var alarmRoom) ? alarmRoom.Name : roomId;
+                var what = kind == OverseerClaimKind.FireAlarm ? "fire alarms" : "hazard warnings";
+                builder.AppendLine($@"- The last {falseInARow} Overseer {what} about {roomName} [{roomId}] that you checked were false (latest checked T+{latestAt:hh\:mm}).");
+            }
+        }
         builder.AppendLine();
         builder.AppendLine("MISSING-PERSON CONCERNS:");
         if (missingConcerns.Length == 0) builder.AppendLine("- none");
