@@ -673,7 +673,7 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Idea: show "some small white text in the very bottom left handcorner of the space station overview window" such as "processing", "awaiting LLM response" or "determining appropriate course of action" when the simulation appears paused doing background work.
 - Outcome: the station overview exposes a small unobtrusive bottom-left busy-status label whenever an awaited operation is blocking visible progression, using truthful operation-specific state (at minimum `Awaiting LLM response` around provider calls) and clearing it reliably on success, failure or cancellation. It must not claim LLM activity on the static Pages/browser-mind build.
 - Size: small (one PR)
-- Status: **ready**.
+- Status: **ready**. Reset now has a truthful generic `PROCESSING — RESETTING RUN` acknowledgement in #214; this item remains open for ordinary awaited NPC/Overseer LLM calls and operation-specific wording.
 
 ### 103. Continue simulation after scenario completion
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790262800183259 (2026-09-24)
@@ -681,15 +681,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Outcome: reaching a win/completion condition freezes the scenario result and keeps the completion banner, but does not stop station ticks; the player can continue observing/interacting indefinitely until they explicitly load/restart/advance to another scenario. Post-completion play must not repeatedly re-award progression or mutate an already-recorded outcome.
 - Size: small (one PR, with regression coverage for continued ticks + idempotent outcome/progression)
 - Status: **ready**.
-
-
-### 104. Local reset confirmation does nothing
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790262907703839 (2026-09-24)
-- Idea: "You cannot reset the run when running it locally, clicking the reset confirmation button does nothing."
-- Outcome: in the server/local build, confirming RESET from the menu reliably starts a fresh run/session with fresh scenario state and returns to the normal station view; cancelling remains a no-op. Add regression coverage for the local host reset path and a browser check of the confirmation flow so this cannot silently regress.
-- Size: small (one PR)
-- Status: **in progress (#214, ChatGPT); health bug**.
-
 
 
 ### 105. Raise furniture/interior art quality toward the RimWorld readability bar
