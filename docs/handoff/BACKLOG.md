@@ -685,27 +685,12 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 
 
 
-### 106. Fire alarm / ship-wide warning acknowledged but no crew respond
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790263762265599 (2026-09-24)
-- Idea/bug: the reactor was visibly on fire; the owner sent a ship-wide message and repeatedly targeted the reactor with FIRE ALARM. Speech bubbles acknowledged the warning, but nobody moved toward the reactor or otherwise responded.
-- Outcome: diagnose the full perception → cognition → intent → deterministic execution path for reported fires. A valid fire alarm/message must become usable, correctly grounded information for crew cognition; the model remains free to choose *how* or whether to help based on its goals/personality, but the system must not silently lose the warning, omit the known fire from the next prompt, or reject a valid chosen response because of stale/incorrect targets. Add a regression reproducing alarm + known remote fire and inspect server prompt/decision telemetry before changing behaviour.
-- Size: medium (diagnosis + focused regression first; fix sized from finding)
-- Status: **ready; health bug**, take before roadmap work.
-
 ### 107. Crew movement can drift opposite the selected route
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790263807139299 (2026-09-24)
 - Idea/bug: a human moved away from the green dotted planned route for roughly three turns before turning around and following it.
 - Outcome: route visualization and authoritative local movement agree at every stage of a committed inter-room move. Diagnose whether the dotted route is stale/predicted incorrectly or whether local collision/fixture steering can increase distance from the next portal for multiple turns; preserve deterministic obstacle avoidance while preventing sustained backwards drift unless the displayed route is recomputed to explain it.
 - Size: medium (reproduction/instrumentation + movement/route-display fix + regression)
 - Status: **ready; health bug**.
-
-### 108. Crew can visually encounter a fire and leave without cognition acknowledging it
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790263952816869 (2026-09-24)
-- Idea/bug: a human entered a room to check for fire, saw the fire, did not acknowledge it, then walked out.
-- Outcome: a crew member with line-of-sight/perception of an active fire gets that observation into the next cognition input and memory/knowledge path with the correct room/fire target. Deterministic C# must not hard-code a forced firefighting decision; it must ensure the mind actually receives the salient observation and that any chosen response has valid affordances. Add a reproduction covering arrival into a burning room, prompt/perception contents and subsequent decision opportunity.
-- Size: medium (diagnosis + prompt/perception regression first; likely overlaps #106)
-- Status: **ready; health bug**, investigate jointly with #106 to avoid duplicate fixes.
-
 
 ## Deliberate decisions (do not "fix")
 
