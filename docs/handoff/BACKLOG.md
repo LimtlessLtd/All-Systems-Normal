@@ -548,10 +548,10 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 ### 76. Fire should spread visibly from its source
 - Sources: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790171325613139 (2026-09-23) and https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790242588232969 (2026-09-24)
 - Idea: "Fire doesnt spread visually like it should" and latest playtest: room fire renders as a long east-west rectangle with only ~50px north-south spread.
-- Evidence: the 2026-09-24 report confirms the current room-level/radius presentation is not merely stylistically weak but geometrically broken in real play; reproduce the elongated rectangle in a browser before changing authoritative spread state.
+- Evidence: the 2026-09-24 "long east-west rectangle" was a CSS geometry bug, now fixed. The fire overlay shares each room's `::after` with the decorative floor stripe, whose fixed `height` (4%) over-constrained the overlay's `inset`, so flames drew as a full-width strip 4% of the room tall (headless Chromium: 15px tall in a 395px room). The overlay now resets height, width, opacity and shadow and fills the compartment, guarded by `FireOverlay_ResetsTheDecorativeStripeGeometryItReuses`.
 - Outcome: replace the room-level radius-looking fire presentation with a visible deterministic fire-front/patch representation that expands outward from ignition points and can seed adjacent compartments only through physically open connections; presentation must reflect authoritative spread state rather than imply a fake radius.
 - Size: large (slices: inspect current authoritative fire state/presentation mismatch in browser; represent one or more room-local fire patches/fronts; render patch growth; seed adjacent-room patches through open doors)
-- Status: ready — owner-reported bug; requires real-browser validation.
+- Status: ready. The geometry bug is fixed and browser-checked. Remaining: the fire still has no authoritative ignition point or front inside a room (`Room.FireIntensity` is room-level), so the overlay covers the whole room at any intensity. Next slices: a per-room ignition point plus a growing front in simulation state, rendering the front from that state, then seeding adjacent rooms through open doors.
 
 ### 77. Fire, heat and smoke propagation must respect oxygen and open-door gas flow
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790171325613139 (2026-09-23)

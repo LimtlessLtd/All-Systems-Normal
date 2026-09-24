@@ -175,6 +175,64 @@ public sealed class StationUiPresentationPolishTests
         }
     }
 
+    [Fact]
+    public void FireOverlay_ResetsTheDecorativeStripeGeometryItReuses()
+    {
+        // Owner idea #76: the fire overlay shares ::after with each room's decorative floor
+        // stripe. The stripe sets a fixed height, so a fire rule with only `inset` was
+        // over-constrained, the browser dropped `bottom`, and flames rendered as a full-width
+        // strip 4% of the room tall. The fire rule must reset every sizing property the
+        // stripe rules set, plus the stripe's faint opacity and edge shadow.
+        var root = FindRepositoryRoot();
+        var css = File.ReadAllText(Path.Combine(root, "src", "Overseer.Web.UI", "Pages", "Home.razor.css"));
+
+        var fire = DeclarationsOf(css, ".station-authority-layer .room-node[data-room-id].has-fire::after");
+        Assert.Equal("2%", fire["inset"]);
+        Assert.Equal("auto", fire["width"]);
+        Assert.Equal("auto", fire["height"]);
+        Assert.Equal("1", fire["opacity"]);
+        Assert.Equal("none", fire["box-shadow"]);
+
+        string[] geometry = ["top", "right", "bottom", "left", "width", "height", "inset"];
+        foreach (var stripeSelector in new[]
+                 {
+                     ".room-node:not(.hallway):not(.main-corridor)::after",
+                     ".station-authority-layer > .room-node:not(.hallway):not(.main-corridor)::after",
+                 })
+        {
+            var stripe = DeclarationsOf(css, stripeSelector);
+            Assert.Contains("height", stripe.Keys);
+            foreach (var property in stripe.Keys.Intersect(geometry))
+            {
+                Assert.True(
+                    property is "top" or "right" or "bottom" or "left"
+                        ? fire.ContainsKey("inset") || fire.ContainsKey(property)
+                        : fire.ContainsKey(property),
+                    $"The fire overlay must reset '{property}', which {stripeSelector} sets.");
+            }
+        }
+    }
+
+    private static Dictionary<string, string> DeclarationsOf(string css, string selector)
+    {
+        // Anchor at a line start so a selector never matches the tail of a longer one.
+        var start = css.IndexOf("\n" + selector + " {", StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing rule {selector}");
+        var open = css.IndexOf('{', start);
+        var close = css.IndexOf('}', open);
+        var declarations = new Dictionary<string, string>();
+        foreach (var declaration in css[(open + 1)..close].Split(';'))
+        {
+            var colon = declaration.IndexOf(':');
+            if (colon > 0)
+            {
+                declarations[declaration[..colon].Trim()] = declaration[(colon + 1)..].Trim();
+            }
+        }
+
+        return declarations;
+    }
+
     private static int ClassLevelSpecificity(string selector)
     {
         var withoutPseudoElement = selector.Replace("::before", string.Empty).Replace("::after", string.Empty);
