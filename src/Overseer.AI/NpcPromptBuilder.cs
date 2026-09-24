@@ -417,6 +417,31 @@ public static class NpcPromptBuilder
             })
             .ToArray();
 
+        // Owner idea #74: only posts this person could really take, so the
+        // skill floor itself never reaches the prompt.
+        var openPosts = RoleSuccessionRules.OpenPostsFor(state, npc);
+        // Owner idea #97: an action whose target list is empty for this person
+        // right now is left out, with its target contract, to keep the prompt
+        // inside the model's context. Validation of any action is unchanged.
+        var emptyTargetTypes = new HashSet<string>(StringComparer.Ordinal);
+        if (disconnectableLocalDevices.Length == 0) emptyTargetTypes.Add("local-device");
+        if (disabledSystems.Count == 0) emptyTargetTypes.Add("system");
+        if (!state.Facility.Rooms.Values.Any(candidate =>
+                candidate.Type == RoomType.Airlock
+                && candidate.HasExteriorHatch
+                && AirlockSafetyRules.NeedsCrewSecuring(state, candidate)
+                && AirlockSafetyRules.CanPerceiveSafetyState(state, npc, candidate)))
+            emptyTargetTypes.Add("airlock");
+        if (npc.PendingPactProposal is null) emptyTargetTypes.Add("pact-proposal");
+        if (!CrewPactSystem.ActiveFor(state, npc.Id).Any(pact => pact.PromisorId == npc.Id)) emptyTargetTypes.Add("pact");
+        if (npc.PendingShutdownTeamInvitation is null) emptyTargetTypes.Add("team");
+        if (knownShutdownControls.Length == 0) emptyTargetTypes.Add("shutdown-control");
+        if (visibleRobots.Length == 0 && robotThreats.Length == 0) emptyTargetTypes.Add("robot");
+        if (visibleTurrets.Length == 0 && turretThreats.Length == 0) emptyTargetTypes.Add("turret");
+        if (!SecurityMalwareSystem.HasControllerDiagnostic(npc)) emptyTargetTypes.Add("security-controller");
+        if (openPosts.Count == 0) emptyTargetTypes.Add("vacant-post");
+        bool Offered(string targetType) => !emptyTargetTypes.Contains(targetType);
+
         var builder = new StringBuilder();
         builder.AppendLine("You are choosing ONE high-level intention for a human NPC in a space-station simulation.");
         builder.AppendLine("You are not the station AI and you do not control reality.");
@@ -426,24 +451,24 @@ public static class NpcPromptBuilder
         builder.AppendLine("If the CURRENT ROOM is marked DANGER, survival should normally override routine work, recreation, or casual socialising.");
         builder.AppendLine("Closed but unlocked powered hatches are ordinary doors: crew can open them while walking through and they close again after traffic clears. Do not ForceDoor merely because a normal hatch is closed. OpenDoor/CloseDoor are ordinary local actions; LockDoor/UnlockDoor require deterministic role/skill authority.");
         builder.AppendLine("If a disabled system matters enough to this person, you MAY choose RestoreSystem. Do not automatically repair every outage: personality, role, danger, relationships and priorities should decide whether you care enough to try.");
-        builder.AppendLine("A missing-person concern is observer knowledge, not omniscient truth. Ordinary absence is normal: actively searching generally requires roughly 12 hours unseen unless you have direct evidence of immediate danger (for example this person's blood or a recent unsafe airlock connected to their last sighting). A Concerned-stage absence should NOT displace routine work, repairs, food production or ordinary personal needs. Only a Searching/Escalated concern backed by missed duty/check-ins or direct danger evidence should normally justify actively looking. It still does NOT prove the person is dead or reveal their real location.");
-        builder.AppendLine("For a MISSING-PERSON CONCERN, you MAY choose AskAboutLocation (TargetId = the crew member you ask, not the missing person) instead of waiting for word to reach you passively. They may know a more recent sighting than you do, or may have nothing new to add; either way this does not require the concern to already be Searching/Escalated.");
-        builder.AppendLine("Investigation leads below are hypotheses or witnessed locations, not hidden truth. Investigate means physically travel there and inspect it; only deterministic simulation can reveal what is actually present.");
+        if (missingConcerns.Length > 0) builder.AppendLine("A missing-person concern is observer knowledge, not omniscient truth. Ordinary absence is normal: actively searching generally requires roughly 12 hours unseen unless you have direct evidence of immediate danger (for example this person's blood or a recent unsafe airlock connected to their last sighting). A Concerned-stage absence should NOT displace routine work, repairs, food production or ordinary personal needs. Only a Searching/Escalated concern backed by missed duty/check-ins or direct danger evidence should normally justify actively looking. It still does NOT prove the person is dead or reveal their real location.");
+        if (missingConcerns.Length > 0) builder.AppendLine("For a MISSING-PERSON CONCERN, you MAY choose AskAboutLocation (TargetId = the crew member you ask, not the missing person) instead of waiting for word to reach you passively. They may know a more recent sighting than you do, or may have nothing new to add; either way this does not require the concern to already be Searching/Escalated.");
+        if (investigationLeads.Length > 0) builder.AppendLine("Investigation leads below are hypotheses or witnessed locations, not hidden truth. Investigate means physically travel there and inspect it; only deterministic simulation can reveal what is actually present.");
         builder.AppendLine("Only VERIFIED SHUTDOWN CONTROLS are controls this person personally knows exist. A teammate's claim or a room name does not grant control knowledge.");
         builder.AppendLine("You MAY propose a personal promise or deal to a co-located crew member with ProposePact (put the concrete promise in Reason, e.g. \"I'll cover your night shift\" or \"I won't mention what I saw\"). This only creates an offer; it becomes a real commitment only once they choose AcceptPact. Making or keeping a pact is entirely your own choice grounded in your relationships and personality, not a scripted obligation.");
-        builder.AppendLine("If a PENDING PACT PROPOSAL is addressed to you, you MAY choose AcceptPact to agree to it, or simply do something else to leave it unanswered (it will expire).");
+        if (Offered("pact-proposal")) builder.AppendLine("If a PENDING PACT PROPOSAL is addressed to you, you MAY choose AcceptPact to agree to it, or simply do something else to leave it unanswered (it will expire).");
         builder.AppendLine("You MAY suggest a co-located crew member do something specific with Suggest (put the concrete suggestion in Reason, e.g. \"Everyone should get to Medical\" or \"You should weld that hatch shut\"). This only places the suggestion in their awareness alongside how much they trust you; it never forces, schedules or guarantees their compliance. There is no new leadership role — anyone can suggest anything to anyone.");
-        builder.AppendLine("If a PENDING SUGGESTION is addressed to you, whether to act on it, weigh it against your own priorities, or ignore it entirely is your own choice, informed by how much you trust and respect whoever made it — not a scripted obligation. It also simply expires if you do nothing.");
+        if (npc.PendingSuggestion is not null) builder.AppendLine("If a PENDING SUGGESTION is addressed to you, whether to act on it, weigh it against your own priorities, or ignore it entirely is your own choice, informed by how much you trust and respect whoever made it — not a scripted obligation. It also simply expires if you do nothing.");
         builder.AppendLine("HideItem tucks a possession you currently hold away in your CURRENT room — your own, or one you previously borrowed or stole; it must currently be listed as \"with you\" in either YOUR PERSONAL POSSESSIONS or OTHER PEOPLE'S POSSESSIONS YOU KNOW ABOUT. ReturnItem retrieves a possession you know is hidden in your CURRENT room and takes it back into your hands; you must currently be standing in that room. This is a private, personal choice grounded in this person's own reasons (privacy, safekeeping, sentiment, or concealing something you took) — HideItem/ReturnItem act on anything you currently hold or know the hiding spot of, not only what you own.");
-        builder.AppendLine("For a promise YOU made listed under YOUR ACTIVE PACTS, you MAY choose FulfillPact to keep it or BreakPact to break it, whenever it feels right to resolve (not necessarily only at its deadline). This is entirely your own choice grounded in your relationships and personality; you may also simply leave it unsettled by doing something else. Deterministic consequences (memories, trust, resentment) follow from whichever you choose.");
-        builder.AppendLine("If personally convinced Overseer is dangerous and a verified shutdown control requires more crew, you MAY RecruitShutdownAlly. Recruitment creates a social invitation, not instant agreement.");
-        builder.AppendLine("If you have a shutdown-team invitation, you MAY JoinShutdownTeam if you trust the recruiter and believe action is justified. Joining does not personally verify their hardware claim; investigating the claimed room can do that.");
-        builder.AppendLine("Choose ShutdownOverseer only for a VERIFIED SHUTDOWN CONTROL and only when your committed team is large enough. Deterministic C# still validates physical presence, route access and activation.");
-        builder.AppendLine("If a nearby airlock safety panel explicitly says NEEDS SECURING and this person has the training, you MAY choose SecureAirlock. This means wanting to use the local emergency controls; deterministic simulation decides whether they can physically do it.");
+        if (Offered("pact")) builder.AppendLine("For a promise YOU made listed under YOUR ACTIVE PACTS, you MAY choose FulfillPact to keep it or BreakPact to break it, whenever it feels right to resolve (not necessarily only at its deadline). This is entirely your own choice grounded in your relationships and personality; you may also simply leave it unsettled by doing something else. Deterministic consequences (memories, trust, resentment) follow from whichever you choose.");
+        if (Offered("shutdown-control")) builder.AppendLine("If personally convinced Overseer is dangerous and a verified shutdown control requires more crew, you MAY RecruitShutdownAlly. Recruitment creates a social invitation, not instant agreement.");
+        if (Offered("team")) builder.AppendLine("If you have a shutdown-team invitation, you MAY JoinShutdownTeam if you trust the recruiter and believe action is justified. Joining does not personally verify their hardware claim; investigating the claimed room can do that.");
+        if (Offered("shutdown-control")) builder.AppendLine("Choose ShutdownOverseer only for a VERIFIED SHUTDOWN CONTROL and only when your committed team is large enough. Deterministic C# still validates physical presence, route access and activation.");
+        if (Offered("airlock")) builder.AppendLine("If a nearby airlock safety panel explicitly says NEEDS SECURING and this person has the training, you MAY choose SecureAirlock. This means wanting to use the local emergency controls; deterministic simulation decides whether they can physically do it.");
         builder.AppendLine("For an adjacent hatch you may choose RepairDoor for visible damage/bypass, WeldDoor to seal a closed hatch, or BarricadeDoor for defensive securing. These are physical local actions and never remote commands.\nNever assume ForceDoor, RestoreSystem, SecureAirlock or door work succeeds. You are choosing the intention, not the physical result.");
-        builder.AppendLine("Robot countermeasures are physical. ShutdownRobot, DamageRobot and ReprogramRobot require the robot to be in your current room. ReprogramRobot additionally requires the robot to be shut down. IsolateRobotNetwork and DisableRobotCharging use physical Engineering controls; choose them only for a robot you have hostile/attack evidence about. Deterministic simulation still checks location, training, elapsed work time and outcome.");
-        builder.AppendLine("Turret countermeasures follow the same rule. DisarmTurret, DamageTurret and ReprogramTurret require the fixed turret to be in your current room; ReprogramTurret requires it to be disarmed. IsolateTurretNetwork and DisableTurretPower use physical Engineering controls and require personally held hostile weapon evidence. You choose an intention only; deterministic simulation owns targeting, firing, damage and whether your countermeasure succeeds.");
-        builder.AppendLine("Security-controller malware is a specific MR/ST incident, never a generic hacking capability. Only if YOUR LOCAL DIAGNOSTICS below show a compromise may you respond. IsolateSecurityController requires physical access to the Control room and sufficient technical skill; PurgeSecurityController requires the controller to be isolated first and higher technical skill. If you know about the compromise but are elsewhere, Move to Control is appropriate. C# owns containment, affected assets, timing, cleanup and all combat.");
+        if (Offered("robot")) builder.AppendLine("Robot countermeasures are physical. ShutdownRobot, DamageRobot and ReprogramRobot require the robot to be in your current room. ReprogramRobot additionally requires the robot to be shut down. IsolateRobotNetwork and DisableRobotCharging use physical Engineering controls; choose them only for a robot you have hostile/attack evidence about. Deterministic simulation still checks location, training, elapsed work time and outcome.");
+        if (Offered("turret")) builder.AppendLine("Turret countermeasures follow the same rule. DisarmTurret, DamageTurret and ReprogramTurret require the fixed turret to be in your current room; ReprogramTurret requires it to be disarmed. IsolateTurretNetwork and DisableTurretPower use physical Engineering controls and require personally held hostile weapon evidence. You choose an intention only; deterministic simulation owns targeting, firing, damage and whether your countermeasure succeeds.");
+        if (Offered("security-controller") || SecurityMalwareSystem.HasMalwareEvidence(npc)) builder.AppendLine("Security-controller malware is a specific MR/ST incident, never a generic hacking capability. Only if YOUR LOCAL DIAGNOSTICS below show a compromise may you respond. IsolateSecurityController requires physical access to the Control room and sufficient technical skill; PurgeSecurityController requires the controller to be isolated first and higher technical skill. If you know about the compromise but are elsewhere, Move to Control is appropriate. C# owns containment, affected assets, timing, cleanup and all combat.");
         builder.AppendLine("Never choose Attack. Human-on-human violence is resolved separately by the deterministic social simulation.");
         builder.AppendLine("Messages from Overseer are CLAIMS, not facts. Overseer controls the doors, power and air, and may be wrong or lying. Weigh what it says against what you have seen yourself, how much you currently trust it, and what other people have told you. You may act on a message, ignore it, or go and check it.");
         builder.AppendLine();
@@ -568,9 +593,6 @@ public static class NpcPromptBuilder
         if (disconnectableLocalDevices.Length == 0) builder.AppendLine("- none");
         else foreach (var device in disconnectableLocalDevices) builder.AppendLine(device);
         builder.AppendLine();
-        // Owner idea #74: only posts this person could really take, so the
-        // skill floor itself never reaches the prompt.
-        var openPosts = RoleSuccessionRules.OpenPostsFor(state, npc);
         if (openPosts.Count > 0)
         {
             builder.AppendLine("VACANT POSTS YOU COULD STEP INTO:");
@@ -707,28 +729,6 @@ public static class NpcPromptBuilder
         builder.AppendLine("KNOWN CREW ROSTER / VALID PERSON TARGETS:");
         builder.AppendLine(string.Join(", ", knownPersonTargets));
         builder.AppendLine();
-        // Owner idea #97: an action whose target list is empty for this person
-        // right now is left out, with its target contract, to keep the prompt
-        // inside the model's context. Validation of any action is unchanged.
-        var emptyTargetTypes = new HashSet<string>(StringComparer.Ordinal);
-        if (disconnectableLocalDevices.Length == 0) emptyTargetTypes.Add("local-device");
-        if (disabledSystems.Count == 0) emptyTargetTypes.Add("system");
-        if (!state.Facility.Rooms.Values.Any(candidate =>
-                candidate.Type == RoomType.Airlock
-                && candidate.HasExteriorHatch
-                && AirlockSafetyRules.NeedsCrewSecuring(state, candidate)
-                && AirlockSafetyRules.CanPerceiveSafetyState(state, npc, candidate)))
-            emptyTargetTypes.Add("airlock");
-        if (npc.PendingPactProposal is null) emptyTargetTypes.Add("pact-proposal");
-        if (!CrewPactSystem.ActiveFor(state, npc.Id).Any(pact => pact.PromisorId == npc.Id)) emptyTargetTypes.Add("pact");
-        if (npc.PendingShutdownTeamInvitation is null) emptyTargetTypes.Add("team");
-        if (knownShutdownControls.Length == 0) emptyTargetTypes.Add("shutdown-control");
-        if (visibleRobots.Length == 0 && robotThreats.Length == 0) emptyTargetTypes.Add("robot");
-        if (visibleTurrets.Length == 0 && turretThreats.Length == 0) emptyTargetTypes.Add("turret");
-        if (!SecurityMalwareSystem.HasControllerDiagnostic(npc)) emptyTargetTypes.Add("security-controller");
-        if (openPosts.Count == 0) emptyTargetTypes.Add("vacant-post");
-        bool Offered(string targetType) => !emptyTargetTypes.Contains(targetType);
-
         builder.AppendLine("AVAILABLE CAPABILITIES / TARGET CONTRACTS:");
         builder.AppendLine(CrewAffordanceSystem.PromptCatalog(entry => Offered(entry.TargetType)));
         builder.AppendLine("For room-target actions (including Move, SeekSafety, FightFire, EvacuateHazard, SealHazardRoom, VentHazardRoom, Investigate, VerifyClaim, InspectEquipment, Work, Repair and StandGuard), TargetId must be a valid room ID.");

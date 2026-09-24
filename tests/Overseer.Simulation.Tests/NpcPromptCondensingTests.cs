@@ -137,4 +137,60 @@ public sealed class NpcPromptCondensingTests
         Assert.DoesNotContain("you can traverse when reached", prompt);
         Assert.Contains("Open or overridden hatches connect the two rooms' atmosphere", prompt);
     }
+
+    [Fact]
+    public void Preamble_KeepsCoreRulesButOnlyExplainsSituationsThatApply()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew[0];
+
+        var prompt = NpcPromptBuilder.Build(npc, state);
+
+        foreach (var core in new[]
+                 {
+                     "Deterministic C# will reject anything they cannot physically or legitimately do.",
+                     "If the CURRENT ROOM is marked DANGER",
+                     "Never choose Attack.",
+                     "Messages from Overseer are CLAIMS, not facts.",
+                     "You MAY propose a personal promise or deal",
+                     "HideItem tucks a possession",
+                 })
+        {
+            Assert.Contains(core, prompt);
+        }
+
+        foreach (var situational in new[]
+                 {
+                     "Robot countermeasures are physical.",
+                     "Turret countermeasures follow the same rule.",
+                     "Security-controller malware is a specific MR/ST incident",
+                     "If a PENDING PACT PROPOSAL is addressed to you",
+                     "If a PENDING SUGGESTION is addressed to you",
+                     "Choose ShutdownOverseer only",
+                     "If a nearby airlock safety panel explicitly says NEEDS SECURING",
+                     "A missing-person concern is observer knowledge",
+                 })
+        {
+            Assert.DoesNotContain(situational, prompt);
+        }
+    }
+
+    [Fact]
+    public void Preamble_ExplainsRobotCountermeasuresOnceARobotIsPresent()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var npc = state.Crew[0];
+        state.Robots.Add(new StationRobot
+        {
+            Id = "robot-1",
+            Name = "Maintenance Bot",
+            CurrentRoomId = npc.CurrentRoomId,
+            Policy = RobotPolicy.Hostile
+        });
+
+        var prompt = NpcPromptBuilder.Build(npc, state);
+
+        Assert.Contains("Robot countermeasures are physical.", prompt);
+        Assert.DoesNotContain("Turret countermeasures follow the same rule.", prompt);
+    }
 }
