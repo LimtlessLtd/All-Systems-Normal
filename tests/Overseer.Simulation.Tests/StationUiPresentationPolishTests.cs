@@ -136,6 +136,35 @@ public sealed class StationUiPresentationPolishTests
     }
 
     [Fact]
+    public void TelevisionAndGameConsolesDrawAsWhatTheyAre()
+    {
+        // Owner idea #105, slice 2. The television used to clip its own
+        // stand with overflow: hidden, so it read as a coloured panel.
+        var css = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(), "src", "Overseer.Web.UI", "Pages", "Home.razor.css"));
+
+        var tv = RuleBody(css, ".station-authority-layer .room-node .fixture.fixture-television {");
+        Assert.Contains("overflow: visible", tv);
+        Assert.DoesNotContain("overflow: hidden", tv);
+        Assert.Contains("bottom: -8px", RuleBody(css, ".station-authority-layer .room-node .fixture.fixture-television::after {"));
+        Assert.Contains("linear-gradient(115deg", RuleBody(css, ".station-authority-layer .room-node .fixture.fixture-television::before {"));
+
+        // The games console: a monitor showing a game, and two gamepads.
+        Assert.Contains("animation: console-game", RuleBody(css, ".station-authority-layer .room-node .fixture.fixture-recreationconsole::before {"));
+        var pads = RuleBody(css, ".station-authority-layer .room-node .fixture.fixture-recreationconsole::after {");
+        Assert.Contains("ellipse 24% 46% at 24% 50%", pads);
+        Assert.Contains("ellipse 24% 46% at 76% 50%", pads);
+    }
+
+    private static string RuleBody(string css, string selectorWithBrace)
+    {
+        var start = css.IndexOf(selectorWithBrace, StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing CSS rule {selectorWithBrace}");
+        var end = css.IndexOf('}', start);
+        return css[start..end];
+    }
+
+    [Fact]
     public void SeatsDrawABackrestForEveryFacing()
     {
         // Owner idea #105: Home.razor adds seat-faces-{facing} from
