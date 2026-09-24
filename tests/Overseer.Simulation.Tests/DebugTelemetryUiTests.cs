@@ -18,6 +18,9 @@ public sealed class DebugTelemetryUiTests
         Assert.Contains("runtime.NpcDecisionRequestsStarted", debug);
         Assert.Contains("LAST PROVIDER ERROR", debug);
         Assert.Contains("COGNITION DISPATCH FAILURE", debug);
+        Assert.Contains("runtime.RecentProviderTraces", debug);
+        Assert.Contains("PROCESS-WIDE DEVELOPMENT TRACE", debug);
+        Assert.Contains("data-provider-sequence=\"@trace.Sequence\"", debug);
 
         var request = debug.IndexOf("LLM REQUEST // EXACT PROMPT + OPTIONS", StringComparison.Ordinal);
         var response = debug.IndexOf("LLM RESPONSE // RAW PROVIDER OUTPUT", StringComparison.Ordinal);
