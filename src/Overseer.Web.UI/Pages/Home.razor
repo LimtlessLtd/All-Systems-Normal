@@ -3020,9 +3020,7 @@
             maxSteps: 1);
         var local = preview.Count > 0
             ? preview[0]
-            : npc.Movement is { } movement
-                ? (movement.ExitX, movement.ExitY)
-                : (npc.PositionX, npc.PositionY);
+            : (npc.PositionX, npc.PositionY);
 
         return LocalRoutePoint(room, local);
     }
