@@ -171,28 +171,9 @@ public sealed class LocalMovementSystem
     {
         var room = state.Facility.Rooms[npc.CurrentRoomId];
 
-        if (npc.CurrentAction.Kind is ActionKind.Talk
-            or ActionKind.Socialize
-            or ActionKind.Argue
-            or ActionKind.Attack
-            or ActionKind.RequestHelp
-            or ActionKind.Intimacy)
+        if (ConversationPartnerPoint(state, npc) is { } partnerPoint)
         {
-            var target = state.Crew.FirstOrDefault(other =>
-                other.IsAlive
-                && other.CurrentRoomId.Equals(
-                    npc.CurrentRoomId,
-                    StringComparison.OrdinalIgnoreCase)
-                && other.Name.Equals(
-                    npc.CurrentAction.TargetId,
-                    StringComparison.OrdinalIgnoreCase));
-
-            if (target is not null)
-            {
-                return (
-                    Math.Clamp(target.PositionX + 8, 8, 92),
-                    Math.Clamp(target.PositionY + 6, 8, 92));
-            }
+            return partnerPoint;
         }
 
         // Owner idea #76: a fire-fighter walks to the edge of the flames.
@@ -202,36 +183,111 @@ public sealed class LocalMovementSystem
             return attackPoint;
         }
 
-        RoomFixture? preferredFixture = null;
-
-        if (npc.ServicingDeviceId is { } deviceId
-            && state.Devices.TryGetValue(deviceId, out var device)
-            && device.RoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
+        if (PreferredFixture(state, room, npc) is { } preferredFixture)
         {
-            preferredFixture = FixtureForDevice(room, device.Kind);
+            return InteractionPoint(room, preferredFixture);
         }
 
-        if (preferredFixture is null && npc.ProvisioningJob is { } provisioning)
+        return PersonalIdlePoint(room, npc.Name);
+    }
+
+    private static (double X, double Y)? ConversationPartnerPoint(GameState state, Npc npc)
+    {
+        if (npc.CurrentAction.Kind is not (ActionKind.Talk
+            or ActionKind.Socialize
+            or ActionKind.Argue
+            or ActionKind.Attack
+            or ActionKind.RequestHelp
+            or ActionKind.Intimacy))
         {
-            preferredFixture = provisioning switch
+            return null;
+        }
+
+        var target = state.Crew.FirstOrDefault(other =>
+            other.IsAlive
+            && other.CurrentRoomId.Equals(
+                npc.CurrentRoomId,
+                StringComparison.OrdinalIgnoreCase)
+            && other.Name.Equals(
+                npc.CurrentAction.TargetId,
+                StringComparison.OrdinalIgnoreCase));
+
+        if (target is null)
+        {
+            return null;
+        }
+
+        // Two people seeking each other out would each chase a point beside
+        // the other and meet stacked in a corner. The earlier name walks up;
+        // the other holds still (owner idea #95).
+        var mutual = target.CurrentAction.Kind is ActionKind.Talk
+                or ActionKind.Socialize
+                or ActionKind.Argue
+                or ActionKind.Attack
+                or ActionKind.RequestHelp
+                or ActionKind.Intimacy
+            && npc.Name.Equals(target.CurrentAction.TargetId, StringComparison.OrdinalIgnoreCase);
+        if (mutual && string.Compare(npc.Name, target.Name, StringComparison.OrdinalIgnoreCase) > 0)
+        {
+            return (npc.PositionX, npc.PositionY);
+        }
+
+        return (Math.Clamp(target.PositionX + 8, 8, 92),
+            Math.Clamp(target.PositionY + 6, 8, 92));
+    }
+
+    /// <summary>
+    /// The fixture a specific job ties this person to: the machine they
+    /// service, their provisioning station, or the device they disconnect.
+    /// </summary>
+    private static RoomFixture? JobFixture(GameState state, Room room, Npc npc)
+    {
+        if (npc.ServicingDeviceId is { } deviceId
+            && state.Devices.TryGetValue(deviceId, out var device)
+            && device.RoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase)
+            && FixtureForDevice(room, device.Kind) is { } serviced)
+        {
+            return serviced;
+        }
+
+        if (npc.ProvisioningJob is { } provisioning
+            && (provisioning switch
             {
                 ActionKind.Cook => room.Fixtures.FirstOrDefault(fixture =>
                     fixture.Type is FixtureType.KitchenCounter or FixtureType.Sink),
                 ActionKind.TendCrops or ActionKind.Harvest => FixtureForCropBed(state, room, npc.TendingBedId),
                 _ => null
-            };
+            }) is { } station)
+        {
+            return station;
         }
 
-        if (preferredFixture is null
-            && npc.CurrentAction.Kind == ActionKind.DisconnectDevice
+        if (npc.CurrentAction.Kind == ActionKind.DisconnectDevice
             && npc.CurrentAction.TargetId is { } tamperTarget
             && state.Devices.TryGetValue(tamperTarget, out var tamperDevice)
             && tamperDevice.RoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))
         {
-            preferredFixture = FixtureForDevice(room, tamperDevice.Kind);
+            return FixtureForDevice(room, tamperDevice.Kind);
         }
 
-        preferredFixture ??= npc.CurrentAction.Kind switch
+        return null;
+    }
+
+    private static RoomFixture? PreferredFixture(GameState state, Room room, Npc npc)
+    {
+        if (JobFixture(state, room, npc) is { } jobFixture)
+        {
+            return jobFixture;
+        }
+
+        if (SharedFixtures(room, npc.CurrentAction.Kind) is { Count: > 0 } shared)
+        {
+            // Owner idea #95: no free fixture means waiting at an idle point,
+            // not standing on whoever is using it.
+            return SharedFixtureFor(state, room, npc, shared);
+        }
+
+        return npc.CurrentAction.Kind switch
         {
             ActionKind.Sleep => BedUseRules.AssignedBed(state, npc),
 
@@ -254,41 +310,113 @@ public sealed class LocalMovementSystem
                     or FixtureType.RecreationConsole
                     or FixtureType.Table),
 
-            ActionKind.Groom => room.Fixtures.FirstOrDefault(fixture =>
-                fixture.Type is FixtureType.Mirror or FixtureType.Sink),
+            ActionKind.ShutdownOverseer => room.Fixtures.FirstOrDefault(fixture =>
+                fixture.Type == FixtureType.OverseerShutdown),
 
-            ActionKind.Shower => room.Fixtures.FirstOrDefault(fixture =>
-                fixture.Type == FixtureType.Shower),
+            _ => null
+        };
+    }
 
-            ActionKind.UseToilet => room.Fixtures.FirstOrDefault(fixture =>
-                fixture.Type == FixtureType.Toilet),
+    /// <summary>
+    /// Fixtures an activity can use any one of, in room order. The first is
+    /// where a lone user goes, as before owner idea #95.
+    /// </summary>
+    private static List<RoomFixture> SharedFixtures(Room room, ActionKind action) =>
+        action switch
+        {
+            ActionKind.Groom => room.Fixtures.Where(fixture =>
+                fixture.Type is FixtureType.Mirror or FixtureType.Sink).ToList(),
 
-            ActionKind.Work or ActionKind.Repair => room.Fixtures.FirstOrDefault(fixture =>
+            ActionKind.Shower => room.Fixtures.Where(fixture =>
+                fixture.Type == FixtureType.Shower).ToList(),
+
+            ActionKind.UseToilet => room.Fixtures.Where(fixture =>
+                fixture.Type == FixtureType.Toilet).ToList(),
+
+            ActionKind.Work or ActionKind.Repair => room.Fixtures.Where(fixture =>
                 fixture.Type is FixtureType.Workbench
                     or FixtureType.Console
                     or FixtureType.Generator
                     or FixtureType.ReactorCore
                     or FixtureType.MedicalBed
-                    or FixtureType.StorageRack),
+                    or FixtureType.StorageRack).ToList(),
 
-            ActionKind.ShutdownOverseer => room.Fixtures.FirstOrDefault(fixture =>
-                fixture.Type == FixtureType.OverseerShutdown),
-
-            ActionKind.Investigate => room.Fixtures.FirstOrDefault(fixture =>
+            ActionKind.Investigate => room.Fixtures.Where(fixture =>
                 fixture.Type is FixtureType.Console
                     or FixtureType.Workbench
-                    or FixtureType.StorageRack),
+                    or FixtureType.StorageRack).ToList(),
 
-            _ => null
+            _ => []
         };
 
-        if (preferredFixture is not null)
+    /// <summary>
+    /// Owner idea #95: people doing the same activity in a room use distinct
+    /// fixtures. Whoever already stands at one keeps it; the rest take free
+    /// ones in stable name order. Null when every fixture is taken.
+    /// </summary>
+    private static RoomFixture? SharedFixtureFor(
+        GameState state,
+        Room room,
+        Npc npc,
+        List<RoomFixture> fixtures)
+    {
+        var contenders = CrewHere(state, room)
+            .Where(other =>
+                other.CurrentAction.Kind == npc.CurrentAction.Kind
+                && JobFixture(state, room, other) is null)
+            .ToList();
+
+        var assigned = new Dictionary<Guid, RoomFixture>();
+        var claimedPoints = new List<(double X, double Y)>();
+        var points = fixtures.ToDictionary(
+            fixture => fixture,
+            fixture => InteractionPoint(room, fixture),
+            ReferenceEqualityComparer.Instance);
+
+        // Neighbouring fixtures can share one standing point (a row of
+        // racks); a point is one person's, whichever fixture it serves.
+        bool IsFree(RoomFixture fixture) =>
+            claimedPoints.All(point => PhysicalDistance(
+                room,
+                point.X - points[fixture].X,
+                point.Y - points[fixture].Y) > 0.75);
+
+        foreach (var contender in contenders)
         {
-            return InteractionPoint(room, preferredFixture);
+            var occupied = fixtures.FirstOrDefault(fixture =>
+                IsFree(fixture) && IsAtInteractionPoint(room, contender, fixture));
+            if (occupied is not null)
+            {
+                assigned[contender.Id] = occupied;
+                claimedPoints.Add(points[occupied]);
+            }
         }
 
-        return PersonalIdlePoint(room, npc.Name);
+        foreach (var contender in contenders.Where(other => !assigned.ContainsKey(other.Id)))
+        {
+            var free = fixtures.FirstOrDefault(IsFree);
+            if (free is null)
+            {
+                break;
+            }
+
+            assigned[contender.Id] = free;
+            claimedPoints.Add(points[free]);
+        }
+
+        return assigned.GetValueOrDefault(npc.Id);
     }
+
+    private static IEnumerable<Npc> CrewHere(GameState state, Room room) =>
+        state.Crew
+            .Where(other =>
+                other.IsAlive
+                && other.IsPresent
+                && other.Movement is null
+                && other.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+            // Stable ordering keeps seeded roster order for duplicate names;
+            // runtime GUIDs never arbitrate simulation outcomes.
+            .OrderBy(other => other.Name, StringComparer.OrdinalIgnoreCase);
 
     private static (double X, double Y) GetRobotDestination(
         GameState state,
