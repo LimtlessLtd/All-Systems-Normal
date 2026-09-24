@@ -196,6 +196,24 @@ public sealed class EnvironmentSystem
 
         if (ventilationActive)
         {
+            // Repressurisation pumps in station air, so the gas it adds is at
+            // nominal composition. Without this, a vented room came back to
+            // full pressure in ~17 minutes still at ~0% O2 and needed hours
+            // to become breathable: crew suffocated at normal pressure after
+            // a breach was sealed (2026-09-24 soak, seed 15, all 12 dead).
+            var repressurisationRate = room.Type == RoomType.Airlock ? 14 : 6;
+            var previousPressure = room.PressureKpa;
+            room.PressureKpa = MoveToward(
+                room.PressureKpa,
+                NominalPressure,
+                repressurisationRate * minutes);
+            var addedPressure = room.PressureKpa - previousPressure;
+            if (addedPressure > 0)
+            {
+                room.OxygenPercent = MixIn(room.OxygenPercent, previousPressure, NominalOxygen, addedPressure);
+                room.CarbonDioxidePercent = MixIn(room.CarbonDioxidePercent, previousPressure, NominalCo2, addedPressure);
+            }
+
             room.OxygenPercent = MoveToward(
                 room.OxygenPercent,
                 NominalOxygen,
@@ -212,12 +230,6 @@ public sealed class EnvironmentSystem
                 room.CarbonDioxidePercent,
                 NominalCo2,
                 0.055 * scrubberFactor * minutes);
-
-            var repressurisationRate = room.Type == RoomType.Airlock ? 14 : 6;
-            room.PressureKpa = MoveToward(
-                room.PressureKpa,
-                NominalPressure,
-                repressurisationRate * minutes);
         }
 
         if (breathingLoad > 0)
@@ -318,6 +330,21 @@ public sealed class EnvironmentSystem
 
     /// <summary>Relative pull of the central air loop on the same space (18.5C for a corridor).</summary>
     private const double AirLoopWeight = 3;
+
+    /// <summary>
+    /// A gas fraction after adding <paramref name="addedPressure"/> of gas at
+    /// <paramref name="addedFraction"/> to a room at <paramref name="previousPressure"/>.
+    /// </summary>
+    private static double MixIn(
+        double fraction,
+        double previousPressure,
+        double addedFraction,
+        double addedPressure)
+    {
+        var existing = Math.Max(previousPressure, 0);
+        return ((fraction * existing) + (addedFraction * addedPressure))
+            / (existing + addedPressure);
+    }
 
     private static double MoveToward(double current, double target, double maximumDelta)
     {

@@ -167,4 +167,64 @@ public sealed class EnvironmentSystemTests
         Assert.True(npc.Health < healthBefore);
         Assert.True(npc.Stress > 10);
     }
+
+    [Fact]
+    public void RepressurisingASealedVentedRoom_RefillsItWithBreathableStationAir()
+    {
+        // 2026-09-24 soak, seed 15: after a breach was sealed, pressure came
+        // back in ~17 minutes but O2 stayed near 0%, and all 12 crew
+        // suffocated in rooms at normal pressure.
+        var state = FacilitySeeder.CreateDefault();
+        var room = state.Facility.Rooms["quarters"];
+        foreach (var npc in state.Crew)
+        {
+            npc.CurrentRoomId = "control";
+        }
+
+        room.IsPowered = true;
+        room.VentilationEnabled = true;
+        room.HasHullBreach = false;
+        room.PressureKpa = 0;
+        room.OxygenPercent = 0;
+        room.CarbonDioxidePercent = 0.02;
+        Assert.DoesNotContain(room.Id, EnvironmentSystem.FindVacuumDepths(state).Keys);
+
+        var environment = new EnvironmentSystem();
+        for (var minute = 0; minute < 20; minute++)
+        {
+            environment.Tick(state, TimeSpan.FromMinutes(1));
+        }
+
+        Assert.Equal(101.3, room.PressureKpa, 1);
+        Assert.True(room.OxygenPercent > 20.5, $"O2 {room.OxygenPercent:0.00}% at full pressure");
+        Assert.InRange(room.CarbonDioxidePercent, 0.02, 0.1);
+    }
+
+    [Fact]
+    public void RepressurisationDilutesStaleAirByTheShareOfFreshAirAdded()
+    {
+        var state = FacilitySeeder.CreateDefault();
+        var room = state.Facility.Rooms["quarters"];
+        foreach (var npc in state.Crew)
+        {
+            npc.CurrentRoomId = "control";
+        }
+
+        room.IsPowered = true;
+        room.VentilationEnabled = true;
+        room.PressureKpa = 50;
+        room.OxygenPercent = 10;
+        room.CarbonDioxidePercent = 4;
+
+        new EnvironmentSystem().Tick(state, TimeSpan.FromMinutes(1));
+
+        // 6 kPa of station air joins 50 kPa of stale air, then the air loop
+        // nudges the result by its usual per-minute step.
+        var mixedO2 = ((10 * 50) + (20.9 * 6)) / 56;
+        var mixedCo2 = ((4 * 50) + (0.04 * 6)) / 56;
+        Assert.Equal(56, room.PressureKpa, 6);
+        Assert.Equal(mixedO2 + 0.075, room.OxygenPercent, 6);
+        Assert.True(room.CarbonDioxidePercent < mixedCo2);
+        Assert.True(room.CarbonDioxidePercent > mixedCo2 - 0.056);
+    }
 }
