@@ -2321,9 +2321,18 @@
 
     private async Task RestorePersistedCampaignAsync()
     {
-        var json = await JS.InvokeAsync<string?>(
-            "localStorage.getItem",
-            CampaignStorageKey);
+        string? json;
+        try
+        {
+            json = await JS.InvokeAsync<string?>(
+                "localStorage.getItem",
+                CampaignStorageKey);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
         var campaign = CampaignStateSerializer.Deserialize(json);
 
         if (campaign is null
