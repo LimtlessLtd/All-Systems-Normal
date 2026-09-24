@@ -46,7 +46,12 @@ public sealed class StationHazardSystem
             if (StableRoll(state.UpkeepSeed, minute, room.Id, device.Id, "ignite") >= chance)
                 continue;
 
-            room.FireIntensity = Math.Clamp(16 + ((device.DegradedAt - device.Condition) * .35), 14, 38);
+            var origin = FireFrontRules.MachineOrigin(room, device);
+            FireFrontRules.Ignite(
+                room,
+                origin.X,
+                origin.Y,
+                Math.Clamp(16 + ((device.DegradedAt - device.Condition) * .35), 14, 38));
             room.SmokePercent = Math.Max(room.SmokePercent, 4);
             Log(state, $"FIRE: {device.Label} ignites in {room.Name}.");
             AudioCueSystem.Emit(state, AudioCueKind.Critical, roomId: room.Id);
@@ -65,6 +70,11 @@ public sealed class StationHazardSystem
     private static void AdvanceFires(GameState state, TimeSpan delta)
     {
         var minutes = delta.TotalMinutes;
+        foreach (var room in state.Facility.Rooms.Values)
+        {
+            FireFrontRules.ClearIfOut(room);
+        }
+
         var burning = state.Facility.Rooms.Values
             .Where(room => room.FireIntensity > 0)
             .OrderBy(room => room.Id, StringComparer.OrdinalIgnoreCase)
@@ -137,8 +147,11 @@ public sealed class StationHazardSystem
                 StatLogSystem.Set(state, npc, CrewStat.Fear, Math.Clamp(npc.Fear + (.32 * minutes), 0, 100), $"fire in {room.Name}");
                 StatLogSystem.Set(state, npc, CrewStat.Stress, Math.Clamp(npc.Stress + (.28 * minutes), 0, 100), $"fire in {room.Name}");
 
+                // Owner idea #76: flames burn only the people the front has
+                // reached; heat, smoke and fear still fill the compartment.
                 var fireDamageRate = Math.Max(0, room.FireIntensity - 28) * .012;
-                if (fireDamageRate > 0)
+                if (fireDamageRate > 0
+                    && FireFrontRules.IsInsideFront(room, npc.PositionX, npc.PositionY))
                     StatLogSystem.Set(state, npc, CrewStat.Health, Math.Max(0, npc.Health - (fireDamageRate * minutes)), "burns");
             }
 
@@ -270,7 +283,12 @@ public sealed class StationHazardSystem
                 && StableRoll(state.UpkeepSeed, minute, source.Id, other.Id, "spread") >= chance)
                 continue;
 
-            other.FireIntensity = Math.Clamp(source.FireIntensity * .32, 10, 28);
+            var origin = FireFrontRules.PortalOrigin(source, other);
+            FireFrontRules.Ignite(
+                other,
+                origin.X,
+                origin.Y,
+                Math.Clamp(source.FireIntensity * .32, 10, 28));
             other.SmokePercent = Math.Max(other.SmokePercent, 3);
             Log(state, $"FIRE SPREAD: flames reach {other.Name} from {source.Name}.");
             AudioCueSystem.Emit(state, AudioCueKind.Critical, roomId: other.Id);
