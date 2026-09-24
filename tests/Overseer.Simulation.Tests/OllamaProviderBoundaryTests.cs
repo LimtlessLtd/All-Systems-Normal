@@ -50,9 +50,13 @@ public sealed class OllamaProviderBoundaryTests
         var client = new OllamaApiClient(
             new Uri($"http://127.0.0.1:{port}/"),
             "qwen3:4b");
+        var diagnostics = new OllamaRuntimeDiagnostics(
+            new Uri($"http://127.0.0.1:{port}/"),
+            "qwen3:4b");
         var service = new OllamaAiDecisionService(
             client,
-            new RuleBasedAiDecisionService());
+            new RuleBasedAiDecisionService(),
+            diagnostics);
 
         _ = await service.DecideAsync(npc, state, timeout.Token);
 
@@ -66,5 +70,13 @@ public sealed class OllamaProviderBoundaryTests
         Assert.Contains(
             state.CognitionTelemetry,
             trace => trace.Source.Equals("Ollama", StringComparison.OrdinalIgnoreCase));
+
+        var runtime = diagnostics.Snapshot();
+        Assert.Equal(1, runtime.NpcDecisionRequestsStarted);
+        Assert.Equal(1, runtime.ProviderRequestsStarted);
+        Assert.Equal(0, runtime.ProviderResponsesReceived);
+        Assert.Equal(1, runtime.ProviderFailures);
+        Assert.Equal("NPC decision", runtime.LastOperation);
+        Assert.False(string.IsNullOrWhiteSpace(runtime.LastError));
     }
 }
