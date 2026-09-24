@@ -155,7 +155,7 @@ public sealed class PlaytestUiPolishTests
 
         foreach (var css in ReadMirroredCss())
         {
-            Assert.Contains("🔥  🔥  🔥", css);
+            Assert.Contains(".room-node .fire-sprite", css);
             Assert.Contains(".room-node[data-room-id].has-smoke::before", css);
             Assert.Contains(".room-node[data-room-id].smoke-blackout::before", css);
             Assert.Contains("[data-growth-stage=\"seedling\"]", css);

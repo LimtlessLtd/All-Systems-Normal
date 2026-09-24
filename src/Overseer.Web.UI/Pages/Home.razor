@@ -404,6 +404,15 @@
                          data-station-interactive
                          aria-label="@($"Select {room.Name}")"
                          @onclick="() => SelectRoom(room.Id)">
+                        @if (room.FireIntensity > 0)
+                        {
+                            <span class="fire-layer" aria-hidden="true">
+                                @foreach (var flame in FireFrontRules.FlameSprites(room))
+                                {
+                                    <span class="fire-sprite" style="@FlameStyle(flame)">🔥</span>
+                                }
+                            </span>
+                        }
                         <span class="fixture-layer">
                             @foreach (var fixture in room.Fixtures)
                             {
@@ -2912,6 +2921,12 @@
             ? FormattableString.Invariant(
                 $"--fire-x:{x:0.##}%;--fire-y:{y:0.##}%;--fire-r:{FireFrontRules.FrontRadius(room.FireIntensity):0.##}%;")
             : string.Empty;
+
+    // Owner idea #100: one flame per burning lattice point of the authoritative
+    // front (FireFrontRules.FlameSprites), sized by its heat.
+    private static string FlameStyle(FireFrontRules.FlameSprite flame) =>
+        FormattableString.Invariant(
+            $"left:{flame.X:0.##}%;top:{flame.Y:0.##}%;--flame-scale:{flame.Scale:0.###};");
 
     private readonly record struct RoutePoint(double X, double Y);
 
