@@ -546,6 +546,12 @@ public sealed record StationSelection(
 /// carried (e.g. through a hatch); either way, whether to react immediately,
 /// investigate first, or ignore it is the hearer's own judgment call.
 /// </param>
+/// <param name="ObservedFireRoomId">
+/// A first-hand physical observation of an active fire in this room. This is
+/// observer-specific evidence, not a station-wide truth feed. The local LLM
+/// runtime may use a fresh marker to reopen cognition; deterministic fallback
+/// minds keep their existing emergency/event cadence.
+/// </param>
 public sealed record Memory(
     string Description,
     TimeSpan OccurredAt,
@@ -556,7 +562,8 @@ public sealed record Memory(
     bool IsSensitive = false,
     string? TraumaRoomId = null,
     string? MoralActorName = null,
-    string? PanicClaimRoomId = null);
+    string? PanicClaimRoomId = null,
+    string? ObservedFireRoomId = null);
 
 public sealed record Belief(
     string Subject,
