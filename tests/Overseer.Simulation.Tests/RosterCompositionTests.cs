@@ -183,14 +183,136 @@ public sealed class RosterCompositionTests
         Assert.Contains("RosterCompositionRules.Sample(", client);
         Assert.Contains("SeededCrewRosterGenerator.Generate(rosterSeed, composition.CrewCount)", client);
         Assert.Contains("robotCount: composition.RobotCount", client);
+        Assert.Contains("RosterCompositionRules.ConstraintsFor(scenario, crew.Count)", client);
+        Assert.DoesNotContain("stationConstraints: scenario.StationConstraints", client);
 
         Assert.Contains("RosterCompositionRules.Sample(", server);
         Assert.Contains("CrewRosterScalingSystem.FitToSize(", server);
         Assert.DoesNotContain("EnsureTargetSize(", server);
+        Assert.DoesNotContain(".StationConstraints,", server);
+        Assert.Equal(
+            CountOf(server, "robotCount: "),
+            CountOf(server, "RosterCompositionRules.ConstraintsFor("));
         // Every server station creation passes the sampled robot count.
         Assert.Equal(
             CountOf(server, "FacilitySeeder.CreateDefault(\n") + CountOf(server, "FacilitySeeder.CreateDefault(\r\n"),
             CountOf(server, "robotCount: "));
+    }
+
+    [Fact]
+    public void WithPlannedCrewCountCopiesEveryConstraintAndLeavesTheScenarioUntouched()
+    {
+        var original = ScenarioCatalog.ContainmentTransfer.StationConstraints!;
+        var plannedBefore = original.PlannedCrewCount;
+
+        var copy = original.WithPlannedCrewCount(9);
+
+        Assert.Equal(9, copy.PlannedCrewCount);
+        Assert.Equal(plannedBefore, original.PlannedCrewCount);
+        Assert.NotSame(original, copy);
+
+        // Guard against drift: every public property must round-trip. A new
+        // property that WithPlannedCrewCount forgets to copy fails here.
+        foreach (var property in typeof(StationGenerationConstraints).GetProperties())
+        {
+            if (property.Name == nameof(StationGenerationConstraints.PlannedCrewCount))
+                continue;
+
+            var before = property.GetValue(original);
+            var after = property.GetValue(copy);
+            if (before is System.Collections.IEnumerable sequence and not string)
+            {
+                Assert.NotSame(before, after);
+                Assert.Equal(
+                    sequence.Cast<object>().Select(item => item?.ToString()).Order(),
+                    ((System.Collections.IEnumerable)after!).Cast<object>().Select(item => item?.ToString()).Order());
+            }
+            else
+            {
+                Assert.Equal(before, after);
+            }
+        }
+
+        copy.RequiredRoomIds.Add("mutation-probe");
+        Assert.DoesNotContain("mutation-probe", original.RequiredRoomIds);
+    }
+
+    [Fact]
+    public void WithPlannedCrewCountCopiesPopulatedCollectionsOfEveryKind()
+    {
+        var original = new StationGenerationConstraints { RequiredRobotCount = 2, FullyAuthoredGeometry = true };
+        original.ForbiddenRoomIds.Add("gym");
+        original.RequiredAirlockRoomIds.Add("airlock");
+        original.RequiredRobotRoomIds.Add("engineering");
+        original.AllowedCropKinds.Add(Enum.GetValues<CropKind>()[0]);
+        original.InitiallyAccessibleRoomIds.Add("control");
+        original.EnvironmentOverrides["medical"] = new StationRoomEnvironmentOverride { OxygenPercent = 19 };
+
+        var copy = original.WithPlannedCrewCount(5);
+
+        Assert.Equal(2, copy.RequiredRobotCount);
+        Assert.True(copy.FullyAuthoredGeometry);
+        Assert.Contains("gym", copy.ForbiddenRoomIds);
+        Assert.Equal(["airlock"], copy.RequiredAirlockRoomIds);
+        Assert.Equal(["engineering"], copy.RequiredRobotRoomIds);
+        Assert.Single(copy.AllowedCropKinds);
+        Assert.Contains("control", copy.InitiallyAccessibleRoomIds);
+        Assert.Equal(19, copy.EnvironmentOverrides["MEDICAL"].OxygenPercent);
+    }
+
+    [Fact]
+    public void ConstraintsForSizesProvisioningToTheRosterAboard()
+    {
+        var scenario = ScenarioCatalog.SecureContinuity;
+
+        var constraints = RosterCompositionRules.ConstraintsFor(scenario, 5);
+
+        Assert.Equal(5, constraints.PlannedCrewCount);
+        Assert.Equal(12, scenario.StationConstraints!.PlannedCrewCount);
+        Assert.Equal(
+            scenario.StationConstraints.RequiredRoomIds.Order(),
+            constraints.RequiredRoomIds.Order());
+    }
+
+    [Theory]
+    [InlineData(4)]
+    [InlineData(8)]
+    [InlineData(12)]
+    public void FreshStationReportsProvisioningForItsActualCrew(int crewCount)
+    {
+        var crew = SeededCrewRosterGenerator.Generate(31, crewCount);
+        var state = FacilitySeeder.CreateDefault(
+            crew,
+            stationSeed: 4_321,
+            stationConstraints: RosterCompositionRules.ConstraintsFor(ScenarioCatalog.SecureContinuity, crew.Count),
+            robotCount: 1);
+
+        var required = StationProvisionRules.RequiredHydroponicsCapacity(crewCount);
+        Assert.Contains(
+            state.EventLog,
+            line => line.Contains($"HYDROPONICS CAPACITY") && line.Contains($"required for {crewCount} crew."));
+        Assert.True(state.CropBeds.Sum(bed => bed.Capacity) + 0.001 >= required);
+    }
+
+    [Fact]
+    public void ExplicitSeedsGenerateAtEverySampledRosterSize()
+    {
+        // Pages' "regenerate with seed" derives the roster composition from
+        // the same seed and treats a generation failure as a hard error, so
+        // every crew size must pack on ordinary seeds.
+        foreach (var seed in Enumerable.Range(1, 12).Select(index => index * 7_919))
+        {
+            foreach (var crewCount in new[] { 4, 7, 12 })
+            {
+                var crew = SeededCrewRosterGenerator.Generate(seed, crewCount);
+                var state = FacilitySeeder.CreateDefault(
+                    crew,
+                    stationSeed: seed,
+                    stationConstraints: RosterCompositionRules.ConstraintsFor(ScenarioCatalog.SecureContinuity, crew.Count),
+                    robotCount: RosterCompositionRules.MaxRobots);
+                Assert.Equal(crewCount, state.Crew.Count);
+            }
+        }
     }
 
     private static int CountOf(string text, string value)
