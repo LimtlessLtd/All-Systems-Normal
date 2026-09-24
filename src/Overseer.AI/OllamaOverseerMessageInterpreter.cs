@@ -42,11 +42,15 @@ public sealed class OllamaOverseerMessageInterpreter(
                 "Empty");
         }
 
+        var prompt = BuildPrompt(text, scope, targetNpcName, state);
+        var sequence = _runtimeDiagnostics?.RecordStarted(
+            "Overseer message interpretation",
+            prompt: prompt);
+
         try
         {
-            _runtimeDiagnostics?.RecordStarted("Overseer message interpretation");
             var response = await _chatClient.GetResponseAsync<OverseerMessageReading>(
-                BuildPrompt(text, scope, targetNpcName, state),
+                prompt,
                 options: new ChatOptions
                 {
                     Temperature = 0.1f,
@@ -55,7 +59,13 @@ public sealed class OllamaOverseerMessageInterpreter(
                 useJsonSchemaResponseFormat: true,
                 cancellationToken: cancellationToken);
 
-            _runtimeDiagnostics?.RecordResponse("Overseer message interpretation");
+            if (sequence is { } requestSequence)
+            {
+                _runtimeDiagnostics?.RecordResponse(
+                    requestSequence,
+                    "Overseer message interpretation",
+                    response.Text);
+            }
 
             if (!response.TryGetResult(out var reading) || reading is null)
             {
@@ -72,12 +82,14 @@ public sealed class OllamaOverseerMessageInterpreter(
         }
         catch (OperationCanceledException exception)
         {
-            _runtimeDiagnostics?.RecordFailure("Overseer message interpretation", exception);
+            if (sequence is { } requestSequence)
+                _runtimeDiagnostics?.RecordFailure(requestSequence, "Overseer message interpretation", exception);
             throw;
         }
         catch (Exception exception)
         {
-            _runtimeDiagnostics?.RecordFailure("Overseer message interpretation", exception);
+            if (sequence is { } requestSequence)
+                _runtimeDiagnostics?.RecordFailure(requestSequence, "Overseer message interpretation", exception);
             return await _fallback.InterpretAsync(
                 text,
                 scope,
