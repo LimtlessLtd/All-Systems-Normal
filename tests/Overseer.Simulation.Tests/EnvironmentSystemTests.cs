@@ -20,6 +20,35 @@ public sealed class EnvironmentSystemTests
     }
 
     [Fact]
+    public void TheAirLoopKeepsCorridorsHabitable_AndTheyGoColdWithoutIt()
+    {
+        // 2026-09-24 36h soak: heat loss and the air loop were applied as two
+        // fixed steps, so the larger (heat loss) won and every corridor slid to
+        // 11C after ~18h. Crew crossing them took "cold room" stress all day,
+        // crews passed the stress ceiling for fighting fires, and stations
+        // burned. With the loop running a corridor settles between the two.
+        var state = FacilitySeeder.CreateDefault();
+        var corridor = state.Facility.Rooms.Values.First(room => room.Type == RoomType.Corridor);
+        foreach (var npc in state.Crew)
+            npc.CurrentRoomId = "quarters";
+        Assert.False(corridor.HasTemperatureControl);
+        Assert.True(state.LifeSupport.IsOnline);
+
+        var environment = new EnvironmentSystem();
+        for (var minute = 0; minute < 24 * 60; minute++)
+            environment.Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.InRange(corridor.TemperatureC, 17.5, 19.5);
+
+        // Without the loop, hull heat loss takes over.
+        corridor.VentilationEnabled = false;
+        for (var minute = 0; minute < 6 * 60; minute++)
+            environment.Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.True(corridor.TemperatureC < 16, $"{corridor.TemperatureC:0.0}C");
+    }
+
+    [Fact]
     public void NearVacuumRoom_CoolsTowardDeepSpaceFloorRegardlessOfClimateControl()
     {
         var state = FacilitySeeder.CreateDefault();
