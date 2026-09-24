@@ -12,6 +12,18 @@ public sealed class VacuumConsequenceSystem
 {
     private const double EjectionPressureKpa = 25;
 
+    /// <summary>
+    /// Only the compartment open to space (depth 0) and the room directly
+    /// behind its open hatch (depth 1) have outflow violent enough to carry a
+    /// person out. Further away the air drains through several hatches; people
+    /// there suffer the ordinary low-pressure/hypoxia harm in
+    /// <see cref="SimulationEngine"/> instead, which leaves time to flee or seal
+    /// a door and leaves a body aboard if they don't make it. Before this, one
+    /// fire-driven hull breach "ejected" a whole crew from eight different
+    /// rooms within two minutes.
+    /// </summary>
+    public const int MaxEjectionDepth = 1;
+
     public void Tick(GameState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -20,14 +32,14 @@ public sealed class VacuumConsequenceSystem
 
         foreach (var npc in state.Crew.Where(npc => npc.IsAlive && npc.IsPresent))
         {
-            if (!vacuumDepths.ContainsKey(npc.CurrentRoomId))
+            if (!vacuumDepths.TryGetValue(npc.CurrentRoomId, out var depth))
             {
                 continue;
             }
 
             var room = state.Facility.Rooms[npc.CurrentRoomId];
 
-            if (room.PressureKpa >= EjectionPressureKpa)
+            if (room.PressureKpa >= EjectionPressureKpa || depth > MaxEjectionDepth)
             {
                 npc.Fear = Math.Clamp(npc.Fear + 18, 0, 100);
                 npc.Stress = Math.Clamp(npc.Stress + 15, 0, 100);
