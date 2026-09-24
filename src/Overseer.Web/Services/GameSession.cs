@@ -299,7 +299,14 @@ public sealed class GameSession(
                 && (npc.Intent is null
                     || npc.Intent.Urgency < 85
                     || npc.Hunger >= 72
-                    || npc.Fatigue >= 86))
+                    || npc.Fatigue >= 86
+                    // First-hand fire perception and a freshly received FIRE
+                    // ALARM are information updates that deserve a real choice
+                    // even if this person was already pursuing something urgent.
+                    // C# only re-opens cognition; the mind still decides whether
+                    // to fight, flee, verify, finish the old job or do anything else.
+                    || State.Facility.Rooms[npc.CurrentRoomId].FireIntensity > 0
+                    || npc.ReceivedMessages.FirstOrDefault()?.Claim == OverseerClaimKind.FireAlarm))
             .OrderByDescending(npc =>
                 npc.MissingPersonConcerns.Values.Any(concern =>
                     concern.Stage == MissingPersonConcernStage.Escalated))
