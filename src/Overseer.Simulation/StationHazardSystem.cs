@@ -53,7 +53,7 @@ public sealed class StationHazardSystem
                 origin.Y,
                 Math.Clamp(16 + ((device.DegradedAt - device.Condition) * .35), 14, 38));
             room.SmokePercent = Math.Max(room.SmokePercent, 4);
-            Log(state, $"FIRE: {device.Label} ignites in {room.Name}.");
+            Log(state, OverseerSightSystem.Witnessed(room, $"FIRE: {device.Label} ignites in {room.Name}."));
             AudioCueSystem.Emit(state, AudioCueKind.Critical, roomId: room.Id);
 
             foreach (var npc in state.Crew.Where(n =>
@@ -89,7 +89,7 @@ public sealed class StationHazardSystem
             if (room.OxygenPercent <= 1)
             {
                 room.FireIntensity = 0;
-                Log(state, $"Fire in {room.Name} goes out from oxygen starvation.");
+                Log(state, OverseerSightSystem.Witnessed(room, $"Fire in {room.Name} goes out from oxygen starvation."));
                 continue;
             }
 
@@ -135,7 +135,11 @@ public sealed class StationHazardSystem
                 {
                     room.HasHullBreach = true;
                     room.VentilationEnabled = false;
-                    Log(state, $"STRUCTURAL FAILURE: uncontrolled fire breaches the hull in {room.Name}.");
+                    Log(state, OverseerSightSystem.Witnessed(room, $"STRUCTURAL FAILURE: uncontrolled fire breaches the hull in {room.Name}."));
+                    // Pressure sensors report a breach even where no camera
+                    // can see the fire that caused it (owner idea #23).
+                    if (!room.HasVisualFeed)
+                        Log(state, $"HULL BREACH: {room.Name} is losing pressure; no camera view.");
                     AudioCueSystem.Emit(state, AudioCueKind.Critical, roomId: room.Id);
                 }
             }
@@ -158,7 +162,7 @@ public sealed class StationHazardSystem
             if (room.FireIntensity < .5)
             {
                 room.FireIntensity = 0;
-                Log(state, $"Fire in {room.Name} goes out.");
+                Log(state, OverseerSightSystem.Witnessed(room, $"Fire in {room.Name} goes out."));
                 continue;
             }
 
@@ -290,7 +294,7 @@ public sealed class StationHazardSystem
                 origin.Y,
                 Math.Clamp(source.FireIntensity * .32, 10, 28));
             other.SmokePercent = Math.Max(other.SmokePercent, 3);
-            Log(state, $"FIRE SPREAD: flames reach {other.Name} from {source.Name}.");
+            Log(state, OverseerSightSystem.Witnessed(other, $"FIRE SPREAD: flames reach {other.Name} from {source.Name}."));
             AudioCueSystem.Emit(state, AudioCueKind.Critical, roomId: other.Id);
         }
     }
