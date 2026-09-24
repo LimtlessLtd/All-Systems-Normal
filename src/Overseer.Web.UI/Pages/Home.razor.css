@@ -2,8 +2,11 @@
     --bg: #071017;
     --warning: #f0b65b;
     --danger: #ec6d73;
+    box-sizing: border-box;
     min-height: 100vh;
     padding: 1rem;
+    /* Offsets the host layout's page padding (the server's `.content`,
+       the Pages client's `main`, which pads exactly this much). */
     margin: -1.1rem -.75rem 0;
     background:
         linear-gradient(rgba(92,225,210,.025) 1px, transparent 1px),
