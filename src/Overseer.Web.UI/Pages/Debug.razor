@@ -23,14 +23,18 @@
     else
     {
         var snapshot = DebugTelemetrySystem.Capture(Session.State);
+        var runtime = Session.AiRuntimeDiagnostics;
         var ollamaTraces = snapshot.Cognition
             .Where(trace => trace.Source.Equals("Ollama", StringComparison.OrdinalIgnoreCase))
             .Take(50)
             .ToList();
 
         <section class="debug-summary">
-            <div><span>MIND CALLS</span><strong>@snapshot.Cognition.Count</strong></div>
-            <div><span>OLLAMA CALLS</span><strong>@ollamaTraces.Count</strong></div>
+            <div><span>AI RUNTIME</span><strong>@runtime.Mode</strong></div>
+            <div><span>PROVIDER REQUESTS</span><strong>@runtime.ProviderRequestsStarted</strong></div>
+            <div><span>NPC MODEL REQUESTS</span><strong>@runtime.NpcDecisionRequestsStarted</strong></div>
+            <div><span>MIND TRACES</span><strong>@snapshot.Cognition.Count</strong></div>
+            <div><span>OLLAMA DECISION TRACES</span><strong>@ollamaTraces.Count</strong></div>
             <div><span>EVENTS</span><strong>@snapshot.Events.Count</strong></div>
             <div><span>MISSION</span><strong>T+@Session.State.Elapsed.ToString(@"hh\:mm")</strong></div>
             <div><span>MODE</span><strong>@(DebugTelemetrySystem.IsGameplayCritical ? "GAMEPLAY" : "DEBUG ONLY")</strong></div>
@@ -46,8 +50,47 @@
             </div>
             <p class="ollama-io-help">
                 Shows the exact request trace sent through <code>IChatClient</code> (options + prompt)
-                beside the raw provider response. Newest Ollama call first.
+                beside the raw provider response. Newest completed Ollama decision first.
             </p>
+
+            @if (runtime.Mode == "Ollama server")
+            {
+                <article class="debug-entry ollama-runtime-status" data-ollama-runtime="server">
+                    <header>
+                        <strong>OLLAMA PROVIDER STATUS</strong>
+                        <span>@runtime.ProviderResponsesReceived response(s) · @runtime.ProviderFailures failure(s)</span>
+                    </header>
+                    <p>
+                        <strong>Endpoint:</strong> @(runtime.Endpoint ?? "unknown")
+                        · <strong>Model:</strong> @(runtime.Model ?? "unknown")
+                        · <strong>Last operation:</strong> @(runtime.LastOperation ?? "none")
+                    </p>
+                    @if (!string.IsNullOrWhiteSpace(runtime.LastError))
+                    {
+                        <p class="debug-note">
+                            <strong>LAST PROVIDER ERROR:</strong> @runtime.LastError
+                        </p>
+                    }
+                    @if (runtime.NpcDecisionRequestsStarted > 0 && ollamaTraces.Count == 0)
+                    {
+                        <p class="debug-note">
+                            The server has entered the Ollama NPC-decision boundary
+                            @runtime.NpcDecisionRequestsStarted time(s), but this station session has no completed
+                            Ollama decision trace. Provider counters are process-wide so this remains visible even
+                            after a debug-page reload/new circuit; exact prompts and responses remain private to
+                            the station session that produced them.
+                        </p>
+                    }
+                    else if (runtime.NpcDecisionRequestsStarted == 0
+                             && Session.State.Elapsed >= TimeSpan.FromMinutes(4))
+                    {
+                        <p class="debug-note">
+                            <strong>COGNITION DISPATCH FAILURE:</strong> this server session has passed T+00:04
+                            without entering the Ollama NPC-decision boundary.
+                        </p>
+                    }
+                </article>
+            }
 
             @if (ollamaTraces.Count == 0)
             {
