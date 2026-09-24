@@ -356,7 +356,11 @@ public sealed class LocalMovementSystemTests
                 "Use the same sleep target for the overlap regression.");
         }
 
-        new LocalMovementSystem().Tick(state, TimeSpan.FromMinutes(1));
+        var movement = new LocalMovementSystem();
+        for (var minute = 0; minute < 20; minute++)
+        {
+            movement.Tick(state, TimeSpan.FromMinutes(1));
+        }
 
         var physicalDx = (crew[0].PositionX - crew[1].PositionX) / 100d * room.MapWidth;
         var physicalDy = (crew[0].PositionY - crew[1].PositionY) / 100d * room.MapHeight;
