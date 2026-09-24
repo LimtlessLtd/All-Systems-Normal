@@ -132,7 +132,7 @@ public static class FacilitySeeder
 
         var seed = upkeepSeed ?? StableDerivedSeed(chosenStationSeed);
         StationUpkeepSystem.Register(state, seed);
-        NormalizeFixtureLayout(facility);
+        NormalizeFixtureLayout(facility, state.Devices);
         CrewProvisioningSystem.Plant(
             state,
             seed,
@@ -494,12 +494,16 @@ public static class FacilitySeeder
     }
 
 
-    private static void NormalizeFixtureLayout(Facility facility)
+    private static void NormalizeFixtureLayout(
+        Facility facility,
+        IReadOnlyDictionary<string, StationDevice> devices)
     {
         foreach (var room in facility.Rooms.Values
                      .OrderBy(room => room.Id, StringComparer.OrdinalIgnoreCase))
         {
-            if (room.Fixtures.Count < 2)
+            if (room.Fixtures.Count < 2
+                && !room.Fixtures.Any(fixture =>
+                    StandardModuleFootprints.TryGet(devices, fixture, out _)))
             {
                 continue;
             }
@@ -513,11 +517,29 @@ public static class FacilitySeeder
             // rendered/simulated fixture collection.
             var occupied = DoorApproachReservations(facility, room).ToList();
 
+            // Functional standard modules claim bulkhead space ahead of other
+            // wall equipment (but after central machinery), so decorative
+            // pipes and windows cannot crowd them into a smaller footprint.
             foreach (var fixture in original
-                         .OrderByDescending(FixturePlacementPriority)
+                         .OrderByDescending(fixture =>
+                             StandardModuleFootprints.TryGet(devices, fixture, out _)
+                                 ? 290
+                                 : FixturePlacementPriority(fixture))
                          .ThenByDescending(item => item.Width * item.Height)
                          .ThenBy(item => item.Label, StringComparer.OrdinalIgnoreCase))
             {
+                // Standard modules keep one physical size station-wide: they
+                // are placed only at their canonical footprint, never shrunk
+                // to squeeze into a crowded room like other fixtures.
+                if (StandardModuleFootprints.TryGet(devices, fixture, out var footprint)
+                    && TryStandardModulePlacement(room, fixture, footprint, occupied, out var standard))
+                {
+                    placed.Add(standard);
+                    occupied.Add(standard);
+                    occupied.AddRange(FixtureInteractionReservations(standard));
+                    continue;
+                }
+
                 if (TryResolveFixturePlacement(fixture, occupied, out var resolved))
                 {
                     placed.Add(resolved);
@@ -769,6 +791,125 @@ public static class FacilitySeeder
 
         resolved = fixture;
         return false;
+    }
+
+    private static bool TryStandardModulePlacement(
+        Room room,
+        RoomFixture fixture,
+        StandardModuleFootprints.Footprint footprint,
+        IReadOnlyList<RoomFixture> placed,
+        out RoomFixture resolved)
+    {
+        var horizontal = StandardModuleFootprints.LocalSize(room, footprint, horizontalWall: true);
+        var vertical = StandardModuleFootprints.LocalSize(room, footprint, horizontalWall: false);
+
+        // A crowded bulkhead gets the same tighter service-bank spacing that
+        // TryCompactWallPlacement allows, rather than a smaller module.
+        foreach (var compact in new[] { false, true })
+        {
+            foreach (var candidate in StandardModuleWallCandidates(horizontal, vertical))
+            {
+                var moved = FaceIntoRoom(
+                    MoveFixture(
+                        fixture,
+                        candidate.X,
+                        candidate.Y,
+                        candidate.Width,
+                        candidate.Height),
+                    candidate.OnHorizontalWall);
+
+                if (FitsFixture(moved, placed, compact ? .7 : FixturePlacementPadding(moved)))
+                {
+                    resolved = moved;
+                    return true;
+                }
+            }
+        }
+
+        // Last resort, mirroring TryDenseFixturePlacement: a room whose
+        // bulkheads are fully lined (e.g. a small hydroponics bay packed with
+        // grow beds) keeps its control at full size, stacked as close to a
+        // bulkhead as the existing equipment allows rather than mid-aisle.
+        var dense =
+            from y in Enumerable.Range(0, 46).Select(step => 5d + (step * 2))
+            from x in Enumerable.Range(0, 46).Select(step => 5d + (step * 2))
+            from orientation in new[] { (Size: horizontal, OnHorizontalWall: true), (Size: vertical, OnHorizontalWall: false) }
+            let clearance = Math.Min(
+                Math.Min(x - (orientation.Size.Width / 2), 100 - x - (orientation.Size.Width / 2)),
+                Math.Min(y - (orientation.Size.Height / 2), 100 - y - (orientation.Size.Height / 2)))
+            orderby clearance, y, x
+            select (x, y, orientation.Size, orientation.OnHorizontalWall);
+
+        foreach (var (x, y, size, onHorizontalWall) in dense)
+        {
+            var moved = FaceIntoRoom(
+                MoveFixture(fixture, x, y, size.Width, size.Height),
+                onHorizontalWall);
+
+            if (FitsFixture(moved, placed, padding: .9))
+            {
+                resolved = moved;
+                return true;
+            }
+        }
+
+        resolved = fixture;
+        return false;
+    }
+
+    private static IEnumerable<(double X, double Y, double Width, double Height, bool OnHorizontalWall)> StandardModuleWallCandidates(
+        (double Width, double Height) horizontal,
+        (double Width, double Height) vertical)
+    {
+        // Like WallCandidates, except that each orientation uses its own
+        // room-local size (in a non-square room, rotating a percentage box
+        // would change the module's physical dimensions) and slots are finer,
+        // since these modules cannot shrink to fit a coarse gap.
+        var horizontalMarginX = (horizontal.Width / 2) + 3;
+        var horizontalY = (horizontal.Height / 2) + 3;
+        var verticalX = (vertical.Width / 2) + 3;
+        var verticalMarginY = (vertical.Height / 2) + 3;
+
+        for (var slot = 6d; slot <= 94; slot += 1)
+        {
+            if (slot >= horizontalMarginX && slot <= 100 - horizontalMarginX)
+            {
+                yield return (slot, horizontalY, horizontal.Width, horizontal.Height, true);
+                yield return (slot, 100 - horizontalY, horizontal.Width, horizontal.Height, true);
+            }
+        }
+
+        for (var slot = 6d; slot <= 94; slot += 1)
+        {
+            if (slot >= verticalMarginY && slot <= 100 - verticalMarginY)
+            {
+                yield return (verticalX, slot, vertical.Width, vertical.Height, false);
+                yield return (100 - verticalX, slot, vertical.Width, vertical.Height, false);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Puts a wall module's interaction point on the open floor directly in
+    /// front of it. A preserved centre offset can otherwise land inside the
+    /// module once its size or bulkhead changes.
+    /// </summary>
+    private static RoomFixture FaceIntoRoom(RoomFixture fixture, bool onHorizontalWall)
+    {
+        const double gap = 4.5;
+        var (x, y) = onHorizontalWall
+            ? (fixture.X, fixture.Y < 50
+                ? fixture.Y + (fixture.Height / 2) + gap
+                : fixture.Y - (fixture.Height / 2) - gap)
+            : (fixture.X < 50
+                ? fixture.X + (fixture.Width / 2) + gap
+                : fixture.X - (fixture.Width / 2) - gap, fixture.Y);
+
+        return fixture with
+        {
+            InteractionX = Math.Clamp(x, 5, 95),
+            InteractionY = Math.Clamp(y, 5, 95)
+        };
     }
 
     private static bool TryCompactWallPlacement(
