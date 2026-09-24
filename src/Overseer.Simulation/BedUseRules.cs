@@ -35,8 +35,9 @@ public static class BedUseRules
                 && other.IsPresent
                 && other.CurrentAction.Kind == ActionKind.Sleep
                 && other.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))
+            // OrderBy is stable, so duplicate names retain deterministic
+            // seeded roster order. Runtime Guid IDs must not arbitrate beds.
             .OrderBy(other => other.Name, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(other => other.Id)
             .ToList();
 
         var assignments = new Dictionary<Guid, RoomFixture>();
@@ -81,7 +82,7 @@ public static class BedUseRules
         return assignments.GetValueOrDefault(npc.Id);
     }
 
-    private static bool IsPhysicallyAt(Room room, Npc npc, RoomFixture bed)
+    internal static bool IsPhysicallyAt(Room room, Npc npc, RoomFixture bed)
     {
         if (LocalMovementSystem.IsAtInteractionPoint(room, npc, bed))
         {
