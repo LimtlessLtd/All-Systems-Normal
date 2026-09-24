@@ -233,7 +233,7 @@ public sealed class PrisonerContainmentSystem
             prisoner.Movement = null;
             prisoner.PlannedDestinationRoomId = null;
             prisoner.Intent = null;
-            prisoner.Stress = Math.Clamp(prisoner.Stress + 12, 0, 100);
+            StatLogSystem.Set(state, prisoner, CrewStat.Stress, Math.Clamp(prisoner.Stress + 12, 0, 100), "recaptured");
 
             AudioCueSystem.Emit(state, AudioCueKind.Important, guard.Id.ToString(), guard.CurrentRoomId);
             Log(state, $"{guard.Name} recaptures {prisoner.Name} and returns them to Containment.");
@@ -255,11 +255,11 @@ public sealed class PrisonerContainmentSystem
         var prisonerDamage = 5 + (guardScore * 0.12)
             + (StableRoll(guard.Name, prisoner.Name, minute, "prisoner-hurt") % 7);
 
-        guard.Health = Math.Clamp(guard.Health - guardDamage, 0, 100);
-        prisoner.Health = Math.Clamp(prisoner.Health - prisonerDamage, 0, 100);
-        guard.Fear = Math.Clamp(guard.Fear + 20, 0, 100);
-        guard.Stress = Math.Clamp(guard.Stress + 18, 0, 100);
-        prisoner.Stress = Math.Clamp(prisoner.Stress + 10, 0, 100);
+        StatLogSystem.Set(state, guard, CrewStat.Health, Math.Clamp(guard.Health - guardDamage, 0, 100), $"struggle with prisoner {prisoner.Name}");
+        StatLogSystem.Set(state, prisoner, CrewStat.Health, Math.Clamp(prisoner.Health - prisonerDamage, 0, 100), $"struggle with guard {guard.Name}");
+        StatLogSystem.Set(state, guard, CrewStat.Fear, Math.Clamp(guard.Fear + 20, 0, 100), $"struggle with prisoner {prisoner.Name}");
+        StatLogSystem.Set(state, guard, CrewStat.Stress, Math.Clamp(guard.Stress + 18, 0, 100), $"struggle with prisoner {prisoner.Name}");
+        StatLogSystem.Set(state, prisoner, CrewStat.Stress, Math.Clamp(prisoner.Stress + 10, 0, 100), $"struggle with guard {guard.Name}");
 
         if (guard.Health <= 0)
         {

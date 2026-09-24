@@ -170,7 +170,7 @@ public sealed class MissingPersonSystem
         observer.MissingPersonConcerns[target.Id] = concern;
         // Ordinary absence is information, not an emergency. A person can be
         // elsewhere for hours without this pre-empting work, meals or repairs.
-        observer.Stress = Math.Clamp(observer.Stress + 1, 0, 100);
+        StatLogSystem.Set(state, observer, CrewStat.Stress, Math.Clamp(observer.Stress + 1, 0, 100), $"{target.Name} is unaccounted for");
 
         var expectedRoom = state.Facility.Rooms[expectedRoomId].Name;
         var statement = personallyNoticedMissedDuty
@@ -226,7 +226,7 @@ public sealed class MissingPersonSystem
                     : MissingPersonConcernStage.Searching;
                 concern.LastUpdatedAt = state.Elapsed;
                 observer.NeedsMindReconsideration = true;
-                observer.Stress = Math.Clamp(observer.Stress + 2, 0, 100);
+                StatLogSystem.Set(state, observer, CrewStat.Stress, Math.Clamp(observer.Stress + 2, 0, 100), "searched for a missing crew member");
 
                 var roomName = state.Facility.Rooms[observer.CurrentRoomId].Name;
                 var statement = $"I checked {roomName}; {concern.PersonName} was not there.";

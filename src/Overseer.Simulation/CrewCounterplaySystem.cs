@@ -228,7 +228,7 @@ public sealed class CrewCounterplaySystem
 
         if (!success)
         {
-            npc.Stress = Math.Clamp(npc.Stress + 6, 0, 100);
+            StatLogSystem.Set(state, npc, CrewStat.Stress, Math.Clamp(npc.Stress + 6, 0, 100), $"failed to open {door.Id}");
             EndAction(state, npc, $"Failed to open {door.Id}.");
             Log(
                 state,
@@ -508,7 +508,7 @@ public sealed class CrewCounterplaySystem
 
         if (!success)
         {
-            npc.Stress = Math.Clamp(npc.Stress + 4, 0, 100);
+            StatLogSystem.Set(state, npc, CrewStat.Stress, Math.Clamp(npc.Stress + 4, 0, 100), $"failed to restore {DescribeTarget(state, targetId)}");
             EndAction(state, npc, $"Failed to restore {DescribeTarget(state, targetId)}.");
             Log(
                 state,

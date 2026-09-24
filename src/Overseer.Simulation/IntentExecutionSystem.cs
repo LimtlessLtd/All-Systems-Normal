@@ -1295,7 +1295,7 @@ public sealed class IntentExecutionSystem
             state.Elapsed,
             FailedIntentMemoryImportance,
             IsFailedAttempt: true));
-        npc.Stress = Math.Clamp(npc.Stress + FailedIntentStressCost, 0, 100);
+        StatLogSystem.Set(state, npc, CrewStat.Stress, Math.Clamp(npc.Stress + FailedIntentStressCost, 0, 100), "a plan fell through");
     }
 
     private const double FailedIntentMemoryImportance = 0.35;

@@ -84,7 +84,7 @@ public static class ConversationTopicSystem
             ConversationTopic.OverseerDoubt => OverseerDoubt(state, speaker, listener, roll),
             ConversationTopic.Gossip when gossipTarget is { } target => Gossip(state, speaker, listener, target, roll),
             ConversationTopic.News when news is not null => News(state, speaker, listener, news, roll),
-            ConversationTopic.Wellbeing => Wellbeing(speaker, listener),
+            ConversationTopic.Wellbeing => Wellbeing(state, speaker, listener),
             _ => SmallTalk(roll)
         };
     }
@@ -264,7 +264,7 @@ public static class ConversationTopicSystem
         _ => $"{speakerName} tells {listenerName} some half-remembered rumour."
     };
 
-    private static ConversationExchange Wellbeing(Npc speaker, Npc listener)
+    private static ConversationExchange Wellbeing(GameState state, Npc speaker, Npc listener)
     {
         var opening = speaker.Stress >= 50 ? "I'm wound pretty tight right now."
             : speaker.Fatigue >= 65 ? "I'm running on fumes."
@@ -272,7 +272,7 @@ public static class ConversationTopicSystem
 
         if (listener.Personality.Empathy >= 60)
         {
-            speaker.Stress = Clamp(speaker.Stress - 3);
+            StatLogSystem.Set(state, speaker, CrewStat.Stress, Clamp(speaker.Stress - 3), $"opened up to {listener.Name}");
             return new ConversationExchange(
                 ConversationTopic.Wellbeing,
                 opening,

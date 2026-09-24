@@ -189,6 +189,52 @@ public sealed class StatLogTests
         Assert.Contains(npc.StatLog, entry => entry.Stat == CrewStat.Fear && entry.Cause == $"fire in {room.Name}");
     }
 
+    [Fact]
+    public void EverySimulationWriteToACoreStatGoesThroughTheLog()
+    {
+        // A direct assignment would change a stat without explaining why in
+        // the Inspector. Allowed: StatLogSystem itself, SimulationEngine's
+        // combined stress update (logged via RecordParts), the death clamps
+        // that pin an already non-positive Health to 0, and robot health.
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (!File.Exists(Path.Combine(root!.FullName, "Overseer.slnx")))
+        {
+            root = root.Parent;
+        }
+
+        var directWrite = new System.Text.RegularExpressions.Regex(
+            @"\b(\w+)\.(Health|Stress|Fear|Hunger|Fatigue)\s*([+\-]?=)(?!=)");
+        var offenders = new List<string>();
+        foreach (var file in Directory.GetFiles(Path.Combine(root.FullName, "src", "Overseer.Simulation"), "*.cs"))
+        {
+            if (Path.GetFileName(file) == "StatLogSystem.cs")
+            {
+                continue;
+            }
+
+            var lines = File.ReadAllLines(file);
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var match = directWrite.Match(lines[i]);
+                if (!match.Success)
+                {
+                    continue;
+                }
+
+                var allowed = match.Groups[1].Value == "robot"
+                    || lines[i].Trim().EndsWith("Health = 0;", StringComparison.Ordinal)
+                    || (Path.GetFileName(file) == "SimulationEngine.cs"
+                        && lines[i].Trim() == "npc.Stress = Clamp(");
+                if (!allowed)
+                {
+                    offenders.Add($"{Path.GetFileName(file)}:{i + 1}: {lines[i].Trim()}");
+                }
+            }
+        }
+
+        Assert.True(offenders.Count == 0, "Use StatLogSystem.Set:\n" + string.Join("\n", offenders));
+    }
+
     private static void Run(SimulationEngine engine, GameState state, Npc npc, ActionKind action, int minutes)
     {
         for (var i = 0; i < minutes; i++)

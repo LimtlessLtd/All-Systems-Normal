@@ -181,8 +181,8 @@ public sealed class TurretSystem
             {
                 turret.TrackedNpcId = target.Id;
                 turret.CurrentTask = $"Tracking {target.Name}.";
-                target.Fear = Math.Clamp(target.Fear + 8, 0, 100);
-                target.Stress = Math.Clamp(target.Stress + 5, 0, 100);
+                StatLogSystem.Set(state, target, CrewStat.Fear, Math.Clamp(target.Fear + 8, 0, 100), "a turret tracked them");
+                StatLogSystem.Set(state, target, CrewStat.Stress, Math.Clamp(target.Stress + 5, 0, 100), "a turret tracked them");
                 target.NeedsMindReconsideration = true;
 
                 RecordWitnessEvidence(
@@ -308,16 +308,16 @@ public sealed class TurretSystem
 
         if (!hit)
         {
-            target.Fear = Math.Clamp(target.Fear + 16, 0, 100);
-            target.Stress = Math.Clamp(target.Stress + 10, 0, 100);
+            StatLogSystem.Set(state, target, CrewStat.Fear, Math.Clamp(target.Fear + 16, 0, 100), "turret fire missed them");
+            StatLogSystem.Set(state, target, CrewStat.Stress, Math.Clamp(target.Stress + 10, 0, 100), "turret fire missed them");
             Log(state, $"{turret.Name} fires at {target.Name} and misses.");
             return;
         }
 
         var damage = 18 + (StableRoll($"{target.Id}|{turret.Id}|damage|{state.Elapsed.Ticks}") % 9);
-        target.Health = Math.Max(0, target.Health - damage);
-        target.Fear = Math.Clamp(target.Fear + 22, 0, 100);
-        target.Stress = Math.Clamp(target.Stress + 14, 0, 100);
+        StatLogSystem.Set(state, target, CrewStat.Health, Math.Max(0, target.Health - damage), "shot by a turret");
+        StatLogSystem.Set(state, target, CrewStat.Fear, Math.Clamp(target.Fear + 22, 0, 100), "shot by a turret");
+        StatLogSystem.Set(state, target, CrewStat.Stress, Math.Clamp(target.Stress + 14, 0, 100), "shot by a turret");
         target.NeedsMindReconsideration = true;
         Log(state, $"{turret.Name} hits {target.Name} for {damage} damage.");
 
