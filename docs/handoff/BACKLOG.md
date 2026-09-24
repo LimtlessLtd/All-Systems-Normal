@@ -617,12 +617,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Size: medium (slices: smoking trait + craving need + Smoke activity/consequences; smoking-area fixture + social-debuff-by-location rule; cognition context)
 - Status: ready — implies smoking outside the area *does* carry a social debuff; implemented that way unless the owner says otherwise. Sequence with #75's addiction model.
 
-### 95. Crew must not occupy the same physical floor position
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790242588232969 (2026-09-24)
-- Idea: "Humans shouldnt be able to stand directly on top of each other."
-- Outcome: local movement treats other present mobile humans as short-range dynamic occupancy, so two people cannot settle on the same floor point; routing/door crossing must remain deadlock-safe and this must not create a hard global collision grid or let presentation offsets lie about authoritative position.
-- Size: small-to-medium (dynamic local occupancy/separation + crossing/queue regressions).
-- Status: ready — physical-simulation bug; coordinate with #20 bed/toilet contention so fixture users have deterministic distinct standing/lying points.
 
 ### 96. Sleeping crew should visibly use distinct beds
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790242597079429 (2026-09-24)
