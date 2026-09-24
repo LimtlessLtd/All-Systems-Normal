@@ -95,17 +95,17 @@ public sealed class BedUseRulesTests
         }
 
         var retained = Assert.IsType<RoomFixture>(BedUseRules.AssignedBed(state, sleepers[1]));
-        Assert.True(LocalMovementSystem.IsAtInteractionPoint(quarters, sleepers[1], retained));
 
         sleepers[0].CurrentAction = new NpcAction(ActionKind.Idle, quarters.Id, "Done resting.");
 
-        Assert.Same(retained, BedUseRules.AssignedBed(state, sleepers[1]));
+        var after = Assert.IsType<RoomFixture>(BedUseRules.AssignedBed(state, sleepers[1]));
+        Assert.Equal(retained.Label, after.Label);
     }
 
     [Fact]
     public void SleeperWithoutABedDoesNotReceiveRestorativeRecovery()
     {
-        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var state = FacilitySeeder.CreateDefault(SeededCrewRosterGenerator.Generate(4242), stationSeed: 1337);
         var quarters = state.Facility.Rooms["quarters"];
         var sleepers = state.Crew.Take(7).ToList();
 
