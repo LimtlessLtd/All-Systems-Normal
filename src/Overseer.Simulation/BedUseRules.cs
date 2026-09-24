@@ -41,7 +41,7 @@ public static class BedUseRules
             .ToList();
 
         var assignments = new Dictionary<Guid, RoomFixture>();
-        var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var claimed = new HashSet<RoomFixture>(ReferenceEqualityComparer.Instance);
 
         // Preserve a sleeper who is already physically using a free bed. This
         // keeps bed-use history meaningful and prevents assignment churn when
@@ -50,14 +50,14 @@ public static class BedUseRules
         foreach (var sleeper in sleepers)
         {
             var occupied = beds.FirstOrDefault(bed =>
-                !claimed.Contains(bed.Label) && IsPhysicallyAt(room, sleeper, bed));
+                !claimed.Contains(bed) && IsPhysicallyAt(room, sleeper, bed));
             if (occupied is null)
             {
                 continue;
             }
 
             assignments[sleeper.Id] = occupied;
-            claimed.Add(occupied.Label);
+            claimed.Add(occupied);
         }
 
         // Everyone else receives the next free real bed. Capacity is physical:
@@ -69,14 +69,14 @@ public static class BedUseRules
                 continue;
             }
 
-            var available = beds.FirstOrDefault(bed => !claimed.Contains(bed.Label));
+            var available = beds.FirstOrDefault(bed => !claimed.Contains(bed));
             if (available is null)
             {
                 continue;
             }
 
             assignments[sleeper.Id] = available;
-            claimed.Add(available.Label);
+            claimed.Add(available);
         }
 
         return assignments.GetValueOrDefault(npc.Id);

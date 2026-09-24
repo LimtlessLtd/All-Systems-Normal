@@ -39,6 +39,40 @@ public sealed class BedUseRulesTests
     }
 
     [Fact]
+    public void DuplicateBedLabels_DoNotCollapsePhysicalCapacity()
+    {
+        var state = FacilitySeeder.CreateDefault(stationSeed: 1337);
+        var quarters = state.Facility.Rooms["quarters"];
+        var bedIndexes = quarters.Fixtures
+            .Select((fixture, index) => (fixture, index))
+            .Where(pair => pair.fixture.Type == FixtureType.Bed)
+            .Take(2)
+            .ToList();
+        Assert.Equal(2, bedIndexes.Count);
+
+        var first = bedIndexes[0].fixture;
+        var second = bedIndexes[1].fixture;
+        quarters.Fixtures[bedIndexes[1].index] = second with { Label = first.Label };
+
+        var sleepers = state.Crew.Take(2).ToList();
+        foreach (var npc in sleepers)
+        {
+            npc.CurrentRoomId = quarters.Id;
+            npc.CurrentAction = new NpcAction(ActionKind.Sleep, quarters.Id, "Duplicate-label capacity regression.");
+            npc.Intent = null;
+            npc.Movement = null;
+        }
+
+        var assignments = sleepers
+            .Select(npc => Assert.IsType<RoomFixture>(BedUseRules.AssignedBed(state, npc)))
+            .ToList();
+
+        Assert.NotSame(assignments[0], assignments[1]);
+        Assert.Equal(assignments[0].Label, assignments[1].Label);
+        Assert.NotEqual((assignments[0].X, assignments[0].Y), (assignments[1].X, assignments[1].Y));
+    }
+
+    [Fact]
     public void SleepersPhysicallyWalkTowardDifferentAssignedBeds()
     {
         var state = FacilitySeeder.CreateDefault(stationSeed: 1337);

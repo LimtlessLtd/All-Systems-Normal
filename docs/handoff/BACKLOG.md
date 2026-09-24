@@ -236,13 +236,6 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Size: large (slices: policy data model + Overseer verb; per-policy deterministic enforcement where physical; expose active policies in cognition prompts)
 - Status: ready
 
-### 29. Alarm fatigue
-- Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
-- Idea: "If Overseer repeatedly cries wolf, individual humans begin discounting that particular alarm/source. Later, a real reactor evacuation could become terrifying because Marcus decides, 'Last three reactor warnings were bullshit.'"
-- Outcome: a deterministic per-NPC, per-alarm-source false-alarm counter that decays over time; above a threshold it's surfaced in cognition as context ("the last N alerts from this source were false"), and the LLM decides whether to still react urgently — no forced behaviour change.
-- Size: small (one PR: per-source false-alarm counter + prompt context)
-- Status: ready
-
 ### 30. Domain-specific trust in Overseer
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
 - Idea: "Don't make AI trust one number. Sarah might trust your engineering advice completely but believe your personnel accusations are manipulative. It makes persuasion much richer."
