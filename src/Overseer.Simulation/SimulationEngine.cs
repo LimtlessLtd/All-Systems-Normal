@@ -281,9 +281,22 @@ public sealed class SimulationEngine
                     or ActionKind.Socialize
                     or ActionKind.Intimacy
                         ? -1.15
-                        : RecreationActivityRules.IsWatchingWithOthers(state, npc)
-                            ? -RecreationActivityRules.SharedViewingSocialReliefPerMinute
+                        : RecreationActivityRules.SocialReliefPerMinute(state, npc) is > 0 and var sharedRelief
+                            ? -sharedRelief
                             : 0.04) * minutes));
+
+            // A card game warms the players toward each other, slowly. Each
+            // player's own view of the others moves; who to sit down with is
+            // the mind's choice.
+            foreach (var partner in RecreationActivityRules.CardPartners(state, npc))
+            {
+                if (npc.Relationships.TryGetValue(partner.Name, out var relationship))
+                {
+                    relationship.Affinity = Clamp(
+                        relationship.Affinity
+                        + (RecreationActivityRules.CardGameAffinityPerMinute * minutes));
+                }
+            }
 
             if (RecreationActivityRules.Current(npc) is { StressReliefPerMinute: > 0 } calming
                 && recreationRelief > 0)

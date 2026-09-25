@@ -13,12 +13,22 @@ public static class RecreationActivityRules
     public const string WatchTv = "watch-tv";
     public const string PlayGames = "play-games";
     public const string Read = "read";
+    public const string PlayCards = "play-cards";
 
     /// <summary>Recreation need relief per minute for an unnamed break.</summary>
     public const double GenericReliefPerMinute = 1.45;
 
     /// <summary>Social need eased per minute while watching with someone else.</summary>
     public const double SharedViewingSocialReliefPerMinute = 0.4;
+
+    /// <summary>Social need eased per minute while playing cards with others.</summary>
+    public const double CardGameSocialReliefPerMinute = 0.7;
+
+    /// <summary>
+    /// Affinity each card player gains per minute toward each other player.
+    /// About three points an hour: a shared game warms people slowly.
+    /// </summary>
+    public const double CardGameAffinityPerMinute = 0.05;
 
     public sealed record Activity(
         string Id,
@@ -27,13 +37,16 @@ public static class RecreationActivityRules
         FixtureType Fixture,
         bool NeedsPower,
         double RecreationReliefPerMinute,
-        double StressReliefPerMinute);
+        double StressReliefPerMinute,
+        int MinimumPlayers = 1);
 
     public static IReadOnlyList<Activity> All { get; } =
     [
         new(WatchTv, "watch TV", "watching TV", FixtureType.Television, true, 1.45, 0.02),
         new(PlayGames, "play games on the console", "playing games", FixtureType.RecreationConsole, true, 1.8, 0),
-        new(Read, "read in the reading chair", "reading", FixtureType.Chair, false, 1.1, 0.05)
+        new(Read, "read in the reading chair", "reading", FixtureType.Chair, false, 1.1, 0.05),
+        // A game needs a partner: alone at the table it is no break at all.
+        new(PlayCards, "play cards at the table", "playing cards", FixtureType.Table, false, 1.6, 0.03, MinimumPlayers: 2)
     ];
 
     public static Activity? Find(string? id) =>
@@ -75,20 +88,51 @@ public static class RecreationActivityRules
     /// </summary>
     public static RoomFixture? PlaceFor(GameState state, Room room, Npc npc, Activity activity)
     {
-        if (activity.Id != WatchTv)
+        var seats = activity.Id switch
         {
-            return FixtureFor(room, activity);
-        }
+            WatchTv => room.Fixtures.Where(fixture => fixture.Type == FixtureType.Sofa).ToList(),
+            PlayCards when FixtureFor(room, activity) is { } table => SeatsAt(room, table),
+            _ => []
+        };
 
-        var sofas = room.Fixtures.Where(fixture => fixture.Type == FixtureType.Sofa).ToList();
-        if (sofas.Count == 0)
+        if (seats.Count == 0)
         {
             return FixtureFor(room, activity);
         }
 
         var index = DoingIn(state, room, activity).ToList().FindIndex(other => other.Id == npc.Id);
-        return sofas[Math.Max(0, index) % sofas.Count];
+        return seats[Math.Max(0, index) % seats.Count];
     }
+
+    /// <summary>
+    /// The chairs and sofas pulled up to this table: within
+    /// <see cref="SeatReach"/> of its edge, the same reach the layout pass
+    /// uses to keep a table's seats with it.
+    /// </summary>
+    public static List<RoomFixture> SeatsAt(Room room, RoomFixture table) =>
+        room.Fixtures
+            .Where(fixture =>
+                fixture.Type is FixtureType.Chair or FixtureType.Sofa
+                && EdgeGap(fixture, table) <= SeatReach)
+            .ToList();
+
+    private const double SeatReach = 4;
+
+    private static double EdgeGap(RoomFixture first, RoomFixture second)
+    {
+        var dx = Math.Max(0, Math.Abs(first.X - second.X) - ((first.Width + second.Width) / 2));
+        var dy = Math.Max(0, Math.Abs(first.Y - second.Y) - ((first.Height + second.Height) / 2));
+        return Math.Max(dx, dy);
+    }
+
+    /// <summary>
+    /// Whether enough people are doing this activity here for it to work:
+    /// always for a solo activity, and for a card game only once a second
+    /// player is at the table.
+    /// </summary>
+    public static bool HasEnoughPlayers(GameState state, Room room, Activity activity) =>
+        activity.MinimumPlayers <= 1
+        || DoingIn(state, room, activity).Count() >= activity.MinimumPlayers;
 
     /// <summary>
     /// Recreation need relief per minute right now: the activity's rate while
@@ -110,22 +154,41 @@ public static class RecreationActivityRules
 
         return state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var room)
             && IsAvailable(room, activity)
+            && HasEnoughPlayers(state, room, activity)
                 ? activity.RecreationReliefPerMinute
                 : 0;
     }
 
-    /// <summary>Whether someone else is watching the same TV with this person.</summary>
-    public static bool IsWatchingWithOthers(GameState state, Npc npc)
+    /// <summary>
+    /// Social need eased per minute by doing this activity with other people
+    /// here: watching TV together or a card game. Zero alone, for solo
+    /// activities, and while the activity does not work.
+    /// </summary>
+    public static double SocialReliefPerMinute(GameState state, Npc npc)
     {
-        if (Current(npc) is not { Id: WatchTv } activity
+        if (Current(npc) is not { } activity
             || !state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var room)
-            || !IsAvailable(room, activity))
+            || !IsAvailable(room, activity)
+            || !DoingIn(state, room, activity).Any(other => other.Id != npc.Id))
         {
-            return false;
+            return 0;
         }
 
-        return DoingIn(state, room, activity).Any(other => other.Id != npc.Id);
+        return activity.Id switch
+        {
+            WatchTv => SharedViewingSocialReliefPerMinute,
+            PlayCards => CardGameSocialReliefPerMinute,
+            _ => 0
+        };
     }
+
+    /// <summary>The other people at this person's card game, or none.</summary>
+    public static IEnumerable<Npc> CardPartners(GameState state, Npc npc) =>
+        Current(npc) is { Id: PlayCards } activity
+        && state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var room)
+        && IsAvailable(room, activity)
+            ? DoingIn(state, room, activity).Where(other => other.Id != npc.Id)
+            : [];
 
     /// <summary>
     /// The shared fallback-mind (and routine) pick. Nothing works in the dark
@@ -148,10 +211,28 @@ public static class RecreationActivityRules
 
         var tv = available.FirstOrDefault(activity => activity.Id == WatchTv);
         if (tv is not null
-            && npc.SocialNeed >= 45
+            && npc.SocialNeed >= LonelyAt
             && DoingIn(state, room, tv).Any(other => other.Id != npc.Id))
         {
             return tv.Id;
+        }
+
+        // A lonely person also joins a card game someone has already started,
+        // or starts one when someone else in the room is lonely too (who then
+        // joins it). Nobody starts one alone: without a partner it is no
+        // break at all.
+        var cards = available.FirstOrDefault(activity => activity.Id == PlayCards);
+        if (cards is not null
+            && npc.SocialNeed >= LonelyAt
+            && (DoingIn(state, room, cards).Any(other => other.Id != npc.Id)
+                || state.Crew.Any(other =>
+                    other.Id != npc.Id
+                    && other.IsAlive
+                    && other.IsPresent
+                    && other.SocialNeed >= LonelyAt
+                    && other.CurrentRoomId.Equals(room.Id, StringComparison.OrdinalIgnoreCase))))
+        {
+            return cards.Id;
         }
 
         var read = available.FirstOrDefault(activity => activity.Id == Read);
@@ -160,7 +241,7 @@ public static class RecreationActivityRules
             return read.Id;
         }
 
-        var screens = available.Where(activity => activity.Id != Read).ToList();
+        var screens = available.Where(activity => activity.Id is WatchTv or PlayGames).ToList();
         if (screens.Count == 0)
         {
             return read?.Id;
@@ -168,6 +249,8 @@ public static class RecreationActivityRules
 
         return screens[StableTaste(npc.Name) % screens.Count].Id;
     }
+
+    private const double LonelyAt = 45;
 
     private static int StableTaste(string name)
     {
