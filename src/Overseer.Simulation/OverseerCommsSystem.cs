@@ -13,6 +13,28 @@ namespace Overseer.Simulation;
 /// credibility and suspicion, and if it was false, the station itself may later
 /// hand them the proof.
 /// </summary>
+/// <summary>
+/// Owner idea #27, slice 1: Overseer speaks through the station intercom, so
+/// a message reaches only crew standing where the intercom works: a powered
+/// room while the control network is online. Everyone else simply does not
+/// hear it, and can only learn it from someone who did.
+/// </summary>
+public static class CommsCoverageRules
+{
+    public static bool HasIntercomCoverage(GameState state, Room room) =>
+        state.ControlNetworkOnline && room.IsPowered;
+
+    public static bool CanHearOverseer(GameState state, Npc npc) =>
+        state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var room)
+        && HasIntercomCoverage(state, room);
+
+    /// <summary>The console's note on a message some addressees could not hear.</summary>
+    public static string UnreachedNote(OverseerMessageScope scope, int unreached) =>
+        unreached <= 0 ? ""
+        : scope != OverseerMessageScope.Broadcast ? " (not delivered: no intercom coverage)"
+        : $" ({unreached} crew out of intercom coverage)";
+}
+
 public sealed class OverseerCommsSystem
 {
     /// <summary>
@@ -31,7 +53,11 @@ public sealed class OverseerCommsSystem
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        var recipients = Recipients(state, scope, targetNpcName);
+        var addressed = Recipients(state, scope, targetNpcName);
+        var recipients = addressed
+            .Where(npc => CommsCoverageRules.CanHearOverseer(state, npc))
+            .ToList();
+        var unreached = addressed.Count - recipients.Count;
         var wasFalse = IsFalse(state, claim, subjectRoomId, subjectNpcName);
 
         var message = new OverseerMessage(
@@ -61,9 +87,10 @@ public sealed class OverseerCommsSystem
 
         Log(
             state,
-            scope == OverseerMessageScope.Broadcast
+            (scope == OverseerMessageScope.Broadcast
                 ? $"OVERSEER BROADCAST: \"{message.Text}\""
-                : $"OVERSEER → {targetNpcName}: \"{message.Text}\"");
+                : $"OVERSEER → {targetNpcName}: \"{message.Text}\"")
+            + CommsCoverageRules.UnreachedNote(scope, unreached));
 
         return message;
     }
