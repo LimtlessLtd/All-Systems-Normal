@@ -33,7 +33,7 @@ public static class CrewAffordanceSystem
         new(ActionKind.Eat, "optional-dining-room", "Eat when food is available: in the galley, or carry a meal from the galley to a recreation room, crew quarters or a free medical bedside."),
         new(ActionKind.Rest, "none", "Rest in crew quarters."),
         new(ActionKind.Sleep, "none", "Sleep in crew quarters."),
-        new(ActionKind.Recreate, "optional-activity", "Use recreation facilities: watch TV, play games on the console, read, or just unwind."),
+        new(ActionKind.Recreate, "optional-activity", "Use recreation facilities: watch TV, play games or cards, read, write at the quarters desk, or just unwind."),
         new(ActionKind.Groom, "none", "Groom in a washroom."),
         new(ActionKind.Shower, "none", "Shower in a washroom."),
         new(ActionKind.UseToilet, "none", "Use a washroom."),

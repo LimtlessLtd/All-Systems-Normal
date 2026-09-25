@@ -549,21 +549,23 @@ public static class NpcPromptBuilder
             || npc.CurrentAction.Kind == ActionKind.Recreate
             || npc.RecreationNeed >= CrewNeedThresholds.RecreationNeed)
         {
+            // Each activity is done in its own room (the lounge, or the
+            // quarters desk): the room a Recreate with that ID walks to.
             var reachableRecreation = ReachableRooms(state, npc, npc.CurrentRoomId);
-            var lounge = state.Facility.Rooms.Values
-                .Where(candidate => candidate.Type == RoomType.Recreation && reachableRecreation.Contains(candidate.Id))
-                .OrderBy(candidate => candidate.Id.Equals(room.Id, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
-                .ThenBy(candidate => candidate.Id, StringComparer.OrdinalIgnoreCase)
-                .FirstOrDefault();
-            if (lounge is not null)
-            {
-                var options = RecreationActivityRules.All
-                    .Where(activity => RecreationActivityRules.FixtureFor(lounge, activity) is not null)
+            var places = RecreationActivityRules.All
+                .Select(activity => activity.RoomId)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(id => state.Facility.Rooms.GetValueOrDefault(id))
+                .Where(candidate => candidate is not null && reachableRecreation.Contains(candidate.Id))
+                .Select(candidate => candidate!)
+                .Select(place => (Room: place, Options: RecreationActivityRules.All
+                    .Where(activity => activity.Room == place.Type
+                        && RecreationActivityRules.FixtureFor(place, activity) is not null)
                     .Select(activity =>
                     {
-                        var others = RecreationActivityRules.DoingIn(state, lounge, activity).Where(other => other.Id != npc.Id).ToList();
+                        var others = RecreationActivityRules.DoingIn(state, place, activity).Where(other => other.Id != npc.Id).ToList();
                         var doing = others.Count;
-                        var status = !RecreationActivityRules.IsAvailable(lounge, activity)
+                        var status = !RecreationActivityRules.IsAvailable(place, activity)
                             ? "no power, so it does nothing"
                             // A game names who is at the table: who to play with is the mind's call.
                             : activity.MinimumPlayers > 1
@@ -573,11 +575,13 @@ public static class NpcPromptBuilder
                                 : doing > 0 ? $"{doing} other{(doing == 1 ? "" : "s")} already {activity.Doing}" : "free";
                         return $"{activity.Id} ({activity.Label}: {status})";
                     })
-                    .ToList();
-                if (options.Count > 0)
-                {
-                    builder.AppendLine($"RECREATION in {lounge.Name} [{lounge.Id}]: {string.Join("; ", options)}. Recreate with one of these IDs as TargetId, or null for a plain break. Which, if any, is up to you.");
-                }
+                    .ToList()))
+                .Where(place => place.Options.Count > 0)
+                .Select(place => $"{place.Room.Name} [{place.Room.Id}]: {string.Join("; ", place.Options)}")
+                .ToList();
+            if (places.Count > 0)
+            {
+                builder.AppendLine($"RECREATION in {string.Join(". In ", places)}. Recreate with one of these IDs as TargetId, or null for a plain break. Which, if any, is up to you.");
             }
         }
         if (DecompressionContainmentRules.FindHatchTowardBreach(state, npc) is { } breachHatch)
