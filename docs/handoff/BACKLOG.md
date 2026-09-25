@@ -752,7 +752,6 @@ No `ISystem` interface; `Tick` is duck-typed with two signatures (`Tick(GameStat
 - The JWST backdrop competes with the small crew tokens: dim/desaturate/vignette it. Door frames are brighter than crew; give each crew member one colour used everywhere and larger tokens.
 - Station state is shown as text rather than atmosphere: power loss as darkness with emergency strips, low O₂ as haze, decompression as particles, ambient room audio.
 - Crew lack sleep/eating/showering/toilet-use animations (owner report, 2026-09-23 21:34 BST, `#new-ideas-and-functionality`). No per-activity crew animation exists yet beyond the walk cycle; pairs with owner idea #82's disabled-machinery presentation-state pattern (`Npc.CurrentAction` already exposes which of these four activities is active, the same signal a presentation-only animation would key off).
-- Generated kitchens scatter their chairs around the room instead of setting them at the mess table (found during #105's furniture pass, 2026-09-24). `SeatFacingRules` still turns each chair toward the nearest table. The fix is in fixture placement (`FacilitySeeder` generated-fixture layout), not in the art: place generated chairs on the table's free sides, checking fixture overlap and standing-point clearance (`StationUiPresentationPolishTests`).
 
 **Diagnostics**
 

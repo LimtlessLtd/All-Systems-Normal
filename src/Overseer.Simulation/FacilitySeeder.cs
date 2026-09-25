@@ -524,10 +524,20 @@ public static class FacilitySeeder
             // rendered/simulated fixture collection.
             var occupied = DoorApproachReservations(facility, room).ToList();
 
+            // Seats authored against a table move with it as one set, so a
+            // repacked room keeps its chairs at the table instead of
+            // scattering them across the floor grid.
+            var diningSets = DiningSets(original);
+            var tableSeats = diningSets
+                .SelectMany(set => set.Seats)
+                .Select(seat => seat.Seat)
+                .ToHashSet(ReferenceEqualityComparer.Instance);
+
             // Functional standard modules claim bulkhead space ahead of other
             // wall equipment (but after central machinery), so decorative
             // pipes and windows cannot crowd them into a smaller footprint.
             foreach (var fixture in original
+                         .Where(fixture => !tableSeats.Contains(fixture))
                          .OrderByDescending(fixture =>
                              StandardModuleFootprints.TryGet(devices, fixture, out _)
                                  ? 290
@@ -547,56 +557,313 @@ public static class FacilitySeeder
                     continue;
                 }
 
-                if (TryResolveFixturePlacement(fixture, occupied, out var resolved))
+                if (diningSets.FirstOrDefault(set => ReferenceEquals(set.Table, fixture)) is { } diningSet)
                 {
-                    placed.Add(resolved);
-                    occupied.Add(resolved);
-                    occupied.AddRange(FixtureInteractionReservations(resolved));
+                    PlaceDiningSet(room, diningSet, placed, occupied);
                     continue;
                 }
 
-                if (IsWallFixture(fixture.Type)
-                    && TryCompactWallPlacement(fixture, occupied, out resolved))
-                {
-                    placed.Add(resolved);
-                    occupied.Add(resolved);
-                    occupied.AddRange(FixtureInteractionReservations(resolved));
-                    continue;
-                }
-
-                if (IsWallFixture(fixture.Type)
-                    && fixture.DeviceId is null
-                    && fixture.Label.StartsWith("Generated ", StringComparison.Ordinal))
-                {
-                    // Identity decoration is optional. Never violate the wall
-                    // contract by pushing a decorative bulkhead detail inward.
-                    continue;
-                }
-
-                // Extremely crowded authored rooms still need every physical
-                // control/device to remain represented. Use a tiny deterministic
-                // service marker as the final fallback rather than overlap it.
-                var fallback = fixture with
-                {
-                    Width = Math.Min(fixture.Width, 7),
-                    Height = Math.Min(fixture.Height, 7)
-                };
-
-                if (TryDenseFixturePlacement(fallback, occupied, out resolved))
-                {
-                    placed.Add(resolved);
-                    occupied.Add(resolved);
-                    occupied.AddRange(FixtureInteractionReservations(resolved));
-                }
-                else if (!fixture.Label.StartsWith("Generated ", StringComparison.Ordinal))
-                {
-                    throw new InvalidOperationException(
-                        $"Room '{room.Id}' cannot place fixture '{fixture.Label}' without overlap.");
-                }
+                PlaceFixture(room, fixture, placed, occupied);
             }
 
             room.Fixtures.Clear();
             room.Fixtures.AddRange(placed);
+        }
+    }
+
+    /// <summary>
+    /// Places a table together with the seats authored against it. The
+    /// table takes the first candidate position (largest scale first, as for
+    /// any floor fixture) around which every seat fits; failing that, the one
+    /// that seats the most. Seats that still do not fit fall back to ordinary
+    /// individual placement, so no seat is ever dropped.
+    /// </summary>
+    private static void PlaceDiningSet(
+        Room room,
+        DiningSet set,
+        List<RoomFixture> placed,
+        List<RoomFixture> occupied)
+    {
+        RoomFixture? bestTable = null;
+        List<RoomFixture> bestSeats = [];
+
+        foreach (var table in TableCandidates(set.Table, occupied))
+        {
+            var seats = SeatsAround(table, set, occupied);
+            if (bestTable is null || seats.Count > bestSeats.Count)
+            {
+                bestTable = table;
+                bestSeats = seats;
+            }
+
+            if (seats.Count == set.Seats.Count)
+                break;
+        }
+
+        if (bestTable is null)
+        {
+            PlaceFixture(room, set.Table, placed, occupied);
+        }
+        else
+        {
+            placed.Add(bestTable);
+            occupied.Add(bestTable);
+            occupied.AddRange(FixtureInteractionReservations(bestTable));
+
+            foreach (var seat in bestSeats)
+            {
+                placed.Add(seat);
+                occupied.Add(seat);
+                occupied.AddRange(FixtureInteractionReservations(seat));
+            }
+        }
+
+        foreach (var (seat, _, _, _) in set.Seats.Where(entry =>
+                     !bestSeats.Any(placedSeat => placedSeat.Label == entry.Seat.Label)))
+        {
+            PlaceFixture(room, seat, placed, occupied);
+        }
+    }
+
+    private static IEnumerable<RoomFixture> TableCandidates(
+        RoomFixture table,
+        IReadOnlyList<RoomFixture> occupied)
+    {
+        foreach (var scale in new[] { 1d, .92, .84, .76, .68, .6, .54 })
+        {
+            foreach (var candidate in FloorCandidates(
+                         table.X,
+                         table.Y,
+                         table.Width * scale,
+                         table.Height * scale))
+            {
+                var moved = MoveFixture(
+                    table,
+                    candidate.X,
+                    candidate.Y,
+                    candidate.Width,
+                    candidate.Height);
+
+                if (FitsFixture(moved, occupied, FixturePlacementPadding(moved)))
+                    yield return moved;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Seats each member of the set at this table position: on its authored
+    /// side at its authored spot first, then at any free spot along the
+    /// table's four sides. A seat keeps the usual aisle padding against
+    /// everything except its own table, which it is tucked against.
+    /// </summary>
+    private static List<RoomFixture> SeatsAround(
+        RoomFixture table,
+        DiningSet set,
+        IReadOnlyList<RoomFixture> occupied)
+    {
+        var seats = new List<RoomFixture>();
+
+        foreach (var (seat, side, along, gap) in set.Seats)
+        {
+            var slots = new[] { (Side: side, Along: along) }
+                .Concat(
+                    from candidateSide in new[] { side, Opposite(side), Turn(side), Opposite(Turn(side)) }
+                    from candidateAlong in new[] { 0d, -.5, .5 }
+                    select (Side: candidateSide, Along: candidateAlong));
+
+            foreach (var slot in slots)
+            {
+                var candidate = SeatAt(table, seat, slot.Side, slot.Along, gap, keepFacing: slot.Side == side);
+                if (!FitsFixture(candidate, occupied, FixturePlacementPadding(candidate))
+                    || seats.Any(sibling => FixtureRectanglesOverlap(
+                        candidate.X,
+                        candidate.Y,
+                        candidate.Width,
+                        candidate.Height,
+                        sibling.X,
+                        sibling.Y,
+                        sibling.Width,
+                        sibling.Height,
+                        padding: 1)))
+                {
+                    continue;
+                }
+
+                seats.Add(candidate);
+                break;
+            }
+        }
+
+        return seats;
+    }
+
+    private static RoomFixture SeatAt(
+        RoomFixture table,
+        RoomFixture seat,
+        TableSide side,
+        double along,
+        double gap,
+        bool keepFacing)
+    {
+        var (x, y) = side switch
+        {
+            TableSide.North => (table.X + (along * table.Width / 2), table.Y - (table.Height / 2) - gap - (seat.Height / 2)),
+            TableSide.South => (table.X + (along * table.Width / 2), table.Y + (table.Height / 2) + gap + (seat.Height / 2)),
+            TableSide.West => (table.X - (table.Width / 2) - gap - (seat.Width / 2), table.Y + (along * table.Height / 2)),
+            _ => (table.X + (table.Width / 2) + gap + (seat.Width / 2), table.Y + (along * table.Height / 2))
+        };
+
+        var moved = MoveFixture(seat, x, y, seat.Width, seat.Height);
+        return keepFacing
+            ? moved
+            : moved with
+            {
+                // A seat moved to another side faces the table from there,
+                // using the authored mess-table convention.
+                FacingDegrees = side switch
+                {
+                    TableSide.North => 180,
+                    TableSide.South => 0,
+                    TableSide.West => 90,
+                    _ => 270
+                }
+            };
+    }
+
+    private static TableSide Opposite(TableSide side) =>
+        side switch
+        {
+            TableSide.North => TableSide.South,
+            TableSide.South => TableSide.North,
+            TableSide.West => TableSide.East,
+            _ => TableSide.West
+        };
+
+    private static TableSide Turn(TableSide side) =>
+        side is TableSide.North or TableSide.South ? TableSide.West : TableSide.North;
+
+    /// <summary>
+    /// A chair or sofa belongs to a table when, as authored, it sits within
+    /// <see cref="TableSeatReach"/> of that table's edge (the nearest table
+    /// wins). Generated identity dressing is scattered, never a set.
+    /// </summary>
+    private static List<DiningSet> DiningSets(IReadOnlyList<RoomFixture> fixtures)
+    {
+        var sets = fixtures
+            .Where(fixture => fixture.Type == FixtureType.Table)
+            .Select(table => new DiningSet(table, []))
+            .ToList();
+
+        foreach (var seat in fixtures.Where(fixture =>
+                     fixture.Type is FixtureType.Chair or FixtureType.Sofa
+                     && !fixture.Label.StartsWith("Generated ", StringComparison.Ordinal)))
+        {
+            var set = sets
+                .Where(candidate => EdgeGap(seat, candidate.Table) <= TableSeatReach)
+                .OrderBy(candidate => EdgeGap(seat, candidate.Table))
+                .FirstOrDefault();
+
+            if (set is null)
+                continue;
+
+            var nearest = set.Table;
+
+            var dx = (seat.X - nearest.X) / (nearest.Width / 2);
+            var dy = (seat.Y - nearest.Y) / (nearest.Height / 2);
+            var side = Math.Abs(dx) >= Math.Abs(dy)
+                ? dx < 0 ? TableSide.West : TableSide.East
+                : dy < 0 ? TableSide.North : TableSide.South;
+            // Along: where on its side the seat sits (-1..1 of the table's
+            // half-length). Gap: table edge to seat edge.
+            var (along, gap) = side switch
+            {
+                TableSide.North => (dx, nearest.Y - (nearest.Height / 2) - (seat.Y + (seat.Height / 2))),
+                TableSide.South => (dx, seat.Y - (seat.Height / 2) - (nearest.Y + (nearest.Height / 2))),
+                TableSide.West => (dy, nearest.X - (nearest.Width / 2) - (seat.X + (seat.Width / 2))),
+                _ => (dy, seat.X - (seat.Width / 2) - (nearest.X + (nearest.Width / 2)))
+            };
+
+            // Seats sit against, never inside, their table: the authored
+            // west/east mess chairs are tucked 1 unit into it.
+            set.Seats.Add((seat, side, Math.Clamp(along, -1, 1), Math.Max(gap, .5)));
+        }
+
+        return sets.Where(set => set.Seats.Count > 0).ToList();
+    }
+
+    private const double TableSeatReach = 4;
+
+    /// <summary>Distance between the two rectangles' edges; 0 when they touch or overlap.</summary>
+    private static double EdgeGap(RoomFixture first, RoomFixture second)
+    {
+        var dx = Math.Max(0, Math.Abs(first.X - second.X) - ((first.Width + second.Width) / 2));
+        var dy = Math.Max(0, Math.Abs(first.Y - second.Y) - ((first.Height + second.Height) / 2));
+        return Math.Max(dx, dy);
+    }
+
+    private enum TableSide
+    {
+        North,
+        South,
+        West,
+        East
+    }
+
+    private sealed record DiningSet(
+        RoomFixture Table,
+        List<(RoomFixture Seat, TableSide Side, double Along, double Gap)> Seats);
+
+    private static void PlaceFixture(
+        Room room,
+        RoomFixture fixture,
+        List<RoomFixture> placed,
+        List<RoomFixture> occupied)
+    {
+        if (TryResolveFixturePlacement(fixture, occupied, out var resolved))
+        {
+            placed.Add(resolved);
+            occupied.Add(resolved);
+            occupied.AddRange(FixtureInteractionReservations(resolved));
+            return;
+        }
+
+        if (IsWallFixture(fixture.Type)
+            && TryCompactWallPlacement(fixture, occupied, out resolved))
+        {
+            placed.Add(resolved);
+            occupied.Add(resolved);
+            occupied.AddRange(FixtureInteractionReservations(resolved));
+            return;
+        }
+
+        if (IsWallFixture(fixture.Type)
+            && fixture.DeviceId is null
+            && fixture.Label.StartsWith("Generated ", StringComparison.Ordinal))
+        {
+            // Identity decoration is optional. Never violate the wall
+            // contract by pushing a decorative bulkhead detail inward.
+            return;
+        }
+
+        // Extremely crowded authored rooms still need every physical
+        // control/device to remain represented. Use a tiny deterministic
+        // service marker as the final fallback rather than overlap it.
+        var fallback = fixture with
+        {
+            Width = Math.Min(fixture.Width, 7),
+            Height = Math.Min(fixture.Height, 7)
+        };
+
+        if (TryDenseFixturePlacement(fallback, occupied, out resolved))
+        {
+            placed.Add(resolved);
+            occupied.Add(resolved);
+            occupied.AddRange(FixtureInteractionReservations(resolved));
+        }
+        else if (!fixture.Label.StartsWith("Generated ", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Room '{room.Id}' cannot place fixture '{fixture.Label}' without overlap.");
         }
     }
 

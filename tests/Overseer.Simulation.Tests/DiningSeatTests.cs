@@ -40,7 +40,8 @@ public sealed class DiningSeatTests
 
         // A newcomer whose name sorts first still does not take the chair.
         var newcomer = state.Crew.First(npc => !eaters.Contains(npc));
-        Place(newcomer, "kitchen", 50, 30);
+        var spot = ClearSpots(state.Facility.Rooms["kitchen"], 2)[1];
+        Place(newcomer, "kitchen", spot.X, spot.Y);
         eaters.Add(newcomer);
         Walk(state, eaters, minutes: 6);
 
@@ -382,12 +383,39 @@ public sealed class DiningSeatTests
             .OrderByDescending(npc => npc.Name, StringComparer.OrdinalIgnoreCase)
             .Take(count)
             .ToList();
+        var spots = ClearSpots(state.Facility.Rooms["kitchen"], count);
         for (var i = 0; i < eaters.Count; i++)
         {
-            Place(eaters[i], "kitchen", 30 + (i * 8), 30);
+            Place(eaters[i], "kitchen", spots[i].X, spots[i].Y);
         }
 
         return (state, eaters);
+    }
+
+    /// <summary>
+    /// Spots of open floor for <paramref name="count"/> arrivals, 8 apart and
+    /// clear of every fixture, so nobody starts out already in a chair
+    /// wherever the layout pass put the mess table.
+    /// </summary>
+    private static List<(double X, double Y)> ClearSpots(Room room, int count)
+    {
+        var spots = new List<(double X, double Y)>();
+        for (var y = 10d; y <= 90 && spots.Count < count; y += 4)
+        {
+            for (var x = 10d; x <= 90 && spots.Count < count; x += 4)
+            {
+                if (room.Fixtures.All(fixture =>
+                        Math.Abs(x - fixture.X) > (fixture.Width / 2) + 4
+                        || Math.Abs(y - fixture.Y) > (fixture.Height / 2) + 4)
+                    && spots.All(spot => Math.Abs(spot.X - x) >= 8 || Math.Abs(spot.Y - y) >= 8))
+                {
+                    spots.Add((x, y));
+                }
+            }
+        }
+
+        Assert.Equal(count, spots.Count);
+        return spots;
     }
 
     private static void Place(Npc npc, string roomId, double x, double y)
