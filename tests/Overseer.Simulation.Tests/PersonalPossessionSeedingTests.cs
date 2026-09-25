@@ -15,7 +15,7 @@ public sealed class PersonalPossessionSeedingTests
         {
             var owned = state.Possessions.Where(p => p.OwnerId == npc.Id).ToList();
 
-            Assert.InRange(owned.Count, 1, 2);
+            Assert.InRange(owned.Count(p => p.Kind != PossessionKind.Keycard), 1, 2);
             Assert.All(owned, possession =>
             {
                 Assert.Equal(npc.Id, possession.CurrentHolderId);

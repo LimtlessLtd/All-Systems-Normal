@@ -1699,6 +1699,24 @@ public static class FacilitySeeder
                 npc.KnownPossessions[possession.Id] = new PossessionSighting(
                     possession.Id, npc.Id, npc.Name, null, null, state.Elapsed);
             }
+
+            // Owner idea #25, slice 1: crew trained to secure hatches carry a
+            // keycard, the physical credential anyone else can borrow or steal.
+            if (CrewDoorInteractionSystem.HasLockAuthority(npc))
+            {
+                var keycard = new PersonalPossession
+                {
+                    Id = $"possession-{npc.Id:N}-keycard",
+                    OwnerId = npc.Id,
+                    Name = "a hatch-lock keycard",
+                    Kind = PossessionKind.Keycard,
+                    CurrentHolderId = npc.Id
+                };
+
+                state.Possessions.Add(keycard);
+                npc.KnownPossessions[keycard.Id] = new PossessionSighting(
+                    keycard.Id, npc.Id, npc.Name, null, null, state.Elapsed);
+            }
         }
     }
 

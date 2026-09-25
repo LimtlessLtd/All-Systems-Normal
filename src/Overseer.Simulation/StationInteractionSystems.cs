@@ -351,9 +351,9 @@ public static class CrewAffordanceSystem
                     && CrewDoorInteractionSystem.CanOpen(state, npc, door),
                 ActionKind.CloseDoor => CrewDoorInteractionSystem.CanClose(npc, door),
                 ActionKind.LockDoor => !door.IsLocked
-                    && CrewDoorInteractionSystem.CanLockOrUnlock(npc, door),
+                    && CrewDoorInteractionSystem.CanLockOrUnlock(state, npc, door),
                 ActionKind.UnlockDoor => door.IsLocked
-                    && CrewDoorInteractionSystem.CanLockOrUnlock(npc, door),
+                    && CrewDoorInteractionSystem.CanLockOrUnlock(state, npc, door),
                 _ => false
             };
         }
@@ -426,9 +426,25 @@ public sealed class CrewDoorInteractionSystem
             && Skill(npc, "Operations") >= 70;
     }
 
-    public static bool CanLockOrUnlock(Npc npc, Door door) =>
+    /// <summary>
+    /// Owner idea #25, slice 1: a hatch-lock keycard is a physical credential.
+    /// Whoever currently holds one (its owner, or anyone who borrowed or stole
+    /// it through the ordinary possession affordances) can lock and unlock
+    /// hatches, on top of the role-trained authority above. Who to lend it to
+    /// or take it from is the mind's choice; C# only checks the holder.
+    /// </summary>
+    public static PersonalPossession? HeldLockCredential(GameState state, Npc npc) =>
+        state.Possessions.FirstOrDefault(possession =>
+            possession.Kind == PossessionKind.Keycard
+            && !possession.IsDestroyed
+            && possession.CurrentHolderId == npc.Id);
+
+    public static bool HasLockAuthority(GameState state, Npc npc) =>
+        HasLockAuthority(npc) || HeldLockCredential(state, npc) is not null;
+
+    public static bool CanLockOrUnlock(GameState state, Npc npc, Door door) =>
         IsAdjacent(npc, door)
-        && HasLockAuthority(npc)
+        && HasLockAuthority(state, npc)
         && door.IsPowered
         && !door.IsManuallyOverridden
         && !door.HasPhysicalSecuring;
@@ -560,7 +576,7 @@ public sealed class CrewDoorInteractionSystem
                 break;
 
             case ActionKind.LockDoor:
-                if (!CanLockOrUnlock(npc, door) || door.IsLocked)
+                if (!CanLockOrUnlock(state, npc, door) || door.IsLocked)
                 {
                     message = $"{npc.Name} is not authorised or able to lock {door.Id}.";
                     return false;
@@ -573,7 +589,7 @@ public sealed class CrewDoorInteractionSystem
                 break;
 
             case ActionKind.UnlockDoor:
-                if (!CanLockOrUnlock(npc, door) || !door.IsLocked)
+                if (!CanLockOrUnlock(state, npc, door) || !door.IsLocked)
                 {
                     message = $"{npc.Name} is not authorised or able to unlock {door.Id}.";
                     return false;
