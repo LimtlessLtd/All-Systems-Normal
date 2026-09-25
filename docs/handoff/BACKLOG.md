@@ -226,7 +226,7 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Idea: "Intercoms, radios and terminals require power/network coverage. Damage Engineering's antenna and half the crew may literally not hear an evacuation warning, while somebody physically carrying news becomes important."
 - Outcome: intercom/radio/terminal messages only reach NPCs whose location has live power+network coverage per a deterministic coverage model; damaging a coverage node creates real communication dead zones; an NPC can still physically relay news by moving and speaking, using existing perception/conversation systems.
 - Size: large (slices: power/network coverage model per room/zone; message delivery gated by coverage; damage-a-node interaction)
-- Status: ready
+- Status: **in progress**. Slice 1 is shipped (see `SYSTEMS.md` → communication coverage): Overseer's broadcasts, private messages and FIRE ALARM reach only crew in a powered room while the control network is online (`CommsCoverageRules`), so disconnecting `network:control` (#21) or cutting a room's power is a real dead zone. The console log counts who was out of coverage. Remaining: (1) per-section coverage nodes (an Engineering antenna, section junctions), so damage silences part of the station rather than all of it (pairs with #21's partitions); (2) crew-to-crew radios or intercom calls, which today are only face-to-face conversation; (3) a physical intercom fixture per room that can be damaged or disconnected on its own (#12); (4) whether a hard-wired fire klaxon should sound without the network (an owner call; today the alarm goes over the same intercom).
 
 ### 28. Station policies
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)
@@ -755,4 +755,6 @@ No `ISystem` interface; `Tick` is duck-typed with two signatures (`Tick(GameStat
 
 **Diagnostics**
 
+- **Unseeded test stations are random (found 2026-09-25).** `FacilitySeeder.CreateDefault()` with no seed uses `Random.Shared`, and about 375 test call sites use it, so a test can pass or fail depending on the station it happens to get. `RestorableOutageTests.LifeSupportSwitchedOff_IsRestoredByTheManualControls` failed about 1 run in 4 this way and is now pinned to seed 4242. Fix direction: a deterministic default for tests (e.g. a test helper, or a fixed seed when none is given outside the web hosts), then sweep for other seed-sensitive assertions.
+- **Some generated stations start in a power deficit.** Seed 146 starts at 88/116 kW and sheds Engineering, Control, Medical and eight other rooms before anyone acts (about 1 station in 400). Worth checking whether generation should guarantee a starting power surplus, or whether a station born in a blackout is intended variety.
 - Cognition telemetry should eventually cover every model-backed interaction (crew generation, message interpretation, future planners) while staying bounded/transient by default.

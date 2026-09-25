@@ -27,7 +27,10 @@ public sealed class RestorableOutageTests
     [Fact]
     public void LifeSupportSwitchedOff_IsRestoredByTheManualControls()
     {
-        var state = FacilitySeeder.CreateDefault();
+        // Pinned: an unseeded station is random, and a few (e.g. seed 146)
+        // start in a power deficit that sheds Engineering, so life support
+        // cannot come back within one tick whatever the controls do.
+        var state = FacilitySeeder.CreateDefault(stationSeed: 4242);
         state.LifeSupport.RequestedOnline = false;
         state.LifeSupport.IsOnline = false;
 
