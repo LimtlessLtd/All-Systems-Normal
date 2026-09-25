@@ -140,6 +140,26 @@
                         @(_transmitting ? "TRANSMITTING..." : "TRANSMIT")
                     </button>
 
+                    <div class="station-policy-controls" aria-label="Station policies">
+                        <span class="overline">STATION POLICIES · announced over the intercom</span>
+                        <div class="station-policy-buttons">
+                            @foreach (var kind in StationWidePolicies)
+                            {
+                                var enacted = StationPolicySystem.Active(Session.State, kind) is not null;
+                                <button type="button"
+                                        class="secondary mini @(enacted ? "selected-speed" : "")"
+                                        aria-pressed="@(enacted ? "true" : "false")"
+                                        disabled="@(!Session.State.IsSimulationLive)"
+                                        title="@(enacted ? "Lift this policy" : "Announce this policy to every crew member in intercom coverage")"
+                                        @onclick="() => Session.TogglePolicy(kind)">@PolicyLabel(kind)</button>
+                            }
+                        </div>
+                        @foreach (var roomPolicy in Session.State.Policies.Where(policy => policy.RoomId is not null))
+                        {
+                            <small>@StationPolicySystem.Title(Session.State, roomPolicy) · since T+@roomPolicy.EnactedAt.ToString(@"hh\:mm")</small>
+                        }
+                    </div>
+
                     <div class="station-popup-log">
                         @if (Session.State.OverseerMessages.Count == 0)
                         {
@@ -1390,6 +1410,19 @@
                     </div>
                 </div>
 
+                <div class="control-stack room-policy-controls">
+                    @foreach (var kind in new[] { StationPolicyKind.Quarantine, StationPolicyKind.RestrictedArea })
+                    {
+                        var enacted = StationPolicySystem.Active(Session.State, kind, selectedRoom.Id) is not null;
+                        <button class="wide secondary"
+                                aria-pressed="@(enacted ? "true" : "false")"
+                                disabled="@(!Session.State.IsSimulationLive)"
+                                @onclick="() => Session.TogglePolicy(kind, selectedRoom.Id)">
+                            @(enacted ? "LIFT " : "DECLARE ")@PolicyLabel(kind)
+                        </button>
+                    }
+                </div>
+
                 <div class="life-support-card">
                     <div>
                         <span>PRIMARY LIFE SUPPORT</span>
@@ -1745,6 +1778,25 @@
     private bool _soundEnabled = true;
     private bool _musicEnabled = true;
     private string? _stationOverlay;
+
+    private static readonly StationPolicyKind[] StationWidePolicies =
+    [
+        StationPolicyKind.Rationing,
+        StationPolicyKind.Curfew,
+        StationPolicyKind.WeaponsProhibition,
+        StationPolicyKind.MandatoryMedicalCheck
+    ];
+
+    private static string PolicyLabel(StationPolicyKind kind) => kind switch
+    {
+        StationPolicyKind.Rationing => "RATIONING",
+        StationPolicyKind.Curfew => "CURFEW",
+        StationPolicyKind.WeaponsProhibition => "WEAPONS BAN",
+        StationPolicyKind.MandatoryMedicalCheck => "MEDICAL CHECKS",
+        StationPolicyKind.Quarantine => "QUARANTINE",
+        StationPolicyKind.RestrictedArea => "RESTRICTED AREA",
+        _ => kind.ToString().ToUpperInvariant()
+    };
     // Owner idea #103: a won run keeps simulating behind its result card, and
     // the player may put the card away to carry on watching the station.
     private bool _runEndDismissed;

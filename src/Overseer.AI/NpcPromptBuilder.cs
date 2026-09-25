@@ -693,6 +693,14 @@ public static class NpcPromptBuilder
                     + $"\"{received.Text.Replace("\"", "'")}\"");
             }
         }
+        // Owner idea #28: the rules this person heard Overseer declare. They
+        // are claims about what Overseer wants, not physical limits.
+        if (npc.KnownPolicies.Count > 0)
+        {
+            builder.AppendLine("STATION POLICIES YOU HEARD OVERSEER DECLARE (its rules, not physical limits; whether you comply, protest, evade or exploit them is your own call):");
+            foreach (var policy in npc.KnownPolicies.Values.OrderBy(policy => policy.EnactedAt))
+                builder.AppendLine($"- {StationPolicySystem.Describe(state, policy)}");
+        }
         // Owner idea #29: only this person's own checks, reported as a track
         // record. How much to discount the next alarm is their call.
         var falseAlarmStreaks = AlarmFatigueRules.FalseStreaks(state, npc);

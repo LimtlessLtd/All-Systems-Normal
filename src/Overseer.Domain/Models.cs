@@ -1208,6 +1208,14 @@ public sealed class Npc : IStationMobileEntity
     public List<OverseerMessage> ReceivedMessages { get; } = [];
 
     /// <summary>
+    /// Owner idea #28: the station policies this person heard Overseer enact,
+    /// by <see cref="StationPolicy.Key"/>. Only a lift they hear removes one,
+    /// so someone out of intercom coverage can believe a lifted rule stands.
+    /// </summary>
+    public Dictionary<string, StationPolicy> KnownPolicies { get; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Owner idea #29 (alarm fatigue): Overseer warnings and fire alarms this
     /// person has checked for themselves by seeing the room, newest first and
     /// bounded. Only their own settlements count, never hearsay.
@@ -1556,6 +1564,27 @@ public sealed class DoorAccessRecord
     public Guid? ActorId { get; init; }
 }
 
+public enum StationPolicyKind
+{
+    Rationing,
+    Curfew,
+    WeaponsProhibition,
+    MandatoryMedicalCheck,
+
+    // Room-scoped: StationPolicy.RoomId names the compartment.
+    Quarantine,
+    RestrictedArea
+}
+
+/// <summary>
+/// Owner idea #28: a rule Overseer has declared. The policy itself decides
+/// nothing; whether anyone complies is each mind's own choice.
+/// </summary>
+public sealed record StationPolicy(StationPolicyKind Kind, string? RoomId, TimeSpan EnactedAt)
+{
+    public string Key => RoomId is null ? Kind.ToString() : $"{Kind}:{RoomId}";
+}
+
 public sealed class Door
 {
     public required string Id { get; init; }
@@ -1665,6 +1694,9 @@ public sealed class GameState
 
     // Overseer's own voice. Messages are the player's only non-physical verb.
     public List<OverseerMessage> OverseerMessages { get; } = [];
+
+    /// <summary>Owner idea #28: the station policies Overseer has in force.</summary>
+    public List<StationPolicy> Policies { get; } = [];
     public long NextMessageSequence { get; set; } = 1;
 
     // Station upkeep. Equipment wears out, the crew service it, and the power

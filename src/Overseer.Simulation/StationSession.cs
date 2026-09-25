@@ -724,6 +724,16 @@ public abstract class StationSession
     public bool SoundFireAlarm(string roomId) =>
         OverseerCommsSystem.SoundFireAlarm(State, roomId) is not null;
 
+    /// <summary>
+    /// Owner idea #28: enact the policy if it isn't in force, otherwise lift
+    /// it. Either way it is announced over the intercom; see
+    /// <see cref="StationPolicySystem"/>.
+    /// </summary>
+    public bool TogglePolicy(StationPolicyKind kind, string? roomId = null) =>
+        StationPolicySystem.Active(State, kind, roomId) is null
+            ? StationPolicySystem.Enact(State, kind, roomId)
+            : StationPolicySystem.Lift(State, kind, roomId);
+
     public void ToggleLifeSupport()
     {
         if (!State.LifeSupport.IsAiControllable)
