@@ -205,7 +205,7 @@ One batch, 50 entries (#21–#70), from the owner's 2026-09-23 09:41 BST message
 - Idea: "Machines can be switched from `NETWORK CONTROL` to `LOCAL CONTROL`. Someone has to physically reach them to operate them, and Overseer cannot simply switch them back remotely."
 - Outcome: a deterministic per-machine control-mode flag (`NETWORK`/`LOCAL`); in `LOCAL`, only a crew member physically present can operate the machine, and the Overseer verb that would remotely toggle it is rejected until a crew member switches it back at the machine.
 - Size: large (slices: control-mode flag on relevant machine types; local-only operation gate; reject remote toggle while local; crew affordance to switch modes)
-- Status: ready — natural pairing with #21.
+- Status: **in progress**. Slice 1 is shipped (see `SYSTEMS.md` → local/manual control mode): a per-machine `IsLocalControl` flag, the crew switches both ways at the hardware, and Overseer's remote machine and life-support toggles are refused while it is set. Remaining: (1) doors: a hatch already has its own crew `OverrideDoor` / `IsManuallyOverridden` path, so decide whether a local-control switch on a door console should reuse it rather than add a second flag; (2) crop beds and the other Overseer verbs that act on machinery indirectly (e.g. room power) if the owner wants those gated too; (3) the fallback minds never switch, so Pages never shows it; (4) a map marker for a machine on local control (the Inspector only shows it when the machine is selected). Natural pairing with #21.
 
 ### 25. Physical credentials
 - Source: https://limitlessltds-fzn8994.slack.com/archives/C0C395V4TCP/p1790152880944719 (2026-09-23)

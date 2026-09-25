@@ -88,6 +88,9 @@ public sealed class ActionResolver
                 => TryCrewDoorOperation(state, npc, action, out message),
             ActionKind.ForceDoor => TryForceDoor(state, npc, action, out message),
             ActionKind.DisconnectDevice => TryDisconnectDevice(state, npc, action, out message),
+            ActionKind.SwitchToLocalControl
+                or ActionKind.SwitchToNetworkControl
+                => TrySwitchControlMode(state, npc, action, out message),
             ActionKind.RestoreSystem => TryRestoreSystem(state, npc, action, out message),
             ActionKind.SecureAirlock => TrySecureAirlock(state, npc, action, out message),
             ActionKind.RepairDoor => TryDoorWork(state, npc, action, "repair", out message),
@@ -746,6 +749,88 @@ public sealed class ActionResolver
 
         message = $"{npc.Name} physically disconnects {device.Label}.";
         Log(state, message);
+        return true;
+    }
+
+    /// <summary>
+    /// Owner idea #24: at the machine's hardware, switch who can operate it.
+    /// The machine keeps running as it is; LOCAL CONTROL only stops Overseer
+    /// operating it over the network until someone switches it back here.
+    /// </summary>
+    private static bool TrySwitchControlMode(
+        GameState state,
+        Npc npc,
+        NpcAction action,
+        out string message)
+    {
+        var toLocal = action.Kind == ActionKind.SwitchToLocalControl;
+        var resolution = PhysicalInteractionRules.ResolveTarget(
+            state,
+            npc,
+            action.Kind,
+            action.TargetId);
+
+        if (resolution.Status is PhysicalInteractionTargetStatus.UnsupportedAction
+            or PhysicalInteractionTargetStatus.MissingTarget
+            or PhysicalInteractionTargetStatus.DoorNotAllowed)
+        {
+            message = "Control-mode target is not a valid station machine.";
+            return false;
+        }
+
+        var device = resolution.Device!;
+
+        if (resolution.Status is PhysicalInteractionTargetStatus.WrongRoom
+            or PhysicalInteractionTargetStatus.MissingRoom
+            or PhysicalInteractionTargetStatus.MissingHardware)
+        {
+            message = $"{npc.Name} must physically reach {device.Label}'s local hardware.";
+            return false;
+        }
+
+        if (resolution.Status == PhysicalInteractionTargetStatus.NotNetworkControlled)
+        {
+            message = device.IsLocalControl
+                ? $"{device.Label} is already on LOCAL CONTROL."
+                : $"{device.Label} has no network control to take away.";
+            return false;
+        }
+
+        if (resolution.Status == PhysicalInteractionTargetStatus.NotLocallyControlled)
+        {
+            message = $"{device.Label} is already on NETWORK CONTROL.";
+            return false;
+        }
+
+        if (!LocalMovementSystem.IsAtInteractionPoint(resolution.Room!, npc, resolution.Fixture!))
+        {
+            message = $"{npc.Name} must physically reach {device.Label}'s local hardware.";
+            return false;
+        }
+
+        device.IsLocalControl = toLocal;
+        npc.RoutineUntil = TimeSpan.Zero;
+        npc.CurrentAction = action with { TargetId = device.Id };
+
+        var act = toLocal
+            ? $"switch {device.Label} to LOCAL CONTROL"
+            : $"switch {device.Label} back to NETWORK CONTROL";
+        npc.Memories.Add(new Memory(
+            toLocal
+                ? $"I switched {device.Label} to local control, so Overseer cannot operate it remotely."
+                : $"I switched {device.Label} back to network control.",
+            state.Elapsed,
+            0.35));
+        NotifyPhysicalInteractionWitnesses(state, npc, device, act);
+
+        // The machine itself reports the switch over its control bus, so
+        // Overseer learns of it whether or not a camera sees who did it.
+        message = $"{npc.Name} switches {device.Label} {(toLocal ? "to LOCAL CONTROL" : "back to NETWORK CONTROL")}.";
+        Log(
+            state,
+            state.Facility.Rooms.TryGetValue(device.RoomId, out var room) && !room.HasVisualFeed
+                ? $"CONTROL MODE: {device.Label} is now on {(toLocal ? "LOCAL" : "NETWORK")} CONTROL."
+                : message);
         return true;
     }
 

@@ -14,7 +14,11 @@ public enum PhysicalInteractionTargetRequirement
     LocalRoom = 1 << 1,
     Enabled = 1 << 2,
     Working = 1 << 3,
-    FixtureBacked = 1 << 4
+    FixtureBacked = 1 << 4,
+    /// <summary>Overseer can operate it over the network today.</summary>
+    NetworkControlled = 1 << 5,
+    /// <summary>A crew member has switched it to LOCAL CONTROL.</summary>
+    LocallyControlled = 1 << 6
 }
 
 /// <summary>
@@ -39,7 +43,9 @@ public enum PhysicalInteractionTargetStatus
     MissingRoom,
     MissingHardware,
     Failed,
-    Disabled
+    Disabled,
+    NotNetworkControlled,
+    NotLocallyControlled
 }
 
 /// <summary>
@@ -75,9 +81,38 @@ public static class PhysicalInteractionRules
             | PhysicalInteractionTargetRequirement.Working
             | PhysicalInteractionTargetRequirement.FixtureBacked);
 
+    /// <summary>
+    /// Owner idea #24: take a machine off Overseer's network control. It keeps
+    /// running as it is; only who can operate it changes.
+    /// </summary>
+    public static readonly PhysicalInteractionMethod SwitchToLocalControl = new(
+        Id: "switch-local",
+        Action: ActionKind.SwitchToLocalControl,
+        TargetType: "network-device",
+        Description: "At a non-door machine in your current room, switch it from NETWORK to LOCAL CONTROL: it keeps running as it is, but Overseer can no longer operate it remotely until someone switches it back here. Why is your decision.",
+        Requirements:
+            PhysicalInteractionTargetRequirement.NonDoorDevice
+            | PhysicalInteractionTargetRequirement.LocalRoom
+            | PhysicalInteractionTargetRequirement.FixtureBacked
+            | PhysicalInteractionTargetRequirement.NetworkControlled);
+
+    /// <summary>Owner idea #24: hand a LOCAL CONTROL machine back to the network.</summary>
+    public static readonly PhysicalInteractionMethod SwitchToNetworkControl = new(
+        Id: "switch-network",
+        Action: ActionKind.SwitchToNetworkControl,
+        TargetType: "local-control-device",
+        Description: "At a machine in your current room that is on LOCAL CONTROL, switch it back to NETWORK CONTROL so Overseer can operate it remotely again.",
+        Requirements:
+            PhysicalInteractionTargetRequirement.NonDoorDevice
+            | PhysicalInteractionTargetRequirement.LocalRoom
+            | PhysicalInteractionTargetRequirement.FixtureBacked
+            | PhysicalInteractionTargetRequirement.LocallyControlled);
+
     public static readonly IReadOnlyList<PhysicalInteractionMethod> Methods =
     [
-        DisconnectDevice
+        DisconnectDevice,
+        SwitchToLocalControl,
+        SwitchToNetworkControl
     ];
 
     public static PhysicalInteractionMethod? ForAction(ActionKind action) =>
@@ -171,6 +206,28 @@ public static class PhysicalInteractionRules
             return new(
                 method,
                 PhysicalInteractionTargetStatus.Disabled,
+                device,
+                room,
+                fixture);
+        }
+
+        if (requirements.HasFlag(PhysicalInteractionTargetRequirement.NetworkControlled)
+            && !device.AcceptsRemoteControl)
+        {
+            return new(
+                method,
+                PhysicalInteractionTargetStatus.NotNetworkControlled,
+                device,
+                room,
+                fixture);
+        }
+
+        if (requirements.HasFlag(PhysicalInteractionTargetRequirement.LocallyControlled)
+            && !device.IsLocalControl)
+        {
+            return new(
+                method,
+                PhysicalInteractionTargetStatus.NotLocallyControlled,
                 device,
                 room,
                 fixture);

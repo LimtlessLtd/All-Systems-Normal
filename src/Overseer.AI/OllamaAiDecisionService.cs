@@ -277,7 +277,7 @@ public sealed class OllamaAiDecisionService(
         if (CrewAffordanceSystem.IsRoomTarget(action)
             || CrewAffordanceSystem.IsCrewTarget(action)
             || CrewAffordanceSystem.IsDoorOperation(action)
-            || action == ActionKind.DisconnectDevice
+            || PhysicalInteractionRules.IsPhysicalInteraction(action)
             || action == ActionKind.AssumeRole
             || action is ActionKind.HideItem
                 or ActionKind.ReturnItem

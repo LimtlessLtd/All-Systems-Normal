@@ -186,7 +186,15 @@ public sealed class IntentExecutionSystem
                     break;
 
                 case ActionKind.DisconnectDevice:
-                    ExecuteDisconnectDeviceIntent(state, npc, intent);
+                    ExecutePhysicalDeviceIntent(state, npc, intent, "disconnected", "disconnect it");
+                    break;
+
+                case ActionKind.SwitchToLocalControl:
+                    ExecutePhysicalDeviceIntent(state, npc, intent, "switched to local control", "switch it to local control");
+                    break;
+
+                case ActionKind.SwitchToNetworkControl:
+                    ExecutePhysicalDeviceIntent(state, npc, intent, "switched back to network control", "switch it back to network control");
                     break;
 
                 case ActionKind.RestoreSystem:
@@ -562,10 +570,16 @@ public sealed class IntentExecutionSystem
             out _);
     }
 
-    private void ExecuteDisconnectDeviceIntent(
+    /// <summary>
+    /// A physical interaction with a machine (owner ideas #12, #24): walk to
+    /// its hardware in this compartment, then act there.
+    /// </summary>
+    private void ExecutePhysicalDeviceIntent(
         GameState state,
         Npc npc,
-        NpcIntent intent)
+        NpcIntent intent,
+        string done,
+        string toDoIt)
     {
         var resolution = PhysicalInteractionRules.ResolveTarget(
             state,
@@ -577,16 +591,18 @@ public sealed class IntentExecutionSystem
             or PhysicalInteractionTargetStatus.MissingTarget
             or PhysicalInteractionTargetStatus.DoorNotAllowed
             or PhysicalInteractionTargetStatus.Failed
-            or PhysicalInteractionTargetStatus.Disabled)
+            or PhysicalInteractionTargetStatus.Disabled
+            or PhysicalInteractionTargetStatus.NotNetworkControlled
+            or PhysicalInteractionTargetStatus.NotLocallyControlled)
         {
-            FailIntent(state, npc, "That machine can no longer be disconnected.");
+            FailIntent(state, npc, $"That machine can no longer be {done}.");
             return;
         }
 
         if (resolution.Status is PhysicalInteractionTargetStatus.WrongRoom
             or PhysicalInteractionTargetStatus.MissingRoom)
         {
-            FailIntent(state, npc, "I need to be in the machine's compartment to disconnect it.");
+            FailIntent(state, npc, $"I need to be in the machine's compartment to {toDoIt}.");
             return;
         }
 

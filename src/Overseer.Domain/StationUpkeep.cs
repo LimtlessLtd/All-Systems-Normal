@@ -85,6 +85,16 @@ public sealed class StationDevice
 
     public bool IsAiControllable { get; init; } = true;
 
+    /// <summary>
+    /// Owner idea #24: a crew member switched this machine from NETWORK to
+    /// LOCAL CONTROL at its hardware. Overseer cannot operate it remotely
+    /// until someone physically switches it back.
+    /// </summary>
+    public bool IsLocalControl { get; set; }
+
+    /// <summary>Whether Overseer may operate this machine over the network.</summary>
+    public bool AcceptsRemoteControl => IsAiControllable && !IsLocalControl;
+
     /// <summary>Nominal electrical output while healthy.</summary>
     public double RatedOutputKilowatts { get; init; }
 

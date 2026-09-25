@@ -748,6 +748,7 @@
                     <div><span>SERVICE</span><strong>@(serviceNpc?.Name ?? "UNASSIGNED")</strong></div>
                     <div><span>DRAW</span><strong>@selectedDevice.RatedDrawKilowatts.ToString("0.#") kW</strong></div>
                     <div><span>OUTPUT</span><strong>@selectedDevice.RatedOutputKilowatts.ToString("0.#") kW</strong></div>
+                    <div><span>CONTROL</span><strong class="@(selectedDevice.IsLocalControl ? "warn" : null)">@(selectedDevice.IsLocalControl ? "LOCAL" : selectedDevice.IsAiControllable ? "NETWORK" : "MANUAL")</strong></div>
                 </div>
 
                 @if (selectedDevice.Kind == StationSystemKind.CapacitorBank)
@@ -809,10 +810,14 @@
                 {
                     <div class="control-stack">
                         <button class="wide @(selectedDevice.IsEnabled ? "danger" : "secondary")"
-                                disabled="@(!selectedDevice.IsAiControllable || selectedDevice.IsFailed)"
+                                disabled="@(!selectedDevice.AcceptsRemoteControl || selectedDevice.IsFailed)"
                                 @onclick="() => Session.ToggleDevice(selectedDevice.Id)">
                             @(selectedDevice.IsEnabled ? "DISABLE MACHINE" : "ENABLE MACHINE")
                         </button>
+                        @if (selectedDevice.IsLocalControl)
+                        {
+                            <small>LOCAL CONTROL: switched at the machine. Someone has to switch it back there.</small>
+                        }
                     </div>
                 }
 
