@@ -26,6 +26,12 @@ public sealed class StationDeviceControlSystem
             return false;
         }
 
+        if (device.IsLocalControl)
+        {
+            message = $"{device.Label} is on LOCAL CONTROL; someone has to switch it back at the machine.";
+            return false;
+        }
+
         if (!device.IsAiControllable)
         {
             message = $"{device.Label} is local/manual control only.";

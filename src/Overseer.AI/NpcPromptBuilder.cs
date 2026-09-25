@@ -113,6 +113,16 @@ public static class NpcPromptBuilder
                 $"- {device.Id} = {device.Label} | {device.Kind} | enabled")
             .ToArray();
 
+        // Owner idea #24: machines here whose control mode this person could switch.
+        var networkControlledLocalDevices = PhysicalInteractionRules
+            .AvailableTargets(state, npc, ActionKind.SwitchToLocalControl)
+            .Select(device => $"{device.Id} ({device.Label})")
+            .ToArray();
+        var locallyControlledLocalDevices = PhysicalInteractionRules
+            .AvailableTargets(state, npc, ActionKind.SwitchToNetworkControl)
+            .Select(device => $"{device.Id} ({device.Label})")
+            .ToArray();
+
         var relationships = npc.Relationships.Values
             .OrderByDescending(r => r.Resentment)
             .ThenBy(r => r.PersonName)
@@ -442,6 +452,8 @@ public static class NpcPromptBuilder
         // inside the model's context. Validation of any action is unchanged.
         var emptyTargetTypes = new HashSet<string>(StringComparer.Ordinal);
         if (disconnectableLocalDevices.Length == 0) emptyTargetTypes.Add("local-device");
+        if (networkControlledLocalDevices.Length == 0) emptyTargetTypes.Add("network-device");
+        if (locallyControlledLocalDevices.Length == 0) emptyTargetTypes.Add("local-control-device");
         if (patchableHullRooms.Length == 0) emptyTargetTypes.Add("breached-room");
         if (disabledSystems.Count == 0) emptyTargetTypes.Add("system");
         if (!state.Facility.Rooms.Values.Any(candidate =>
@@ -620,6 +632,8 @@ public static class NpcPromptBuilder
         builder.AppendLine("DisconnectDevice is a generic physical action, not a motive: use it only if you actually want this machine disconnected for your own reasons.");
         if (disconnectableLocalDevices.Length == 0) builder.AppendLine("- none");
         else foreach (var device in disconnectableLocalDevices) builder.AppendLine(device);
+        if (networkControlledLocalDevices.Length > 0) builder.AppendLine($"ON NETWORK CONTROL HERE (Overseer can operate them remotely): {string.Join(", ", networkControlledLocalDevices)}.");
+        if (locallyControlledLocalDevices.Length > 0) builder.AppendLine($"ON LOCAL CONTROL HERE (Overseer cannot operate them remotely): {string.Join(", ", locallyControlledLocalDevices)}.");
         builder.AppendLine();
         if (openPosts.Count > 0)
         {
@@ -769,6 +783,8 @@ public static class NpcPromptBuilder
         builder.AppendLine("Hazards are not scripted for you: decide what you WANT to do from the available affordances. The simulation will validate reachability, door state, pressure, equipment and consequences.");
         builder.AppendLine("For ForceDoor, TargetId must be the exact ID of a currently connected blocked hatch listed above.");
         if (Offered("local-device")) builder.AppendLine("For DisconnectDevice, TargetId must be an exact device ID from LOCAL MACHINES YOU CAN PHYSICALLY DISCONNECT. You will walk to its hardware before the physical disconnect happens.");
+        if (Offered("network-device")) builder.AppendLine("For SwitchToLocalControl, TargetId must be an exact device ID from ON NETWORK CONTROL HERE. You will walk to its hardware first.");
+        if (Offered("local-control-device")) builder.AppendLine("For SwitchToNetworkControl, TargetId must be an exact device ID from ON LOCAL CONTROL HERE. You will walk to its hardware first.");
         if (Offered("system")) builder.AppendLine("For RestoreSystem, TargetId must be one of the DISABLED SYSTEM TARGET IDS (room ID or life-support).");
         if (Offered("airlock")) builder.AppendLine("For SecureAirlock, TargetId must be the exact airlock room ID shown as NEEDS SECURING in NEARBY AIRLOCK SAFETY PANELS.");
         builder.AppendLine("For crew-target social/cooperative/deceptive actions, TargetId must be an exact name from the known crew roster. Physical interaction can still fail later if that person cannot actually be reached.");

@@ -729,6 +729,15 @@ public abstract class StationSession
             return;
         }
 
+        // Owner idea #24: switched to LOCAL CONTROL at the controller itself.
+        if (State.Devices.TryGetValue("life-support:station", out var localController)
+            && localController.IsLocalControl)
+        {
+            Log($"Life support refused command: {localController.Label} is on LOCAL CONTROL.");
+            AudioCueSystem.Emit(State, AudioCueKind.Warning);
+            return;
+        }
+
         State.LifeSupport.RequestedOnline = !State.LifeSupport.RequestedOnline;
         State.LifeSupport.IsOnline = State.LifeSupport.RequestedOnline;
         if (State.Devices.TryGetValue("life-support:station", out var lifeSupportController))

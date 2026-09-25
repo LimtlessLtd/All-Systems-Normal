@@ -4563,6 +4563,7 @@ button.sound-toggle.sound-on {
 
 .callout-statuses .good { color: #2f8b61; }
 .callout-statuses .warn { color: #c47e18; }
+.environment-grid strong.warn { color: #c47e18; }
 .callout-statuses .bad { color: #c64545; }
 
 .room-status-callout.warning {

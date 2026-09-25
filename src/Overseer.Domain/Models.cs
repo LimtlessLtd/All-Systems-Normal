@@ -468,7 +468,19 @@ public enum ActionKind
     /// empty, that you found the body and that you have the core skill
     /// (<c>RoleSuccessionRules</c>); whether to is the mind's choice.
     /// </summary>
-    AssumeRole
+    AssumeRole,
+
+    /// <summary>
+    /// Owner idea #24: at a machine's hardware, switch it from NETWORK to
+    /// LOCAL CONTROL so Overseer can no longer operate it remotely.
+    /// </summary>
+    SwitchToLocalControl,
+
+    /// <summary>
+    /// Owner idea #24: at a machine's hardware, hand a LOCAL CONTROL machine
+    /// back to network (Overseer) control.
+    /// </summary>
+    SwitchToNetworkControl
 }
 
 

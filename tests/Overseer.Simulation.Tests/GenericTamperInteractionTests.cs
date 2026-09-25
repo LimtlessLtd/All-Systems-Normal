@@ -8,7 +8,9 @@ public sealed class GenericTamperInteractionTests
     [Fact]
     public void DisconnectDevice_IsDeclaredAsReusableMotiveNeutralInteractionMetadata()
     {
-        var method = Assert.Single(PhysicalInteractionRules.Methods);
+        var method = Assert.Single(
+            PhysicalInteractionRules.Methods,
+            candidate => candidate.Action == ActionKind.DisconnectDevice);
 
         Assert.Equal("disconnect", method.Id);
         Assert.Equal(ActionKind.DisconnectDevice, method.Action);

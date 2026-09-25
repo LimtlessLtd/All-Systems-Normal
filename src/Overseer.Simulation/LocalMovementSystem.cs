@@ -262,7 +262,7 @@ public sealed class LocalMovementSystem
             return station;
         }
 
-        if (npc.CurrentAction.Kind == ActionKind.DisconnectDevice
+        if (PhysicalInteractionRules.IsPhysicalInteraction(npc.CurrentAction.Kind)
             && npc.CurrentAction.TargetId is { } tamperTarget
             && state.Devices.TryGetValue(tamperTarget, out var tamperDevice)
             && tamperDevice.RoomId.Equals(npc.CurrentRoomId, StringComparison.OrdinalIgnoreCase))

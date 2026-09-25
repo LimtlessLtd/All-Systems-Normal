@@ -67,6 +67,14 @@ public static class CrewAffordanceSystem
             PhysicalInteractionRules.DisconnectDevice.Action,
             PhysicalInteractionRules.DisconnectDevice.TargetType,
             PhysicalInteractionRules.DisconnectDevice.Description),
+        new(
+            PhysicalInteractionRules.SwitchToLocalControl.Action,
+            PhysicalInteractionRules.SwitchToLocalControl.TargetType,
+            PhysicalInteractionRules.SwitchToLocalControl.Description),
+        new(
+            PhysicalInteractionRules.SwitchToNetworkControl.Action,
+            PhysicalInteractionRules.SwitchToNetworkControl.TargetType,
+            PhysicalInteractionRules.SwitchToNetworkControl.Description),
         new(ActionKind.RestoreSystem, "system", "Restore a disabled station system."),
         new(ActionKind.SecureAirlock, "airlock", "Secure an unsafe exterior airlock."),
         new(ActionKind.RepairDoor, "adjacent-door", "Repair a damaged or bypassed hatch."),
