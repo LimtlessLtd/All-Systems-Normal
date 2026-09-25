@@ -222,6 +222,93 @@ public sealed class DoorAccessLogTests
         Assert.Contains("a keycard entry names the card's owner", prompt);
     }
 
+    [Fact]
+    public void ASkilledWipe_ErasesTheLog_ButLeavesATrace_AndIsASensitiveMemory()
+    {
+        var (state, owner, other, _, door) = Setup();
+        DoorAccessLogSystem.RecordCrew(state, door, owner, DoorAccessKind.Lock);
+        DoorAccessLogSystem.RecordCrew(state, door, owner, DoorAccessKind.Unlock);
+        SetTechnical(other, 90);
+        var witness = state.Crew.First(npc => npc.Id != owner.Id && npc.Id != other.Id);
+        witness.CurrentRoomId = "engineering";
+        witness.PositionX = 52;
+        witness.PositionY = 50;
+        Assert.True(PerceptionSystem.CanMakeOut(state, witness, other));
+        state.Elapsed = TimeSpan.FromMinutes(130);
+
+        Assert.True(CrewAffordanceSystem.TryNormalizeTarget(
+            state, other, ActionKind.WipeAccessLog, door.Id, out _));
+        Assert.True(new ActionResolver().TryApply(
+            state, other.Id, new NpcAction(ActionKind.WipeAccessLog, door.Id, "Cover it up."), out var message), message);
+
+        var record = Assert.Single(door.AccessLog);
+        Assert.Equal(DoorAccessKind.LogWiped, record.Kind);
+        Assert.Null(record.RecordedName);
+        Assert.Equal(other.Id, record.ActorId);
+        Assert.Equal(
+            "T+02:10 LOG WIPED (earlier entries erased at the panel)",
+            DoorAccessLogSystem.Describe(record));
+
+        Assert.Contains(other.Memories, memory =>
+            memory.IsSensitive && memory.Description == $"I wiped {door.Id}'s access log.");
+        Assert.Contains(witness.Memories, memory =>
+            memory.IsSensitive
+            && memory.Description == $"Witnessed {other.Name} erase {door.Id}'s access log at its panel.");
+        Assert.True(witness.NeedsMindReconsideration);
+        Assert.Contains(state.EventLog, line => line.EndsWith($"{other.Name} wipes {door.Id}'s access log."));
+
+        Assert.Contains(
+            "LOG WIPED",
+            DoorAccessLogSystem.RememberReading(state, owner, door).Description);
+    }
+
+    [Fact]
+    public void AnUnskilledOrDarkWipe_IsRefused_AndTheLogSurvives()
+    {
+        var (state, owner, other, _, door) = Setup();
+        DoorAccessLogSystem.RecordCrew(state, door, owner, DoorAccessKind.Lock);
+        SetTechnical(other, 10);
+
+        Assert.False(CrewAffordanceSystem.TryNormalizeTarget(
+            state, other, ActionKind.WipeAccessLog, door.Id, out _));
+        Assert.False(new CrewDoorInteractionSystem().TryOperate(
+            state, other, door, ActionKind.WipeAccessLog, out var unskilled));
+        Assert.Contains("technical skill", unskilled);
+
+        SetTechnical(other, 90);
+        door.IsPowered = false;
+        Assert.False(new CrewDoorInteractionSystem().TryOperate(
+            state, other, door, ActionKind.WipeAccessLog, out _));
+
+        Assert.Equal(DoorAccessKind.Lock, Assert.Single(door.AccessLog).Kind);
+        Assert.DoesNotContain(other.Memories, memory => memory.Description.Contains("wiped"));
+    }
+
+    [Fact]
+    public void AWipeInABlindRoom_ReachesOverseerOnlyAsAControllerLine()
+    {
+        var (state, _, other, _, door) = Setup();
+        SetTechnical(other, 90);
+        state.Facility.Rooms["engineering"].CameraOnline = false;
+
+        Assert.True(new CrewDoorInteractionSystem().TryOperate(
+            state, other, door, ActionKind.WipeAccessLog, out _));
+
+        Assert.Contains(state.EventLog, line =>
+            OverseerSightSystem.IsUnseen(line) && line.Contains(other.Name));
+        Assert.Contains(state.EventLog, line =>
+            !OverseerSightSystem.IsUnseen(line)
+            && line.EndsWith($"ACCESS LOG: {door.Id}'s log was wiped at its panel.")
+            && !line.Contains(other.Name));
+    }
+
+    private static void SetTechnical(Npc npc, int value)
+    {
+        foreach (var skill in new[] { "Engineering", "Electrical", "Operations", "Reactor" })
+            npc.Skills[skill] = value;
+        npc.Traits.Clear();
+    }
+
     private static (GameState State, Npc Owner, Npc Other, PersonalPossession Keycard, Door Door) Setup()
     {
         var state = FacilitySeeder.CreateDefault();

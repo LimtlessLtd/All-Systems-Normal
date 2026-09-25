@@ -96,6 +96,61 @@ public static class DoorAccessLogSystem
         return memory;
     }
 
+    public const int WipeSkillRequired = 65;
+
+    public static bool CanWipe(Npc npc, Door door) =>
+        CrewDoorInteractionSystem.IsAdjacent(npc, door)
+        && door.IsPowered
+        && CrewCounterplaySystem.BestTechnicalSkill(npc) >= WipeSkillRequired;
+
+    /// <summary>
+    /// Owner idea #26, slice 3: erase a hatch's access log at its panel. The
+    /// controller cannot record its own erasure's author, but it does record
+    /// that the log was wiped, so a later reader finds the gap. The wiper and
+    /// anyone who sees them do it remember it as sensitive (#14). Returns the
+    /// event-log message; the caller has checked <see cref="CanWipe"/>.
+    /// </summary>
+    public static string Wipe(GameState state, Npc npc, Door door)
+    {
+        door.AccessLog.Clear();
+        Record(state, door, new DoorAccessRecord
+        {
+            At = state.Elapsed,
+            Kind = DoorAccessKind.LogWiped,
+            Credential = DoorAccessCredential.None,
+            ActorId = npc.Id
+        });
+
+        npc.Memories.Add(new Memory(
+            $"I wiped {door.Id}'s access log.",
+            state.Elapsed,
+            .45,
+            IsSensitive: true));
+        ActionResolver.NotifyPhysicalInteractionWitnesses(
+            state,
+            npc,
+            $"erase {door.Id}'s access log at its panel",
+            isSensitive: true);
+
+        var message = $"{npc.Name} wipes {door.Id}'s access log.";
+        if (state.Facility.Rooms.TryGetValue(npc.CurrentRoomId, out var room))
+        {
+            var line = OverseerSightSystem.Witnessed(room, message);
+            Log(state, line);
+            if (OverseerSightSystem.IsUnseen(line))
+                Log(state, $"ACCESS LOG: {door.Id}'s log was wiped at its panel.");
+        }
+        else
+        {
+            Log(state, message);
+        }
+
+        return message;
+    }
+
+    private static void Log(GameState state, string message) =>
+        state.EventLog.Insert(0, $"T+{state.Elapsed:hh\\:mm}: {message}");
+
     /// <summary>One log entry as the door Inspector shows it.</summary>
     public static string Describe(DoorAccessRecord record)
     {
@@ -115,6 +170,9 @@ public static class DoorAccessLogSystem
             DoorAccessCredential.OverseerNetwork => "Overseer network command",
             _ => "no credential, unidentified"
         };
+
+        if (record.Kind == DoorAccessKind.LogWiped)
+            return $"T+{record.At:hh\\:mm} LOG WIPED (earlier entries erased at the panel)";
 
         return $"T+{record.At:hh\\:mm} {what} ({who})";
     }
