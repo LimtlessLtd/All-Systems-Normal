@@ -561,10 +561,16 @@ public static class NpcPromptBuilder
                     .Where(activity => RecreationActivityRules.FixtureFor(lounge, activity) is not null)
                     .Select(activity =>
                     {
-                        var doing = RecreationActivityRules.DoingIn(state, lounge, activity).Count(other => other.Id != npc.Id);
-                        var status = RecreationActivityRules.IsAvailable(lounge, activity)
-                            ? doing > 0 ? $"{doing} other{(doing == 1 ? "" : "s")} already {activity.Doing}" : "free"
-                            : "no power, so it does nothing";
+                        var others = RecreationActivityRules.DoingIn(state, lounge, activity).Where(other => other.Id != npc.Id).ToList();
+                        var doing = others.Count;
+                        var status = !RecreationActivityRules.IsAvailable(lounge, activity)
+                            ? "no power, so it does nothing"
+                            // A game names who is at the table: who to play with is the mind's call.
+                            : activity.MinimumPlayers > 1
+                                ? doing > 0
+                                    ? $"{string.Join(", ", others.Select(other => other.Name))} already {activity.Doing}"
+                                    : $"nobody playing; it needs {activity.MinimumPlayers} players"
+                                : doing > 0 ? $"{doing} other{(doing == 1 ? "" : "s")} already {activity.Doing}" : "free";
                         return $"{activity.Id} ({activity.Label}: {status})";
                     })
                     .ToList();

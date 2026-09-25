@@ -208,6 +208,109 @@ public sealed class RecreationActivityTests
         Assert.DoesNotContain("RECREATION in ", NpcPromptBuilder.Build(npc, state));
     }
 
+    [Fact]
+    public void ACardGameNeedsAPartner_ThenEasesRecreationAndSocialNeeds_AndWarmsThePlayers()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var first = Idle(state, "lounge");
+        var second = Idle(state, "lounge", skip: 1);
+        first.RecreationNeed = 60;
+        first.SocialNeed = 50;
+        first.CurrentAction = new NpcAction(ActionKind.Recreate, RecreationActivityRules.PlayCards, "Cards.");
+
+        // Alone at the table: no game, so no break at all.
+        new SimulationEngine().Tick(state, TimeSpan.FromMinutes(1));
+        Assert.True(first.RecreationNeed > 60, "a card game alone is no break");
+        Assert.True(first.SocialNeed > 50);
+
+        second.CurrentAction = new NpcAction(ActionKind.Recreate, RecreationActivityRules.PlayCards, "Cards.");
+        var recreation = first.RecreationNeed;
+        var social = first.SocialNeed;
+        var firstAffinity = first.Relationships[second.Name].Affinity;
+        var secondAffinity = second.Relationships[first.Name].Affinity;
+
+        new SimulationEngine().Tick(state, TimeSpan.FromMinutes(1));
+
+        Assert.Equal(recreation - 1.6, first.RecreationNeed, 3);
+        Assert.Equal(social - RecreationActivityRules.CardGameSocialReliefPerMinute, first.SocialNeed, 3);
+        Assert.Equal(firstAffinity + RecreationActivityRules.CardGameAffinityPerMinute, first.Relationships[second.Name].Affinity, 3);
+        Assert.Equal(secondAffinity + RecreationActivityRules.CardGameAffinityPerMinute, second.Relationships[first.Name].Affinity, 3);
+
+        // Someone watching TV in the same room is not at the game.
+        var watcher = Idle(state, "lounge", skip: 2);
+        watcher.CurrentAction = new NpcAction(ActionKind.Recreate, RecreationActivityRules.WatchTv, "TV.");
+        Assert.DoesNotContain(watcher, RecreationActivityRules.CardPartners(state, first));
+        Assert.Empty(RecreationActivityRules.CardPartners(state, watcher));
+    }
+
+    [Fact]
+    public void CardPlayersSitAtTheTable_OnSeparateSeats()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var lounge = state.Facility.Rooms["lounge"];
+        var cards = RecreationActivityRules.Find(RecreationActivityRules.PlayCards)!;
+        var table = RecreationActivityRules.FixtureFor(lounge, cards)!;
+        Assert.Equal(FixtureType.Table, table.Type);
+
+        var seats = RecreationActivityRules.SeatsAt(lounge, table);
+        Assert.True(seats.Count >= 2, "the layout pass keeps the lounge sofas at the low table");
+
+        var first = Idle(state, "lounge");
+        var second = Idle(state, "lounge", skip: 1);
+        first.CurrentAction = new NpcAction(ActionKind.Recreate, RecreationActivityRules.PlayCards, "Cards.");
+        second.CurrentAction = new NpcAction(ActionKind.Recreate, RecreationActivityRules.PlayCards, "Cards.");
+
+        var firstSeat = RecreationActivityRules.PlaceFor(state, lounge, first, cards);
+        var secondSeat = RecreationActivityRules.PlaceFor(state, lounge, second, cards);
+        Assert.Contains(firstSeat, seats);
+        Assert.Contains(secondSeat, seats);
+        Assert.NotSame(firstSeat, secondSeat);
+    }
+
+    [Fact]
+    public void TheFallbackStartsOrJoinsACardGameOnlyWithAPartner()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var npc = Idle(state, "control");
+        npc.Stress = 10;
+        npc.SocialNeed = 60;
+
+        Assert.NotEqual(RecreationActivityRules.PlayCards, RecreationActivityRules.FallbackChoice(state, npc, "lounge"));
+
+        // Another lonely person in the lounge: a game worth starting.
+        var player = Idle(state, "lounge", skip: 1);
+        player.SocialNeed = 60;
+        Assert.Equal(RecreationActivityRules.PlayCards, RecreationActivityRules.FallbackChoice(state, npc, "lounge"));
+
+        // Already under way: a lonely person joins it.
+        player.SocialNeed = 10;
+        player.CurrentAction = new NpcAction(ActionKind.Recreate, RecreationActivityRules.PlayCards, "Cards.");
+        Assert.Equal(RecreationActivityRules.PlayCards, RecreationActivityRules.FallbackChoice(state, npc, "lounge"));
+
+        // Not lonely: their own taste decides, as before.
+        npc.SocialNeed = 10;
+        Assert.Contains(
+            RecreationActivityRules.FallbackChoice(state, npc, "lounge"),
+            new[] { RecreationActivityRules.WatchTv, RecreationActivityRules.PlayGames });
+    }
+
+    [Fact]
+    public void CognitionSeesWhoIsPlayingCards()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var npc = Idle(state, "lounge");
+
+        Assert.Contains(
+            "play-cards (play cards at the table: nobody playing; it needs 2 players)",
+            NpcPromptBuilder.Build(npc, state));
+
+        var player = Idle(state, "lounge", skip: 1);
+        player.CurrentAction = new NpcAction(ActionKind.Recreate, RecreationActivityRules.PlayCards, "Cards.");
+        Assert.Contains(
+            $"play-cards (play cards at the table: {player.Name} already playing cards)",
+            NpcPromptBuilder.Build(npc, state));
+    }
+
     private static Npc Idle(GameState state, string roomId, int skip = 0)
     {
         var npc = state.Crew.Where(candidate => candidate.IsAlive).Skip(skip).First();
