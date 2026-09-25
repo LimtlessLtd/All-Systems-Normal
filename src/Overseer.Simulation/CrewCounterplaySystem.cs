@@ -249,6 +249,11 @@ public sealed class CrewCounterplaySystem
             return;
         }
 
+        DoorAccessLogSystem.RecordCrew(
+            state,
+            door,
+            npc,
+            useTechnical ? DoorAccessKind.Bypassed : DoorAccessKind.ForcedOpen);
         door.IsLocked = false;
         door.LockedByOverseer = false;
         door.IsOpen = true;

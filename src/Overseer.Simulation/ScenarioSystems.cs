@@ -1159,6 +1159,7 @@ public sealed class ManualOverrideSystem
             if (state.Elapsed < npc.RoutineUntil)
                 continue;
 
+            DoorAccessLogSystem.RecordCrew(state, door, npc, DoorAccessKind.Bypassed);
             door.IsManuallyOverridden = true;
             door.IsLocked = false;
             door.LockedByOverseer = false;

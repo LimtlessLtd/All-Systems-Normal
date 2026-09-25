@@ -930,6 +930,21 @@
                     </small>
                 </div>
 
+                <div class="belief-card door-access-log">
+                    <span>ACCESS LOG</span>
+                    @if (selectedDoor.AccessLog.Count == 0)
+                    {
+                        <p>No lock activity recorded.</p>
+                    }
+                    else
+                    {
+                        @foreach (var record in selectedDoor.AccessLog.Take(5))
+                        {
+                            <p>@DoorAccessLogSystem.Describe(record)</p>
+                        }
+                    }
+                </div>
+
                 <div class="control-stack">
                     <button class="wide"
                             disabled="@(!selectedDoor.IsAiControllable || selectedDoor.IsManuallyOverridden)"

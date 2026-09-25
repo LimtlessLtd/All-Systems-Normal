@@ -586,6 +586,7 @@ public sealed class CrewDoorInteractionSystem
                 door.LockedByOverseer = false;
                 door.LastCrewOperatorId = npc.Id;
                 door.CrewAutoCloseAt = null;
+                DoorAccessLogSystem.RecordCrew(state, door, npc, DoorAccessKind.Lock);
                 break;
 
             case ActionKind.UnlockDoor:
@@ -597,6 +598,7 @@ public sealed class CrewDoorInteractionSystem
                 door.IsLocked = false;
                 door.LockedByOverseer = false;
                 door.LastCrewOperatorId = npc.Id;
+                DoorAccessLogSystem.RecordCrew(state, door, npc, DoorAccessKind.Unlock);
                 break;
 
             default:
