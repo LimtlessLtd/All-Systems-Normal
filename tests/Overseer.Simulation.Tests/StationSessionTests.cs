@@ -74,6 +74,16 @@ public sealed class StationSessionTests
         session.ToggleLock(door.Id);
         Assert.False(door.IsLocked);
         Assert.False(door.LockedByOverseer);
+
+        // Owner idea #26: the hatch's access log records both commands as Overseer's.
+        Assert.Equal(2, door.AccessLog.Count);
+        Assert.All(door.AccessLog, record =>
+        {
+            Assert.Equal(DoorAccessCredential.OverseerNetwork, record.Credential);
+            Assert.Null(record.ActorId);
+        });
+        Assert.Equal(DoorAccessKind.Unlock, door.AccessLog[0].Kind);
+        Assert.Equal(DoorAccessKind.Lock, door.AccessLog[1].Kind);
     }
 
     [Fact]

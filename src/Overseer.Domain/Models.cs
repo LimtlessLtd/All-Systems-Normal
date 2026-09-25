@@ -1501,6 +1501,46 @@ public sealed class Room
     public bool HasVisualFeed => IsPowered && CameraOnline && CameraNetworkReachable;
 }
 
+public enum DoorAccessKind
+{
+    Lock,
+    Unlock,
+    ForcedOpen,
+    Bypassed
+}
+
+public enum DoorAccessCredential
+{
+    // No credential was presented (forced or bypassed hardware).
+    None,
+
+    // Role-trained access (the PIN/biometric authority HasLockAuthority models):
+    // the controller identifies the person themself.
+    TrainedAccess,
+
+    // A hatch-lock keycard: the controller only knows whose card it is.
+    Keycard,
+
+    // Overseer's own network command.
+    OverseerNetwork
+}
+
+/// <summary>
+/// Owner idea #26: one entry in a hatch's access log. <see cref="RecordedName"/>
+/// is what the controller believes (a keycard entry names the card's issued
+/// owner, whoever swiped it); <see cref="ActorId"/> is the ground truth, kept
+/// for later wipe/falsify slices and never shown to minds or the player.
+/// </summary>
+public sealed class DoorAccessRecord
+{
+    public required TimeSpan At { get; init; }
+    public required DoorAccessKind Kind { get; init; }
+    public required DoorAccessCredential Credential { get; init; }
+    public Guid? RecordedId { get; init; }
+    public string? RecordedName { get; init; }
+    public Guid? ActorId { get; init; }
+}
+
 public sealed class Door
 {
     public required string Id { get; init; }
@@ -1536,6 +1576,12 @@ public sealed class Door
     // traffic has cleared; rendering only reflects IsOpen.
     public Guid? LastCrewOperatorId { get; set; }
     public TimeSpan? CrewAutoCloseAt { get; set; }
+
+    /// <summary>
+    /// Owner idea #26: what this hatch's access controller has recorded,
+    /// newest first and bounded by <c>DoorAccessLogSystem</c>.
+    /// </summary>
+    public List<DoorAccessRecord> AccessLog { get; } = [];
 
     public bool HasPhysicalSecuring => IsWelded || IsBarricaded;
     public bool IsPassable =>

@@ -373,6 +373,10 @@ public abstract class StationSession
 
         door.IsLocked = !door.IsLocked;
         door.LockedByOverseer = door.IsLocked;
+        DoorAccessLogSystem.RecordOverseer(
+            State,
+            door,
+            door.IsLocked ? DoorAccessKind.Lock : DoorAccessKind.Unlock);
         if (door.IsLocked)
         {
             State.Telemetry.RestrictiveDoorCommands++;
