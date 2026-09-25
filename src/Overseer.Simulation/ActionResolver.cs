@@ -85,6 +85,7 @@ public sealed class ActionResolver
                 or ActionKind.CloseDoor
                 or ActionKind.LockDoor
                 or ActionKind.UnlockDoor
+                or ActionKind.ReadAccessLog
                 => TryCrewDoorOperation(state, npc, action, out message),
             ActionKind.ForceDoor => TryForceDoor(state, npc, action, out message),
             ActionKind.DisconnectDevice => TryDisconnectDevice(state, npc, action, out message),

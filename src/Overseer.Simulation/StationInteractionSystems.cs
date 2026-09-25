@@ -57,6 +57,7 @@ public static class CrewAffordanceSystem
         new(ActionKind.CloseDoor, "adjacent-door", "Close an adjacent unlocked powered hatch."),
         new(ActionKind.LockDoor, "adjacent-door", "Lock an adjacent hatch if authorised."),
         new(ActionKind.UnlockDoor, "adjacent-door", "Unlock an adjacent hatch if authorised."),
+        new(ActionKind.ReadAccessLog, "adjacent-door", "Read an adjacent powered hatch's access log: who its controller recorded locking, unlocking, forcing or bypassing it, and when."),
         new(ActionKind.HideItem, "possession", "Hide a possession you currently hold — your own, or one you previously borrowed or stole — somewhere in your current room."),
         new(ActionKind.ReturnItem, "possession", "Retrieve a possession you know is hidden in your current room (your own, or a stash you or someone else hid) and take it back into your hands."),
         new(ActionKind.BorrowItem, "possession", "Ask a co-located crew member to lend you a possession you know about that they are currently holding; they may refuse."),
@@ -137,7 +138,8 @@ public static class CrewAffordanceSystem
         action is ActionKind.OpenDoor
             or ActionKind.CloseDoor
             or ActionKind.LockDoor
-            or ActionKind.UnlockDoor;
+            or ActionKind.UnlockDoor
+            or ActionKind.ReadAccessLog;
 
     public static string PromptCatalog() => PromptCatalog(_ => true);
 
@@ -354,6 +356,7 @@ public static class CrewAffordanceSystem
                     && CrewDoorInteractionSystem.CanLockOrUnlock(state, npc, door),
                 ActionKind.UnlockDoor => door.IsLocked
                     && CrewDoorInteractionSystem.CanLockOrUnlock(state, npc, door),
+                ActionKind.ReadAccessLog => door.IsPowered,
                 _ => false
             };
         }
@@ -601,6 +604,15 @@ public sealed class CrewDoorInteractionSystem
                 DoorAccessLogSystem.RecordCrew(state, door, npc, DoorAccessKind.Unlock);
                 break;
 
+            case ActionKind.ReadAccessLog:
+                if (!door.IsPowered)
+                {
+                    message = $"{door.Id}'s access panel is dark; the hatch has no power.";
+                    return false;
+                }
+                DoorAccessLogSystem.RememberReading(state, npc, door);
+                break;
+
             default:
                 message = "That is not a normal crew hatch operation.";
                 return false;
@@ -620,6 +632,7 @@ public sealed class CrewDoorInteractionSystem
         ActionKind.CloseDoor => "closes",
         ActionKind.LockDoor => "locks",
         ActionKind.UnlockDoor => "unlocks",
+        ActionKind.ReadAccessLog => "reads the access log of",
         _ => "operates"
     };
 

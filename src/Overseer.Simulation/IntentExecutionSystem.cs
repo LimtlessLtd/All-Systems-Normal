@@ -178,6 +178,7 @@ public sealed class IntentExecutionSystem
                 case ActionKind.CloseDoor:
                 case ActionKind.LockDoor:
                 case ActionKind.UnlockDoor:
+                case ActionKind.ReadAccessLog:
                     ExecuteCrewDoorOperationIntent(state, npc, intent);
                     break;
 

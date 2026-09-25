@@ -480,7 +480,13 @@ public enum ActionKind
     /// Owner idea #24: at a machine's hardware, hand a LOCAL CONTROL machine
     /// back to network (Overseer) control.
     /// </summary>
-    SwitchToNetworkControl
+    SwitchToNetworkControl,
+
+    /// <summary>
+    /// Owner idea #26: at a powered hatch, read what its access controller
+    /// has recorded into the reader's own memory.
+    /// </summary>
+    ReadAccessLog
 }
 
 
