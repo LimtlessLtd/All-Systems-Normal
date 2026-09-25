@@ -983,7 +983,14 @@ public enum PossessionKind
     Medication,
     Tool,
     Keepsake,
-    Weapon
+    Weapon,
+
+    /// <summary>
+    /// Owner idea #25: a hatch-lock keycard, a physical credential. Seeded
+    /// only for crew with role-trained lock authority, never by the random
+    /// personal-item roll.
+    /// </summary>
+    Keycard
 }
 
 /// <summary>

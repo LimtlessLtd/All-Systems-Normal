@@ -69,7 +69,9 @@ public static class NpcPromptBuilder
                     : "";
                 var lockAuthority = CrewDoorInteractionSystem.HasLockAuthority(npc)
                     ? " | you are authorised to lock/unlock"
-                    : "";
+                    : CrewDoorInteractionSystem.HeldLockCredential(state, npc) is { } keycard
+                        ? $" | {keycard.Name} you hold can lock/unlock it"
+                        : "";
                 return $"{door.Id} -> {other.Id} ({other.Name}): {doorState}"
                     + normalCrewAccess
                     + lockAuthority
