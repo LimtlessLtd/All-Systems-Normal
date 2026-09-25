@@ -2428,6 +2428,20 @@ button.sound-toggle.sound-on {
     opacity: .8;
 }
 
+.station-policy-controls {
+    display: grid;
+    gap: .3rem;
+    margin-top: .55rem;
+    padding-top: .5rem;
+    border-top: 1px solid #c4c9cc;
+}
+
+.station-policy-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .3rem;
+}
+
 .comms-input:focus,
 .comms-target:focus {
     outline: 1px solid var(--accent);
@@ -6271,6 +6285,14 @@ button.turret-token {
 
 .compact-comms-scope {
     margin-bottom: .5rem;
+}
+
+/* Owner idea #28: a policy in force reads as switched on. */
+.station-overlay-popover .station-policy-buttons button[aria-pressed="true"] {
+    border-color: #9a6a12;
+    background: #f6d58f;
+    color: #3b2a00;
+    font-weight: 700;
 }
 
 .station-overlay-popover .comms-target,
