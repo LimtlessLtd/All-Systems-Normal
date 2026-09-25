@@ -130,6 +130,21 @@ public static class StationPresentationSystem
         return HumanizeIdentifier(typeName) + suffix;
     }
 
+    /// <summary>
+    /// Owner idea #24: a machine crew switched to local control refuses the
+    /// network, which Overseer learns through the control bus rather than a
+    /// camera, so the map marks it even in a blind room.
+    /// </summary>
+    public static bool FixtureIsOnLocalControl(GameState state, RoomFixture fixture)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(fixture);
+
+        return fixture.DeviceId is { } deviceId
+            && state.Devices.TryGetValue(deviceId, out var device)
+            && device.IsLocalControl;
+    }
+
     private static string HumanizeIdentifier(string identifier)
     {
         var builder = new System.Text.StringBuilder(identifier.Length + 4);

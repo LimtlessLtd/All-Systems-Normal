@@ -8138,3 +8138,11 @@ button.turret-token {
         opacity: .9;
     }
 }
+
+/* Owner idea #24: a machine crew switched to local control refuses the
+   network, so its fixture carries a dashed amber outline until someone at
+   the hardware hands it back. */
+.station-authority-layer .room-node .fixture.fixture-local-control {
+    outline: 2px dashed #e0a653;
+    outline-offset: 2px;
+}

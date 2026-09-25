@@ -178,6 +178,66 @@ public sealed class LocalControlModeTests
         Assert.Contains("For SwitchToNetworkControl, TargetId", prompt);
     }
 
+    [Fact]
+    public void TheMapMarksEveryFixtureOfAMachineOnLocalControl()
+    {
+        var (state, _, device) = Generator();
+        var fixtures = state.Facility.Rooms.Values
+            .SelectMany(room => room.Fixtures)
+            .Where(fixture => fixture.DeviceId == device.Id)
+            .ToList();
+        var other = state.Facility.Rooms.Values
+            .SelectMany(room => room.Fixtures)
+            .First(fixture => fixture.DeviceId is { } id && id != device.Id);
+        var plain = state.Facility.Rooms.Values
+            .SelectMany(room => room.Fixtures)
+            .First(fixture => fixture.DeviceId is null);
+        Assert.NotEmpty(fixtures);
+
+        Assert.All(fixtures, fixture => Assert.False(StationPresentationSystem.FixtureIsOnLocalControl(state, fixture)));
+
+        device.IsLocalControl = true;
+
+        Assert.All(fixtures, fixture => Assert.True(StationPresentationSystem.FixtureIsOnLocalControl(state, fixture)));
+        Assert.False(StationPresentationSystem.FixtureIsOnLocalControl(state, other));
+        Assert.False(StationPresentationSystem.FixtureIsOnLocalControl(state, plain));
+
+        // Knowledge comes from the control bus, not a camera: a blind room still shows it.
+        state.Facility.Rooms[device.RoomId].CameraOnline = false;
+        Assert.All(fixtures, fixture => Assert.True(StationPresentationSystem.FixtureIsOnLocalControl(state, fixture)));
+
+        device.IsLocalControl = false;
+        Assert.All(fixtures, fixture => Assert.False(StationPresentationSystem.FixtureIsOnLocalControl(state, fixture)));
+    }
+
+    [Fact]
+    public void TheMapFixtureMarkerAndTooltipReadTheSharedHelper()
+    {
+        var razor = ReadUi("Home.razor");
+        var css = ReadUi("Home.razor.css");
+
+        Assert.Contains("classes += \" fixture-local-control\";", razor);
+        Assert.Contains("display += \" — LOCAL CONTROL\";", razor);
+        Assert.Equal(2, razor.Split("StationPresentationSystem.FixtureIsOnLocalControl(Session.State, fixture)").Length - 1);
+        Assert.Contains(".station-authority-layer .room-node .fixture.fixture-local-control", css);
+    }
+
+    private static string ReadUi(string file)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Overseer.slnx")))
+        {
+            directory = directory.Parent;
+        }
+
+        return File.ReadAllText(Path.Combine(
+            directory?.FullName ?? throw new InvalidOperationException("Repository root not found."),
+            "src",
+            "Overseer.Web.UI",
+            "Pages",
+            file));
+    }
+
     private static (GameState State, Npc Npc, StationDevice Device) Generator()
     {
         var state = FacilitySeeder.CreateDefault();
