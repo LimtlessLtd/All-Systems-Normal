@@ -1,3 +1,4 @@
+using Overseer.AI;
 using Overseer.Domain;
 using Overseer.Simulation;
 
@@ -122,6 +123,103 @@ public sealed class DoorAccessLogTests
         Assert.Equal(DoorAccessLogSystem.MaxEntries, door.AccessLog.Count);
         Assert.Equal(TimeSpan.FromMinutes(DoorAccessLogSystem.MaxEntries + 4), door.AccessLog[0].At);
         Assert.Equal(TimeSpan.FromMinutes(5), door.AccessLog[^1].At);
+    }
+
+    [Fact]
+    public void ReadingTheLog_RemembersWhatTheControllerRecorded_NotWhoReallyDidIt()
+    {
+        var (state, owner, thief, keycard, door) = Setup();
+        keycard.CurrentHolderId = thief.Id;
+        Assert.True(new CrewDoorInteractionSystem().TryOperate(
+            state, thief, door, ActionKind.LockDoor, out _));
+        var reader = state.Crew.First(npc => npc.Id != owner.Id && npc.Id != thief.Id);
+        reader.CurrentRoomId = "engineering";
+        var wasLocked = door.IsLocked;
+        var lastOperator = door.LastCrewOperatorId;
+
+        Assert.True(CrewAffordanceSystem.TryNormalizeTarget(
+            state, reader, ActionKind.ReadAccessLog, door.Id, out var target));
+        Assert.Equal(door.Id, target);
+        Assert.True(new ActionResolver().TryApply(
+            state, reader.Id, new NpcAction(ActionKind.ReadAccessLog, door.Id, "Who locked this?"), out var message), message);
+
+        var memory = reader.Memories[^1];
+        Assert.StartsWith($"I read {door.Id}'s access log: ", memory.Description);
+        Assert.Contains($"LOCKED (keycard issued to {owner.Name})", memory.Description);
+        Assert.DoesNotContain(thief.Name, memory.Description);
+        Assert.Equal(wasLocked, door.IsLocked);
+        Assert.Equal(lastOperator, door.LastCrewOperatorId);
+        Assert.Single(door.AccessLog);
+    }
+
+    [Fact]
+    public void AnEmptyLog_IsRememberedAsEmpty_AndReadingOnlyShowsTheLatestEntries()
+    {
+        var (state, owner, _, _, door) = Setup();
+
+        Assert.EndsWith(
+            "no lock activity recorded.",
+            DoorAccessLogSystem.RememberReading(state, owner, door).Description);
+
+        for (var i = 0; i < 8; i++)
+        {
+            state.Elapsed = TimeSpan.FromMinutes(i);
+            DoorAccessLogSystem.RecordCrew(state, door, owner, DoorAccessKind.Lock);
+        }
+
+        var memory = DoorAccessLogSystem.RememberReading(state, owner, door);
+        Assert.Equal(DoorAccessLogSystem.EntriesRead, memory.Description.Split("; ").Length);
+        Assert.Contains("T+00:07", memory.Description);
+        Assert.DoesNotContain("T+00:02", memory.Description);
+    }
+
+    [Fact]
+    public void ADarkOrDistantPanel_CannotBeRead()
+    {
+        var (state, owner, _, _, door) = Setup();
+        var memories = owner.Memories.Count;
+
+        door.IsPowered = false;
+        Assert.False(CrewAffordanceSystem.TryNormalizeTarget(
+            state, owner, ActionKind.ReadAccessLog, door.Id, out _));
+        Assert.False(new CrewDoorInteractionSystem().TryOperate(
+            state, owner, door, ActionKind.ReadAccessLog, out _));
+
+        door.IsPowered = true;
+        owner.CurrentRoomId = "medical";
+        Assert.False(CrewAffordanceSystem.TryNormalizeTarget(
+            state, owner, ActionKind.ReadAccessLog, door.Id, out _));
+        Assert.Equal(memories, owner.Memories.Count);
+    }
+
+    [Fact]
+    public void AReadAccessLogIntent_IsCarriedOutAtTheHatch()
+    {
+        var (state, owner, _, _, door) = Setup();
+        DoorAccessLogSystem.RecordOverseer(state, door, DoorAccessKind.Lock);
+        owner.Intent = new NpcIntent(ActionKind.ReadAccessLog, door.Id, "Check the log", "Suspicious", 60, "test", state.Elapsed);
+
+        var intents = new IntentExecutionSystem();
+        for (var minute = 0; minute < 5 && owner.Intent is not null; minute++)
+        {
+            intents.Tick(state);
+            state.Elapsed += TimeSpan.FromMinutes(1);
+        }
+
+        Assert.Null(owner.Intent);
+        Assert.Contains(owner.Memories, memory =>
+            memory.Description.Contains("LOCKED (Overseer network command)"));
+    }
+
+    [Fact]
+    public void ThePromptOffersReadingTheLog()
+    {
+        var (state, owner, _, _, _) = Setup();
+
+        Assert.True(CrewAffordanceSystem.IsCognitionAction(ActionKind.ReadAccessLog));
+        var prompt = NpcPromptBuilder.Build(owner, state);
+        Assert.Contains("ReadAccessLog", prompt);
+        Assert.Contains("a keycard entry names the card's owner", prompt);
     }
 
     private static (GameState State, Npc Owner, Npc Other, PersonalPossession Keycard, Door Door) Setup()

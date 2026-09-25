@@ -75,6 +75,27 @@ public static class DoorAccessLogSystem
             door.AccessLog.RemoveRange(MaxEntries, door.AccessLog.Count - MaxEntries);
     }
 
+    public const int EntriesRead = 5;
+
+    /// <summary>
+    /// Owner idea #26, slice 2: a crew member at a powered hatch reads its
+    /// latest entries into their own memory. They learn only what the
+    /// controller recorded (a keycard entry names the card's owner), never
+    /// who really did it; what that evidence means is the mind's to judge.
+    /// </summary>
+    public static Memory RememberReading(GameState state, Npc reader, Door door)
+    {
+        var entries = door.AccessLog.Count == 0
+            ? "no lock activity recorded"
+            : string.Join("; ", door.AccessLog.Take(EntriesRead).Select(Describe));
+        var memory = new Memory(
+            $"I read {door.Id}'s access log: {entries}.",
+            state.Elapsed,
+            .55);
+        reader.Memories.Add(memory);
+        return memory;
+    }
+
     /// <summary>One log entry as the door Inspector shows it.</summary>
     public static string Describe(DoorAccessRecord record)
     {
