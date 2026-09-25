@@ -14,6 +14,7 @@ public static class RecreationActivityRules
     public const string PlayGames = "play-games";
     public const string Read = "read";
     public const string PlayCards = "play-cards";
+    public const string Write = "write";
 
     /// <summary>Recreation need relief per minute for an unnamed break.</summary>
     public const double GenericReliefPerMinute = 1.45;
@@ -38,7 +39,12 @@ public static class RecreationActivityRules
         bool NeedsPower,
         double RecreationReliefPerMinute,
         double StressReliefPerMinute,
-        int MinimumPlayers = 1);
+        int MinimumPlayers = 1,
+        RoomType Room = RoomType.Recreation)
+    {
+        /// <summary>The room this activity is done in (the lounge unless it says otherwise).</summary>
+        public string RoomId => RoomIdFor(Room);
+    }
 
     public static IReadOnlyList<Activity> All { get; } =
     [
@@ -46,8 +52,25 @@ public static class RecreationActivityRules
         new(PlayGames, "play games on the console", "playing games", FixtureType.RecreationConsole, true, 1.8, 0),
         new(Read, "read in the reading chair", "reading", FixtureType.Chair, false, 1.1, 0.05),
         // A game needs a partner: alone at the table it is no break at all.
-        new(PlayCards, "play cards at the table", "playing cards", FixtureType.Table, false, 1.6, 0.03, MinimumPlayers: 2)
+        new(PlayCards, "play cards at the table", "playing cards", FixtureType.Table, false, 1.6, 0.03, MinimumPlayers: 2),
+        // A quiet hour alone at the quarters desk: the smallest break, but the
+        // most calming one.
+        new(Write, "write a journal or letters at the writing desk", "writing", FixtureType.Table, false, 0.9, 0.08, Room: RoomType.CrewQuarters)
     ];
+
+    /// <summary>
+    /// The room a <c>Recreate</c> with this target walks to: the activity's
+    /// own room, or the lounge for a plain break.
+    /// </summary>
+    public static string RoomIdFor(string? activityId) =>
+        Find(activityId)?.RoomId ?? RoomIdFor(RoomType.Recreation);
+
+    /// <summary>The room type a <c>Recreate</c> with this target needs.</summary>
+    public static RoomType RoomTypeFor(string? activityId) =>
+        Find(activityId)?.Room ?? RoomType.Recreation;
+
+    private static string RoomIdFor(RoomType room) =>
+        room == RoomType.CrewQuarters ? "quarters" : "lounge";
 
     public static Activity? Find(string? id) =>
         id is null
@@ -64,11 +87,13 @@ public static class RecreationActivityRules
         room.Fixtures.FirstOrDefault(fixture => fixture.Type == activity.Fixture);
 
     /// <summary>
-    /// Whether the activity can be done in this room right now: its fixture is
-    /// here, and anything electronic has power.
+    /// Whether the activity can be done in this room right now: it is the
+    /// activity's kind of room, its fixture is here, and anything electronic
+    /// has power.
     /// </summary>
     public static bool IsAvailable(Room room, Activity activity) =>
-        FixtureFor(room, activity) is not null
+        room.Type == activity.Room
+        && FixtureFor(room, activity) is not null
         && (!activity.NeedsPower || room.IsPowered);
 
     /// <summary>People in this room currently doing this activity.</summary>
@@ -84,14 +109,15 @@ public static class RecreationActivityRules
 
     /// <summary>
     /// Where the body goes for the chosen activity. TV watchers spread across
-    /// the sofas in a stable order; the other activities use their fixture.
+    /// the sofas and card players over the table's seats in a stable order; a
+    /// writer sits at the desk; the other activities use their fixture.
     /// </summary>
     public static RoomFixture? PlaceFor(GameState state, Room room, Npc npc, Activity activity)
     {
         var seats = activity.Id switch
         {
             WatchTv => room.Fixtures.Where(fixture => fixture.Type == FixtureType.Sofa).ToList(),
-            PlayCards when FixtureFor(room, activity) is { } table => SeatsAt(room, table),
+            PlayCards or Write when FixtureFor(room, activity) is { } table => SeatsAt(room, table),
             _ => []
         };
 
@@ -194,7 +220,9 @@ public static class RecreationActivityRules
     /// The shared fallback-mind (and routine) pick. Nothing works in the dark
     /// but a book; a lonely person joins people already watching TV; a
     /// stressed one reads; otherwise each person's own stable taste decides
-    /// between TV and games. Null when the room offers none of them.
+    /// between TV and games. Null when the room offers none of them. Only the
+    /// activities of that room count, so a lounge pick never sends anyone to
+    /// write in the quarters.
     /// </summary>
     public static string? FallbackChoice(GameState state, Npc npc, string roomId)
     {

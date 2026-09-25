@@ -39,7 +39,7 @@ public sealed class ActionResolver
                 state,
                 npc,
                 action,
-                RoomType.Recreation,
+                RecreationActivityRules.RoomTypeFor(action.TargetId),
                 "relax",
                 RecreationActivityRules.Find(action.TargetId) is { } activity
                     ? $"starts {activity.Doing}"

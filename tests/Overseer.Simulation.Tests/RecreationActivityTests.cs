@@ -20,7 +20,7 @@ public sealed class RecreationActivityTests
         var lounge = state.Facility.Rooms["lounge"];
 
         Assert.Contains(lounge.Fixtures, fixture => fixture.Type == FixtureType.Television && fixture.Label == "Television");
-        foreach (var activity in RecreationActivityRules.All)
+        foreach (var activity in RecreationActivityRules.All.Where(activity => activity.Room == RoomType.Recreation))
         {
             Assert.NotNull(RecreationActivityRules.FixtureFor(lounge, activity));
             Assert.True(RecreationActivityRules.IsAvailable(lounge, activity));
@@ -308,6 +308,116 @@ public sealed class RecreationActivityTests
         player.CurrentAction = new NpcAction(ActionKind.Recreate, RecreationActivityRules.PlayCards, "Cards.");
         Assert.Contains(
             $"play-cards (play cards at the table: {player.Name} already playing cards)",
+            NpcPromptBuilder.Build(npc, state));
+    }
+
+    [Fact]
+    public void WritingIsDoneAtTheQuartersDesk_AndIsTheMostCalmingBreak()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var write = RecreationActivityRules.Find(RecreationActivityRules.Write)!;
+        Assert.Equal(RoomType.CrewQuarters, write.Room);
+        Assert.Equal("quarters", write.RoomId);
+        Assert.Equal(
+            RecreationActivityRules.All.Max(activity => activity.StressReliefPerMinute),
+            write.StressReliefPerMinute);
+
+        var npc = Idle(state, "control");
+        npc.RecreationNeed = 70;
+        npc.Stress = 50;
+        npc.Intent = new NpcIntent(ActionKind.Recreate, RecreationActivityRules.Write, "Write it down.", "Tense.", 50, "Test", state.Elapsed);
+
+        var intents = new IntentExecutionSystem();
+        var movement = new LocalMovementSystem();
+        var quarters = state.Facility.Rooms["quarters"];
+        for (var i = 0; i < 3 * 30; i++)
+        {
+            intents.Tick(state);
+            movement.Tick(state, Tick);
+        }
+
+        Assert.Equal("quarters", npc.CurrentRoomId);
+        Assert.Equal(ActionKind.Recreate, npc.CurrentAction.Kind);
+        Assert.Equal(RecreationActivityRules.Write, npc.CurrentAction.TargetId);
+
+        // Sitting in the chair pulled up to the writing desk.
+        var desk = RecreationActivityRules.FixtureFor(quarters, write)!;
+        var place = RecreationActivityRules.PlaceFor(state, quarters, npc, write)!;
+        Assert.Equal(FixtureType.Chair, place.Type);
+        Assert.Contains(place, RecreationActivityRules.SeatsAt(quarters, desk));
+
+        // Works in the dark: a pen needs no power.
+        quarters.IsPowered = false;
+        var recreation = npc.RecreationNeed;
+        new SimulationEngine().Tick(state, TimeSpan.FromMinutes(1));
+        Assert.Equal(recreation - write.RecreationReliefPerMinute, npc.RecreationNeed, 3);
+        Assert.Contains(npc.StatLog, entry => entry.Cause == "writing" && entry.Delta < 0);
+    }
+
+    [Fact]
+    public void EachActivityIsDoneOnlyInItsOwnRoom()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var resolver = new ActionResolver();
+
+        var inLounge = Idle(state, "lounge");
+        Assert.False(resolver.TryApply(state, inLounge.Id, new NpcAction(ActionKind.Recreate, RecreationActivityRules.Write, "Write."), out _));
+        Assert.True(resolver.TryApply(state, inLounge.Id, new NpcAction(ActionKind.Recreate, RecreationActivityRules.WatchTv, "TV."), out _));
+
+        var inQuarters = Idle(state, "quarters", skip: 1);
+        Assert.True(resolver.TryApply(state, inQuarters.Id, new NpcAction(ActionKind.Recreate, RecreationActivityRules.Write, "Write."), out _));
+        Assert.False(resolver.TryApply(state, inQuarters.Id, new NpcAction(ActionKind.Recreate, RecreationActivityRules.Read, "Book."), out _));
+
+        // The lounge's table and reading chair are not a writing desk, and the
+        // quarters desk is not the reading chair: standing in the wrong room
+        // the activity is no break at all.
+        var lounge = state.Facility.Rooms["lounge"];
+        var quarters = state.Facility.Rooms["quarters"];
+        Assert.False(RecreationActivityRules.IsAvailable(lounge, RecreationActivityRules.Find(RecreationActivityRules.Write)!));
+        Assert.False(RecreationActivityRules.IsAvailable(quarters, RecreationActivityRules.Find(RecreationActivityRules.Read)!));
+        inLounge.CurrentAction = new NpcAction(ActionKind.Recreate, RecreationActivityRules.Write, "Write.");
+        Assert.Equal(0, RecreationActivityRules.ReliefPerMinute(state, inLounge));
+
+        // A plain break, or an unknown ID, still means the lounge.
+        Assert.Equal("lounge", RecreationActivityRules.RoomIdFor(null));
+        Assert.Equal("lounge", RecreationActivityRules.RoomIdFor("lounge"));
+        Assert.Equal("quarters", RecreationActivityRules.RoomIdFor("WRITE"));
+    }
+
+    [Fact]
+    public void TheLoungeFallbackPickNeverSendsAnyoneToWrite()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var npc = Idle(state, "control");
+        state.Facility.Rooms["lounge"].IsPowered = false;
+
+        foreach (var stress in new[] { 0.0, 30, 60, 95 })
+        {
+            foreach (var social in new[] { 0.0, 60 })
+            {
+                npc.Stress = stress;
+                npc.SocialNeed = social;
+                Assert.NotEqual(RecreationActivityRules.Write, RecreationActivityRules.FallbackChoice(state, npc, "lounge"));
+            }
+        }
+    }
+
+    [Fact]
+    public void CognitionSeesTheQuartersDeskAlongsideTheLounge()
+    {
+        var state = FacilitySeeder.CreateDefault(upkeepSeed: 1);
+        var npc = Idle(state, "lounge");
+
+        var prompt = NpcPromptBuilder.Build(npc, state);
+        var line = prompt.Split('\n').Single(candidate => candidate.StartsWith("RECREATION in ", StringComparison.Ordinal));
+        Assert.StartsWith("RECREATION in Recreation Lounge [lounge]: watch-tv", line);
+        Assert.Contains("In Crew Quarters [quarters]: write (write a journal or letters at the writing desk: free).", line);
+        Assert.DoesNotContain("write (", line[..line.IndexOf("In Crew Quarters", StringComparison.Ordinal)]);
+
+        var writer = Idle(state, "quarters", skip: 1);
+        writer.CurrentAction = new NpcAction(ActionKind.Recreate, RecreationActivityRules.Write, "Write.");
+        Assert.Contains(
+            "write (write a journal or letters at the writing desk: 1 other already writing)",
             NpcPromptBuilder.Build(npc, state));
     }
 

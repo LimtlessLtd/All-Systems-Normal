@@ -58,12 +58,13 @@ public sealed class IntentExecutionSystem
                     break;
 
                 case ActionKind.Recreate:
-                    // Owner idea #92: a named activity travels with the action.
+                    // Owner idea #92: a named activity travels with the action,
+                    // to its own room (the lounge unless it says otherwise).
                     MoveOrActInRoom(
                         state,
                         npc,
                         intent,
-                        "lounge",
+                        RecreationActivityRules.RoomIdFor(intent.TargetId),
                         ActionKind.Recreate,
                         RecreationActivityRules.Find(intent.TargetId)?.Id);
                     break;
