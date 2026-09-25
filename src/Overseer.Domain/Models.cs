@@ -486,7 +486,13 @@ public enum ActionKind
     /// Owner idea #26: at a powered hatch, read what its access controller
     /// has recorded into the reader's own memory.
     /// </summary>
-    ReadAccessLog
+    ReadAccessLog,
+
+    /// <summary>
+    /// Owner idea #26: at a powered hatch, a technically skilled person
+    /// erases its access log. The controller still records that it was wiped.
+    /// </summary>
+    WipeAccessLog
 }
 
 
@@ -1512,7 +1518,10 @@ public enum DoorAccessKind
     Lock,
     Unlock,
     ForcedOpen,
-    Bypassed
+    Bypassed,
+
+    // Everything before this entry was erased at the panel.
+    LogWiped
 }
 
 public enum DoorAccessCredential

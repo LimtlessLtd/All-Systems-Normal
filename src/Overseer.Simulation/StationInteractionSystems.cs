@@ -58,6 +58,7 @@ public static class CrewAffordanceSystem
         new(ActionKind.LockDoor, "adjacent-door", "Lock an adjacent hatch if authorised."),
         new(ActionKind.UnlockDoor, "adjacent-door", "Unlock an adjacent hatch if authorised."),
         new(ActionKind.ReadAccessLog, "adjacent-door", "Read an adjacent powered hatch's access log: who its controller recorded locking, unlocking, forcing or bypassing it, and when."),
+        new(ActionKind.WipeAccessLog, "adjacent-door", "Erase an adjacent powered hatch's access log; needs strong technical skill, and the controller still records that it was wiped."),
         new(ActionKind.HideItem, "possession", "Hide a possession you currently hold — your own, or one you previously borrowed or stole — somewhere in your current room."),
         new(ActionKind.ReturnItem, "possession", "Retrieve a possession you know is hidden in your current room (your own, or a stash you or someone else hid) and take it back into your hands."),
         new(ActionKind.BorrowItem, "possession", "Ask a co-located crew member to lend you a possession you know about that they are currently holding; they may refuse."),
@@ -139,7 +140,8 @@ public static class CrewAffordanceSystem
             or ActionKind.CloseDoor
             or ActionKind.LockDoor
             or ActionKind.UnlockDoor
-            or ActionKind.ReadAccessLog;
+            or ActionKind.ReadAccessLog
+            or ActionKind.WipeAccessLog;
 
     public static string PromptCatalog() => PromptCatalog(_ => true);
 
@@ -357,6 +359,7 @@ public static class CrewAffordanceSystem
                 ActionKind.UnlockDoor => door.IsLocked
                     && CrewDoorInteractionSystem.CanLockOrUnlock(state, npc, door),
                 ActionKind.ReadAccessLog => door.IsPowered,
+                ActionKind.WipeAccessLog => DoorAccessLogSystem.CanWipe(npc, door),
                 _ => false
             };
         }
@@ -612,6 +615,17 @@ public sealed class CrewDoorInteractionSystem
                 }
                 DoorAccessLogSystem.RememberReading(state, npc, door);
                 break;
+
+            case ActionKind.WipeAccessLog:
+                if (!DoorAccessLogSystem.CanWipe(npc, door))
+                {
+                    message = door.IsPowered
+                        ? $"{npc.Name} lacks the technical skill to erase {door.Id}'s access log."
+                        : $"{door.Id}'s access panel is dark; the hatch has no power.";
+                    return false;
+                }
+                message = DoorAccessLogSystem.Wipe(state, npc, door);
+                return true;
 
             default:
                 message = "That is not a normal crew hatch operation.";

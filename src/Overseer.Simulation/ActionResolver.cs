@@ -86,6 +86,7 @@ public sealed class ActionResolver
                 or ActionKind.LockDoor
                 or ActionKind.UnlockDoor
                 or ActionKind.ReadAccessLog
+                or ActionKind.WipeAccessLog
                 => TryCrewDoorOperation(state, npc, action, out message),
             ActionKind.ForceDoor => TryForceDoor(state, npc, action, out message),
             ActionKind.DisconnectDevice => TryDisconnectDevice(state, npc, action, out message),
@@ -745,7 +746,6 @@ public sealed class ActionResolver
         NotifyPhysicalInteractionWitnesses(
             state,
             npc,
-            device,
             $"physically disconnect {device.Label}");
 
         message = $"{npc.Name} physically disconnects {device.Label}.";
@@ -822,7 +822,7 @@ public sealed class ActionResolver
                 : $"I switched {device.Label} back to network control.",
             state.Elapsed,
             0.35));
-        NotifyPhysicalInteractionWitnesses(state, npc, device, act);
+        NotifyPhysicalInteractionWitnesses(state, npc, act);
 
         // The machine itself reports the switch over its control bus, so
         // Overseer learns of it whether or not a camera sees who did it.
@@ -835,11 +835,15 @@ public sealed class ActionResolver
         return true;
     }
 
-    private static void NotifyPhysicalInteractionWitnesses(
+    /// <summary>
+    /// Everyone in the actor's compartment who can make them out remembers
+    /// the physical act, with no motive attached (owner idea #12).
+    /// </summary>
+    internal static void NotifyPhysicalInteractionWitnesses(
         GameState state,
         Npc actor,
-        StationDevice device,
-        string observedAct)
+        string observedAct,
+        bool isSensitive = false)
     {
         foreach (var witness in state.Crew.Where(candidate =>
                      candidate.IsAlive
@@ -853,7 +857,8 @@ public sealed class ActionResolver
             witness.Memories.Add(new Memory(
                 $"Witnessed {actor.Name} {observedAct}.",
                 state.Elapsed,
-                0.4));
+                0.4,
+                IsSensitive: isSensitive));
             witness.NeedsMindReconsideration = true;
         }
     }
