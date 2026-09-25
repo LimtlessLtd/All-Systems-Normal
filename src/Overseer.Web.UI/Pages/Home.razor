@@ -2738,6 +2738,9 @@
     {
         var display = StationPresentationSystem.FixtureDisplayName(fixture);
         var crop = CropFixtureLabel(room, fixture);
+        if (StationPresentationSystem.FixtureIsOnLocalControl(Session.State, fixture))
+            display += " — LOCAL CONTROL";
+
         return string.IsNullOrWhiteSpace(crop) ? display : $"{display} — {crop}";
     }
 
@@ -2769,6 +2772,9 @@
 
         if (fixture.Type == FixtureType.Bed && !BedIsLandscape(room, fixture))
             classes += " bed-portrait";
+
+        if (StationPresentationSystem.FixtureIsOnLocalControl(Session.State, fixture))
+            classes += " fixture-local-control";
 
         return SeatFacingClass(room, fixture) is { } facing
             ? $"{classes} {facing}"
